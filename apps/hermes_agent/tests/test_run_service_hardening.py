@@ -212,7 +212,7 @@ def test_run_hermes_logs_unexpected_failure(monkeypatch, caplog):
 
     import pytest
 
-    async def boom(request, raw_request=None):
+    async def boom(request, raw_request=None, provider_address=None):
         raise RuntimeError("spawn exploded")
 
     monkeypatch.setattr(hermes, "_run_hermes_inner", boom)

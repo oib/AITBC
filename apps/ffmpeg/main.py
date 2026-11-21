@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 """
 AITBC FFmpeg Video Processing Service
@@ -487,7 +487,7 @@ async def _execute_ffmpeg(cmd: list[str], output_path: str) -> None:
         raise
 
 
-@app.post("/process", dependencies=[Depends(require_job_access)])
+@app.post("/process")
 async def process_video(
     request: Request,
     file: Annotated[UploadFile, File(...)],
@@ -495,6 +495,7 @@ async def process_video(
     codec: str = Form(default="h264"),
     resolution: str = Form(default="1080p"),
     bitrate: str = Form(default="5M"),
+    job: Annotated[dict[str, Any] | None, Depends(require_job_access)] = None,
 ):
     """Process video with GPU acceleration"""
     if not file.filename:
@@ -559,9 +560,15 @@ async def process_video(
 
         processing_time_hours = round(elapsed / 3600, 4)
         # #2365: attest the billed usage to the market service before
-        # answering — settlement prices the escrow from this report.
-        # Never raises; a missed report degrades to full-lock settlement.
-        await report_request_billing(request, {"processing_time_hours": processing_time_hours})
+        # answering — settlement prices the escrow from this report, which
+        # the provider wallet signs (provider_address comes from the
+        # verified job record, never request headers). Never raises; a
+        # missed report degrades to full-lock settlement.
+        await report_request_billing(
+            request,
+            {"processing_time_hours": processing_time_hours},
+            provider_address=(job or {}).get("provider_address"),
+        )
 
         return JSONResponse(
             {

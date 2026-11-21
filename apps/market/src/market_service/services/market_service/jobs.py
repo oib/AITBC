@@ -978,6 +978,10 @@ class _JobsMixin(_CoreMixin):
                 "public_endpoint": job.payload.get("public_endpoint"),
                 "expires_at": _isoformat(job.expires_at),
                 "size": job.payload.get("size"),
+                # #2365: the serving daemon signs its billing report as this
+                # address — it is the offer's listed provider, already known
+                # to the buyer, not a secret.
+                "provider_address": job.provider_address,
                 # The paid model — shop gates bind the request body's model
                 # to it (APIGW-OLLAMA-DEPTH2-1, #1613). Column first, payload
                 # fallback for rows that only recorded it in the payload.

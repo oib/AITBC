@@ -432,12 +432,15 @@ def test_transcribe_reports_duration_minutes_billing(monkeypatch) -> None:
             "X-Job-Id": "job-W1",
         }
     )
-    _transcribe(request=request)
+    _transcribe(request=request, job={"provider_address": "0xProvider1"})
     report.assert_awaited_once()
     call = report.await_args
     assert call.args[0] is request
     # _FakeInfo.duration = 12.5s -> 0.2083 billed minutes.
     assert call.args[1] == {"duration_minutes": 0.2083}
+    # #2365 respin: the report is signed as the provider — the address comes
+    # from the verified job record, never the buyer-held request headers.
+    assert call.kwargs["provider_address"] == "0xProvider1"
 
 
 def test_transcribe_billing_failure_does_not_break_response(monkeypatch) -> None:

@@ -449,12 +449,14 @@ def test_gated_stream_reports_eval_count_billing() -> None:
             patch.object(gate._client, "send", AsyncMock(return_value=_NdjsonUpstream())),
             patch.object(gate, "report_request_billing", report),
         ):
-            resp = await gate._dispatch_gated(req, "/api/generate", {"job_id": "job-BILL"})
+            resp = await gate._dispatch_gated(req, "/api/generate", {"job_id": "job-BILL", "provider_address": "0xProvider1"})
             assert isinstance(resp, StreamingResponse)
             _ = b"".join([c async for c in resp.body_iterator])
         report.assert_awaited_once()
         call = report.await_args
         assert call.args[1] == {"eval_count": 17}
+        # #2365 respin: signed as the provider from the verified job record.
+        assert call.kwargs["provider_address"] == "0xProvider1"
 
     try:
         asyncio.run(_run())

@@ -4,7 +4,11 @@ Pins the #2351 follow-up contract:
 
 * ``POST /v1/market/jobs/{id}/billing`` stores provider-reported usage
   metrics under the server-owned ``payload.attested_billing`` key — a
-  caller cannot seed that key at job creation;
+  caller cannot seed that key at job creation. Reports are authorized by
+  the job provider's wallet signature over the route-bound
+  ``{"metrics", "final"}`` binding (#2365 respin): the buyer-issued
+  access-token triple is only a secondary check, so the payer cannot
+  attest the provider's usage;
 * the settlement paths (``release_market_job_payment`` and the sweeper's
   ``_release_payment``) price the attested metrics against the offer's
   ``SoftwareService`` row and pass the result as ``{"amount": ...}`` to
@@ -18,6 +22,7 @@ Pins the #2351 follow-up contract:
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -38,6 +43,66 @@ from sqlmodel import col, select
 
 _ACCESS_KEY = "billingkey01"
 _ACCESS_SECRET = "billingsecret01"
+
+# #2365 respin: billing reports are authorized by the provider wallet
+# signature, not the buyer-held access token. Seed jobs with real derived
+# addresses so route tests can sign as the provider (or as the buyer, to
+# prove the negative).
+_PROVIDER_KEY = "0x" + "22" * 32
+_BUYER_KEY = "0x" + "11" * 32
+_PROVIDER_ADDRESS = None  # resolved lazily — derive needs the crypto stack
+_BUYER_ADDRESS = None
+
+
+def _provider_address() -> str:
+    global _PROVIDER_ADDRESS
+    if _PROVIDER_ADDRESS is None:
+        from aitbc.crypto.crypto import derive_ethereum_address
+
+        _PROVIDER_ADDRESS = derive_ethereum_address(_PROVIDER_KEY)
+    return _PROVIDER_ADDRESS
+
+
+def _buyer_address() -> str:
+    global _BUYER_ADDRESS
+    if _BUYER_ADDRESS is None:
+        from aitbc.crypto.crypto import derive_ethereum_address
+
+        _BUYER_ADDRESS = derive_ethereum_address(_BUYER_KEY)
+    return _BUYER_ADDRESS
+
+
+def _billing_body(
+    job_id: str,
+    metrics: dict,
+    *,
+    final: bool = True,
+    private_key: str = _PROVIDER_KEY,
+    address: str | None = None,
+    binding: dict | None = None,
+    chain_id: str | None = None,
+    issued_at: int | None = None,
+) -> dict:
+    """A billing-report body signed exactly the way shop_gate signs it."""
+    from aitbc.crypto.crypto import sign_transaction_data
+    from aitbc.market.job_request_signature import jobs_request_message
+    from aitbc.utils.chain_id import resolve_chain_id
+    from market_service.config import settings
+
+    address = address or _provider_address()
+    chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
+    issued_at = int(time.time()) if issued_at is None else issued_at
+    signed_binding = {"metrics": metrics, "final": final} if binding is None else binding
+    route = f"/v1/market/jobs/{job_id}/billing"
+    message = jobs_request_message(address, chain_id, issued_at, route, binding=signed_binding)
+    return {
+        "metrics": metrics,
+        "final": final,
+        "signer_address": address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(message, private_key),
+    }
 
 
 class _ReleaseStub:
@@ -86,8 +151,8 @@ async def _seed_job(
                 "model": model,
                 "offer_id": offer_id,
                 "plugin_id": f"{service_type}-{model}",
-                "buyer_address": "0x" + "11" * 20,
-                "provider_address": "0x" + "22" * 20,
+                "buyer_address": _buyer_address(),
+                "provider_address": _provider_address(),
                 "payload": payload,
                 "payment": {"amount": payment_amount, "status": "escrowed"},
             }
@@ -224,8 +289,8 @@ async def test_buyer_cannot_seed_attested_billing_at_creation() -> None:
             {
                 "id": f"job-seed-{uuid4().hex[:12]}",
                 "service_type": "ollama",
-                "buyer_address": "0x" + "11" * 20,
-                "provider_address": "0x" + "22" * 20,
+                "buyer_address": _buyer_address(),
+                "provider_address": _provider_address(),
                 "payload": {
                     "access_key": _ACCESS_KEY,
                     "access_secret": _ACCESS_SECRET,
@@ -414,6 +479,10 @@ async def test_billing_route_requires_access_triple() -> None:
     assert resp.status_code == 403
 
 
+def _billing_headers(job_id: str) -> dict[str, str]:
+    return {"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": job_id}
+
+
 async def test_billing_route_accepts_valid_report() -> None:
     job_id, _ = await _seed_job()
     from market_service.main import app
@@ -421,14 +490,65 @@ async def test_billing_route_accepts_valid_report() -> None:
     client = TestClient(app, raise_server_exceptions=False)
     resp = client.post(
         f"/v1/market/jobs/{job_id}/billing",
-        json={"metrics": {"eval_count": 4321}, "final": True},
-        headers={"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": job_id},
+        json=_billing_body(job_id, {"eval_count": 4321}, final=True),
+        headers=_billing_headers(job_id),
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["accepted"] is True
     fetched = await _fetch(job_id)
     assert fetched["payload"][PAYLOAD_BILLING_KEY]["metrics"] == {"eval_count": "4321"}
     assert fetched["state"] == "COMPLETED"
+
+
+async def test_billing_route_rejects_unsigned_report() -> None:
+    """#2365 respin: the buyer-held access token alone cannot attest usage —
+    a report with valid credentials but no provider signature is refused."""
+    job_id, _ = await _seed_job()
+    from market_service.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.post(
+        f"/v1/market/jobs/{job_id}/billing",
+        json={"metrics": {"eval_count": 1}, "final": True},
+        headers=_billing_headers(job_id),
+    )
+    assert resp.status_code == 403
+
+
+async def test_billing_route_rejects_buyer_signed_report() -> None:
+    """The exploit the respin closes: the buyer signs the under-billing
+    report with its own wallet — valid signature, wrong party -> 403."""
+    job_id, _ = await _seed_job()
+    from market_service.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.post(
+        f"/v1/market/jobs/{job_id}/billing",
+        json=_billing_body(
+            job_id,
+            {"eval_count": 1},
+            final=True,
+            private_key=_BUYER_KEY,
+            address=_buyer_address(),
+        ),
+        headers=_billing_headers(job_id),
+    )
+    assert resp.status_code == 403
+    fetched = await _fetch(job_id)
+    assert PAYLOAD_BILLING_KEY not in (fetched["payload"] or {})
+    assert fetched["state"] == "RUNNING"
+
+
+async def test_billing_route_rejects_tampered_metrics() -> None:
+    """A signature over different metrics cannot be re-pointed at new values."""
+    job_id, _ = await _seed_job()
+    from market_service.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    body = _billing_body(job_id, {"eval_count": 999999}, final=True)
+    body["metrics"] = {"eval_count": 1}  # swap after signing
+    resp = client.post(f"/v1/market/jobs/{job_id}/billing", json=body, headers=_billing_headers(job_id))
+    assert resp.status_code == 403
 
 
 async def test_billing_route_rejects_bad_metrics() -> None:
@@ -438,8 +558,8 @@ async def test_billing_route_rejects_bad_metrics() -> None:
     client = TestClient(app, raise_server_exceptions=False)
     resp = client.post(
         f"/v1/market/jobs/{job_id}/billing",
-        json={"metrics": {"eval_count": -5}},
-        headers={"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": job_id},
+        json=_billing_body(job_id, {"eval_count": -5}),
+        headers=_billing_headers(job_id),
     )
     assert resp.status_code == 400
 
