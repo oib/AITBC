@@ -116,6 +116,15 @@ def _workflow_auth_headers(ctx: Any) -> dict[str, str]:
     return auth_headers(explicit, get_config().api_key)
 
 
+#: 401 hint for the workflow routes (#2405): they gate on the shared
+#: coordinator API key (``X-API-Key``), not on agent wallet signing.
+_WORKFLOW_AUTH_HINT = (
+    "Workflow routes require the shared coordinator API key — pass it via "
+    "--api-key (or configure api_key / store it with `aitbc auth login`); "
+    "agent wallet signing does not apply here."
+)
+
+
 def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url: str | None = None) -> dict:
     """Create a new agent using the Agent SDK"""
     if Agent is None:
@@ -422,14 +431,20 @@ def _coordinator_unreachable_hint(coordinator_url: str) -> str:
     )
 
 
-def _coordinator_request_error(e: Exception, coordinator_url: str) -> str:
+def _coordinator_request_error(
+    e: Exception,
+    coordinator_url: str,
+    credential_hint: str | None = None,
+) -> str:
     """Honest error text for a failed agent-coordinator request (#2209).
 
     Distinguishes 'nothing answered' (connection refused/timeout/DNS — the
     service may genuinely be down or the mount may not exist) from 'something
     answered with an HTTP status' — a 401/403 means auth or a wrong mount
     (e.g. ``/c`` is the coordinator-api, not the agent-coordinator), not a
-    stopped service.
+    stopped service. ``credential_hint`` (#2405) names the credential the
+    failing route actually accepts when the generic ``--api-key`` advice does
+    not apply (signed ``X-Agent-*`` reads, the workflow API key).
     """
     status = _http_status_code(e)
     if status is None:
@@ -437,18 +452,31 @@ def _coordinator_request_error(e: Exception, coordinator_url: str) -> str:
             f"Cannot reach the agent coordinator at {coordinator_url}: {e}. {_coordinator_unreachable_hint(coordinator_url)}"
         )
     if status in (401, 403):
-        return (
+        message = (
             f"Agent coordinator at {coordinator_url} rejected the request "
             f"(HTTP {status}): {e}. Check the credential (--api-key / "
             "`aitbc auth login`) and that the URL mounts the agent surface — "
             "/c is the coordinator-api mount, not the agent-coordinator "
             "(use the /agent mount or a direct :8107 URL)."
         )
+        if credential_hint:
+            message += f" {credential_hint}"
+        return message
     return f"Agent coordinator at {coordinator_url} returned HTTP {status}: {e}"
 
 
-def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None) -> bool:
-    """Probe the agent coordinator. If it is not reachable, print a helpful message and exit cleanly."""
+def _check_agent_coordinator(
+    coordinator_url: str | None,
+    ctx: Any | None = None,
+    headers: dict[str, str] | None = None,
+) -> bool:
+    """Probe the agent coordinator. If it is not reachable, print a helpful message and exit cleanly.
+
+    ``headers`` carries the caller's signed ``X-Agent-*`` read headers (#2405):
+    ``GET /v1/tasks/status`` resolves any valid principal, so on an
+    auth-enforcing coordinator an unsigned probe 401s before the real signed
+    request is ever attempted. Pass ``None`` to keep probing unsigned.
+    """
     base_url = resolve_coordinator_url(coordinator_url)
     config = get_config()
     # True when the URL is the bare localhost fallback — nothing configured it
@@ -467,7 +495,7 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
             timeout=2,
             **auth_client_kwargs(explicit, config.api_key),
         )
-        client.get("/v1/tasks/status")
+        client.get("/v1/tasks/status", headers=headers)
         return True
     except _OPS_ERRORS as e:
         status = _http_status_code(e)
@@ -475,8 +503,8 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
             message = (
                 f"Agent coordinator at {base_url} answered but rejected the probe "
                 f"(HTTP {status}) — check the credential (--api-key / "
-                "`aitbc auth login`) and that the URL mounts the agent surface "
-                "(/agent, not /c)."
+                "`aitbc auth login`, or signed reads via --wallet/--signing-agent-id) "
+                "and that the URL mounts the agent surface (/agent, not /c)."
             )
         elif status is not None:
             message = f"Agent coordinator at {base_url} returned HTTP {status}: {e}"
@@ -522,15 +550,29 @@ def get_agent_status(
             **auth_client_kwargs(None, get_config().api_key),
         )
         data = client.get(f"/v1/agents/{agent_id}", headers=headers) or {}
+        # GET /v1/agents/{id} answers {"status":"success","agent":{...AgentInfo...}}
+        # — the agent record is nested inside the envelope (#2405). Reading the
+        # top level surfaced the envelope's "success" as the agent state and
+        # reported every registered agent as unregistered. Tolerate a flat
+        # record shape too.
+        agent = data.get("agent")
+        if not isinstance(agent, dict) or not agent:
+            agent = data if data.get("agent_id") else {}
         return {
-            "agent_id": data.get("agent_id") or agent_id,
-            "status": data.get("status", data.get("state", "unknown")),
-            "registered": data.get("registered", data.get("active", False)),
-            "reputation_score": data.get("reputation_score", 0.0),
-            "last_seen": data.get("last_seen")
-            or data.get("last_heartbeat")
-            or data.get("updated_at")
-            or data.get("created_at")
+            "agent_id": agent.get("agent_id") or agent_id,
+            "status": agent.get("status", agent.get("state", "unknown")),
+            # A returned agent record means the coordinator knows the agent;
+            # absence is the 404 path below, which already reports unregistered.
+            "registered": bool(agent),
+            # AgentInfo carries health_score, not reputation_score — keep
+            # reputation honest at 0.0 and surface health separately.
+            "reputation_score": agent.get("reputation_score", 0.0),
+            "health_score": agent.get("health_score"),
+            "last_seen": agent.get("last_seen")
+            or agent.get("last_heartbeat")
+            or agent.get("registration_time")
+            or agent.get("updated_at")
+            or agent.get("created_at")
             or "N/A",
             "message": "Agent status retrieved from coordinator",
         }
@@ -1087,8 +1129,18 @@ try:
                 {"Field": "Registered", "Value": str(status_data["registered"])},
                 {"Field": "Reputation Score", "Value": f"{status_data['reputation_score']:.3f}"},
                 {"Field": "Last Seen", "Value": status_data["last_seen"]},
-                {"Field": "Message", "Value": status_data["message"]},
             ]
+            # AgentInfo reports health_score, not reputation — surface it when
+            # the coordinator returned a record (#2405).
+            health_score = status_data.get("health_score")
+            if health_score is not None:
+                status_list.append(
+                    {
+                        "Field": "Health Score",
+                        "Value": f"{health_score:.3f}" if isinstance(health_score, int | float) else str(health_score),
+                    }
+                )
+            status_list.append({"Field": "Message", "Value": status_data["message"]})
 
             output(status_list, resolve_output_format(ctx, format), title=f"Agent Status: {agent_id}")
 
@@ -1294,12 +1346,15 @@ try:
     ):
         """Search remote agents by capability, type, and minimum health score."""
         coordinator_url = resolve_coordinator_url(coordinator_url)
-        if not _check_agent_coordinator(coordinator_url, ctx):
-            return
         try:
             import requests  # noqa: F401  (bound for the except clause below)
 
+            # Sign first: the probe below hits an auth-gated route, so on an
+            # enforcing coordinator an unsigned probe 401s before the signed
+            # discover POST is ever attempted (#2405).
             headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+            if not _check_agent_coordinator(coordinator_url, ctx, headers=headers):
+                return
             result = _discover_remote_agents(ctx, coordinator_url, capability, agent_type, min_health, limit, headers=headers)
             output(
                 {
@@ -1311,7 +1366,19 @@ try:
                 title="Discovered Agents",
             )
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(
+                    e,
+                    coordinator_url,
+                    credential_hint=(
+                        "Agent reads accept signed X-Agent-* headers — re-run with "
+                        "--wallet/--signing-agent-id — or the shared key via --api-key / "
+                        "`aitbc auth login`."
+                    ),
+                ),
+                from_exception=e,
+            )
         except CLIError:
             raise
         except _OPS_ERRORS as e:
@@ -1358,7 +1425,19 @@ try:
             result = response.json()
             output(result, resolve_output_format(ctx, format), title=f"Inbox for {agent_id}")
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(
+                    e,
+                    coordinator_url,
+                    credential_hint=(
+                        "Message routes accept signed X-Agent-* headers — re-run with "
+                        "--wallet (the mailbox identity is --agent-id) — or the shared "
+                        "coordinator key via --api-key / `aitbc auth login`."
+                    ),
+                ),
+                from_exception=e,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"Error getting inbox: {e}", from_exception=e)
 
@@ -1406,7 +1485,19 @@ try:
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in filter: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(
+                    e,
+                    coordinator_url,
+                    credential_hint=(
+                        "Message routes accept signed X-Agent-* headers — re-run with "
+                        "--wallet (the mailbox identity is --agent-id) — or the shared "
+                        "coordinator key via --api-key / `aitbc auth login`."
+                    ),
+                ),
+                from_exception=e,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"Error subscribing to topic: {e}", from_exception=e)
 
@@ -1459,7 +1550,11 @@ try:
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in steps file: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(e, coordinator_url, credential_hint=_WORKFLOW_AUTH_HINT),
+                from_exception=e,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"Error creating workflow: {e}", from_exception=e)
 
@@ -1502,7 +1597,11 @@ try:
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in input file: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(e, coordinator_url, credential_hint=_WORKFLOW_AUTH_HINT),
+                from_exception=e,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"Error executing workflow: {e}", from_exception=e)
 
@@ -1532,7 +1631,11 @@ try:
             result = response.json()
             output(result, resolve_output_format(ctx, format), title=f"Workflow Status: {workflow_id}")
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(e, coordinator_url, credential_hint=_WORKFLOW_AUTH_HINT),
+                from_exception=e,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"Error getting workflow status: {e}", from_exception=e)
 
@@ -1559,7 +1662,11 @@ try:
             result = response.json()
             output(result, resolve_output_format(ctx, format), title="Workflows")
         except requests.exceptions.RequestException as e:
-            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+            abort(
+                ctx,
+                _coordinator_request_error(e, coordinator_url, credential_hint=_WORKFLOW_AUTH_HINT),
+                from_exception=e,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"Error listing workflows: {e}", from_exception=e)
 
