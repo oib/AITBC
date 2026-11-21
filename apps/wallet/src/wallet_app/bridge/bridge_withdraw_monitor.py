@@ -14,6 +14,7 @@ import json
 import math
 import os
 import sqlite3
+import time
 from collections.abc import AsyncIterator, Collection
 from contextlib import asynccontextmanager
 from wallet_app.utc_time import parse_stored, utc_now
@@ -661,6 +662,40 @@ async def _record_rejected_withdrawal(
     if gross_ait >= _REFUND_FEE_AIT:
         # The row was just inserted 'rejected' — CAS on that observed status.
         await _refund_withdrawal(ait_tx_hash, sender, gross_ait, reason, expected_statuses={"rejected"})
+
+
+class PollSkipWarner:
+    """Rate-limits 'poll skipped' warnings for the bridge monitor loops.
+
+    A skipped poll used to be invisible: the summary only reaches the loop's
+    DEBUG path, so a dead key slot or config drift stalled the settlement and
+    refund lanes for ~2 days with zero log lines (#2354 — the 19→21 Nov
+    ait-sell-escrow outage). The first skip warns immediately; while skips
+    persist it re-warns every ``interval_seconds`` with the consecutive count.
+    """
+
+    def __init__(self, log: Any, *, interval_seconds: float = 900.0) -> None:
+        self._log = log
+        self._interval = interval_seconds
+        self._last_warn = 0.0
+        self.streak = 0
+
+    def note(self, summary: dict[str, Any], label: str) -> None:
+        """Record one poll summary; warn on the skip transition and periodically."""
+        if not summary.get("skipped"):
+            self.streak = 0
+            return
+        self.streak += 1
+        now = time.monotonic()
+        if now - self._last_warn < self._interval:
+            return
+        self._last_warn = now
+        self._log.warning(
+            "%s poll skipped (%d consecutive): %s",
+            label,
+            self.streak,
+            summary.get("reason", "unknown"),
+        )
 
 
 def tx_sealed_confirmed(tx: dict[str, Any]) -> bool:

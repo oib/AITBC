@@ -799,6 +799,7 @@ async def exchange_settlement_loop() -> None:
         cfg.exchange_url,
     )
     logger.info("Exchange settlement poll interval: %ss", cfg.poll_interval)
+    skip_warner = wdm.PollSkipWarner(logger)
     while True:
         if not _exchange_polling_enabled:
             logger.info("Exchange settlement auto-poll disabled, sleeping")
@@ -806,6 +807,7 @@ async def exchange_settlement_loop() -> None:
             continue
         try:
             summary = await poll_exchange_settlements_once()
+            skip_warner.note(summary, "Exchange settlement monitor")
             if not summary.get("skipped"):
                 # INFO on settlements processed, rows created, or a
                 # new_rows failure string; DEBUG on routine empty polls.
