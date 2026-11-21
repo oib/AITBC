@@ -14,7 +14,7 @@
 
 ## Navigation Path
 
-[Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*
+[Documentation Home](../../README.md) > [Agent Scenarios](../README.md) > *You are here*
 
 breadcrumb: Home > Scenarios > Refund a failed TEE job escrow
 
@@ -23,8 +23,8 @@ breadcrumb: Home > Scenarios > Refund a failed TEE job escrow
 ## See Also
 
 - **Previous Scenario**: [46 TEE Confidential Jobs](./46_tee_confidential_jobs.md)
-- **Next Scenario**: [43 Compliance, Plugins and White-Label](./43_compliance_plugins_white_label.md)
-- **Design Cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
+- **Next Scenario**: [43 Compliance, Plugins and White-Label](../43_compliance_plugins_white_label.md)
+- **Design Cycle**: [DESIGN_CYCLE.md](../../DESIGN_CYCLE.md)
 - **Live Validation**: LIVE_VALIDATION_SUMMARY.md (IDE-local)
 
 ---
@@ -112,7 +112,7 @@ This updates the coordinator `JobPayment` and the on-chain escrow in one call.
 
 ### Step 3: Refund through the blockchain directly (fallback)
 
-If you do not have a client token, refund the on-chain escrow directly. Refund is a **settlement-node operation** — there is no relay for it, so this must reach a settlement node's rpc (allowlisted + API key) — see the [escrow-relays runbook](../ops/escrow-relays.md):
+If you do not have a client token, refund the on-chain escrow directly. Refund is a **settlement-node operation** — there is no relay for it, so this must reach a settlement node's rpc (allowlisted + API key) — see the [escrow-relays runbook](../../ops/escrow-relays.md):
 
 ```bash
 aitbc market escrow refund --job-id <job_id> --reason "TEE attestation rejected"
@@ -184,8 +184,8 @@ SELECT id, status, refund_transaction_hash, refunded_at FROM job_payments WHERE 
 
 - LIVE_VALIDATION_SUMMARY.md (IDE-local)
 - [Scenario 46 — Confidential AI job with TEE attestation](./46_tee_confidential_jobs.md)
-- [Scenario 34 — Hub Customer Node E2E](./34_hub_customer_node_e2e.md)
-- [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
+- [Scenario 34 — Hub Customer Node E2E](../34_hub_customer_node_e2e.md)
+- [DESIGN_CYCLE.md](../../DESIGN_CYCLE.md)
 
 ---
 

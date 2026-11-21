@@ -89,7 +89,7 @@ found as a file wallet.` (non-zero exit; nothing signed, nothing spent).
 ## See Also
 
 - **Scenario 34**: [Hub–Customer E2E](./34_hub_customer_node_e2e.md) — live paid job + escrow release
-- **Scenario 44**: [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md)
+- **Scenario 44**: [Refund a Failed TEE Job Escrow](./archive/44_stuck_tee_refund.md)
 
 ---
 
