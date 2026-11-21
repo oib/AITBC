@@ -122,3 +122,39 @@ async def test_get_orchestrator_uses_lifespan_redis_url(monkeypatch):
     orch = get_orchestrator(redis_url="redis://env-redis:6379/2")
     await orch.start()
     assert seen["url"] == "redis://env-redis:6379/2"
+
+
+@pytest.mark.asyncio
+async def test_lifespan_helper_installs_and_starts_orchestrator(monkeypatch):
+    """#2014 rework pin: the lifespan wiring itself. ``_start_workflow_orchestrator``
+    is the seam lifespan awaits — it must install the get_orchestrator()
+    singleton on ``state.workflow_orchestrator`` AND await ``start()``.
+    Deleting either line inside the helper fails this test."""
+    import agent_app.lifespan as lifespan_mod
+    import agent_app.state as state_mod
+    import agent_app.workflow as workflow_pkg
+
+    calls: dict[str, Any] = {}
+    seen_urls: list[str] = []
+
+    class _FakeOrchestrator:
+        async def start(self) -> None:
+            calls["started"] = True
+
+        async def stop(self) -> None:
+            calls["stopped"] = True
+
+    fake = _FakeOrchestrator()
+
+    def _get_orchestrator(redis_url=None):
+        seen_urls.append(redis_url)
+        return fake
+
+    monkeypatch.setattr(workflow_pkg, "get_orchestrator", _get_orchestrator)
+    monkeypatch.setattr(state_mod, "workflow_orchestrator", None)
+
+    await lifespan_mod._start_workflow_orchestrator("redis://env-redis:6379/2")
+
+    assert state_mod.workflow_orchestrator is fake
+    assert calls.get("started") is True
+    assert seen_urls == ["redis://env-redis:6379/2"]

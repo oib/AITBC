@@ -170,6 +170,16 @@ async def sweep_stale_assignments() -> None:
         await asyncio.sleep(60)
 
 
+async def _start_workflow_orchestrator(redis_url: str) -> None:
+    """#2014: construct the shared orchestrator singleton with the service
+    Redis URL and start() it so workflow definitions/executions persist.
+    Extracted so the lifespan wiring itself is pinned by test."""
+    from .workflow import get_orchestrator
+
+    state.workflow_orchestrator = get_orchestrator(redis_url=redis_url)
+    await state.workflow_orchestrator.start()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting AITBC Agent Coordinator...")
@@ -208,10 +218,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # get_orchestrator() singleton; without start() its redis client stayed
     # None, so create_workflow returned 200 but persisted nothing — list
     # read empty and execute 404'd (S10 paid-leg blocker).
-    from .workflow import get_orchestrator
-
-    state.workflow_orchestrator = get_orchestrator(redis_url=redis_url)
-    await state.workflow_orchestrator.start()
+    await _start_workflow_orchestrator(redis_url)
 
     # Wire the WebSocket connection manager to the persisted message storage
     # so it can restore topic subscriptions on agent reconnect.
