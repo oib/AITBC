@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1532
+- **Markdown files under docs/**: 1530
 
 | Directory | Files | Description |
 |---|---|---|
@@ -91,7 +91,7 @@ docs/
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 84 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 82 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
@@ -116,10 +116,10 @@ Inbound markdown links per document (top referrers).
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | [README.md](README.md) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | [ci-cd/README.md](ci-cd/README.md), [development/1_overview.md](development/1_overview.md), [reference/faq.md](reference/faq.md) |
-| [DESIGN_CYCLE.md](DESIGN_CYCLE.md) | [README.md](README.md), [architecture/1_system-flow.md](architecture/1_system-flow.md), [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), +8 more |
+| [DESIGN_CYCLE.md](DESIGN_CYCLE.md) | [README.md](README.md), [architecture/1_system-flow.md](architecture/1_system-flow.md), [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), +7 more |
 | [FEATURES.md](FEATURES.md) | [README.md](README.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [MASTER_INDEX.md](MASTER_INDEX.md) | [FEATURES.md](FEATURES.md), [README.md](README.md), [apps/README.md](apps/README.md), +7 more |
-| [README.md](README.md) | [agent-sdk/README.md](agent-sdk/README.md), [apps/README.md](apps/README.md), [architecture/README.md](architecture/README.md), +83 more |
+| [README.md](README.md) | [agent-sdk/README.md](agent-sdk/README.md), [apps/README.md](apps/README.md), [architecture/README.md](architecture/README.md), +81 more |
 | [account-abstraction/api.md](account-abstraction/api.md) | [account-abstraction/architecture.md](account-abstraction/architecture.md), [account-abstraction/database.md](account-abstraction/database.md) |
 | [account-abstraction/architecture.md](account-abstraction/architecture.md) | [account-abstraction/security.md](account-abstraction/security.md) |
 | [account-abstraction/database.md](account-abstraction/database.md) | [account-abstraction/api.md](account-abstraction/api.md), [account-abstraction/architecture.md](account-abstraction/architecture.md) |
@@ -1149,7 +1149,7 @@ Inbound markdown links per document (top referrers).
 | [ops/counter-to-journal-recipe.md](ops/counter-to-journal-recipe.md) | [README.md](README.md) |
 | [ops/dead-table-inventory-1603.md](ops/dead-table-inventory-1603.md) | — |
 | [ops/env-orphan-cleanup-runbook.md](ops/env-orphan-cleanup-runbook.md) | [README.md](README.md) |
-| [ops/escrow-relays.md](ops/escrow-relays.md) | [api/market-api.md](api/market-api.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/archive/44_stuck_tee_refund.md](scenarios/archive/44_stuck_tee_refund.md) |
+| [ops/escrow-relays.md](ops/escrow-relays.md) | [api/market-api.md](api/market-api.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md) |
 | [ops/escrow-routing.md](ops/escrow-routing.md) | [README.md](README.md) |
 | [ops/escrow-settlement-ops.md](ops/escrow-settlement-ops.md) | [README.md](README.md) |
 | [ops/exchange-public-endpoints.md](ops/exchange-public-endpoints.md) | [README.md](README.md) |
@@ -1550,13 +1550,13 @@ Inbound markdown links per document (top referrers).
 | [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md) | [scenarios/30_secret_manager_thread_safety.md](scenarios/30_secret_manager_thread_safety.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md) | [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md), [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md) | [releases/v0.10/v0.10.3_AGENTS.md](releases/v0.10/v0.10.3_AGENTS.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), +1 more |
-| [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md) | [architecture/1_system-flow.md](architecture/1_system-flow.md), [archive/apps-clients/README.md](archive/apps-clients/README.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), +49 more |
+| [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md) | [architecture/1_system-flow.md](architecture/1_system-flow.md), [archive/apps-clients/README.md](archive/apps-clients/README.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), +48 more |
 | [scenarios/35_fire_and_forget_logging_b10_b11.md](scenarios/35_fire_and_forget_logging_b10_b11.md) | [scenarios/24_task_error_logging.md](scenarios/24_task_error_logging.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md), +1 more |
 | [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md) | [scenarios/35_fire_and_forget_logging_b10_b11.md](scenarios/35_fire_and_forget_logging_b10_b11.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/41_whisper_ffmpeg_shop_offers.md](scenarios/41_whisper_ffmpeg_shop_offers.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [reference/record-types.md](reference/record-types.md), +1 more |
-| [scenarios/43_compliance_plugins_white_label.md](scenarios/43_compliance_plugins_white_label.md) | [scenarios/README.md](scenarios/README.md), [scenarios/archive/44_stuck_tee_refund.md](scenarios/archive/44_stuck_tee_refund.md), [scenarios/archive/46_tee_confidential_jobs.md](scenarios/archive/46_tee_confidential_jobs.md) |
+| [scenarios/43_compliance_plugins_white_label.md](scenarios/43_compliance_plugins_white_label.md) | [scenarios/README.md](scenarios/README.md) |
 | [scenarios/45_agent_msg_workflow.md](scenarios/45_agent_msg_workflow.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
-| [scenarios/47_zk_high_value_jobs.md](scenarios/47_zk_high_value_jobs.md) | [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/README.md](scenarios/README.md), [scenarios/archive/46_tee_confidential_jobs.md](scenarios/archive/46_tee_confidential_jobs.md) |
+| [scenarios/47_zk_high_value_jobs.md](scenarios/47_zk_high_value_jobs.md) | [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/48_performance_bonds_high_value.md](scenarios/48_performance_bonds_high_value.md) | [cli/commands/bond-appeal.md](cli/commands/bond-appeal.md), [cli/commands/bond-challenge.md](cli/commands/bond-challenge.md), [cli/commands/bond-create.md](cli/commands/bond-create.md), +9 more |
 | [scenarios/50_default_shop_offers.md](scenarios/50_default_shop_offers.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [reference/record-types.md](reference/record-types.md), +1 more |
 | [scenarios/51_multi_validator_poa_soak.md](scenarios/51_multi_validator_poa_soak.md) | [DESIGN_CYCLE.md](DESIGN_CYCLE.md), [scenarios/README.md](scenarios/README.md) |
@@ -1581,8 +1581,8 @@ Inbound markdown links per document (top referrers).
 | [scenarios/70_script_runner.md](scenarios/70_script_runner.md) | [scenarios/69_cluster_ops.md](scenarios/69_cluster_ops.md), [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md) | [scenarios/70_script_runner.md](scenarios/70_script_runner.md), [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md) | [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md), [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md) | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md), [scenarios/README.md](scenarios/README.md), +1 more |
-| [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md) | [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md), [scenarios/archive/46_tee_confidential_jobs.md](scenarios/archive/46_tee_confidential_jobs.md) |
+| [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md) | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md), [scenarios/README.md](scenarios/README.md) |
+| [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md) | [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/75_market_escrow_jobs_options.md](scenarios/75_market_escrow_jobs_options.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +42 more |
 | [scenarios/76_bridge_options.md](scenarios/76_bridge_options.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/77_trade_options.md](scenarios/77_trade_options.md) | [scenarios/README.md](scenarios/README.md) |
@@ -1599,10 +1599,8 @@ Inbound markdown links per document (top referrers).
 | [scenarios/88_bridge_island_lock_release.md](scenarios/88_bridge_island_lock_release.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/89_coordinator_inflight_cap.md](scenarios/89_coordinator_inflight_cap.md) | [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md), [scenarios/25_job_payment_failure.md](scenarios/25_job_payment_failure.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/90_market_escrow_alias_binding.md](scenarios/90_market_escrow_alias_binding.md) | [scenarios/README.md](scenarios/README.md) |
-| [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +74 more |
+| [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +72 more |
 | [scenarios/_TEMPLATE.md](scenarios/_TEMPLATE.md) | [scenarios/README.md](scenarios/README.md) |
-| [scenarios/archive/44_stuck_tee_refund.md](scenarios/archive/44_stuck_tee_refund.md) | [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [scenarios/75_market_escrow_jobs_options.md](scenarios/75_market_escrow_jobs_options.md), [scenarios/README.md](scenarios/README.md), +1 more |
-| [scenarios/archive/46_tee_confidential_jobs.md](scenarios/archive/46_tee_confidential_jobs.md) | [scenarios/README.md](scenarios/README.md), [scenarios/archive/44_stuck_tee_refund.md](scenarios/archive/44_stuck_tee_refund.md) |
 | [security/2_security-architecture.md](security/2_security-architecture.md) | [features/10-security.md](features/10-security.md), [security/README.md](security/README.md), [security/api-key-management.md](security/api-key-management.md), +2 more |
 | [security/3_chaos-testing.md](security/3_chaos-testing.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
 | [security/4_security-audit-framework.md](security/4_security-audit-framework.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
