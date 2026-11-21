@@ -222,7 +222,7 @@ class TestScratchFileTool:
             result = json.loads(mcp_server.aitbc_scratch_file(action="read", path=bad, host="node2"))
             assert "under" in result["error"] or "/var/tmp" in result["error"], bad
 
-    def test_write_uses_base64_and_mkdir(self):
+    def test_write_uses_base64_single_command(self):
         captured: list[str] = []
         with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
             result = json.loads(
@@ -235,15 +235,44 @@ class TestScratchFileTool:
             )
         assert result["returncode"] == 0
         cmd = captured[0]
-        assert "mkdir -p /var/tmp/s76" in cmd
-        assert "base64 -d" in cmd
+        # single python3 -c invocation: works via remote shell AND local execvp
+        assert cmd.startswith("python3 -c ")
+        assert "/var/tmp/s76/quote.json" in cmd
         assert base64.b64encode(b'{"price": "1.5"}').decode() in cmd
         # content must not appear raw in the shell command
         assert '"price"' not in cmd
 
+    def test_write_content_base64_binary(self):
+        captured: list[str] = []
+        payload = base64.b64encode(b"\x00\x01\x02binary").decode()
+        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
+            result = json.loads(
+                mcp_server.aitbc_scratch_file(
+                    action="write",
+                    path="/var/tmp/s76/blob.bin",
+                    content_base64=payload,
+                    host="node2",
+                )
+            )
+        assert result["returncode"] == 0
+        # the command carries base64 of the decoded bytes (re-encoded)
+        assert base64.b64encode(b"\x00\x01\x02binary").decode() in captured[0]
+
+    def test_write_both_content_forms_refused(self):
+        result = json.loads(
+            mcp_server.aitbc_scratch_file(
+                action="write",
+                path="/var/tmp/x",
+                content="a",
+                content_base64="YQ==",
+                host="node2",
+            )
+        )
+        assert "not both" in result["error"]
+
     def test_write_requires_content_and_size_cap(self):
         result = json.loads(mcp_server.aitbc_scratch_file(action="write", path="/var/tmp/x", host="node2"))
-        assert "content is required" in result["error"]
+        assert "required for action='write'" in result["error"]
         result = json.loads(
             mcp_server.aitbc_scratch_file(
                 action="write",
@@ -254,21 +283,45 @@ class TestScratchFileTool:
         )
         assert "exceeds" in result["error"]
 
-    def test_read_parses_size_and_truncates(self):
+    def test_read_parses_size_and_decodes_base64(self):
+        body = base64.b64encode(b'{"ok": true}').decode()
+
         def fake(host, command, timeout=60, **kwargs):
             return {
                 "host": host,
                 "command": command,
                 "returncode": 0,
-                "stdout": f"{aitbc_mcp_scratch_tools.SCRATCH_READ_MAX_BYTES + 5}\n" + "a" * 10,
+                "stdout": f"11\n{body}",
+                "stderr": "",
+            }
+
+        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", fake):
+            result = json.loads(mcp_server.aitbc_scratch_file(action="read", path="/var/tmp/q.json", host="node2"))
+        assert result["size_bytes"] == 11
+        assert result["stdout"] == '{"ok": true}'
+        assert result["encoding"] == "utf-8"
+        assert "truncated" not in result
+
+    def test_read_truncates_and_binary_falls_back_to_base64(self):
+        big = aitbc_mcp_scratch_tools.SCRATCH_READ_MAX_BYTES + 5
+        body = base64.b64encode(b"\x00\x01\x02\xff").decode()
+
+        def fake(host, command, timeout=60, **kwargs):
+            return {
+                "host": host,
+                "command": command,
+                "returncode": 0,
+                "stdout": f"{big}\n{body}",
                 "stderr": "",
             }
 
         with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", fake):
             result = json.loads(mcp_server.aitbc_scratch_file(action="read", path="/var/tmp/big.bin", host="node2"))
-        assert result["size_bytes"] == aitbc_mcp_scratch_tools.SCRATCH_READ_MAX_BYTES + 5
+        assert result["size_bytes"] == big
         assert result["truncated"] is True
-        assert result["stdout"] == "a" * 10
+        assert result["encoding"] == "base64"
+        assert result["content_base64"] == body
+        assert result["stdout"] == ""
 
     def test_delete_and_list_commands(self):
         captured: list[str] = []
