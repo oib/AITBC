@@ -2,7 +2,7 @@
 
 # `aitbc agent-msg peers`
 
-List the peers currently known to the Agent Coordinator.
+List the peers currently known to the Agent Coordinator. The discover endpoint requires an authenticated principal — pass --wallet + --signing-agent-id (or set AGENT_ID) to sign X-Agent-* request headers, or rely on a stored 'aitbc auth login' session / --api-key.
 
 ## Usage
 
@@ -15,6 +15,11 @@ aitbc agent-msg peers [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--coordinator-url` | text | — | no | Agent Coordinator URL (default: from config) |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--wallet` | text | — | no | Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET) |
+| `--signing-agent-id` | text | — | no | Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet |
 
 ## Examples
 

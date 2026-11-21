@@ -303,7 +303,7 @@ def _buyer_signing(
     if signing is not None:
         # Soft check only: the coordinator still accepts while advisory, and a
         # registry lookup failure must not block the escrowed hire.
-        binding_note = check_registry_binding(client, buyer_agent, buyer_address)
+        binding_note = check_registry_binding(client, buyer_agent, buyer_address, signing_key)
         if binding_note:
             warning(f"{binding_note} — signed envelopes may be rejected once the coordinator enforces")
     return buyer_address, private_key, signing, signing_key, buyer_agent

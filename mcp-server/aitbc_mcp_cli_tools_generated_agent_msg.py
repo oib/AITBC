@@ -28,6 +28,16 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_msg_peers(
     coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
+    signing_agent_id: Annotated[
+        str | None,
+        Field(description="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -36,7 +46,12 @@ def aitbc_agent_msg_peers(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"coordinator_url": "coordinator-url"},
+        values={
+            "coordinator_url": "coordinator-url",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
+            "signing_agent_id": "signing-agent-id",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(
