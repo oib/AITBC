@@ -33,6 +33,8 @@ This scenario demonstrates two real CLI surfaces:
 
 Live two-node validation so far has proven `aitbc governance status`. Propose/vote/execute against the service are live: with `--wallet <name>` the CLI signs the `GOVERNANCE_*` transaction with your own key and the service verifies and relays it to the chain (client-signed submission, GAP-50). Without `--wallet` the service falls back to its configured proposer key, which only works for that one address. Execution of a passed parameter-change proposal into a running service is still the open P1.7 piece (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)). Two CLI gaps surfaced by the bc-2 live sweep (28 Oct) are flagged inline at Steps 1 and 3.
 
+> **Write auth and placement (#2411):** mutating `/v1/governance/*` routes require the service API key (`X-Api-Key`). The CLI resolves it in order: `--api-key` flag → `GOVERNANCE_API_KEY` env → configured `api_key` → `/etc/aitbc/aitbc-governance.env` on the local node (the same file the service unit reads). A bare `401 Missing API key` means none of those supplied a key. On-chain submission (`GOVERNANCE_ENABLE_ONCHAIN_SUBMISSION=true`) is enabled **only on the hub** — a customer node's local `:8105` records service-side state but seals no `GOVERNANCE_*` transactions, so `tx_hash`/`block_height` fields stay empty there; run write legs that must seal on the hub.
+
 ### Use Case
 
 A network participant wants to propose a parameter change (e.g., adjusting the block gas limit), gather votes from stakeholders during the voting period, and execute the proposal once it passes.
@@ -221,6 +223,8 @@ Delegated Power     0
 Staked Tokens       1500
 Lock Period Days    60
 ```
+
+> **What this number is (#2411):** `operations governance voting-power` reads the governance service's own `GovernanceToken` table — service-recorded balances and `operations governance stake` rows only. It does **not** see on-chain `aitbc stake` locks: those feed `aitbc governance vote` weight through the chain's `Stake` rows instead, so this endpoint stays `0` after a real `aitbc stake`. Treat a nonzero reading here as evidence of service-side records, not of on-chain stake.
 
 ### Step 5: Stake Tokens for Enhanced Voting Power
 
