@@ -2213,7 +2213,7 @@
             }
           },
           "403": {
-            "description": "invalid access token / access token not issued for this job / signer is not this job's provider",
+            "description": "invalid access token / access token not issued for this job / billing provider identity unresolvable for this job / signer is not this job's provider",
             "content": {
               "application/json": {
                 "schema": {

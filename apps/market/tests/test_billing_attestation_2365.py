@@ -141,6 +141,9 @@ async def _seed_job(
                     price=Decimal(price),
                     price_unit=price_unit,
                     offer_id=offer_id,
+                    # The offer row is the billing-signer authority (#2365
+                    # respin-2): job.provider_address is caller-writable.
+                    provider_address=_provider_address(),
                 )
             )
         payload = {"access_key": _ACCESS_KEY, "access_secret": _ACCESS_SECRET}
@@ -548,6 +551,67 @@ async def test_billing_route_rejects_tampered_metrics() -> None:
     body = _billing_body(job_id, {"eval_count": 999999}, final=True)
     body["metrics"] = {"eval_count": 1}  # swap after signing
     resp = client.post(f"/v1/market/jobs/{job_id}/billing", json=body, headers=_billing_headers(job_id))
+    assert resp.status_code == 403
+
+
+async def test_billing_route_signer_comes_from_offer_not_job_row() -> None:
+    """#2365 respin-2: job.provider_address is caller-writable — a buyer can
+    declare its own wallet at creation. The billing signer must resolve from
+    the offer's SoftwareService row, so the offer-listed provider's honest
+    report is accepted even when the job row names the buyer."""
+    job_id, _ = await _seed_job()
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        job.provider_address = _buyer_address()  # buyer spoofs the job row
+        session.add(job)
+        await session.commit()
+
+    from market_service.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.post(
+        f"/v1/market/jobs/{job_id}/billing",
+        json=_billing_body(job_id, {"eval_count": 4321}, final=True),
+        headers=_billing_headers(job_id),
+    )
+    assert resp.status_code == 200, resp.text
+    fetched = await _fetch(job_id)
+    assert fetched["payload"][PAYLOAD_BILLING_KEY]["metrics"] == {"eval_count": "4321"}
+
+
+async def test_billing_route_fails_closed_without_offer_provider() -> None:
+    """No resolvable offer provider -> the report is refused (full-lock
+    settlement), never guessed from the job row."""
+    job_id, _ = await _seed_job(
+        service_type="whisper",
+        model="whisper-1",
+        price_unit="per_audio_min",
+        price="0.01",
+        offer_id="offer-billing-no-provider",
+    )
+    async with get_session_context() as session:
+        rows = (
+            (
+                await session.execute(
+                    select(SoftwareService).where(col(SoftwareService.offer_id) == "offer-billing-no-provider")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in rows:
+            await session.delete(row)
+        await session.commit()
+
+    from market_service.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.post(
+        f"/v1/market/jobs/{job_id}/billing",
+        json=_billing_body(job_id, {"duration_minutes": 5}, final=True),
+        headers=_billing_headers(job_id),
+    )
     assert resp.status_code == 403
 
 

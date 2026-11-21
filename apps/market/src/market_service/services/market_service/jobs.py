@@ -237,6 +237,24 @@ class _JobsMixin(_CoreMixin):
             logger.error("Error in get_service_by_offer_id: %s: %s", type(e).__name__, str(e))
             raise
 
+    async def _offer_provider_address(self, offer_id: Any) -> str | None:
+        """#2365 respin-2: the billing signer is the offer-listed provider.
+
+        ``MarketJob.provider_address`` is caller-writable at creation, so it
+        cannot authorize a billing report. The offer's ``SoftwareService``
+        row is the authority. A lookup failure or missing row yields None:
+        the daemon then skips the report and the job settles full-lock —
+        a lookup hiccup must never break paid work at the access gate.
+        """
+        if not offer_id:
+            return None
+        try:
+            service = await self.get_service_by_offer_id(str(offer_id))
+        except _OPS_ERRORS as e:
+            logger.warning("Billing provider lookup failed for offer %s: %s", offer_id, e)
+            return None
+        return (service or {}).get("provider_address") or None
+
     def _parse_iso_dt(self, value: Any) -> Any:
         """Parse an ISO 8601 datetime string into a naive UTC datetime."""
         from datetime import UTC, datetime
@@ -971,6 +989,9 @@ class _JobsMixin(_CoreMixin):
             if not await self._job_token_escrow_verified(job, payment):
                 return None
 
+            # #2365 respin-2: provider_address is caller-writable on the job
+            # row (_JOB_WRITABLE), so it cannot name the billing signer —
+            # resolve the offer-listed provider instead.
             return {
                 "job_id": job.id,
                 "cid": job.payload.get("cid"),
@@ -978,10 +999,7 @@ class _JobsMixin(_CoreMixin):
                 "public_endpoint": job.payload.get("public_endpoint"),
                 "expires_at": _isoformat(job.expires_at),
                 "size": job.payload.get("size"),
-                # #2365: the serving daemon signs its billing report as this
-                # address — it is the offer's listed provider, already known
-                # to the buyer, not a secret.
-                "provider_address": job.provider_address,
+                "provider_address": await self._offer_provider_address(job.offer_id),
                 # The paid model — shop gates bind the request body's model
                 # to it (APIGW-OLLAMA-DEPTH2-1, #1613). Column first, payload
                 # fallback for rows that only recorded it in the payload.
