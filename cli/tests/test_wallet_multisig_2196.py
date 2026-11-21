@@ -399,6 +399,37 @@ class TestMultisigUnspendableGuard2362:
         with pytest.raises(CLIError, match="unrecoverable"):
             _assert_not_multisig_recipient(ctx, tmp_path / "wallets", addr.upper().replace("0X", "0x"))
 
+    def test_send_invokes_multisig_guard(self, tmp_path, monkeypatch):
+        """#2362 wiring pin: deleting the ``_assert_not_multisig_recipient``
+        call site inside ``send`` must fail a test — the guard exists because
+        funding a multisig already burned 0.002 AIT once."""
+        from click.testing import CliRunner
+
+        from aitbc_cli.commands.wallet.basic import send as wallet_send
+        from aitbc_cli.utils.wallet_loader import write_json_0600
+
+        wallets = tmp_path / "wallets"
+        wallets.mkdir(parents=True, exist_ok=True)
+        sender_path = wallets / "sender.json"
+        write_json_0600(sender_path, {"address": "0x" + "11" * 20, "private_key": "0x" + "44" * 32})
+        addr, _ = _make_multisig(tmp_path, name="team")
+
+        # Past the guard, send resolves the RPC endpoint — stub it so a
+        # removed call site surfaces as this sentinel, not a hang.
+        def _no_rpc(*a, **k):
+            raise AssertionError("multisig guard bypassed — send proceeded past _assert_not_multisig_recipient")
+
+        monkeypatch.setattr("aitbc_cli.commands.wallet.basic._resolve_send_rpc_endpoint", _no_rpc)
+
+        result = CliRunner().invoke(
+            wallet_send,
+            ["--to-address", addr, "--amount", "1", "--fee", "0.001"],
+            obj={"wallet_name": "sender", "wallet_sign_path": sender_path, "wallet_dir": wallets},
+        )
+        assert result.exit_code != 0
+        assert "unrecoverable" in result.output
+        assert "guard bypassed" not in result.output
+
     def test_delete_accepts_bare_multisig_name(self, tmp_path, monkeypatch):
         """`wallet delete --name ms` must find `ms_multisig.json` (#2362)."""
         _make_multisig(tmp_path, name="ms")
