@@ -102,3 +102,71 @@ def test_trade_network_error_still_aborts(runner, monkeypatch):
     result = runner.invoke(trade, ["chains"], obj={})
     assert result.exit_code != 0
     assert "Error" in result.output or "error" in result.output
+
+
+# --- Group-level --api-key (#2437) ---
+#
+# S77's bad-key 401 legs need a deliberately wrong key per invocation; the
+# group flag must reach the X-Trading-Api-Key header ahead of env/config.
+
+
+class _RecordingClient:
+    headers: dict | None = None
+
+    def __init__(self, base_url=None, timeout=None, headers=None):
+        type(self).headers = headers
+
+    def get_json(self, path, params=None):
+        return []
+
+    def get(self, path, params=None):
+        return {}
+
+    def post(self, path, json=None):
+        return {"ok": True}
+
+    def close(self):
+        pass
+
+
+class _Secret:
+    def __init__(self, value):
+        self._value = value
+
+    def get_secret_value(self):
+        return self._value
+
+
+def _config(api_key=None):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        trading_service_url="http://trading.test",
+        trading_api_key=_Secret(api_key) if api_key else None,
+    )
+
+
+def test_group_api_key_override_reaches_headers(runner, monkeypatch):
+    monkeypatch.setattr(trade_mod, "AITBCHTTPClient", _RecordingClient)
+    result = runner.invoke(
+        trade,
+        ["--api-key", "wrong-key-123", "chains"],
+        obj={"config": _config(), "output_format": "json"},
+    )
+    assert result.exit_code == 0, result.output
+    assert _RecordingClient.headers == {"X-Trading-Api-Key": "wrong-key-123"}
+
+
+def test_env_key_still_used_without_flag(runner, monkeypatch):
+    monkeypatch.setattr(trade_mod, "AITBCHTTPClient", _RecordingClient)
+    key = _config(api_key="env-key")
+    result = runner.invoke(trade, ["chains"], obj={"config": key, "output_format": "json"})
+    assert result.exit_code == 0, result.output
+    assert _RecordingClient.headers == {"X-Trading-Api-Key": "env-key"}
+
+
+def test_watch_accepts_bounds(runner):
+    result = runner.invoke(trade, ["watch", "--help"])
+    assert result.exit_code == 0
+    assert "--max-events" in result.output
+    assert "--timeout" in result.output
