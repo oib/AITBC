@@ -81,4 +81,4 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `eth` — Inspect public Sepolia ETH activity — read-only, key-free, no polling. Subcommands: `transfers`
 - `agent-staking` — Manage agent-economy stakes (operator-signed /rpc/agent-staking routes). Subcommands: `add`, `claim`, `complete`, `distribute`, `performance`, `stake`, `status`, `unbond`
 - `bounty` — Manage bounty locks and submissions (operator-signed /rpc/bounty routes). Subcommands: `deploy`, `dispute`, `expire`, `status`, `submit`, `verify`
-- `liquidity` — Build unsigned LIQUIDITY_* transactions via the node's build routes. Subcommands: `build-claim`, `build-deposit`, `build-withdraw`
+- `liquidity` — Build unsigned LIQUIDITY_* transactions via the node's build routes. Subcommands: `build-claim`, `build-deposit`, `build-withdraw`, `stakes`

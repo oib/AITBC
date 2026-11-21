@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**826 tools** across 141 modules.
+**827 tools** across 141 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 567 |
+| generated | 568 |
 | other | 7 |
 | rpc | 116 |
 
@@ -58,7 +58,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_health.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_http.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_ipfs.py | 7 |
-| mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | 3 |
+| mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_liquidity_stake.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_list.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_cancel.py | 1 |
@@ -579,6 +579,7 @@
 | `aitbc_liquidity_build_claim` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-claim` |
 | `aitbc_liquidity_build_deposit` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-deposit` |
 | `aitbc_liquidity_build_withdraw` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-withdraw` |
+| `aitbc_liquidity_stakes` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity stakes` |
 | `aitbc_liquidity_stake` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity_stake.py | generated | `aitbc liquidity-stake` |
 | `aitbc_list` | mcp-server/aitbc_mcp_cli_tools_generated_list.py | generated | `aitbc list` |
 | `aitbc_market_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_market_cancel.py | generated | `aitbc market cancel` |

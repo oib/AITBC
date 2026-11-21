@@ -203,6 +203,12 @@ def _submit_liquidity_transaction(
     tx_hash = result.get("transaction_hash")
     if not tx_hash:
         raise click.ClickException(f"Transaction submission failed: {result}")
+    # #2361: the node reports whether the tx actually reached a proposing
+    # host's mempool — a failed relay on a non-proposing node strands the
+    # tx (and its nonce slot) until mempool expiry.
+    warning = result.get("warning")
+    if warning:
+        click.echo(f"Warning: {warning}", err=True)
     return str(tx_hash)
 
 
@@ -676,8 +682,12 @@ def liquidity_stake(
         return
 
     # Keep a local cache entry for convenience, but mark it as on-chain-backed.
+    # #2361: the stake id is deterministic under v18+ apply rules —
+    # ``liq_<tx_hash[:16]>`` — so the record can name it at submit time
+    # instead of leaving null until someone reads chain state. `aitbc
+    # liquidity stakes` remains the authoritative list.
     liq_record = {
-        "stake_id": None,  # will be set by on-chain state
+        "stake_id": f"liq_{str(tx_hash)[:16]}",
         "pool": pool,
         "amount": str(amount),
         "lock_days": lock_days,

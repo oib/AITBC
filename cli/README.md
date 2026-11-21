@@ -92,7 +92,7 @@ aitbc --help
 | `eth` | Inspect public Sepolia ETH activity — read-only, key-free, no polling | `transfers` |
 | `agent-staking` | Manage agent-economy stakes (operator-signed /rpc/agent-staking routes) | `add`, `claim`, `complete`, `distribute`, `performance`, `stake`, `status`, `unbond` |
 | `bounty` | Manage bounty locks and submissions (operator-signed /rpc/bounty routes) | `deploy`, `dispute`, `expire`, `status`, `submit`, `verify` |
-| `liquidity` | Build unsigned LIQUIDITY_* transactions via the node's build routes | `build-claim`, `build-deposit`, `build-withdraw` |
+| `liquidity` | Build unsigned LIQUIDITY_* transactions via the node's build routes | `build-claim`, `build-deposit`, `build-withdraw`, `stakes` |
 
 ## Market
 
