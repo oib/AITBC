@@ -302,6 +302,9 @@ def get_dispute(dispute_id: int) -> GetDisputeResponse:
             "reason": d.get("reason", ""),
             "status": d.get("status", ""),
             "created_at": str(d.get("filing_time", "")),
+            "winner": d.get("winner"),
+            "resolution_reason": d.get("resolution_reason", ""),
+            "is_escalated": bool(d.get("is_escalated", False)),
             "evidence": [],
             "votes": [],
         }

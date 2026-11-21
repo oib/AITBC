@@ -105,6 +105,7 @@ class DisputeResolutionContract:
         self.dispute_counter = 0
         self.evidence_counter = 0
         self._owner: str | None = None
+        self._state_dirty = False
         self._load_state()
         self._seed_arbitrators()
 
@@ -127,10 +128,11 @@ class DisputeResolutionContract:
             self._resolved_state_path = Path(mode)
         else:
             try:
+                from ..chain_id import ChainIdNotConfigured
                 from ..database import ChainDbMissingError, ForeignChainDbError, get_engine
 
                 db = get_engine().url.database
-            except (ChainDbMissingError, ForeignChainDbError, ValueError, OSError):
+            except (ChainIdNotConfigured, ChainDbMissingError, ForeignChainDbError, ValueError, OSError):
                 # engine not up yet / unavailable — retry next call
                 return None
             if not db or db == ":memory:":
@@ -195,11 +197,16 @@ class DisputeResolutionContract:
             logger.error("Failed to persist dispute state to %s: %s", path, e)
 
     @contextmanager
-    def _state_transaction(self) -> Iterator[None]:
-        """Exclusive cross-process mutation: flock, reload, yield, save."""
+    def _state_transaction(self, always_save: bool = True) -> Iterator[None]:
+        """Exclusive cross-process mutation: flock, reload, yield, save.
+
+        ``always_save=False`` (read paths) persists only when the overdue
+        sweep actually changed state, so a GET doesn't rewrite the file.
+        """
         path = self._resolve_state_path()
         if path is None:
             yield
+            self._escalate_overdue()
             return
         lock_path = path.with_name(path.name + ".lock")
         try:
@@ -207,17 +214,81 @@ class DisputeResolutionContract:
         except OSError as e:
             logger.error("Dispute state lock %s unavailable: %s — operating unlocked", lock_path, e)
             self._load_state()
+            self._state_dirty = False
             yield
-            self._save_state()
+            self._escalate_overdue()
+            if always_save or self._state_dirty:
+                self._save_state()
             return
         with lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             try:
                 self._load_state()
+                self._state_dirty = False
                 yield
-                self._save_state()
+                self._escalate_overdue()
+                if always_save or self._state_dirty:
+                    self._save_state()
             finally:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    def _escalate_overdue(self) -> bool:
+        """Escalate non-terminal disputes past ``arbitration_deadline``.
+
+        Runs inside every state transaction so deadline expiry is observed
+        on the next mutation even without a dedicated sweeper (#2387).
+        """
+        now = int(time.time())
+        changed = False
+        for dispute in self.disputes.values():
+            if dispute.status in (DisputeStatus.RESOLVED, DisputeStatus.ESCALATED):
+                continue
+            if now <= dispute.arbitration_deadline:
+                continue
+            dispute.status = DisputeStatus.ESCALATED
+            dispute.is_escalated = True
+            dispute.escalation_level += 1
+            dispute.resolution_reason = "Arbitration deadline passed without a ruling — escalated"
+            logger.info("Dispute %s escalated: arbitration deadline passed", dispute.dispute_id)
+            changed = True
+            self._state_dirty = True
+        return changed
+
+    @staticmethod
+    def _is_closed(dispute: Dispute) -> bool:
+        return dispute.status in (DisputeStatus.RESOLVED, DisputeStatus.ESCALATED)
+
+    def _maybe_resolve(self, dispute_id: int) -> None:
+        """Auto-resolve once every authorized arbitrator has voted.
+
+        Tally uses each arbitrator's latest vote (revisions supersede).
+        Plurality wins; a tie escalates. Record-only: ``winner`` and
+        ``resolution_reason`` are stored for the settlement layer — no
+        funds move here (#2387).
+        """
+        dispute = self.disputes.get(dispute_id)
+        if dispute is None or self._is_closed(dispute):
+            return
+        votes = self.votes.get(dispute_id, [])
+        latest: dict[str, ArbitrationVote] = {}
+        for vote in votes:
+            latest[vote.arbitrator] = vote
+        if set(latest) != set(self.arbitrators):
+            return
+        for_initiator = sum(1 for v in latest.values() if v.vote_in_favor_of_initiator)
+        against = len(latest) - for_initiator
+        dispute.arbitrator_count = len(latest)
+        if for_initiator == against:
+            dispute.status = DisputeStatus.ESCALATED
+            dispute.is_escalated = True
+            dispute.escalation_level += 1
+            dispute.resolution_reason = f"Arbitration tie {for_initiator}-{against} — escalated"
+            logger.info("Dispute %s escalated on tied arbitration", dispute_id)
+            return
+        dispute.winner = dispute.initiator if for_initiator > against else dispute.respondent
+        dispute.resolution_reason = f"Arbitration plurality {max(for_initiator, against)}-{min(for_initiator, against)} for {'initiator' if for_initiator > against else 'respondent'}"
+        dispute.status = DisputeStatus.RESOLVED
+        logger.info("Dispute %s resolved: winner=%s", dispute_id, dispute.winner)
 
     def _refresh(self) -> None:
         """Reads see the latest committed state in file mode."""
@@ -345,6 +416,11 @@ class DisputeResolutionContract:
         """Submit evidence for a dispute"""
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
+        dispute = self.disputes[dispute_id]
+        if self._is_closed(dispute):
+            return {"success": False, "error": "Dispute is closed"}
+        if int(time.time()) > dispute.evidence_deadline:
+            return {"success": False, "error": "Evidence submission deadline has passed"}
         self.evidence_counter += 1
         evidence_id = self.evidence_counter
         evidence = Evidence(
@@ -357,7 +433,8 @@ class DisputeResolutionContract:
             submission_time=int(time.time()),
         )
         self.evidence[dispute_id].append(evidence)
-        self.disputes[dispute_id].status = DisputeStatus.EVIDENCE_SUBMITTED
+        if dispute.status == DisputeStatus.FILED:
+            dispute.status = DisputeStatus.EVIDENCE_SUBMITTED
         logger.info("Submitted evidence %s for dispute %s", evidence_id, dispute_id)
         return {
             "success": True,
@@ -376,6 +453,8 @@ class DisputeResolutionContract:
             return {"success": False, "error": "Not an authorized arbitrator"}
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
+        if self._is_closed(self.disputes[dispute_id]):
+            return {"success": False, "error": "Dispute is closed"}
         for evidence in self.evidence[dispute_id]:
             if evidence.evidence_id == evidence_id:
                 evidence.is_valid = is_valid
@@ -395,6 +474,11 @@ class DisputeResolutionContract:
             return {"success": False, "error": "Not an authorized arbitrator"}
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
+        dispute = self.disputes[dispute_id]
+        if self._is_closed(dispute):
+            return {"success": False, "error": "Dispute is closed"}
+        if int(time.time()) > dispute.arbitration_deadline:
+            return {"success": False, "error": "Arbitration deadline has passed"}
         # One arbitrator, one effective vote: an identical re-cast (e.g. a
         # client retry) is rejected, but a changed verdict is allowed and
         # appended like any other vote (#2387).
@@ -415,13 +499,15 @@ class DisputeResolutionContract:
         )
         vote_id = len(self.votes[dispute_id])
         self.votes[dispute_id].append(vote)
-        self.disputes[dispute_id].arbitrator_count += 1
-        self.disputes[dispute_id].status = DisputeStatus.ARBITRATION_IN_PROGRESS
+        dispute.arbitrator_count += 1
+        dispute.status = DisputeStatus.ARBITRATION_IN_PROGRESS
+        self._maybe_resolve(dispute_id)
         logger.info("Submitted vote for dispute %s by %s", dispute_id, arbitrator_address)
         return {
             "success": True,
             "status": "Submitted",
             "vote_id": vote_id,
+            "resolved": self.disputes[dispute_id].status == DisputeStatus.RESOLVED,
             "message": "Vote submitted successfully",
         }
 
@@ -482,11 +568,14 @@ class DisputeResolutionContract:
 
     def get_dispute(self, dispute_id: int) -> dict[str, Any]:
         """Get dispute details"""
-        self._refresh()
-        if dispute_id not in self.disputes:
-            return {"success": False, "error": f"Dispute {dispute_id} not found"}
-        dispute = self.disputes[dispute_id]
-        return {"success": True, "dispute": asdict(dispute)}
+        # Transaction (not just _refresh) so an overdue dispute is escalated
+        # and persisted on read (#2387).
+        with self._state_transaction(always_save=False):
+            self._escalate_overdue()
+            if dispute_id not in self.disputes:
+                return {"success": False, "error": f"Dispute {dispute_id} not found"}
+            dispute = self.disputes[dispute_id]
+            return {"success": True, "dispute": asdict(dispute)}
 
     def get_dispute_evidence(self, dispute_id: int) -> dict[str, Any]:
         """Get all evidence for a dispute"""

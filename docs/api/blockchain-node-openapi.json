@@ -26029,6 +26029,27 @@
             "type": "string",
             "title": "Created At"
           },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          },
+          "resolution_reason": {
+            "type": "string",
+            "title": "Resolution Reason",
+            "default": ""
+          },
+          "is_escalated": {
+            "type": "boolean",
+            "title": "Is Escalated",
+            "default": false
+          },
           "evidence": {
             "items": {
               "additionalProperties": true,

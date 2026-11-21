@@ -89,6 +89,9 @@ class GetDisputeResponse(BaseModel):
     reason: str
     status: str
     created_at: str
+    winner: str | None = None
+    resolution_reason: str = ""
+    is_escalated: bool = False
     evidence: list[dict[str, Any]] = []
     votes: list[dict[str, Any]] = []
 
