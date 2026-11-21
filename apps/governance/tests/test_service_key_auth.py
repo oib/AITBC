@@ -45,6 +45,18 @@ def test_write_routes_reject_missing_key(client: TestClient) -> None:
         assert client.post(path, json={}).status_code == 401, path
 
 
+def test_401_names_the_expected_key(client: TestClient) -> None:
+    """#2411: the rejection must name GOVERNANCE_API_KEY — a bare
+    "Missing API key" left the S17 replay guessing which fleet credential
+    the :8105 write surface wanted."""
+    resp = client.post("/v1/governance/proposals", json={})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Missing GOVERNANCE_API_KEY"
+    resp = client.post("/v1/governance/proposals", json={}, headers={"X-Api-Key": "nope"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid GOVERNANCE_API_KEY"
+
+
 def test_write_routes_reject_wrong_key(client: TestClient) -> None:
     for path in WRITE_PATHS:
         resp = client.post(path, json={}, headers={"X-Api-Key": "nope"})

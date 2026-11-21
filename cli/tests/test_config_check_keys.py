@@ -36,6 +36,7 @@ def isolated(monkeypatch, tmp_path):
         "MINER_API_KEYS",
         "ADMIN_API_KEY",
         "COORDINATOR_API_KEY",
+        "GOVERNANCE_API_KEY",
         "OPENAI_API_KEY",
         "GOOGLE_TRANSLATE_API_KEY",
         "DEEPL_API_KEY",
@@ -106,6 +107,7 @@ def test_missing_required_still_reported(runner, isolated):
         "MINER_API_KEY",
         "ADMIN_API_KEY",
         "COORDINATOR_API_KEY",
+        "GOVERNANCE_API_KEY",
     }
 
 
@@ -114,7 +116,12 @@ def test_partial_env_file_fills_required_count(runner, isolated):
     result = runner.invoke(config, obj={"output_format": "json"}, args=["check-keys"])
     doc = json.loads(result.stdout)
     assert doc["required_present"] == 2
-    assert set(doc["missing_required"]) == {"AITBC_API_KEY", "MINER_API_KEY", "COORDINATOR_API_KEY"}
+    assert set(doc["missing_required"]) == {
+        "AITBC_API_KEY",
+        "MINER_API_KEY",
+        "COORDINATOR_API_KEY",
+        "GOVERNANCE_API_KEY",
+    }
 
 
 def test_strict_exits_nonzero_when_required_missing(runner, isolated):

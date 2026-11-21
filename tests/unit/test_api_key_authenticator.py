@@ -72,6 +72,20 @@ def test_http_wrong_key(client: TestClient) -> None:
     assert resp.json()["detail"] == "Invalid API key"
 
 
+def test_http_key_name_labels_401_detail() -> None:
+    """#2411: a named credential turns the bare 401 into an actionable one —
+    the governance service passes ``GOVERNANCE_API_KEY`` so a rejected CLI
+    caller learns which env var to provision."""
+    auth = APIKeyAuthenticator(expected_key=KEY, auth_enabled=True, header_name=HEADER, key_name="GOVERNANCE_API_KEY")
+    client = TestClient(_make_app(auth))
+    assert client.get("/ping").json()["detail"] == "Missing GOVERNANCE_API_KEY"
+    resp = client.get("/ping", headers={HEADER: "wrong"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid GOVERNANCE_API_KEY"
+    # The valid-key path is unaffected.
+    assert client.get("/ping", headers={HEADER: KEY}).status_code == 200
+
+
 def test_http_unconfigured() -> None:
     auth = APIKeyAuthenticator(expected_key=None, auth_enabled=True, header_name=HEADER)
     resp = TestClient(_make_app(auth)).get("/ping", headers={HEADER: KEY})

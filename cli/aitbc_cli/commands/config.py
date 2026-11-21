@@ -791,6 +791,12 @@ def check_keys(ctx, strict: bool):
         "MINER_API_KEY",
         "ADMIN_API_KEY",
         "COORDINATOR_API_KEY",
+        # Governance-service write key (#1873 perimeter, #2411): every node
+        # runs :8105 with auth_enabled=true, so without this key all
+        # `aitbc governance` writes 401 — exactly the blind spot the S17
+        # replay hit when check-keys reported "all required present" while
+        # the write key sat unlisted in /etc/aitbc/aitbc-governance.env.
+        "GOVERNANCE_API_KEY",
     ]
     optional_keys = [
         "OPENAI_API_KEY",
