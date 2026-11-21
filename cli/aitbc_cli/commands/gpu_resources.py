@@ -16,6 +16,17 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the deregister preflight lookup (#2403): HTTP
+# transport errors plus the data-shape errors an unexpected response can raise.
+_PREFLIGHT_ERRORS = (
+    NetworkError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    RuntimeError,
+)
+
 
 def _hub_rpc_url(config, rpc_url: str) -> str:
     """Swap a localhost RPC base for the hub's public one when a hub is known.
@@ -191,7 +202,7 @@ def _refuse_deregister_with_active_allocations(ctx, config, rpc_url: str, chain_
         )
         params = {"chain_id": chain_id} if chain_id else {}
         info = http_client.get(f"/rpc/gpu/info/{gpu_id}", params=params)
-    except Exception as e:
+    except _PREFLIGHT_ERRORS as e:
         # Preflight is advisory; the chain enforces the real deregister rule.
         logger.warning("Could not check active allocations for %s before deregister: %s", gpu_id, e)
         return
