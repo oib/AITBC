@@ -120,7 +120,7 @@ aitbc crosschain swap \
     --to-chain bc-2-island-1 \
     --from-token AIT \
     --to-token AIT \
-    --amount 100 \
+    --amount 1 \
     --slippage 0.02 \
     --wallet wallet-1 \
     --wait
@@ -135,8 +135,8 @@ Swap ID           swap_abc123
 Transfer ID       0x9f2c...        # real BRIDGE_LOCK transaction hash
 From Chain        bc-2
 To Chain          bc-2-island-1
-Amount            100
-Expected Amount   100
+Amount            1
+Expected Amount   1
 Rate              1.0
 Total Fees        0.1
 Status            pending
@@ -150,9 +150,10 @@ Swap status: ✅ completed — released on target chain
 
 If the release path is not configured on the target side, `--wait` ends with the honest non-terminal state (e.g. `pending`/`locked`) instead of a fabricated `completed`.
 
-> **Descoped magnitude leg (operator ruling, 21 Nov 2026 — decision
-> card 4A):** the doc-scale 100 AIT amount below is descoped — see the
-> Step 5 note for the ruling and the completed 1-AIT evidence.
+> **Amount note:** the example uses 1 AIT — the magnitude actually played
+> and sealed (see Step 5). The historical doc-scale 100/500 AIT legs were
+> descoped per operator ruling (card 4A, 21 Nov): they exceed fleet wallet
+> balances and add treasury exposure, not evidence.
 
 ### Step 3: Check Swap Status
 
@@ -173,8 +174,8 @@ From Chain        bc-2
 To Chain          bc-2-island-1
 From Token        AIT
 To Token          AIT
-Amount            100
-Expected Amount   100
+Amount            1
+Expected Amount   1
 Actual Amount     -
 Status            pending
 Lock Block Height -
@@ -207,7 +208,7 @@ Found 3 cross-chain swaps:
 +----------+----------+----------+--------+-----------+---------------------+
 | ID       | From     | To       | Amount | Status    | Created             |
 +==========+==========+==========+========+===========+=====================+
-| swap_a...| bc-2  | ait-dev  | 100    | pending   | 2026-06-25 10:00:00 |
+| swap_a...| bc-2  | ait-dev  | 1      | pending   | 2026-06-25 10:00:00 |
 | swap_b...| ait-dev  | bc-2  | 50     | completed | 2026-06-25 09:30:00 |
 | swap_c...| bc-2  | ait-test | 200    | completed | 2026-06-25 08:15:00 |
 +----------+----------+----------+--------+-----------+---------------------+
@@ -222,7 +223,7 @@ aitbc crosschain bridge \
     --source-chain bc-2 \
     --target-chain bc-2-island-1 \
     --token AIT \
-    --amount 500 \
+    --amount 1 \
     --wallet wallet-1 \
     --recipient 0xrecipient789...
 ```
@@ -236,8 +237,8 @@ Bridge ID         0x9f2c...        # transfer id == real source tx hash
 Source Chain      bc-2
 Target Chain      bc-2-island-1
 Token             AIT
-Amount            500
-Bridge Fee        0.5
+Amount            1
+Bridge Fee        0.001
 Status            pending
 Source Tx Hash    0x9f2c...
 
@@ -245,11 +246,12 @@ Track bridge with: aitbc crosschain bridge-status --bridge-id 0x9f2c...
 ```
 
 > **Descoped magnitude legs (operator ruling, 21 Nov 2026 — decision
-> card 4A):** the doc-scale magnitudes — the 100 AIT swap (Step 2)
-> and the 500 AIT bridge (this step) — exceed fleet wallet balances
-> (node0's `default` wallet holds ~105 AIT; nothing covers 500) and
-> are infeasible without a treasury top-up, so both are descoped. The
-> evidence that stands is the descoped 1-AIT replay of 20 Nov: swap
+> card 4A):** the original doc-scale magnitudes — 100 AIT swap and
+> 500 AIT bridge — exceed fleet wallet balances (node0's `default`
+> wallet holds ~105 AIT; nothing covers 500) and are infeasible without
+> a treasury top-up, so both are descoped; the examples now use 1 AIT,
+> the magnitude actually played. The evidence that stands is the
+> 1-AIT replay of 20 Nov: swap
 > `swap_4b7732b93595` (BRIDGE_LOCK `0x3fbde565…` sealed @bc-2 32324 →
 > BRIDGE_RELEASE `ac97fd56…` @bc-2-island-1 24775, `completed`) and
 > bridge `0xa95b834e…` (BRIDGE_RELEASE `640d4a62…` @24799,
@@ -272,7 +274,7 @@ Bridge ID           0x9f2c...
 Source Chain        bc-2
 Target Chain        bc-2-island-1
 Asset               AIT
-Amount              500
+Amount              1
 Sender              0xsender...
 Recipient Address   0xrecipient789...
 Status              pending
@@ -405,7 +407,7 @@ async def main():
     init_result = await agent.initiate_atomic_swap(
         swap_id=swap_id,
         token="AIT",
-        amount=100,
+        amount=1,
         participant="0xparticipant123...",
         hashlock=hashlock,
         timelock=timelock,
@@ -506,7 +508,7 @@ async def main():
             "--to-chain", "bc-2-island-1",
             "--from-token", "AIT",
             "--to-token", "AIT",
-            "--amount", "100",
+            "--amount", "1",
             "--slippage", "0.02",
         ],
         capture_output=True, text=True,
@@ -573,4 +575,4 @@ aitbc crosschain pools
 ---
 
 *Last updated: 2026-11-21*
-*Version: 1.5 — magnitude legs (100 AIT swap, 500 AIT bridge) descoped per operator ruling 21 Nov 2026 (decision card 4A); the completed 1-AIT replay legs are the evidence. v1.4: GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof. v1.4: examples moved off the impossible same-chain bc-2→bc-2 pair to the verified bc-2→bc-2-island-1 lane (CLI refuses identical chains).*
+*Version: 1.6 — examples moved to the proven 1-AIT magnitude so doc amounts are playable, not blockers; v1.5 — magnitude legs (100 AIT swap, 500 AIT bridge) descoped per operator ruling 21 Nov 2026 (decision card 4A); the completed 1-AIT replay legs are the evidence. v1.4: GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof. v1.4: examples moved off the impossible same-chain bc-2→bc-2 pair to the verified bc-2→bc-2-island-1 lane (CLI refuses identical chains).*
