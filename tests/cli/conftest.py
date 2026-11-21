@@ -129,3 +129,26 @@ def _cli_default_obj(monkeypatch):
         return original_invoke(self, cli, args, **kwargs)
 
     monkeypatch.setattr(CliRunner, "invoke", patched_invoke)
+
+
+# market's once-per-process mismatch warnings (#2444) and config's ambient
+# warning dedupe must not leak their sets across tests in one pytest process.
+@pytest.fixture(autouse=True)
+def _reset_warning_dedupes():
+    try:
+        from aitbc_cli.commands import market as _market_mod
+    except ImportError:
+        _market_mod = None
+    if _market_mod is not None:
+        _market_mod._MISMATCH_WARNED.clear()
+    try:
+        from aitbc_cli import config as _config_mod
+    except ImportError:
+        _config_mod = None
+    if _config_mod is not None:
+        _config_mod._AMBIENT_CONFIG_WARNED.clear()
+    yield
+    if _market_mod is not None:
+        _market_mod._MISMATCH_WARNED.clear()
+    if _config_mod is not None:
+        _config_mod._AMBIENT_CONFIG_WARNED.clear()

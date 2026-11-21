@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from aitbc.exceptions import AITBCError
 
-from .http_client import AITBCHTTPClient, NetworkError, get_logger
+from .http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from .output import error
 
 logger = get_logger(__name__)
@@ -182,6 +182,13 @@ class WalletDaemonClient:
                 metadata=data.get("metadata"),
             )
         except NetworkError as e:
+            if http_response_status(e) == 404:
+                # A missing wallet is an answer, not an error — callers fall
+                # back to file wallets and emit the canonical not-found
+                # refusal; printing the daemon 404 first was pure noise
+                # (#2444).
+                logger.debug("Wallet %s not found in daemon", wallet_id)
+                return None
             error(f"Failed to get wallet info: {e}")
             return None
         except _DAEMON_ERRORS as e:
@@ -201,6 +208,9 @@ class WalletDaemonClient:
                 last_updated=data.get("last_updated"),
             )
         except NetworkError as e:
+            if http_response_status(e) == 404:
+                logger.debug("Wallet %s not found in daemon", wallet_id)
+                return None
             error(f"Failed to get wallet balance: {e}")
             return None
         except _DAEMON_ERRORS as e:

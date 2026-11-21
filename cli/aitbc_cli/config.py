@@ -474,6 +474,13 @@ def _register_trusted_api_key_hosts(config: "CLIConfig") -> "CLIConfig":
     return config
 
 
+# Ambient-config warnings fire once per resolved path per process (#2444):
+# get_config() runs from many call sites and stacklevel=2 attributes each
+# warning to a different caller line, so the warnings-module dedupe never
+# engages and one CLI call printed the same notice once per caller.
+_AMBIENT_CONFIG_WARNED: set[str] = set()
+
+
 def get_config(config_file: str | None = None) -> CLIConfig:
     """Load CLI configuration from shared config system"""
     # Determine the config file to load. If not explicitly provided, use
@@ -498,12 +505,15 @@ def get_config(config_file: str | None = None) -> CLIConfig:
             cwd_config = Path.cwd() / ".aitbc.yaml"
         except OSError:
             cwd_config = None
+        ambient_key = str(config_path)
         if (
             not config_file
             and not os.environ.get("AITBC_CONFIG_FILE")
             and cwd_config is not None
             and config_path == cwd_config
+            and ambient_key not in _AMBIENT_CONFIG_WARNED
         ):
+            _AMBIENT_CONFIG_WARNED.add(ambient_key)
             warnings.warn(
                 f"aitbc: using {config_path} (./.aitbc.yaml in the current directory); "
                 "it can redirect service URLs and credentials. Set AITBC_CONFIG_FILE or "

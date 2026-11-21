@@ -28,6 +28,21 @@ from ...utils.wallet_paths import find_wallet_file
 # Initialize logger
 logger = get_logger(__name__)
 
+# Safety-mismatch warnings (stale island credentials vs the serving chain)
+# print at most once per distinct message per process (#2444): a signing
+# command resolves the chain id several times and every call re-emitted the
+# same notice. The warning still fires on the first observation — it is
+# never suppressed across processes, so a stale credential file keeps
+# nagging until it is refreshed.
+_MISMATCH_WARNED: set[str] = set()
+
+
+def _warn_once(message: str) -> None:
+    if message not in _MISMATCH_WARNED:
+        _MISMATCH_WARNED.add(message)
+        warning(message)
+
+
 # Expected failure surface for the market helper fallbacks below (#1860):
 # aitbc/CLI error hierarchies plus filesystem, parse and data-shape builtins.
 _MARKET_ERRORS = (
@@ -108,7 +123,7 @@ def get_chain_id() -> str:
     env_chain_id = os.getenv("CHAIN_ID")
     if env_chain_id:
         if creds_chain_id and creds_chain_id != env_chain_id:
-            warning(
+            _warn_once(
                 f"chain id mismatch: island credentials at {CREDENTIALS_PATH} say "
                 f"'{creds_chain_id}' but CHAIN_ID='{env_chain_id}' — signing for "
                 f"'{env_chain_id}'. Refresh credentials: aitbc node island join"
@@ -126,7 +141,7 @@ def get_chain_id() -> str:
         probe_error = e
     else:
         if creds_chain_id and creds_chain_id != probed:
-            warning(
+            _warn_once(
                 f"chain id mismatch: island credentials at {CREDENTIALS_PATH} say "
                 f"'{creds_chain_id}' but the node RPC at {rpc_url} advertises "
                 f"'{probed}' — signing for '{probed}'. Refresh credentials: "
@@ -135,7 +150,7 @@ def get_chain_id() -> str:
         return probed
 
     if creds_chain_id:
-        warning(
+        _warn_once(
             f"chain-id probe via {rpc_url} failed ({probe_error}); falling back to "
             f"island credentials '{creds_chain_id}' — verify this is the chain the "
             "market service serves"
@@ -165,7 +180,7 @@ def get_island_id() -> str:
         pass
     if env_island:
         if creds_island and creds_island != env_island:
-            warning(
+            _warn_once(
                 f"island id mismatch: island credentials at {CREDENTIALS_PATH} say "
                 f"'{creds_island}' but ISLAND_ID='{env_island}' — using ISLAND_ID"
             )
