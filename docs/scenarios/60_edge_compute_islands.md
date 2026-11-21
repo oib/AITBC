@@ -68,8 +68,9 @@ aitbc edge balance
 aitbc --output json edge balance
 ```
 
-**Expected output:** the edge status map, then the edge wallet balance
-(integer units; `UNITS_PER_AIT = 36_000_000`).
+**Expected output:** the edge status map, then an error — `edge balance`
+is a 501 placeholder (`/v1/edge-gpu/balance` is intentionally
+unimplemented; use `aitbc wallet balance` for real balances).
 
 ### 2. GPU inventory
 
@@ -150,9 +151,10 @@ queued request — only cancel requests you own.
 
 ### 7. Edge transfer (spends — operator line required)
 
-`aitbc edge transfer --to-address <addr> --amount <n>` (optional `--note <text>`) moves AIT out
-of the edge wallet. Any amount is a real spend; not played without the
-operator's line.
+`aitbc edge transfer --to-address <addr> --amount <n>` (optional `--note <text>`) is also a
+501 placeholder — `/v1/edge-gpu/transfer` is intentionally unimplemented (use
+`aitbc wallet send`). Even if implemented, any amount would be a real spend;
+not played without the operator's line.
 
 ---
 
@@ -162,13 +164,14 @@ operator's line.
 |---|---|
 | Steps 1–5 read-only queries and metric records | 0 AIT |
 | `serve submit-request` | requires a paid job's locked escrow (402 otherwise) |
-| `edge transfer` | `--amount` (integer units) — not played |
+| `edge transfer` | placeholder 501 — not playable |
 
 ---
 
 ## Verification
 
-- `aitbc edge balance` unchanged after all read-only steps.
+- `aitbc edge balance` returns the 501 placeholder error (documented
+  unimplemented surface), not a balance.
 - `aitbc edge gpu list-gpus` shows any newly scanned GPU.
 - `aitbc edge database list-dbs` shows `db-1` after `init-db`.
 
