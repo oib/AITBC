@@ -63,6 +63,10 @@ class PaymentFundingMixin(PaymentEscrowMixin):
             meta["offer_price_unit"] = payment_data.offer_price_unit
         if payment_data.offer_quantity is not None:
             meta["offer_quantity"] = str(payment_data.offer_quantity)
+        # #2371: the buyer signs market_job_id into the ESCROW_LOCK payload;
+        # the rebuilt tx must carry it verbatim or the signature never verifies.
+        if payment_data.market_job_id:
+            meta["market_job_id"] = payment_data.market_job_id
         return meta
 
     def _check_quote_job_binding(self, job: Job, quote: EnergyQuote) -> None:
@@ -257,6 +261,15 @@ class PaymentFundingMixin(PaymentEscrowMixin):
     async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
         job = await run_in_threadpool(self._require_owned_job, job_id, client_id)
+        # #2371: the signed lock binds this payment to a market job — it must
+        # be the market job the coordinator job itself declared, or the alias
+        # claim would authorize a token this job never asked for.
+        declared_market_job = (job.payload or {}).get("market_job_id") if isinstance(job.payload, dict) else None
+        if payment_data.market_job_id and payment_data.market_job_id != declared_market_job:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="market_job_id does not match the job's declared market job",
+            )
         try:
             meta = self._payment_meta(payment_data)
             amount, quote = await run_in_threadpool(self._resolve_payment_quote, job, job_id, payment_data, meta)

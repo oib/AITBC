@@ -105,6 +105,11 @@ class PaymentEscrowMixin(PaymentCoreMixin):
         }
         if meta.get("energy_is_protected"):
             self._mirror_energy_lock_payload(tx["payload"], meta)
+        # #2371: mirror the market-job binding the buyer signed locally —
+        # omitting it rebuilds a tx whose canonical bytes differ from the
+        # signed one and the chain refuses the signature.
+        if meta.get("market_job_id"):
+            tx["payload"]["market_job_id"] = meta["market_job_id"]
         return tx, amount_units
 
     def _mirror_energy_lock_payload(self, payload: dict[str, Any], meta: dict[str, Any]) -> None:
