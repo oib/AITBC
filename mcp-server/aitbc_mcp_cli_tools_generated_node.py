@@ -525,6 +525,8 @@ def aitbc_node_hub_register(
         ),
     ] = None,
     hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")] = None,
+    island_id: Annotated[str | None, Field(description="Island ID (default: ISLAND_ID env)")] = None,
+    island_name: Annotated[str | None, Field(description="Island name (default: ISLAND_NAME env, else 'default')")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -540,6 +542,8 @@ def aitbc_node_hub_register(
             "public_port": "public-port",
             "redis_url": "redis-url",
             "hub_discovery_url": "hub-discovery-url",
+            "island_id": "island-id",
+            "island_name": "island-name",
         },
     )
     args = None
@@ -584,6 +588,8 @@ def aitbc_node_hub_unregister(
         ),
     ] = None,
     hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")] = None,
+    island_id: Annotated[str | None, Field(description="Island ID (default: ISLAND_ID env)")] = None,
+    island_name: Annotated[str | None, Field(description="Island name (default: ISLAND_NAME env, else 'default')")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -594,7 +600,12 @@ def aitbc_node_hub_unregister(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"redis_url": "redis-url", "hub_discovery_url": "hub-discovery-url"},
+        values={
+            "redis_url": "redis-url",
+            "hub_discovery_url": "hub-discovery-url",
+            "island_id": "island-id",
+            "island_name": "island-name",
+        },
     )
     args = None
     target = _host_for_role(role, host)

@@ -17,6 +17,8 @@ aitbc node hub unregister [OPTIONS]
 | `--redis-url` | text | — | no | Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379) |
 | `--redis-password` | text | — | no | Redis password (or REDIS_PASSWORD env) if the URL has none |
 | `--hub-discovery-url` | text | `hub.aitbc.invalid` | no | DNS hub discovery URL |
+| `--island-id` | text | — | no | Island ID (default: ISLAND_ID env) |
+| `--island-name` | text | — | no | Island name (default: ISLAND_NAME env, else 'default') |
 
 ## Examples
 

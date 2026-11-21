@@ -205,10 +205,14 @@ def hub():
 )
 @click.option("--redis-password", default=None, help="Redis password (or REDIS_PASSWORD env) if the URL has none")
 @click.option("--hub-discovery-url", default="hub.aitbc.invalid", help="DNS hub discovery URL")
+@click.option("--island-id", "island_id", default=None, help="Island ID (default: ISLAND_ID env)")
+@click.option("--island-name", "island_name", default=None, help="Island name (default: ISLAND_NAME env, else 'default')")
 @click.pass_context
-def register(ctx, public_address, public_port, redis_url, redis_password, hub_discovery_url):
+def register(ctx, public_address, public_port, redis_url, redis_password, hub_discovery_url, island_id, island_name):
     """Register this node as a hub."""
-    register_hub_command(ctx, public_address, public_port, redis_url, hub_discovery_url, redis_password)
+    register_hub_command(
+        ctx, public_address, public_port, redis_url, hub_discovery_url, redis_password, island_id, island_name
+    )
 
 
 @hub.command(
@@ -225,10 +229,12 @@ def register(ctx, public_address, public_port, redis_url, redis_password, hub_di
 )
 @click.option("--redis-password", default=None, help="Redis password (or REDIS_PASSWORD env) if the URL has none")
 @click.option("--hub-discovery-url", default="hub.aitbc.invalid", help="DNS hub discovery URL")
+@click.option("--island-id", "island_id", default=None, help="Island ID (default: ISLAND_ID env)")
+@click.option("--island-name", "island_name", default=None, help="Island name (default: ISLAND_NAME env, else 'default')")
 @click.pass_context
-def unregister(ctx, redis_url, redis_password, hub_discovery_url):
+def unregister(ctx, redis_url, redis_password, hub_discovery_url, island_id, island_name):
     """Unregister this node as a hub."""
-    unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password)
+    unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password, island_id, island_name)
 
 
 @hub.command(

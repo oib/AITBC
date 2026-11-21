@@ -204,13 +204,17 @@ Successfully left island 550e8400-e29b-41d4-a716-446655440000
 
 ### Step 6: Register as a Hub (Optional)
 
-If you joined an island with `--is-hub`, complete the hub registration:
+If you joined an island with `--is-hub`, complete the hub registration. The island identity comes from `--island-id` / `--island-name` (falling back to the `ISLAND_ID` / `ISLAND_NAME` environment variables):
 
 ```bash
 aitbc node hub register \
   --public-address 203.0.113.50 \
-  --public-port 26656
+  --public-port 26656 \
+  --island-id <your_island_id> \
+  --island-name <your_island_name>
 ```
+
+Like `island join`, a missing or unreadable `/var/lib/aitbc/keystore/validator_keys.json` only produces a warning — validator keys are needed for island consensus participation, not for hub registration (override the path with `AITBC_VALIDATOR_KEYSTORE` if your keystore lives elsewhere). `hub unregister` takes the same `--island-id` / `--island-name` options and keystore behavior.
 
 Hub commands read Redis credentials from `--redis-url` (which may embed `user:password@`), the `redis_url` config key / `REDIS_URL` env var (the fleet ships a credentialed URL in `/etc/aitbc/blockchain-secrets.env`), or `--redis-password` / `REDIS_PASSWORD`.
 
@@ -220,10 +224,10 @@ List registered hubs:
 aitbc node hub list-hubs
 ```
 
-Unregister from hub duty:
+Unregister from hub duty (same `--island-id` / `--island-name` options as register):
 
 ```bash
-aitbc node hub unregister
+aitbc node hub unregister --island-id <your_island_id>
 ```
 
 ---

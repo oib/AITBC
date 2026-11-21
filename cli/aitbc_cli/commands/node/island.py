@@ -124,26 +124,27 @@ def create_island_command(ctx, island_id, island_name, chain_id, node_url="http:
         raise click.Abort() from e
 
 
-def _load_validator_public_key() -> str | None:
+def _load_validator_public_key(action: str = "joining") -> str | None:
     """Read the first validator public key from the keystore, if present.
 
-    The island join RPC does not transmit this key — it is only needed on
-    nodes that will later participate in the island's consensus — so a
-    missing, unreadable, or empty keystore is a warning, not a blocker
-    (#2379). ``AITBC_VALIDATOR_KEYSTORE`` overrides the default path.
+    The island join/hub-register RPCs do not transmit this key as a
+    validator credential — it only feeds hub ``node_id`` derivation and the
+    discovery record — so a missing, unreadable, or empty keystore is a
+    warning, not a blocker (#2379). ``AITBC_VALIDATOR_KEYSTORE`` overrides
+    the default path. ``action`` tailors the warning ("joining"/"registering").
     """
     keystore_path = os.environ.get("AITBC_VALIDATOR_KEYSTORE", "/var/lib/aitbc/keystore/validator_keys.json")
     public_key_pem = None
 
     if not os.path.exists(keystore_path):
-        warning(f"Validator keystore not found at {keystore_path} — joining without a validator key")
+        warning(f"Validator keystore not found at {keystore_path} — {action} without a validator key")
         return None
 
     try:
         with open(keystore_path) as f:
             keys = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
-        warning(f"Validator keystore unreadable at {keystore_path}: {e} — joining without a validator key")
+        warning(f"Validator keystore unreadable at {keystore_path}: {e} — {action} without a validator key")
         return None
 
     if isinstance(keys, dict):
@@ -153,7 +154,7 @@ def _load_validator_public_key() -> str | None:
                 break
 
     if not public_key_pem:
-        warning(f"No validator public key found at {keystore_path} — joining without a validator key")
+        warning(f"No validator public key found at {keystore_path} — {action} without a validator key")
         return None
     return str(public_key_pem)
 
