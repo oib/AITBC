@@ -6,6 +6,7 @@ a local SQLite database so messages are still durably stored on the
  coordinator node.
 """
 
+import asyncio
 import json
 import os
 import sqlite3
@@ -65,6 +66,10 @@ class MessageStorage:
         self.database_url = database_url
         self.sqlite_conn: Any | None = None
         self.sqlite_db_path: str | None = None
+        # Per-index locks serializing the one-time SET→zset upgrade so two
+        # coroutines can't interleave DELETE/ZADD and drop a concurrent
+        # store's member (#2466).
+        self._index_upgrade_locks: dict[str, asyncio.Lock] = {}
 
         if database_url and database_url.startswith("sqlite:///"):
             self.sqlite_db_path = database_url[len("sqlite:///") :]
@@ -289,12 +294,26 @@ class MessageStorage:
         await self.redis.zremrangebyrank(key, 0, -keep - 1)  # type: ignore[union-attr]
 
     async def _upgrade_legacy_message_index(self, index_key: str) -> None:
-        """Convert pre-#1529 SET indexes to scored zsets.
+        """Convert pre-#1529 SET indexes to scored zsets, serialized per key.
 
         Older coordinator builds indexed per-agent inboxes with ``SADD``;
         #1529 moved them to ``ZADD`` + ``ZREVRANGE``. Leftover SET keys make
         reads and writes fail with WRONGTYPE while message hashes still exist.
+
+        The conversion itself (TYPE → SMEMBERS → DELETE → ZADD) is not
+        atomic, so callers serialize on a per-key lock and the type check
+        inside re-observes the post-upgrade zset — without it, a second
+        upgrader's ``DELETE`` could land after a concurrent ``store_message``
+        ``ZADD`` and silently drop that message from the index (#2466).
         """
+        if self.redis is None:
+            return
+        lock = self._index_upgrade_locks.setdefault(index_key, asyncio.Lock())
+        async with lock:
+            await self._upgrade_legacy_message_index_locked(index_key)
+
+    async def _upgrade_legacy_message_index_locked(self, index_key: str) -> None:
+        """Body of the SET→zset upgrade; caller must hold the per-key lock."""
         if self.redis is None:
             return
         key_type = await self.redis.type(index_key)
