@@ -15,7 +15,7 @@ import os
 from datetime import UTC, datetime
 from typing import NamedTuple
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from aitbc.network import SharedHttpClient
 
@@ -883,3 +883,89 @@ def _count_orphan_refund_pass(stats: dict[str, int]) -> None:
                 escrow_orphan_refund_pass_total.labels(result=result).inc(n)
     except Exception as e:  # noqa: BLE001 - metrics must never break the pass
         _logger.debug("orphan-refund-pass metrics emit failed: %s", e)
+
+
+# --------------------------------------------------------------------------
+# Phantom-lock void pass (#2390)
+#
+# ``create_escrow`` persists the Escrow row with ``status="locked"`` and the
+# submitted ``lock_tx_hash`` once ``_verify_funding_lock`` sees the lock —
+# a *sealed* row or a *mempool* entry both qualify. A mempool-admitted lock
+# can still be evicted (or lost with the mempool) before it seals: the row
+# then reads locked/funded forever while ``_ensure_lock_sealed`` 425s every
+# settlement attempt on a hash that never lands (live case:
+# sw_job_20261120133522_2a4a4675, 21 Nov — #2386).
+#
+# This pass voids rows whose recorded ``lock_tx_hash`` resolves nowhere:
+# not in the sealed ``transaction`` table and not in the proposer mempool,
+# past a min age. ``status="void"`` is terminal bookkeeping — no funds ever
+# moved, so there is nothing to refund or release; the in-memory contract
+# is evicted by the caller so ``GET /escrow`` stops reporting funded.
+#
+# Pure decision layer like the other passes: all DB work goes through
+# ``session``; the sealed/mempool probes and the write live in the sweeper
+# module. Flags: ESCROW_PHANTOM_VOID_PASS_ENABLED arms it,
+# ESCROW_PHANTOM_VOID_PASS_DRY_RUN logs and counts without writing.
+# --------------------------------------------------------------------------
+
+
+def _phantom_void_pass_enabled() -> bool:
+    return os.getenv("ESCROW_PHANTOM_VOID_PASS_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _phantom_void_pass_dry_run() -> bool:
+    return os.getenv("ESCROW_PHANTOM_VOID_PASS_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+class _PhantomVoidCandidate(NamedTuple):
+    job_id: str
+    lock_tx_hash: str
+    chain_id: str
+    created_at: datetime | None
+
+
+def phantom_void_candidates(
+    session,
+    now: datetime,
+    *,
+    min_age_seconds: int,
+    max_rows: int,
+) -> list[_PhantomVoidCandidate]:
+    """Escrow rows still claiming ``locked`` past the min age with a recorded
+    lock hash and no settlement leg — the phantom-candidate set. Whether the
+    hash is actually dead is decided per candidate by the sealed/mempool
+    probes in the sweeper module."""
+    cutoff = now.timestamp() - min_age_seconds
+    stmt = (
+        select(Escrow)
+        .where(Escrow.status == "locked")
+        .where(Escrow.lock_tx_hash.is_not(None))  # type: ignore[union-attr]
+        .where(Escrow.released_at.is_(None))  # type: ignore[union-attr]
+        .where(Escrow.refunded_at.is_(None))  # type: ignore[union-attr]
+        .where(col(Escrow.created_at) < datetime.fromtimestamp(cutoff, UTC))
+        .order_by(col(Escrow.created_at))
+        .limit(max_rows)
+    )
+    return [
+        _PhantomVoidCandidate(
+            job_id=str(row.job_id),
+            lock_tx_hash=str(row.lock_tx_hash),
+            chain_id=str(row.chain_id),
+            created_at=row.created_at,
+        )
+        for row in session.exec(stmt)
+        if row.lock_tx_hash
+    ]
+
+
+def _count_phantom_void_pass(stats: dict[str, int]) -> None:
+    try:
+        from ..metrics import escrow_phantom_void_pass_total
+
+        # Heartbeat: one "tick" per executed pass run (see _count_fee_pass).
+        escrow_phantom_void_pass_total.labels(result="tick").inc()
+        for result, n in stats.items():
+            if n:
+                escrow_phantom_void_pass_total.labels(result=result).inc(n)
+    except Exception as e:  # noqa: BLE001 - metrics must never break the pass
+        _logger.debug("phantom-void-pass metrics emit failed: %s", e)
