@@ -211,7 +211,11 @@ class NodeClient:
             return result
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
-                logger.error("Failed to get hosted chains for %s: %s", self.config.id, e)
+                # Debug, not error: multi-node fan-out callers classify
+                # per-node failures themselves, and the exception text
+                # ("All connection attempts failed") reads as command failure
+                # on stderr even when sibling nodes answered (#2424).
+                logger.debug("Hosted-chains query failed for %s: %s", self.config.id, e)
                 raise
             logger.warning("[DEV_MODE] Using mock chains for %s: %s", self.config.id, e)
             return self._get_mock_chains()
