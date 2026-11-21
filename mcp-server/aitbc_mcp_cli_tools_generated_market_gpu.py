@@ -117,7 +117,10 @@ def aitbc_market_gpu_buy(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    energy_quote: Annotated[str | dict[str, Any] | None, Field(description="JSON file containing the energy quote")] = None,
+    energy_quote: Annotated[
+        str | dict[str, Any] | None,
+        Field(description="JSON file containing the energy quote (read and signature-verified before the wallet is loaded)"),
+    ] = None,
     max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")] = None,
     yes: Annotated[bool | None, Field(description="Skip confirmation prompt")] = None,
     json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,

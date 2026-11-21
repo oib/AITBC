@@ -363,7 +363,10 @@ def _load_energy_quote_file(path: str | None) -> dict[str, Any]:
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
 @wallet_password_options
-@click.option("--energy-quote", help="JSON file containing the energy quote")
+@click.option(
+    "--energy-quote",
+    help="JSON file containing the energy quote (read and signature-verified before the wallet is loaded)",
+)
 @click.option("--max-ait", type=float, default=None, help="Maximum AIT buyer cap")
 @click.option("--yes", is_flag=True, help="Skip confirmation prompt")
 @click.option("--json-output", is_flag=True, help="Output raw JSON")

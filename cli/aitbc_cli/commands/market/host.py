@@ -872,22 +872,29 @@ def _resolve_download_cid(
     return cid
 
 
-def _cat_ipfs(ipfs_api: str, cid: str, wait: bool) -> bytes | None:
-    """Retrieve CID content from the local daemon, optionally polling until it appears."""
-    try:
-        for _attempt in range(1, 60 if wait else 1):
-            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
-            if response.status_code == 200:
-                break
-            if not wait:
-                response.raise_for_status()
-                break
-            import time
+def _cat_ipfs(ipfs_api: str, cid: str, wait: bool, timeout_seconds: float = 60.0) -> bytes | None:
+    """Retrieve CID content from the local daemon, optionally polling until it appears.
 
-            time.sleep(2)
-        else:
-            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
-        response.raise_for_status()
+    ``--wait`` is bounded by ``timeout_seconds`` (#2443): the old fixed
+    59-attempt loop could poll for ~30 minutes with no way for the caller to
+    cap it. Each ``cat`` attempt gets at most 30s and never more than the
+    remaining budget, so the deadline is honored even when the daemon hangs.
+    """
+    try:
+        deadline = time.monotonic() + timeout_seconds
+        response: requests.Response | None = None
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=min(30.0, remaining), ipfs_api=ipfs_api)
+            if response.status_code == 200 or not wait:
+                break
+            time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
+        if response is None:
+            raise RuntimeError(f"timed out before the first cat attempt for CID {cid}")
+        if response.status_code != 200:
+            response.raise_for_status()
         return response.content
     except _MARKET_HOST_ERRORS as e:
         warning(f"Could not retrieve CID {cid}: {e}")
@@ -921,6 +928,14 @@ def _write_download(data: bytes, output_path: str | None) -> str:
 @click.option("--cid", "cid", help="Free CID retrieval (bypasses access token)")
 @click.option("--output-path", "output_path", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
+@click.option(
+    "--timeout",
+    "timeout_seconds",
+    type=float,
+    default=60.0,
+    show_default=True,
+    help="Max seconds to wait for the CID when --wait is set",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def download(
@@ -931,6 +946,7 @@ def download(
     cid: str | None,
     output_path: str | None,
     wait: bool,
+    timeout_seconds: float,
     output_format: str,
 ):
     """Download IPFS content by market job, access token, or free CID."""
@@ -950,7 +966,11 @@ def download(
         error(f"No reachable Kubo daemon at {ipfs_api}")
         raise click.Abort()
 
-    data = _cat_ipfs(ipfs_api, cid, wait)
+    if timeout_seconds <= 0:
+        error("--timeout must be greater than 0 seconds")
+        raise click.Abort()
+
+    data = _cat_ipfs(ipfs_api, cid, wait, timeout_seconds)
 
     if data is None and not output_path:
         error(f"CID not retrievable and no filesystem fallback: {cid}")

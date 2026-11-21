@@ -31,6 +31,7 @@ def aitbc_market_download(
     cid: Annotated[str | None, Field(description="Free CID retrieval (bypasses access token)")] = None,
     output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
     wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
+    timeout_seconds: Annotated[float | None, Field(description="Max seconds to wait for the CID when --wait is set")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
     market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
@@ -52,6 +53,7 @@ def aitbc_market_download(
             "access_key": "access-key",
             "cid": "cid",
             "output_path": "output-path",
+            "timeout_seconds": "timeout",
             "output_format": "format",
         },
     )

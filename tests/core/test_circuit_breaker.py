@@ -185,3 +185,22 @@ class TestCircuitBreakerRecoveryCycle:
         breaker.check()  # half-open
         breaker.record_success()  # probe succeeds → closed
         assert breaker.is_open is False
+
+
+class TestCircuitBreakerFailureContext:
+    """#2443: open/reopen warnings must name the call that failed."""
+
+    def test_open_warning_names_failing_call(self, caplog):
+        breaker = CircuitBreaker(threshold=2, timeout=60)
+        with caplog.at_level("WARNING"):
+            breaker.record_failure("GET https://hub.example/v1/market/offer")
+            breaker.record_failure("GET https://hub.example/v1/market/offer")
+        assert "Circuit breaker opened after 2 failures" in caplog.text
+        assert "GET https://hub.example/v1/market/offer" in caplog.text
+
+    def test_open_warning_without_context_unchanged(self, caplog):
+        breaker = CircuitBreaker(threshold=1, timeout=60)
+        with caplog.at_level("WARNING"):
+            breaker.record_failure()
+        assert "Circuit breaker opened after 1 failures" in caplog.text
+        assert "last failure" not in caplog.text
