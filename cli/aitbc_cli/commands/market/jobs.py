@@ -44,6 +44,7 @@ _JOBS_ERRORS = (
 # job error (#1860).
 _REFUND_ERRORS = _JOBS_ERRORS + (click.Abort, click.ClickException)
 
+from ...utils.error_handling import CLIError, abort
 from ._group import market
 from . import get_chain_id, get_market_wallet, get_next_nonce
 from .escrow import _escrow_create, refund_escrow
@@ -1316,12 +1317,14 @@ def run_job(
                 node_wallet=node_wallet,
             )
         else:
-            error(f"Service type '{service_type}' not yet supported via 'market run'")
-            raise click.Abort()
+            abort(ctx, f"Service type '{service_type}' not yet supported via 'market run'")
 
-    except Exception as e:
-        error(f"Error running job: {e}")
-        raise click.Abort() from e
+    except (click.Abort, CLIError):
+        # click.Abort and inner abort()s carry their own refusal — don't wrap
+        # them in a second "Error running job" document (#2438).
+        raise
+    except Exception as e:  # noqa: BLE001 - run_job boundary: any failure becomes a CLI refusal
+        abort(ctx, f"Error running job: {e or type(e).__name__}", from_exception=e)
 
 
 @market.command(

@@ -15,9 +15,9 @@ import httpx
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from aitbc.exceptions import AITBCError
-from ..utils import DECIMAL, error, info, output, success, warning
+from ..utils import DECIMAL, info, output, success, warning
 from ..utils.wallet_secret import wallet_password_options
-from ..utils.error_handling import CLIError, abort
+from ..utils.error_handling import abort
 from ..utils.wallet_loader import load_wallet_for_payment
 
 # Import shared modules
@@ -26,10 +26,10 @@ from ..utils.island_credentials import get_chain_id, get_island_id, get_rpc_endp
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
-# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
-# covers generic runtime failures; abort() raises CLIError (already listed),
-# preserving the previous re-abort behaviour. BaseExceptions still propagate
-# (#1864).
+# AITBCError. RuntimeError covers generic runtime failures. CLIError is
+# deliberately NOT listed (#2438): abort() raises it after emitting the
+# refusal, and re-wrapping it printed a second JSON document under
+# --output json. BaseExceptions still propagate (#1864).
 _OPS_ERRORS = (
     OSError,
     ValueError,
@@ -38,7 +38,6 @@ _OPS_ERRORS = (
     AttributeError,
     RuntimeError,
     ImportError,
-    CLIError,
     AITBCError,
     httpx.HTTPError,
 )
@@ -117,8 +116,7 @@ def safe_load_credentials():
     try:
         return load_island_credentials()
     except FileNotFoundError as e:
-        error(f"Island credentials not found: {e}")
-        abort(None, "Run 'aitbc node island join' to join an island first")
+        abort(None, f"Island credentials not found: {e}. Run 'aitbc node island join' to join an island first")
         return None
 
 
@@ -400,8 +398,14 @@ def buy(
                 "User": tx_data["from"][:16] + "...",
                 "Island": tx_data["payload"]["island_id"][:16] + "...",
             }
-            output(order_info, ctx.obj.get("output_format", "table"))
-            output(response, ctx.obj.get("output_format", "table"), title="Transaction")
+            fmt = ctx.obj.get("output_format", "table")
+            if fmt in ("json", "yaml"):
+                # #2438: two output() calls under json/yaml emit two JSON
+                # documents back to back — unparseable. One document instead.
+                output({"order": order_info, "transaction": response}, fmt)
+            else:
+                output(order_info, fmt)
+                output(response, fmt, title="Transaction")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
         except _OPS_ERRORS as e:
@@ -473,8 +477,14 @@ def sell(
                 "User": tx_data["from"][:16] + "...",
                 "Island": tx_data["payload"]["island_id"][:16] + "...",
             }
-            output(order_info, ctx.obj.get("output_format", "table"))
-            output(response, ctx.obj.get("output_format", "table"), title="Transaction")
+            fmt = ctx.obj.get("output_format", "table")
+            if fmt in ("json", "yaml"):
+                # #2438: two output() calls under json/yaml emit two JSON
+                # documents back to back — unparseable. One document instead.
+                output({"order": order_info, "transaction": response}, fmt)
+            else:
+                output(order_info, fmt)
+                output(response, fmt, title="Transaction")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
     except _OPS_ERRORS as e:
