@@ -147,11 +147,15 @@ def start(ctx: click.Context, wallet_name: str, threads: int, rpc_url: str | Non
 
   aitbc mining stop --wallet wallet-1"""
 )
-@click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
+@click.option("--wallet", "wallet_name", help="Miner wallet to stop (default: first wallet found)")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
 def stop(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
-    """Stop mining operations for a wallet."""
+    """Stop mining for the selected wallet's miner row only.
+
+    The RPC scopes the stop to rows owned by the authenticated wallet —
+    other operators' miner rows are untouched (#2407).
+    """
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -163,8 +167,15 @@ def stop(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
 
     try:
         http_client = _client(rpc_url, address)
-        result = http_client.post("/rpc/mining/stop")
-        success("Mining stopped")
+        result = http_client.post("/rpc/mining/stop", json={"miner_address": address})
+        stopped = result.get("miner_addresses") or []
+        already = result.get("already_stopped", 0)
+        if stopped:
+            success(f"Mining stopped for {', '.join(stopped)}")
+        elif already:
+            success("Mining already stopped")
+        else:
+            success("Mining stopped")
         click.echo(f"Status: {result.get('status', 'stopped')}")
     except NetworkError as e:
         if is_unauthorized(e):
@@ -227,10 +238,11 @@ def status(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
   aitbc mining list --wallet wallet-1""",
 )
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
+@click.option("--all", "show_all", is_flag=True, help="Show all registry rows, including disabled miners")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
-def list_miners(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
-    """List active miners for a wallet."""
+def list_miners(ctx: click.Context, wallet_name: str | None, show_all: bool, rpc_url: str | None):
+    """List enabled miners (add --all for the full registry including disabled rows)."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -243,7 +255,10 @@ def list_miners(ctx: click.Context, wallet_name: str | None, rpc_url: str | None
     try:
         http_client = _client(rpc_url, address)
         result = http_client.get("/rpc/mining/miners")
-        success("Active miners:")
+        if not show_all and isinstance(result, dict):
+            miners = [m for m in result.get("miners", []) if m.get("enabled")]
+            result = {**result, "miners": miners, "count": len(miners)}
+        success("Active miners:" if not show_all else "All miners:")
         click.echo(json.dumps(result, indent=2))
     except NetworkError as e:
         if is_unauthorized(e):

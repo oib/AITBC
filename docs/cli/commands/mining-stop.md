@@ -2,7 +2,7 @@
 
 # `aitbc mining stop`
 
-Stop mining operations for a wallet.
+Stop mining for the selected wallet's miner row only. The RPC scopes the stop to rows owned by the authenticated wallet — other operators' miner rows are untouched (#2407).
 
 ## Usage
 
@@ -14,7 +14,7 @@ aitbc mining stop [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--wallet` | text | — | no | Wallet to use for X-Wallet-Address auth |
+| `--wallet` | text | — | no | Miner wallet to stop (default: first wallet found) |
 | `--rpc-url` | text | — | no | Blockchain RPC URL |
 
 ## Examples

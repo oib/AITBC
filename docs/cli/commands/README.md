@@ -543,10 +543,10 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `mining`
 
-- [`aitbc mining list`](mining-list.md) — List active miners for a wallet.
+- [`aitbc mining list`](mining-list.md) — List enabled miners (add --all for the full registry including disabled rows).
 - [`aitbc mining start`](mining-start.md) — Start mining with a specified wallet and optional thread count.
 - [`aitbc mining status`](mining-status.md) — Get the current mining status for a wallet.
-- [`aitbc mining stop`](mining-stop.md) — Stop mining operations for a wallet.
+- [`aitbc mining stop`](mining-stop.md) — Stop mining for the selected wallet's miner row only.
 
 ## `monitor`
 

@@ -2,7 +2,7 @@
 
 # `aitbc mining list`
 
-List active miners for a wallet.
+List enabled miners (add --all for the full registry including disabled rows).
 
 ## Usage
 
@@ -15,6 +15,7 @@ aitbc mining list [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--wallet` | text | — | no | Wallet to use for X-Wallet-Address auth |
+| `--all` | flag | `false` | no | Show all registry rows, including disabled miners |
 | `--rpc-url` | text | — | no | Blockchain RPC URL |
 
 ## Examples
