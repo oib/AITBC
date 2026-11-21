@@ -891,8 +891,15 @@ def bridge_security_status(request: Request) -> dict[str, Any]:
             "success": True,
             "multisig_enabled": multisig_enabled,
             "threshold": getattr(settings, "bridge_multisig_threshold", 3),
+            # Two different sets that used to share confusingly similar names
+            # (#2445): validators_configured is the env N the multisig math
+            # expects; validator_count is the live attestor set — active
+            # BridgeValidator rows of the latest epoch. They legitimately
+            # differ when registrations outnumber the configured N.
             "validators_configured": getattr(settings, "bridge_multisig_validators", 5),
+            "multisig_validators_configured": getattr(settings, "bridge_multisig_validators", 5),
             "validator_count": validator_count,
+            "bridge_validators_active_latest_epoch": validator_count,
             "current_epoch": current_epoch,
             "block_signature_required": getattr(settings, "bridge_block_signature_required", True),
             "release_enabled": release_enabled,

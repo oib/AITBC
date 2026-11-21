@@ -2,7 +2,7 @@
 
 # `aitbc bridge deposits`
 
-Read the bridge deposit ledger (ETH-side inbound deposits). The ledger is a sqlite database owned by aitbc-bridge-monitor on the hub; this runs the monitor's own read-only admin listing (`list`/`status`) rather than opening the file directly, so migrations and row decoding stay in one place. Mutating admin commands stay on ``scripts/ops/bridge-admin.sh``.
+Read the bridge deposit ledger (ETH-side inbound deposits). The ledger is a sqlite database owned by aitbc-bridge-monitor on the hub; this runs the monitor's own read-only admin listing (`list`/`status`) rather than opening the file directly, so migrations and row decoding stay in one place. Mutating admin commands stay on ``scripts/ops/bridge-admin.sh``. ``--output json``/``yaml`` emits the ledger rows as JSON/YAML; a ``--tx-hash`` with no matching row exits 2 (the same not-found code ``bridge status``/``bridge proof`` report).
 
 ## Usage
 

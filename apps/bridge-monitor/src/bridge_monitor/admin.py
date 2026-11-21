@@ -34,6 +34,7 @@ the deposit permanently stuck (or worse, double-paying later).
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from datetime import UTC, datetime
@@ -109,7 +110,7 @@ def write_off_denial_reason(d: dict, allow_recipient: bool, envelope_dead: bool 
     return None
 
 
-def cmd_list(status: str | None, limit: int) -> int:
+def cmd_list(status: str | None, limit: int, as_json: bool = False) -> int:
     # A negative LIMIT is unlimited in SQLite — clamp so --limit -1
     # cannot dump the whole ledger.
     limit = max(1, limit)
@@ -118,9 +119,15 @@ def cmd_list(status: str | None, limit: int) -> int:
         try:
             filt = BridgeDepositStatus(status.lower())
         except ValueError:
-            click.echo(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
+            if as_json:
+                click.echo(json.dumps({"error": "unknown_status", "status": status}))
+            else:
+                click.echo(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
             return 2
     rows = get_deposits(status=filt, limit=limit)
+    if as_json:
+        click.echo(json.dumps(rows, default=str))
+        return 0
     for d in rows:
         click.echo(
             f"{d.get('created_at', '')}  {d.get('status', ''):<15} "
@@ -132,11 +139,23 @@ def cmd_list(status: str | None, limit: int) -> int:
     return 0
 
 
-def cmd_status(tx_hash: str) -> int:
+def cmd_status(tx_hash: str, as_json: bool = False) -> int:
     d = get_deposit(tx_hash)
     if not d:
-        click.echo(f"no deposit row {tx_hash}")
-        return 1
+        # Exit 3 (not 1) so callers can tell "row absent" apart from an
+        # operational failure — `aitbc bridge deposits` maps it to the
+        # shared not-found exit code (#2445).
+        if as_json:
+            click.echo(json.dumps({"error": "not_found", "tx_hash": tx_hash}))
+        else:
+            click.echo(f"no deposit row {tx_hash}")
+        return 3
+    if as_json:
+        out = dict(d)
+        if out.get("signed_tx"):
+            out["signed_tx"] = f"<{len(out['signed_tx'])} chars>"
+        click.echo(json.dumps(out, default=str))
+        return 0
     for k, v in d.items():
         if k == "signed_tx":
             v = f"<{len(v)} chars>" if v else v
@@ -257,9 +276,9 @@ def cmd_manual_payout(to: str, amount: str) -> int:
 def _dispatch(ns: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     """Route the parsed command to its handler."""
     if ns.command == "status":
-        return cmd_status(ns.args[0]) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
+        return cmd_status(ns.args[0], ns.json) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
     if ns.command == "list":
-        return cmd_list(ns.status, ns.limit)
+        return cmd_list(ns.status, ns.limit, ns.json)
     if ns.command == "write-off":
         if len(ns.args) != 1:
             parser.error("write-off needs <tx_hash>")
@@ -295,6 +314,11 @@ def main() -> int:
         "--env-file",
         default=os.getenv("BRIDGE_MONITOR_ENV", "/etc/aitbc/aitbc-bridge-monitor.env"),
         help="env file with BRIDGE_*/GENESIS_* vars (default: monitor's own)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="status/list: emit JSON instead of the human-readable listing",
     )
     ns = parser.parse_args()
     _load_env_file(ns.env_file)

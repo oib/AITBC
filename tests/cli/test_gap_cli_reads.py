@@ -263,6 +263,52 @@ class TestBridgeDeposits:
         argv = mock_run.call_args.args[0]
         assert argv[1:] == ["-m", "bridge_monitor.admin", "status", "0xabc"]
 
+    def test_json_output_requests_admin_json(self, runner, tmp_path):
+        """#2445: --output json must reach bridge_monitor.admin --json."""
+        import json as _json
+
+        from aitbc_cli.commands.bridge import bridge
+
+        repo = self._repo(tmp_path)
+        rows = [{"eth_tx_hash": "0xabc", "status": "completed"}]
+        with patch("aitbc_cli.commands.bridge.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=_json.dumps(rows), stderr="")
+            result = runner.invoke(
+                bridge, ["deposits", "--repo-root", str(repo), "--limit", "5"], obj={"output_format": "json"}
+            )
+
+        assert result.exit_code == 0, result.output
+        argv = mock_run.call_args.args[0]
+        assert "--json" in argv
+        assert _json.loads(result.output) == rows
+
+    def test_missing_row_exits_2_like_status_proof(self, runner, tmp_path):
+        """#2445: admin status rc=3 (absent row) maps to the shared exit 2."""
+        from aitbc_cli.commands.bridge import bridge
+        from aitbc_cli.utils.error_handling import NotFoundError
+
+        repo = self._repo(tmp_path)
+        with patch("aitbc_cli.commands.bridge.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=3, stdout="", stderr="")
+            result = runner.invoke(bridge, ["deposits", "--repo-root", str(repo), "--tx-hash", "0xnope"], obj={})
+
+        # CliRunner surfaces the raised CLIError; main() turns its
+        # exit_code into the process code — assert the mapped code.
+        assert isinstance(result.exception, NotFoundError)
+        assert result.exception.exit_code == 2
+        assert "no deposit row 0xnope" in result.output
+
+    def test_other_admin_failure_still_aborts(self, runner, tmp_path):
+        from aitbc_cli.commands.bridge import bridge
+
+        repo = self._repo(tmp_path)
+        with patch("aitbc_cli.commands.bridge.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="traceback\nboom")
+            result = runner.invoke(bridge, ["deposits", "--repo-root", str(repo), "--tx-hash", "0xabc"], obj={})
+
+        assert result.exit_code != 0
+        assert "bridge ledger read failed" in result.output
+
     def test_missing_monitor_sources_aborts(self, runner, tmp_path):
         from aitbc_cli.commands.bridge import bridge
 

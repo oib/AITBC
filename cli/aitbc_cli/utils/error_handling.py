@@ -39,6 +39,14 @@ class NetworkError(CLIError):
         self.message = f"Network error: {message}"
 
 
+class NotFoundError(CLIError):
+    """Requested resource does not exist (exit 2 — same code bridge
+    ``status``/``proof`` report for a missing transfer, #2445)."""
+
+    def __init__(self, message: str):
+        super().__init__(message, exit_code=2)
+
+
 class ConfigurationError(CLIError):
     """Configuration-related errors (exit 3)"""
 

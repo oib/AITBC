@@ -92,7 +92,12 @@ aitbc bridge security-status --rpc-url http://localhost:8202/rpc
 ```
 
 **Expected output:** table with `threshold`, `validators_configured`,
-`current_epoch`, `require_merkle_proof`, `verification_mode`.
+`current_epoch`, `require_merkle_proof`, `verification_mode`. The two
+validator counts name different sets (#2445): `validators_configured`
+(alias `multisig_validators_configured`) is the configured multisig N,
+while `validator_count` (alias `bridge_validators_active_latest_epoch`)
+is the live count of active `BridgeValidator` rows in the latest epoch —
+they legitimately differ when registrations outnumber the configured N.
 
 A transfer lookup for an id that does not exist is a clean refusal:
 
