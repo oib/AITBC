@@ -213,13 +213,13 @@ class TestHttpxRequestLineGate:
 
     _KEYED = "https://rpc.example.invalid/v3/FAKEKEY123?x=y"
 
-    def _record(self, tail: str) -> logging.LogRecord:
+    def _record(self, tail: str, method: str = "POST") -> logging.LogRecord:
         return logging.LogRecord(
             name="httpx",
             level=logging.INFO,
             pathname="httpx/_client.py",
             lineno=1025,
-            msg=f"HTTP Request: POST {self._KEYED} {tail}",
+            msg=f"HTTP Request: {method} {self._KEYED} {tail}",
             args=None,
             exc_info=None,
         )
@@ -248,6 +248,25 @@ class TestHttpxRequestLineGate:
         assert "FAKEKEY123" not in out
         assert "x=y" not in out
         assert "https://rpc.example.invalid" in out
+
+    def test_get_404_stays_info_and_url_redacted(self):
+        """#2430: a GET 404 is the expected-miss shape (escrow/account/tx
+        lookups) — it must not reach WARNING, but the line is kept at INFO
+        with the URL still rewritten to scheme://host."""
+        record = self._record('"HTTP/1.1 404 Not Found"', method="GET")
+        assert _HttpxStatusFilter().filter(record) is True
+        assert record.levelno == logging.INFO
+        out = self._formatted(record)
+        assert "FAKEKEY123" not in out
+        assert "x=y" not in out
+        assert "https://rpc.example.invalid" in out
+
+    def test_post_404_still_warns(self):
+        """The INFO downgrade is GET-only — a mutation hitting a missing
+        resource keeps the WARNING upgrade."""
+        record = self._record('"HTTP/1.1 404 Not Found"', method="POST")
+        assert _HttpxStatusFilter().filter(record) is True
+        assert record.levelno == logging.WARNING
 
     def test_unparseable_request_line_is_dropped(self):
         """No status the regex can read — never pass a possible URL."""
