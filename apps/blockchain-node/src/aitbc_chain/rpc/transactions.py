@@ -25,7 +25,8 @@ from .finality import finality_fields_enabled, finality_view, head_height_in_ses
 from .utils import (
     OFFER_ACTIONS,
     PREREGISTERED_CREDIT_TX_TYPES,
-    _GOSSIP_PROTOCOL_TX_TYPES,
+    _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES,
+    _protocol_auth_nonce_present,
     _require_supported_chain,
     _resolved_tx_type,
     clamp_limit,
@@ -428,12 +429,18 @@ def _admission_protocol_auth_gate(session: Any, chain_id: str, tx_data: dict[str
     at request time — so a ``payload.auth`` captured from gossip traffic or
     a sealed block cannot be replayed once the account has moved on.
     """
-    if tx_type not in _GOSSIP_PROTOCOL_TX_TYPES or not is_unsigned_protocol_transfer(tx_data):
+    if tx_type not in _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES or not is_unsigned_protocol_transfer(tx_data):
         return
     if not unsigned_protocol_transfer_admissible(tx_data):
         raise ValueError("unsigned protocol transfer carries no admissible payload.auth")
     auth = (tx_data.get("payload") or {}).get("auth") or {}
     message = auth.get("message") or {}
+    # The live-nonce replay check applies to the wallet-auth path only —
+    # its signed message carries the account nonce it was minted against.
+    # Operator-signed bodies carry no account nonce (#2457); their replay
+    # bound is the tx-hash dedup plus the transfer binding verified above.
+    if not _protocol_auth_nonce_present(message):
+        return
     signer = _to_ait_address(str(auth.get("signer")))
     account = session.get(Account, (chain_id, signer))
     if account is None or (account.nonce or 0) != message.get("nonce"):
@@ -716,12 +723,52 @@ def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100)
         # ("" is not None) and filtered on a chain_id no entry carries, so a
         # populated mempool reported count: 0.
         pending_txs = mempool.get_pending_transactions(chain_id=chain_id or None, limit=limit)
+        pending_txs = _drop_sealed_pending(chain_id or None, mempool, pending_txs)
 
         return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
         _logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
+
+
+def _drop_sealed_pending(chain_id: str | None, mempool: Any, pending_txs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Evict and hide pending rows the chain has already sealed (#2457).
+
+    Block import removes included txs by hash, but protocol transfers can
+    linger until the periodic reconcile sweep — and any entry whose hash
+    the chain confirms must never read as ``pending``. Recompute each
+    entry's hash (``get_pending_transactions`` returns raw content), ask
+    the transaction table which are confirmed, evict those from the pool,
+    and tag the survivors ``state: "pending"`` so status surfaces can
+    distinguish pool state from sealed history. Best-effort: a lookup
+    failure returns the unfiltered list rather than breaking the endpoint.
+    """
+    if not pending_txs:
+        return pending_txs
+    from ..config import settings
+    from ..mempool import compute_tx_hash
+
+    resolved_chain = chain_id or settings.chain_id
+    try:
+        hashes = {compute_tx_hash(tx): tx for tx in pending_txs if isinstance(tx, dict)}
+        with session_scope(resolved_chain) as session:
+            sealed = set(
+                session.exec(
+                    select(Transaction.tx_hash).where(
+                        Transaction.chain_id == resolved_chain,
+                        Transaction.status == "confirmed",
+                        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+                        Transaction.tx_hash.in_(list(hashes)),  # type: ignore[attr-defined]
+                    )
+                ).all()
+            )
+        if sealed:
+            mempool.reconcile_sealed(resolved_chain, sealed)
+        return [{**tx, "state": "pending"} for tx in pending_txs if isinstance(tx, dict) and compute_tx_hash(tx) not in sealed]
+    except Exception as exc:  # noqa: BLE001 - read-path filter is best-effort
+        _logger.debug("Sealed-pending filter skipped: %s", exc)
+        return [{**tx, "state": "pending"} if isinstance(tx, dict) else tx for tx in pending_txs]
 
 
 def _market_bond_min_amount() -> int:
@@ -1240,6 +1287,31 @@ def query_transactions(
         return results
 
 
+def _mempool_pending_lookup(chain_id: str, tx_hash: str) -> dict[str, Any] | None:
+    """Pending-view fallback for ``get_transaction`` (#2457).
+
+    A transaction that is pooled but not yet sealed has no ``Transaction``
+    row, so the lookup 404'd and callers could not distinguish "unknown"
+    from "waiting for a block". Returns a ``state: "pending"`` view built
+    from the pooled envelope, or None when the hash is not pooled here.
+    """
+    try:
+        from ..mempool import compute_tx_hash, get_mempool
+
+        for entry in get_mempool().list_transactions(chain_id):
+            entry_hash = getattr(entry, "tx_hash", None)
+            content = getattr(entry, "content", entry)
+            if entry_hash == tx_hash or (
+                entry_hash is None and isinstance(content, dict) and compute_tx_hash(content) == tx_hash
+            ):
+                view = dict(content) if isinstance(content, dict) else {"envelope": content}
+                view.update({"tx_hash": tx_hash, "chain_id": chain_id, "state": "pending"})
+                return view
+    except Exception as exc:  # noqa: BLE001 - lookup fallback is best-effort
+        _logger.debug("Mempool pending lookup failed for %s: %s", tx_hash, exc)
+    return None
+
+
 @rate_limit(rate=200, per=60)
 def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """Look up one transaction by hash (V23-66).
@@ -1259,6 +1331,9 @@ def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None)
             select(Transaction).where(Transaction.chain_id == resolved_chain_id, Transaction.tx_hash == tx_hash)
         ).first()
         if tx is None:
+            pending = _mempool_pending_lookup(resolved_chain_id, tx_hash)
+            if pending is not None:
+                return pending
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction {tx_hash} not found")
         body: dict[str, Any] = {
             "transaction_id": tx.id,

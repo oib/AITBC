@@ -14,9 +14,10 @@ id), the signer is the user leg (staker on a lock, payee on a release),
 the other leg is the canonical stake escrow, and the signed timestamp +
 nonce are fresh. The nonce *value* is checked against chain state at
 admission so a captured auth cannot be replayed after the account moves.
-Operator-signed protocol transfers (agent stakes, bounties, STAKE_UNBOND)
-remain local-queue only: their signer is node-local env config a peer
-cannot authenticate.
+Operator-signed protocol transfers whose signed body fully binds the
+envelope joined the carve under #2457 (see
+test_gossip_operator_protocol_2457.py); types whose payee/amount are
+resolved server-side after signing remain local-queue only.
 """
 
 from __future__ import annotations
@@ -175,10 +176,11 @@ def test_unsigned_transfer_still_missing_signature():
     assert gossip_transaction_drop_reason(tx) == "missing_signature"
 
 
-def test_unbond_stays_local_only():
-    """STAKE_UNBOND is operator-signed — a peer cannot authenticate it."""
+def test_unbond_without_auth_dropped():
+    """STAKE_UNBOND joined the gossipable set under #2457 but still needs
+    admissible operator auth — a bare envelope is refused."""
     tx = _stake_lock_tx(type="STAKE_UNBOND", payload={"agent_stake_id": "1"})
-    assert gossip_transaction_drop_reason(tx) == "missing_signature"
+    assert gossip_transaction_drop_reason(tx) == "invalid_protocol_auth"
 
 
 # --- admission gate (session-backed, shared by gossip + p2p) ---

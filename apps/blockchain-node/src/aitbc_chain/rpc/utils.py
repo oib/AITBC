@@ -101,21 +101,31 @@ PREREGISTERED_CREDIT_TX_TYPES = frozenset({"BRIDGE_RELEASE", "BRIDGE_REFUND"})
 
 # Unsigned protocol transfers allowed to propagate over the public
 # gossip/P2P transaction topics (#713). Only the user-signed staking pair
-# qualifies: its ``payload.auth`` carries a wallet signature over a
-# nonce- and timestamp-fresh message, so any peer can re-verify the
-# authorization without node-local config. Operator-signed protocol
-# transfers (agent stakes, bounties, STAKE_UNBOND) stay local-queue only —
-# their signer is env config a peer cannot authenticate, and STAKE_UNBOND /
-# BOUNTY_PAYOUT leave a transfer leg unbound, so a gossip copy could be
-# re-pointed at a victim's balance.
+# qualifies on the wallet-auth path: its ``payload.auth`` carries a wallet
+# signature over a nonce- and timestamp-fresh message, so any peer can
+# re-verify the authorization without node-local config.
 _GOSSIP_PROTOCOL_TX_TYPES = frozenset({"STAKE_LOCK", "STAKE_RELEASE"})
+
+# Operator-signed protocol transfers a peer can re-verify end-to-end
+# (#2457): the signer is the fleet's ``AGENT_ECONOMICS_OPERATOR_ADDRESS``
+# and the signed RPC body binds the transfer's party, amount and ids, so
+# the same ``payload.auth`` evidence the serving node checked re-verifies
+# on every validator. Only types whose signed message fully binds the
+# envelope qualify — ``BOUNTY_PAYOUT``/``BOUNTY_REFUND`` and the agent
+# ``STAKE_RELEASE`` resolve payee and amount server-side *after* signing,
+# so a gossip copy could be re-pointed at a victim's balance and must stay
+# local-queue only. ``STAKE_UNBOND`` is an escrow->escrow self-transfer
+# whose only consensus-visible content is the bound ``agent_stake_id``.
+_GOSSIP_OPERATOR_PROTOCOL_TX_TYPES = frozenset({"STAKE_LOCK", "BOUNTY_LOCK", "STAKE_UNBOND"})
+
+_GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES = _GOSSIP_PROTOCOL_TX_TYPES | _GOSSIP_OPERATOR_PROTOCOL_TX_TYPES
 
 
 def is_unsigned_protocol_transfer(tx_data: dict[str, Any]) -> bool:
-    """True for a signature-less STAKE_LOCK/STAKE_RELEASE envelope."""
+    """True for a signature-less protocol-transfer envelope."""
     if tx_data.get("signature") or tx_data.get("sig"):
         return False
-    return _resolved_tx_type(tx_data) in _GOSSIP_PROTOCOL_TX_TYPES
+    return _resolved_tx_type(tx_data) in _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES
 
 
 def _protocol_auth_max_age() -> float:
@@ -191,9 +201,63 @@ def unsigned_protocol_transfer_admissible(tx_data: dict[str, Any]) -> bool:
 
     if not _payload_auth_binds_transfer(tx_type, message, tx_data):
         return False
-    if not (_protocol_auth_fresh(message) and _protocol_auth_nonce_present(message)):
+    if (
+        _protocol_auth_fresh(message)
+        and _protocol_auth_nonce_present(message)
+        and _protocol_auth_parties_ok(tx_type, auth, tx_data)
+    ):
+        return True
+    return _operator_protocol_auth_ok(tx_type, auth, tx_data)
+
+
+def _operator_protocol_auth_ok(tx_type: str, auth: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """Operator-signed admissibility (#2457).
+
+    The wallet-auth path above requires a user signature over a fresh
+    nonce+timestamp message; operator RPC bodies carry neither, so they
+    fail it by construction. The operator variant instead requires the
+    auth signer to be this host's configured
+    ``AGENT_ECONOMICS_OPERATOR_ADDRESS`` — the same env every fleet
+    validator shares — plus the canonical escrow legs for the type, on
+    top of the signature + transfer binding already verified by the
+    caller. Merely *being* in ``_GOSSIP_OPERATOR_PROTOCOL_TX_TYPES`` is
+    not sufficient: the signed message must still bind this exact
+    envelope, which ``_payload_auth_binds_transfer`` just proved.
+    """
+    if tx_type not in _GOSSIP_OPERATOR_PROTOCOL_TX_TYPES:
         return False
-    return _protocol_auth_parties_ok(tx_type, auth, tx_data)
+    try:
+        from .agent_economics_auth import operator_address
+
+        if _to_ait_address(str(auth.get("signer"))) != operator_address():
+            return False
+    except Exception:  # noqa: BLE001 - unconfigured operator env or bad address: no operator path
+        return False
+    return _operator_protocol_legs_ok(tx_type, tx_data)
+
+
+def _operator_protocol_legs_ok(tx_type: str, tx_data: dict[str, Any]) -> bool:
+    """Canonical escrow legs for an operator-signed protocol transfer.
+
+    The signed message binds the *user* leg (creator/staker/payee) and the
+    amount, but not the escrow address — that leg is protocol constant, so
+    it is checked here: a lock must pay the type's escrow, and the unbond
+    marker must be the escrow->escrow self-transfer it claims to be.
+    """
+    from ..protocol_escrow import bounty_escrow_address, stake_escrow_address
+
+    try:
+        sender = _to_ait_address(str(tx_data.get("from") or ""))
+        recipient = _to_ait_address(str(tx_data.get("to") or ""))
+        if tx_type == "BOUNTY_LOCK":
+            return recipient == bounty_escrow_address()
+        if tx_type == "STAKE_LOCK":
+            return recipient == stake_escrow_address()
+        if tx_type == "STAKE_UNBOND":
+            return sender == recipient == stake_escrow_address()
+    except (TypeError, ValueError):
+        return False
+    return False
 
 
 def _resolved_tx_type(tx_data: dict[str, Any]) -> str:
@@ -235,13 +299,15 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
     Pre-registered credit types are refused outright: the bridge writes them
     into the mempool internally, so no gossiped copy is legitimate.
 
-    Unsigned staking-protocol transfers (``STAKE_LOCK``/``STAKE_RELEASE``)
-    are the one exception (#713): ``queue_protocol_transfer`` emits them
-    without a top-level signature by design, and the serving node's peer
-    fan-out only reaches proposers if peers admit them. They pass only with
-    a ``payload.auth`` that re-verifies end-to-end — signature, transfer
-    binding, escrow legs, timestamp freshness — so the carve cannot be used
-    to inject a transfer the wallet never authorized.
+    Unsigned protocol transfers are the one exception (#713, extended
+    #2457): ``queue_protocol_transfer`` emits them without a top-level
+    signature by design, and the serving node's peer fan-out only reaches
+    proposers if peers admit them. They pass only with a ``payload.auth``
+    that re-verifies end-to-end — either the wallet-auth shape (signature,
+    transfer binding, escrow legs, timestamp freshness, live nonce at
+    admission) or the operator-auth shape (fleet operator signer,
+    transfer binding, canonical escrow legs) — so the carve cannot be used
+    to inject a transfer nobody authorized.
     """
     if _resolved_tx_type(tx_data) in PREREGISTERED_CREDIT_TX_TYPES:
         return "internal_tx_type"
