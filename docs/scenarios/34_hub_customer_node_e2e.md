@@ -122,7 +122,7 @@ aitbc exchange-island rates
 
 > **Island prerequisite:** `exchange-island` commands need island credentials (`~/.aitbc/island_credentials.json`) on customer/follower nodes — run `aitbc node island join` first, or the command errors `Island credentials not found`. On the hub no join is required. The orderbook is `sim_*`-seeded on this fleet: the API is live but the book entries are simulated.
 
-### Step 5: Unpaid job (queue-and-expire control)
+### Step 5: Unpaid job (unpriced-work control)
 
 ```bash
 aitbc ai submit --prompt "Cross-node unpaid job" --wait --timeout 120
@@ -130,7 +130,7 @@ aitbc ai status --job-id "$JOB_ID"
 aitbc ai jobs --limit 5
 ```
 
-**Expected output:** the job stays `QUEUED` — it is **not** dispatched. Unpaid jobs carry no escrow, and the G4 dispatch gate (`_PAYMENT_DISPATCHABLE_STATES = {"escrowed"}`) only dispatches escrowed jobs; an unpaid job sits until its expiry sweeps it (~15 min). This is deliberate fail-closed behavior (an unpaid dispatch would be a freeloader hole — see scenario 25's contract note), not a defect. `payment_status` reports none/skipped. Use Step 8 for a job that actually executes.
+**Expected output:** the job is **dispatched and executes** — `QUEUED` → `RUNNING` → `COMPLETED` on a live miner, with `payment_id`/`payment_status` null. Unpriced work (no payment terms at all) is deliberately dispatchable: the G4 gate (`_payment_blocks_dispatch`) only holds a job that *carries* payment terms which never reached `escrowed` — the freeloader hole scenario 25 describes is a **priced** job running without escrow, which stays refused. A job submitted with `--payment`/`--amount` but no secured escrow sits `QUEUED` until expiry instead (#2224). Use Step 8 for the paid path.
 
 ### Step 6: Bridge validation from CLI
 
