@@ -254,6 +254,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet multisig-propose` | `/rpc/account/{address}` | `get_account_route` (core.py) | —
 | `aitbc wallet rewards` | `/rpc/liquidity/stakes/` | — | —
 | `aitbc wallet send` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
+| `aitbc wallet stake` | `/rpc/account/` | — | —
 | `aitbc wallet stake` | `/rpc/staking/stake` | `stake_tokens_route` (staking.py) | —
 | `aitbc wallet staking-info` | `/rpc/staking/` | — | —
 | `aitbc wallet stats` | `/rpc/account/` | — | —

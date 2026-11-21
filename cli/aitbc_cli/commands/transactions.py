@@ -210,6 +210,27 @@ def _resolve_nonce(rpc_url: str, sender_address: str) -> int:
         raise AssertionError("unreachable: abort always raises") from e
 
 
+def _resolve_next_nonce(rpc_url: str, sender_address: str, chain_id: str, nonce_offset: int = 0) -> int:
+    """Pending-aware next nonce for ``sender_address`` (#2395 residual, #2398).
+
+    The sealed account nonce does not move while the sender's earlier
+    transactions sit in the mempool, so signing it again collides on the
+    occupied (sender, nonce) slot. ``pending_nonce_floor`` advances past
+    the sender's pending slots — which already counts this batch's earlier
+    entries, so ``nonce_offset`` applies only when the floor could not
+    advance (probe failure or nothing pending): the legacy sealed+offset
+    fallback.
+    """
+    from ..utils.nonce import pending_nonce_floor
+
+    sealed = _resolve_nonce(rpc_url, sender_address)
+    client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+    floor = pending_nonce_floor(client, sender_address, sealed, chain_id)
+    if floor > sealed:
+        return floor
+    return sealed + nonce_offset
+
+
 # secp256k1 group order — a private key must be a scalar in (0, n).
 _SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
@@ -364,10 +385,11 @@ def _send_transaction_impl(
 
     chain_id = _resolve_send_chain_id(rpc_url)
 
-    # Batch callers pass a per-sender offset: the chain's account nonce does not
-    # move while earlier batch transactions sit in the mempool, so every entry
-    # would otherwise sign with the same nonce and only the first could be mined.
-    actual_nonce = _resolve_nonce(rpc_url, sender_address) + nonce_offset
+    # Batch callers pass a per-sender offset: it is the fallback for when
+    # the mempool probe cannot advance past pending slots — a readable
+    # mempool already shows this batch's earlier pending entries, so the
+    # floor resolve picks the next free nonce without double-counting.
+    actual_nonce = _resolve_next_nonce(rpc_url, sender_address, chain_id, nonce_offset)
 
     transaction = _build_signed_transaction(
         chain_id=chain_id,
@@ -609,7 +631,8 @@ def _resolve_send_password(
     type=int,
     default=0,
     show_default=True,
-    help="Extra nonce offset for queueing a second pending tx from the same wallet",
+    help="Extra nonce offset, used only when the node's mempool cannot be read "
+    "(a readable mempool already yields the next free nonce, #2395/#2398)",
 )
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API for status checks")
 def send(

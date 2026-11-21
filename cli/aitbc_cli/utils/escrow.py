@@ -71,15 +71,22 @@ def get_buyer_nonce(ctx, rpc_url: str, buyer: str) -> int:
     """Fetch the current on-chain nonce for ``buyer``; abort on any failure.
 
     A failed lookup must not mean nonce 0 — the wrong nonce produces an
-    already-signed transaction the chain refuses.
+    already-signed transaction the chain refuses. The returned nonce is
+    pending-aware (#2395 residual, #2398): the sealed account nonce does
+    not move while the buyer's earlier txs sit in the mempool, so two
+    escrow creates back-to-back would collide on the same slot. A mempool
+    probe failure falls back to the sealed nonce — the submit then fails
+    with the same visible slot-occupied error as before.
     """
+    from .nonce import pending_nonce_floor
+
     client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
         account = client.get(f"/rpc/account/{buyer}")
         nonce = account.get("nonce")
         if nonce is None:
             raise ValueError(f"/rpc/account/{buyer} response carried no nonce")
-        return int(nonce)
+        return pending_nonce_floor(client, buyer, int(nonce))
     except Exception as e:
         abort(
             ctx,
