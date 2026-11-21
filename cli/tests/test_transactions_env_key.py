@@ -308,3 +308,34 @@ def test_env_key_zero_amount_transfer_rejected(runner, rpc_mocks):
     )
     assert result.exit_code != 0
     assert _FakeHTTP.posted == []
+
+
+def test_env_key_send_json_output_is_one_document(runner, rpc_mocks):
+    """--output json emits a machine-readable doc on stdout (#2416)."""
+    import json as _json
+
+    result = runner.invoke(
+        tx_cmd.transactions,
+        [
+            "send",
+            "--key-env",
+            TEST_ENV_NAME,
+            "--to",
+            RECIPIENT,
+            "--amount",
+            "1",
+            "--rpc-url",
+            "http://node:1",
+            "--yes",
+        ],
+        obj={"output_format": "json"},
+    )
+    assert result.exit_code == 0, result.output
+    doc = _json.loads(result.stdout)
+    assert doc["transaction_hash"] == "0xtesthash"
+    assert doc["status"] == "submitted"
+    assert doc["type"] == "TRANSFER"
+    assert doc["to"] == RECIPIENT
+    assert doc["from"] == _derived_address()
+    assert doc["nonce"] == 5
+    assert doc["fee_units"] is not None
