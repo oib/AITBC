@@ -61,11 +61,14 @@ async def test_rpc_head_stats_enriched_from_public_routes(monkeypatch):
         for i in range(11, -1, -1)
     ]
 
+    range_params: dict[str, str] = {}
+
     def _h(req: httpx.Request) -> httpx.Response:
         path = req.url.path
         if path.endswith("/head"):
             return httpx.Response(200, json={"height": 100, "timestamp": _ts(0)})
         if path.endswith("/blocks-range"):
+            range_params.update({k: v for k, v in req.url.params.items()})
             return httpx.Response(200, json={"success": True, "blocks": blocks, "count": len(blocks)})
         if path.endswith("/network-info"):
             return httpx.Response(200, json={"validators": [{"address": f"0x{i}"} for i in range(4)]})
@@ -87,6 +90,12 @@ async def test_rpc_head_stats_enriched_from_public_routes(monkeypatch):
     assert stats["tps"] == pytest.approx(0.0, abs=0.01)
     assert stats["active_nodes"] == 4
     assert stats["expected_block_time"] == 60.0
+    # The range route takes start/end heights — the window must be the
+    # last ~12 blocks back from head height 100, not a `limit` param the
+    # route ignores (which served genesis blocks 0-10).
+    assert range_params.get("start") == "89"
+    assert range_params.get("end") == "100"
+    assert range_params.get("include_tx") == "false"
 
 
 @pytest.mark.asyncio

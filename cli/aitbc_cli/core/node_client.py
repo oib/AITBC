@@ -346,7 +346,14 @@ class NodeClient:
             "source": "rpc-head",
         }
 
-        blocks_resp = await self._rpc_get_json(self._rpc_url(f"/blocks-range?limit=12&include_tx=false&chain_id={chain_id}"))
+        # /blocks-range takes start/end heights, not a limit — window the
+        # last ~12 blocks back from the head (#2412 verify: `limit` was
+        # ignored and the route served genesis blocks 0-10 instead).
+        height = int(head.get("height") or 0)
+        start = max(0, height - 11)
+        blocks_resp = await self._rpc_get_json(
+            self._rpc_url(f"/blocks-range?start={start}&end={height}&include_tx=false&chain_id={chain_id}")
+        )
         blocks = (blocks_resp or {}).get("blocks") or []
         stamps = []
         total_txs = 0
