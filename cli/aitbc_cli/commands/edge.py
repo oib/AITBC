@@ -109,7 +109,10 @@ def status(ctx):
 )
 @click.pass_context
 def balance(ctx):
-    """Get edge wallet balance from the local edge API."""
+    """Get edge wallet balance from the local edge API.
+
+    Not yet implemented: the edge API returns 501; use ``aitbc wallet balance`` instead.
+    """
     try:
         client = get_edge_client()
         response = client.get("/v1/edge-gpu/balance")
@@ -137,7 +140,10 @@ def balance(ctx):
 @click.option("--note", help="Transfer note")
 @click.pass_context
 def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
-    """Transfer edge tokens to another address with an optional note via the local edge API."""
+    """Transfer edge tokens to another address with an optional note via the local edge API.
+
+    Not yet implemented: the edge API returns 501; use ``aitbc wallet send`` instead.
+    """
     try:
         client = get_edge_client()
         transfer_data = {"to_address": to_address, "amount": str(amount)}
