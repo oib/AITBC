@@ -40,6 +40,29 @@ _brand = get_active_brand()
 logger = get_logger(__name__)
 
 
+def _lock_seal_wait_seconds() -> float:
+    """Bounded wait for the buyer's ESCROW_LOCK to seal (#2465).
+
+    The old flat 30 s default was shorter than the fleet's 60 s block time,
+    so roughly half of all purchases on a fresh deploy would be failed even
+    though their lock sealed moments later. The default now derives from
+    the chain block time — ``max(3 x block_time, 120 s)`` — with
+    ``BLOCK_TIME_SECONDS`` mirroring the chain setting; an explicit
+    ``ESCROW_LOCK_SEAL_WAIT_SECONDS`` still wins. A wait below one block
+    time logs a warning: the lock cannot seal before the next slot.
+    """
+    block_time = float(os.getenv("BLOCK_TIME_SECONDS", "60"))
+    default = max(3 * block_time, 120.0)
+    wait = float(os.getenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", str(default)))
+    if wait < block_time:
+        logger.warning(
+            "ESCROW_LOCK_SEAL_WAIT_SECONDS=%.0fs is below the chain block time %.0fs — locks may be failed before they can seal",
+            wait,
+            block_time,
+        )
+    return wait
+
+
 class PaymentEscrowMixin(PaymentCoreMixin):
     """Mixin: payment service methods (split from payments.py; pure code motion)."""
 
@@ -261,7 +284,7 @@ class PaymentEscrowMixin(PaymentCoreMixin):
         expires — including when the probe itself keeps failing, which is
         fail-closed: an unverifiable lock is treated as unsealed.
         """
-        wait_seconds = float(os.getenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "30"))
+        wait_seconds = _lock_seal_wait_seconds()
         poll_seconds = float(os.getenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "2"))
         deadline = asyncio.get_running_loop().time() + wait_seconds
         while True:
