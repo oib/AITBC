@@ -100,6 +100,25 @@ def _find_pending_tx(http_client: AITBCHTTPClient, tx_hash: str) -> dict[str, An
     return None
 
 
+def _find_pending_tx_anywhere(tx_hash: str, urls: list[str]) -> dict[str, Any] | None:
+    """Probe each candidate node's mempool for ``tx_hash`` (#2361).
+
+    A tx can be pending on the proposer's mempool while absent from the
+    queried node's — reporting "not found" in that window is a false
+    eviction signal. Best-effort like ``_find_pending_tx``: unreachable
+    endpoints are skipped.
+    """
+    for url in urls:
+        try:
+            client = AITBCHTTPClient(base_url=url, timeout=10)
+        except _TRANSACTION_ERRORS:
+            continue
+        pending_tx = _find_pending_tx(client, tx_hash)
+        if pending_tx is not None:
+            return pending_tx
+    return None
+
+
 # Transaction types whose apply path rejects any nonzero value — mirrors
 # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES (the node package
 # is not a CLI dependency, so the set is duplicated here).
@@ -115,6 +134,20 @@ _ZERO_VALUE_TX_TYPES = frozenset(
 _AGENT_SESSION_TX_TYPES = frozenset({"AGENT_SESSION_GRANT", "AGENT_SESSION_REVOKE"})
 
 
+def _hub_rpc_url() -> str | None:
+    """Hub/proposer blockchain RPC base URL from config, or None."""
+    config = get_config()
+    hub_rpc = getattr(config, "hub_blockchain_rpc_url", None) or normalize_hub_base(
+        config.hub_discovery_url or "hub.aitbc.invalid"
+    )
+    if not hub_rpc:
+        return None
+    hub_rpc = hub_rpc.rstrip("/")
+    if hub_rpc.endswith("/rpc"):
+        hub_rpc = hub_rpc[:-4]
+    return hub_rpc or None
+
+
 def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
     """Return the RPC URL to submit a transaction from.
 
@@ -127,16 +160,35 @@ def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
     config = get_config()
     rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
     if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
-        hub_rpc = getattr(config, "hub_blockchain_rpc_url", None) or normalize_hub_base(
-            config.hub_discovery_url or "hub.aitbc.invalid"
-        )
+        hub_rpc = _hub_rpc_url()
         if hub_rpc:
-            hub_rpc = hub_rpc.rstrip("/")
-            if hub_rpc.endswith("/rpc"):
-                hub_rpc = hub_rpc[:-4]
-            if hub_rpc:
-                return hub_rpc
+            return hub_rpc
     return rpc_url
+
+
+def _pending_probe_urls(rpc_url: str) -> list[str]:
+    """Mempool endpoints worth probing for a tx ``rpc_url`` cannot see.
+
+    The mempool is node-local: a tx fanned out to the proposer can sit in the
+    hub's pending set while the queried node has already evicted its copy (or
+    never received it). Sealed txs are chain-wide, so only the pending probe
+    needs the extra endpoints — the configured local RPC and the hub RPC,
+    deduplicated against the resolved URL (#2361).
+    """
+    config = get_config()
+    urls = [rpc_url]
+    seen = {rpc_url.rstrip("/")}
+    for candidate in (
+        getattr(config, "blockchain_rpc_url", None),
+        _hub_rpc_url(),
+    ):
+        if not candidate:
+            continue
+        candidate = candidate.rstrip("/")
+        if candidate not in seen:
+            seen.add(candidate)
+            urls.append(candidate)
+    return urls
 
 
 # The chain settles in integer compute-units (1 AIT = 36_000_000), so the default fee is
@@ -941,14 +993,14 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             click.echo(json.dumps(result, indent=2))
         except NetworkError as e:
             if http_response_status(e) == 404:
-                pending_tx = _find_pending_tx(http_client, tx_hash)
+                pending_tx = _find_pending_tx_anywhere(tx_hash, _pending_probe_urls(rpc_url))
                 if pending_tx is not None:
                     success(f"Transaction status for {tx_hash}")
                     click.echo(json.dumps(pending_tx, indent=2))
                     return
                 abort(
                     None,
-                    f"Transaction {tx_hash} not found (not sealed and not in the mempool)",
+                    f"Transaction {tx_hash} not found (not sealed and not pending on any reachable node)",
                     from_exception=e,
                 )
             abort(None, f"Error getting transaction status: {e}", from_exception=e)
