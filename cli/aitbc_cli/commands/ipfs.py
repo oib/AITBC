@@ -221,20 +221,38 @@ def _ipfs_unpin_cid(ipfs_api: str, cid: str) -> bool:
 
 
 def _ipfs_object_size(ipfs_api: str, cid: str) -> int | None:
-    """Return the dag cumulative size in bytes for a CID, or None if unreachable."""
-    try:
-        response = requests.post(
-            f"{ipfs_api.rstrip('/')}/api/v0/object/stat",
-            params={"arg": cid},
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-        cumulative = data.get("CumulativeSize")
-        if cumulative is not None:
-            return int(cumulative)
-    except (requests.RequestException, RecursionError, OverflowError, ValueError, TypeError, AttributeError):
-        pass
+    """Return the dag cumulative size in bytes for a CID, or None if unreachable.
+
+    Newer Kubo removed ``object/stat`` — it answers HTTP 200 with an error
+    envelope (``{"Type": "error"}``), which ``raise_for_status`` cannot see,
+    so every daemon-held CID read as absent (#2339 residual). Probe
+    ``dag/stat`` first and keep ``object/stat`` as the older-daemon
+    fallback; an error envelope or missing size field means "not here".
+    """
+    for path, size_key in (("/api/v0/dag/stat", "TotalSize"), ("/api/v0/object/stat", "CumulativeSize")):
+        try:
+            response = requests.post(
+                f"{ipfs_api.rstrip('/')}{path}",
+                params={"arg": cid},
+                timeout=30,
+            )
+            response.raise_for_status()
+            try:
+                data = response.json()
+            except ValueError:
+                # Kubo 0.43 dag/stat can emit a second JSON document after
+                # the first — response.json() rejects the trailing data, so
+                # parse the first newline-delimited document instead
+                # (#2339 live repro on node2).
+                first = response.text.split("\n", 1)[0].strip()
+                data = json.loads(first) if first else None
+            if not isinstance(data, dict) or data.get("Type") == "error":
+                continue
+            size = data.get(size_key)
+            if size is not None:
+                return int(size)
+        except (requests.RequestException, RecursionError, OverflowError, ValueError, TypeError, AttributeError):
+            continue
     return None
 
 
