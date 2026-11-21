@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**822 tools** across 140 modules.
+**823 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 563 |
+| generated | 564 |
 | other | 7 |
 | rpc | 116 |
 
@@ -53,7 +53,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_genesis.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | 13 |
 | mcp-server/aitbc_mcp_cli_tools_generated_gpu.py | 5 |
-| mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | 6 |
+| mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | 7 |
 | mcp-server/aitbc_mcp_cli_tools_generated_grant.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_health.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_http.py | 1 |
@@ -562,6 +562,7 @@
 | `aitbc_gpu_onchain_list` | mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | generated | `aitbc gpu-onchain list` |
 | `aitbc_gpu_onchain_query` | mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | generated | `aitbc gpu-onchain query` |
 | `aitbc_gpu_onchain_register` | mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | generated | `aitbc gpu-onchain register` |
+| `aitbc_gpu_onchain_release` | mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | generated | `aitbc gpu-onchain release` |
 | `aitbc_grant_create` | mcp-server/aitbc_mcp_cli_tools_generated_grant.py | generated | `aitbc grant create` |
 | `aitbc_grant_disburse` | mcp-server/aitbc_mcp_cli_tools_generated_grant.py | generated | `aitbc grant disburse` |
 | `aitbc_grant_list` | mcp-server/aitbc_mcp_cli_tools_generated_grant.py | generated | `aitbc grant list` |

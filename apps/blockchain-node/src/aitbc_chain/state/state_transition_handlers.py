@@ -799,3 +799,34 @@ class _HandlerMixin:
         except Exception as e:  # noqa: BLE001 - handler boundary: any failure becomes a (False, reason) verdict
             logger.error("GPU allocation error: %s", e)
             return (False, str(e))
+
+    def handle_gpu_deallocation(self, session: Session, chain_id: str, payload: Any) -> tuple[bool, str]:
+        """Handle the v28 GPU_DEALLOCATE state transition: mark the allocation ``completed``.
+
+        Ownership, existence and the active-status precondition are checked by
+        ``validate_transaction`` (``gpu_deallocate_error``); this only writes.
+        ``completed_at`` is a local ``*_at`` stamp — excluded from the committed
+        digest like ``allocated_at`` — so wall-clock here is the established
+        convention for this table.
+        """
+        try:
+            allocation_id = payload.get("allocation_id") if isinstance(payload, dict) else None
+            if not allocation_id:
+                return (False, "GPU_DEALLOCATE payload must include allocation_id")
+            row = session.exec(
+                select(GPUAllocation).where(
+                    GPUAllocation.chain_id == chain_id, GPUAllocation.allocation_id == str(allocation_id)
+                )
+            ).first()
+            if row is None:
+                return (False, f"GPU allocation not found: {allocation_id}")
+            if row.status != "active":
+                return (False, f"GPU allocation {allocation_id} is already {row.status}")
+            row.status = "completed"
+            row.completed_at = datetime.now(UTC)
+            row.updated_at = datetime.now(UTC)
+            logger.info("GPU deallocation handled: %s", allocation_id)
+            return (True, "GPU deallocation successful")
+        except Exception as e:  # noqa: BLE001 - handler boundary: any failure becomes a (False, reason) verdict
+            logger.error("GPU deallocation error: %s", e)
+            return (False, str(e))

@@ -29,6 +29,7 @@ Inverted index: each `V9_METRIC_KNOWN_TX_TYPES` record type → the
 | `GOVERNANCE_PROPOSE` | [test_governance_parameter_change.py](../../tests/unit/test_governance_parameter_change.py), [test_governance_sdk.py](../../tests/unit/test_governance_sdk.py), [test_governance_types.py](../../tests/unit/test_governance_types.py), [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `GOVERNANCE_VOTE` | [test_governance_sdk.py](../../tests/unit/test_governance_sdk.py), [test_governance_types.py](../../tests/unit/test_governance_types.py), [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `GPU_ALLOCATE` | [test_gpu_caller_relays.py](../../tests/test_gpu_caller_relays.py), [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
+| `GPU_DEALLOCATE` | [test_commands_gpu_resources.py](../../tests/cli/test_commands_gpu_resources.py) |
 | `GPU_DEREGISTER` | [test_commands_gpu_resources.py](../../tests/cli/test_commands_gpu_resources.py) |
 | `GPU_MARKET` | [test_jobs_sign_transactions.py](../../tests/cli/test_jobs_sign_transactions.py), [test_market_offers.py](../../tests/cli/test_market_offers.py), [test_nonce_retry.py](../../tests/escrow_e2e/test_nonce_retry.py) |
 | `GPU_REGISTER` | [test_gpu_caller_relays.py](../../tests/test_gpu_caller_relays.py) |

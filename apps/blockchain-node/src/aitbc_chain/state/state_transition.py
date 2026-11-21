@@ -322,6 +322,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
             self._vt_gpu_register_fields,
             self._vt_gpu_register_ownership,
             self._vt_gpu_deregister,
+            self._vt_gpu_deallocate,
             self._vt_gpu_allocate,
             self._vt_retired_gpu,
             self._vt_bond_lock_v20,

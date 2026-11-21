@@ -496,6 +496,14 @@ def _cases() -> list[dict[str, Any]]:
         seeds=(_seed_gpu_registration,),
     )
     add(
+        # v28 (#2403): below the activation height (the matrix tops out at v10)
+        # the name has no apply branch — it takes the generic path, and the
+        # pure side must still flag it sequential-only.
+        "gpu_deallocate",
+        lambda: _tx(BUYER, BUYER, 0, "GPU_DEALLOCATE", {"allocation_id": "alloc-par-1"}),
+        BUYER_KEY,
+    )
+    add(
         "ipfs_subscription",
         lambda: _tx(
             BUYER, PROVIDER, 100, "IPFS_SUBSCRIPTION", {"island_id": "isl-1", "duration_blocks": 10, "quota_bytes": 2048}

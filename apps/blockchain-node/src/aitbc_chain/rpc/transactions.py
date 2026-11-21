@@ -279,6 +279,23 @@ def _admission_gpu_deregister_gate(session: Any, chain_id: str, tx_data: dict[st
         raise ValueError(deregister_error)
 
 
+def _admission_gpu_deallocate_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "GPU_DEALLOCATE":
+        return
+    # v28 (see state/gpu_resources.py::gpu_deallocate_error, the rule apply uses too). Below the
+    # activation height the type has no consensus meaning, so it is refused here rather than sealed
+    # as a plain transfer — same door rule as GPU_DEREGISTER at v10.
+    from ..state.gpu_resources import gpu_deallocate_error
+    from ..state.state_transition import get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    if get_block_version_for_height(next_height) < 28:
+        raise ValueError("GPU_DEALLOCATE is not active on this chain yet (state_transition_v28_height)")
+    deallocate_error = gpu_deallocate_error(session, chain_id, tx_data.get("payload"), _to_ait_address(tx_data["from"]))
+    if deallocate_error:
+        raise ValueError(deallocate_error)
+
+
 def _admission_gpu_allocate_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
     if tx_type != "GPU_ALLOCATE":
         return
@@ -413,6 +430,7 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
         _admission_bridge_lock_gate(session, chain_id, tx_data, tx_type)
         _admission_escrow_fee_sweep_gate(session, chain_id, tx_data, tx_type)
         _admission_gpu_deregister_gate(session, chain_id, tx_data, tx_type)
+        _admission_gpu_deallocate_gate(session, chain_id, tx_data, tx_type)
         _admission_gpu_allocate_gate(session, chain_id, tx_data, tx_type)
         _admission_bond_lock_gate(session, chain_id, tx_data, tx_type)
         _admission_bond_verdict_gate(session, chain_id, tx_data, tx_type)

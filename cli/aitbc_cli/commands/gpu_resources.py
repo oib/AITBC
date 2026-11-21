@@ -188,11 +188,13 @@ def query_gpu(ctx, gpu_id: str, format: str):
 def _refuse_deregister_with_active_allocations(ctx, config, rpc_url: str, chain_id: str, gpu_id: str) -> None:
     """Refuse ``gpu-onchain deregister`` while the GPU has active allocations (#2403).
 
-    There is no on-chain release/completion transaction, so a deregistered GPU
-    keeps its ``active_allocations`` count forever — the row goes ``deactivated``
-    with allocations still open and nothing can ever close them. Query the
-    registration first and make the operator choose ``--force`` deliberately.
-    A failed lookup does not block: the chain-side deregister rule is unchanged.
+    Before state-transition v28 there is no on-chain release/completion
+    transaction, so a deregistered GPU keeps its ``active_allocations`` count
+    forever — the row goes ``deactivated`` with allocations still open and
+    nothing can close them (v28's ``gpu-onchain release`` is the exit, once
+    armed). Query the registration first and make the operator choose
+    ``--force`` deliberately. A failed lookup does not block: the chain-side
+    deregister rule is unchanged.
     """
     try:
         http_client = AITBCHTTPClient(
@@ -210,8 +212,9 @@ def _refuse_deregister_with_active_allocations(ctx, config, rpc_url: str, chain_
     if isinstance(active, int) and active > 0:
         error(
             f"GPU '{gpu_id}' has {active} active on-chain allocation(s); deregistering now leaves them "
-            "active forever (no GPU_DEALLOCATE transaction exists yet, #2403). "
-            "Complete them first or re-run with --force to deactivate anyway."
+            "open (GPU_DEALLOCATE exists only once chain v28 is armed, #2403). "
+            "Release them first with 'aitbc gpu-onchain release --allocation-id <id>' "
+            "(chain v28+), complete them, or re-run with --force to deactivate anyway."
         )
         raise click.Abort()
 
@@ -251,8 +254,11 @@ def deregister_gpu(
     The registration stays on the chain with status 'deactivated' and takes no
     new allocations; registering the same gpu-id again reactivates it. Takes
     effect only once the chain has activated state-transition v10; before that
-    the node refuses the transaction. This is not `aitbc gpu unregister`,
-    which only edits the local GPU service.
+    the node refuses the transaction. Open on-chain allocations are NOT
+    released by deregistration — the command refuses while
+    ``active_allocations`` is non-zero unless ``--force``; close them first
+    with ``gpu-onchain release`` (chain v28+).
+    This is not `aitbc gpu unregister`, which only edits the local GPU service.
     """
     config = get_config()
 
@@ -365,6 +371,91 @@ def allocate_gpu(
         raise click.Abort() from e
     except Exception as e:
         error(f"Error allocating GPU on-chain: {e}")
+        raise click.Abort() from e
+
+
+@gpu.command(
+    name="release",
+    epilog="""Examples:
+
+  aitbc gpu-onchain release --allocation-id alloc_abc123 --wallet wallet-1
+
+  aitbc gpu-onchain release --allocation-id alloc_abc123 --wallet wallet-1 --wait""",
+)
+@click.option(
+    "--allocation-id",
+    "allocation_id",
+    required=True,
+    help="On-chain allocation id to complete (from 'gpu-onchain allocations')",
+)
+@click.option("--gpu-id", "gpu_id", default=None, help="GPU id (optional; recorded in the tx payload)")
+@click.option("--wallet", required=True, help="Wallet name for signing (allocator or recorded client)")
+@wallet_password_options
+@click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def release_allocation(
+    ctx,
+    allocation_id: str,
+    gpu_id: str | None,
+    wallet: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wait: bool,
+    format: str,
+):
+    """Complete an on-chain GPU allocation (signed GPU_DEALLOCATE, chain v28+).
+
+    Marks the ``gpu_allocation`` row ``completed`` so the GPU's
+    ``active_allocations`` count drops and the registration can be
+    deregistered cleanly. The signing wallet must be the allocation's
+    allocator or its recorded client; the node refuses anyone else. Before
+    the chain activates state-transition v28 the node refuses the type at
+    admission — there is no off-chain release.
+    """
+    config = get_config()
+
+    try:
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
+
+        chain_id = resolve_chain_id(ctx, rpc_url)
+
+        from ..utils.gpu_onchain import submit_gpu_deallocate, wait_for_tx
+
+        result = submit_gpu_deallocate(
+            ctx,
+            rpc_url,
+            chain_id,
+            wallet,
+            password,
+            allocation_id,
+            gpu_id=gpu_id,
+            password_file=password_file,
+            password_stdin=password_stdin,
+        )
+
+        tx_hash = result.get("transaction_hash", result.get("tx_hash"))
+        if wait and tx_hash:
+            mined = wait_for_tx(rpc_url, tx_hash)
+            if mined:
+                result["mined"] = True
+                result["block_height"] = mined.get("block_height")
+            else:
+                result["mined"] = False
+
+        success(f"GPU allocation '{allocation_id}' release transaction submitted")
+        output(result, resolve_output_format(ctx, format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        raise click.Abort() from e
+    except Exception as e:
+        error(f"Error releasing GPU allocation on-chain: {e}")
         raise click.Abort() from e
 
 

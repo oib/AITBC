@@ -76,6 +76,7 @@ class _ApplyMixin:
         def handle_gpu_allocation(
             self, session: Session, chain_id: str, allocation_data: dict[str, Any]
         ) -> tuple[bool, str]: ...
+        def handle_gpu_deallocation(self, session: Session, chain_id: str, payload: dict[str, Any]) -> tuple[bool, str]: ...
         def handle_gpu_deregistration(self, session: Session, chain_id: str, gpu_data: dict[str, Any]) -> tuple[bool, str]: ...
         def handle_gpu_registration(
             self, session: Session, chain_id: str, gpu_data: dict[str, Any], block_version: int = 1
@@ -556,6 +557,14 @@ class _ApplyMixin:
             payload = tx_data.get("payload") or {}
             allocation_data = {**(payload if isinstance(payload, dict) else {}), "allocated_by": sender_addr}
             ok, msg = self.handle_gpu_allocation(session, chain_id, allocation_data)
+            if not ok:
+                return (False, msg)
+        if tx_type == "GPU_DEALLOCATE" and block_version >= 28:
+            # v28 (#2403): below the activation height the name has no
+            # consensus meaning — the tx replays as whatever it was before
+            # (a plain value transfer), exactly like GPU_DEREGISTER below v10.
+            payload = tx_data.get("payload") or {}
+            ok, msg = self.handle_gpu_deallocation(session, chain_id, payload if isinstance(payload, dict) else {})
             if not ok:
                 return (False, msg)
         return None

@@ -431,6 +431,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc gpu-onchain list`](gpu-onchain-list.md) — List all GPUs registered on the blockchain, optionally filtered by status.
 - [`aitbc gpu-onchain query`](gpu-onchain-query.md) — Query a GPU's on-chain registration details.
 - [`aitbc gpu-onchain register`](gpu-onchain-register.md) — Register GPU immutable specs on the blockchain with a signing wallet.
+- [`aitbc gpu-onchain release`](gpu-onchain-release.md) — Complete an on-chain GPU allocation (signed GPU_DEALLOCATE, chain v28+).
 
 ## `grant`
 

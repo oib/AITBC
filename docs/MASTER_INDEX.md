@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1530
+- **Markdown files under docs/**: 1531
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 602 | Command-line interface reference |
+| [cli](cli/) | 603 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -585,6 +585,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/gpu-onchain-list.md](cli/commands/gpu-onchain-list.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/gpu-onchain-query.md](cli/commands/gpu-onchain-query.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/gpu-onchain-register.md](cli/commands/gpu-onchain-register.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/gpu-onchain-release.md](cli/commands/gpu-onchain-release.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/gpu-register.md](cli/commands/gpu-register.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/gpu-unregister.md](cli/commands/gpu-unregister.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/gpu-update.md](cli/commands/gpu-update.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -976,7 +977,7 @@ Inbound markdown links per document (top referrers).
 | [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md) | [FEATURES.md](FEATURES.md), [cli/commands/mining-list.md](cli/commands/mining-list.md), [cli/commands/mining-start.md](cli/commands/mining-start.md), +5 more |
 | [features/6-agent-coordination.md](features/6-agent-coordination.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +38 more |
 | [features/7-trading.md](features/7-trading.md) | [FEATURES.md](FEATURES.md), [cli/commands/exchange-add-liquidity.md](cli/commands/exchange-add-liquidity.md), [cli/commands/exchange-create-pair.md](cli/commands/exchange-create-pair.md), +44 more |
-| [features/8-edge-gpu.md](features/8-edge-gpu.md) | [FEATURES.md](FEATURES.md), [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), +38 more |
+| [features/8-edge-gpu.md](features/8-edge-gpu.md) | [FEATURES.md](FEATURES.md), [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), +39 more |
 | [features/9-wallet.md](features/9-wallet.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), +51 more |
 | [features/add-nodes-edges.md](features/add-nodes-edges.md) | [features/3-market.md](features/3-market.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/advertise-to-market.md](features/advertise-to-market.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [features/8-edge-gpu.md](features/8-edge-gpu.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +1 more |
@@ -1008,16 +1009,16 @@ Inbound markdown links per document (top referrers).
 | [features/forum-topics.md](features/forum-topics.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
 | [features/get-agent-identity.md](features/get-agent-identity.md) | [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-config-export.md](cli/commands/agent-config-export.md), [cli/commands/agent-config-get.md](cli/commands/agent-config-get.md), +20 more |
 | [features/get-compute-request.md](features/get-compute-request.md) | [cli/commands/ai-accept.md](cli/commands/ai-accept.md), [cli/commands/ai-cancel.md](cli/commands/ai-cancel.md), [cli/commands/ai-distribution-stats.md](cli/commands/ai-distribution-stats.md), +14 more |
-| [features/get-gpu-listing.md](features/get-gpu-listing.md) | [cli/commands/gpu-discover.md](cli/commands/gpu-discover.md), [cli/commands/gpu-list-gpus.md](cli/commands/gpu-list-gpus.md), [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), +11 more |
+| [features/get-gpu-listing.md](features/get-gpu-listing.md) | [cli/commands/gpu-discover.md](cli/commands/gpu-discover.md), [cli/commands/gpu-list-gpus.md](cli/commands/gpu-list-gpus.md), [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), +12 more |
 | [features/get-knowledge-graph.md](features/get-knowledge-graph.md) | [features/3-market.md](features/3-market.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/get-lease-status.md](features/get-lease-status.md) | [features/1-blockchain-core.md](features/1-blockchain-core.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/get-pool.md](features/get-pool.md) | [cli/commands/pool-hub-sla.md](cli/commands/pool-hub-sla.md), [cli/commands/pool-hub-status.md](cli/commands/pool-hub-status.md), [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), +1 more |
 | [features/get-ratings.md](features/get-ratings.md) | [cli/commands/reputation-create-profile.md](cli/commands/reputation-create-profile.md), [cli/commands/reputation-feedback.md](cli/commands/reputation-feedback.md), [cli/commands/reputation-leaderboard.md](cli/commands/reputation-leaderboard.md), +5 more |
 | [features/get-subscribers.md](features/get-subscribers.md) | [cli/commands/ipfs-download.md](cli/commands/ipfs-download.md), [cli/commands/ipfs-island-subscribe.md](cli/commands/ipfs-island-subscribe.md), [cli/commands/ipfs-island-swarm-key.md](cli/commands/ipfs-island-swarm-key.md), +7 more |
-| [features/gpu-allocation.md](features/gpu-allocation.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +6 more |
+| [features/gpu-allocation.md](features/gpu-allocation.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +7 more |
 | [features/gpu-metrics.md](features/gpu-metrics.md) | [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), [cli/commands/edge-database-get-db.md](cli/commands/edge-database-get-db.md), +31 more |
 | [features/gpu-query.md](features/gpu-query.md) | [cli/commands/gpu-discover.md](cli/commands/gpu-discover.md), [cli/commands/gpu-list-gpus.md](cli/commands/gpu-list-gpus.md), [cli/commands/gpu-register.md](cli/commands/gpu-register.md), +4 more |
-| [features/gpu-registration.md](features/gpu-registration.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +6 more |
+| [features/gpu-registration.md](features/gpu-registration.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +7 more |
 | [features/heartbeat.md](features/heartbeat.md) | [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), [cli/commands/agent-comm-discover.md](cli/commands/agent-comm-discover.md), [cli/commands/agent-comm-list.md](cli/commands/agent-comm-list.md), +10 more |
 | [features/http-rpc-compression.md](features/http-rpc-compression.md) | [cli/commands/http-call.md](cli/commands/http-call.md), [features/1-blockchain-core.md](features/1-blockchain-core.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/install-plugin.md](features/install-plugin.md) | [cli/commands/plugin-create.md](cli/commands/plugin-create.md), [cli/commands/plugin-list.md](cli/commands/plugin-list.md), [cli/commands/plugin-load.md](cli/commands/plugin-load.md), +3 more |
@@ -1047,7 +1048,7 @@ Inbound markdown links per document (top referrers).
 | [features/readiness-checks.md](features/readiness-checks.md) | [cli/commands/health.md](cli/commands/health.md), [cli/commands/system-architect.md](cli/commands/system-architect.md), [cli/commands/system-audit.md](cli/commands/system-audit.md), +17 more |
 | [features/register-agent-identity.md](features/register-agent-identity.md) | [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), [cli/commands/agent-comm-discover.md](cli/commands/agent-comm-discover.md), +29 more |
 | [features/register-subscription.md](features/register-subscription.md) | [cli/commands/ipfs-download.md](cli/commands/ipfs-download.md), [cli/commands/ipfs-island-subscribe.md](cli/commands/ipfs-island-subscribe.md), [cli/commands/ipfs-island-swarm-key.md](cli/commands/ipfs-island-swarm-key.md), +7 more |
-| [features/remove-gpu-listing.md](features/remove-gpu-listing.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +6 more |
+| [features/remove-gpu-listing.md](features/remove-gpu-listing.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +7 more |
 | [features/request-logging.md](features/request-logging.md) | [features/12-infrastructure.md](features/12-infrastructure.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/scan-gpus.md](features/scan-gpus.md) | [cli/commands/gpu-discover.md](cli/commands/gpu-discover.md), [cli/commands/gpu-list-gpus.md](cli/commands/gpu-list-gpus.md), [cli/commands/gpu-register.md](cli/commands/gpu-register.md), +4 more |
 | [features/submit-compute-request.md](features/submit-compute-request.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [features/8-edge-gpu.md](features/8-edge-gpu.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +1 more |
@@ -1200,7 +1201,7 @@ Inbound markdown links per document (top referrers).
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
 | [reference/faq.md](reference/faq.md) | [blockchain/governance/openclaw-dao-governance.md](blockchain/governance/openclaw-dao-governance.md) |
-| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +490 more |
+| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +491 more |
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |
@@ -1524,7 +1525,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/05_island_creation.md](scenarios/05_island_creation.md) | [scenarios/04_messaging_basics.md](scenarios/04_messaging_basics.md), [scenarios/06_basic_trading.md](scenarios/06_basic_trading.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/06_basic_trading.md](scenarios/06_basic_trading.md) | [scenarios/05_island_creation.md](scenarios/05_island_creation.md), [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md), [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md), +1 more |
 | [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +45 more |
-| [scenarios/09_gpu_listing.md](scenarios/09_gpu_listing.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +7 more |
+| [scenarios/09_gpu_listing.md](scenarios/09_gpu_listing.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +8 more |
 | [scenarios/10_agent_sdk_identity.md](scenarios/10_agent_sdk_identity.md) | [scenarios/09_gpu_listing.md](scenarios/09_gpu_listing.md), [scenarios/11_ipfs_storage.md](scenarios/11_ipfs_storage.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/11_ipfs_storage.md](scenarios/11_ipfs_storage.md) | [cli/commands/ipfs-download.md](cli/commands/ipfs-download.md), [cli/commands/ipfs-island-subscribe.md](cli/commands/ipfs-island-subscribe.md), [cli/commands/ipfs-island-swarm-key.md](cli/commands/ipfs-island-swarm-key.md), +9 more |
 | [scenarios/12_reputation_management.md](scenarios/12_reputation_management.md) | [scenarios/11_ipfs_storage.md](scenarios/11_ipfs_storage.md), [scenarios/13_mining_setup.md](scenarios/13_mining_setup.md), [scenarios/README.md](scenarios/README.md) |
