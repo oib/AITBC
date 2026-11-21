@@ -4,6 +4,8 @@ Node client for multi-chain operations
 
 import asyncio
 import os
+import statistics
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -284,14 +286,17 @@ class NodeClient:
         try:
             if not _endpoint_has_api_surface(self.config.endpoint):
                 # Chain-rpc endpoint: no /api/* surface. Use the rpc head
-                # endpoint — same shape get_hosted_chains already uses.
+                # endpoint — same shape get_hosted_chains already uses —
+                # enriched with real block-window and validator data so
+                # callers do not read structural zeros as live metrics
+                # (#2412).
                 head_url = f"{self.config.endpoint}/rpc/head?chain_id={chain_id}"
                 if "/rpc" in self.config.endpoint:
                     head_url = f"{self.config.endpoint}/head?chain_id={chain_id}"
                 response = await self._client.get(head_url)
                 if response.status_code == 200:
                     head = response.json()
-                    return {"block_height": head.get("height", 0), "chain_id": chain_id, "source": "rpc-head"}
+                    return await self._rpc_head_chain_stats(chain_id, head)
                 raise RuntimeError(f"Chain head request failed: {response.status_code}")
             response = await self._client.get(f"{self.config.endpoint}/api/chains/{chain_id}/stats")
             if response.status_code == 200:
@@ -304,6 +309,74 @@ class NodeClient:
                 raise
             # Return mock stats for development
             return self._get_mock_chain_stats(chain_id)
+
+    def _rpc_url(self, path: str) -> str:
+        """Build a /rpc/* URL whether the configured endpoint already ends in /rpc."""
+        base = self.config.endpoint.rstrip("/")
+        if base.endswith("/rpc"):
+            return f"{base}{path}"
+        return f"{base}/rpc{path}"
+
+    async def _rpc_get_json(self, url: str) -> dict[str, Any] | None:
+        """Best-effort GET returning parsed JSON, or None on any failure."""
+        try:
+            response = await self._client.get(url)  # type: ignore[union-attr]
+            if response.status_code == 200:
+                data = response.json()
+                return data if isinstance(data, dict) else None
+        except _NODE_ERRORS:
+            logger.debug("rpc stats probe failed for %s", url, exc_info=True)
+        return None
+
+    async def _rpc_head_chain_stats(self, chain_id: str, head: dict[str, Any]) -> dict[str, Any]:
+        """Enrich a bare ``/rpc/head`` result with real windowed stats (#2412).
+
+        The chain RPC publishes no ``/api/chains/{id}/stats`` surface, so the
+        head-only fallback used to return height alone and every other metric
+        defaulted to 0 — reported as "live" data and feeding false alerts.
+        This composes the fields the public routes *do* publish: mean block
+        interval and TPS from the recent ``/blocks-range`` window, the
+        validator count from ``/network-info``, and the configured
+        ``block_time_seconds`` target from ``/info``. Fields the RPC cannot
+        measure (memory, disk, clients, gas price) stay absent.
+        """
+        stats: dict[str, Any] = {
+            "block_height": head.get("height", 0),
+            "chain_id": chain_id,
+            "source": "rpc-head",
+        }
+
+        blocks_resp = await self._rpc_get_json(self._rpc_url(f"/blocks-range?limit=12&include_tx=false&chain_id={chain_id}"))
+        blocks = (blocks_resp or {}).get("blocks") or []
+        stamps = []
+        total_txs = 0
+        for block in blocks:
+            try:
+                stamps.append(datetime.fromisoformat(str(block.get("timestamp", "")).replace("Z", "+00:00")))
+            except ValueError:
+                continue
+            total_txs += int(block.get("tx_count") or 0)
+        stamps.sort()
+        if len(stamps) >= 2:
+            deltas = [(b - a).total_seconds() for a, b in zip(stamps, stamps[1:], strict=False)]
+            deltas = [d for d in deltas if d >= 0]
+            if deltas:
+                stats["avg_block_time"] = statistics.mean(deltas)
+            span = (stamps[-1] - stamps[0]).total_seconds()
+            if span > 0:
+                stats["tps"] = total_txs / span
+
+        net_resp = await self._rpc_get_json(self._rpc_url("/network-info"))
+        validators = (net_resp or {}).get("validators") or []
+        if validators:
+            stats["active_nodes"] = len(validators)
+
+        info_resp = await self._rpc_get_json(self._rpc_url(f"/info?chain_id={chain_id}"))
+        target = ((info_resp or {}).get("genesis_params") or {}).get("block_time_seconds")
+        if isinstance(target, (int, float)) and target > 0:
+            stats["expected_block_time"] = float(target)
+
+        return stats
 
     async def backup_chain(self, chain_id: str, backup_path: str) -> dict[str, Any]:
         """Backup a chain"""
