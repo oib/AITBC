@@ -105,6 +105,7 @@ def build_escrow_lock_tx(
     settlement_route: str | None = None,
     settlement_asset: str | None = None,
     settlement_unit_scale: int | None = None,
+    market_job_id: str | None = None,
 ) -> dict[str, Any]:
     """Build an unsigned ESCROW_LOCK transaction dict for the given job."""
     if not chain_id:
@@ -135,6 +136,11 @@ def build_escrow_lock_tx(
         payload["settlement_asset"] = settlement_asset
     if settlement_unit_scale is not None:
         payload["settlement_unit_scale"] = settlement_unit_scale
+    if market_job_id:
+        # #2326: bind the lock to the market job that will claim this escrow
+        # via payload.escrow_job_id — the market service refuses alias claims
+        # whose lock tx does not name the claiming job id.
+        payload["market_job_id"] = market_job_id
     return {
         "from": buyer_canon,
         "to": node_canon,
@@ -175,6 +181,7 @@ def create_signed_escrow_lock(
     settlement_route: str | None = None,
     settlement_asset: str | None = None,
     settlement_unit_scale: int | None = None,
+    market_job_id: str | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Build and sign a complete ESCROW_LOCK transaction.
 
@@ -218,6 +225,7 @@ def create_signed_escrow_lock(
         settlement_route=settlement_route,
         settlement_asset=settlement_asset,
         settlement_unit_scale=settlement_unit_scale,
+        market_job_id=market_job_id,
     )
     signature = sign_escrow_lock_tx(lock_tx, private_key)
     return lock_tx, signature

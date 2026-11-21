@@ -133,6 +133,8 @@ def pay(
                 chain_id=int(pay_chain),
             )
 
+        raw_payload = job.get("payload")
+        job_payload = raw_payload if isinstance(raw_payload, dict) else {}
         payment_result = _ai._create_escrow_payment(
             ctx,
             http_client,
@@ -150,6 +152,9 @@ def pay(
             idempotency_key=_ai._new_idempotency_key(f"ai-pay-{job_id}"),
             buyer_agent_id=buyer_agent_id,
             provider_agent_id=provider_agent_id,
+            # #2326: carry the market-job binding the submit embedded in the
+            # coordinator payload so the lock tx names the claiming job.
+            market_job_id=job_payload.get("market_job_id"),
         )
 
         _ai._report_escrow_outcome(ctx, job_id, payment_result)

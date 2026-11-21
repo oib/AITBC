@@ -24,11 +24,14 @@ def signed_job_request_fields(
     route: str,
     *,
     wallet: tuple[str, str | None, str] | None = None,
+    binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return the signature fields a party-gated market route expects.
 
     ``route`` is the exact path the signature is bound to, e.g.
-    ``/v1/market/jobs/<id>/release``. Signs with ``wallet`` when given
+    ``/v1/market/jobs/<id>/release``. ``binding`` is an optional attestation
+    payload folded into the signed message (#2326: alias job claims bind the
+    escrow key + buyer they assert). Signs with ``wallet`` when given
     (a ``load_wallet_for_payment``/``get_market_wallet`` triple), else the
     market wallet resolved from the command context. Returns ``{}`` when no
     private key is resolvable — the server then requires the operator
@@ -49,7 +52,7 @@ def signed_job_request_fields(
         if not chain_id:
             return {}
         issued_at = int(time.time())
-        message = jobs_request_message(address, chain_id, issued_at, route)
+        message = jobs_request_message(address, chain_id, issued_at, route, binding=binding)
         return {
             "signer_address": address,
             "chain_id": chain_id,

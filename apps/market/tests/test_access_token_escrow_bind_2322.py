@@ -36,19 +36,41 @@ PROVIDER = "0x" + "22" * 20
 
 
 class _EscrowStub:
-    """verify_escrow stub keyed by escrow/job id."""
+    """verify_escrow stub keyed by escrow/job id.
 
-    def __init__(self, escrows: dict[str, dict] | None = None) -> None:
+    ``bindings`` maps a lock tx hash to the market job id its payload
+    ``market_job_id`` names (#2326) — alias claims verify only when the
+    escrow's signed lock tx binds them.
+    """
+
+    def __init__(self, escrows: dict[str, dict] | None = None, bindings: dict[str, str] | None = None) -> None:
         self.escrows = escrows or {}
+        self.bindings = bindings or {}
         self.calls: list[str] = []
 
     async def verify_escrow(self, job_id: str):
         self.calls.append(job_id)
         return self.escrows.get(job_id)
 
+    async def get_transaction(self, tx_hash: str, chain_id: str | None = None):
+        market_job_id = self.bindings.get(tx_hash)
+        if market_job_id is None:
+            return None
+        return {"payload": {"market_job_id": market_job_id}}
 
-def _locked_escrow(*, amount: str = "1.0", state: str = "locked", buyer: str = BUYER, provider: str = PROVIDER) -> dict:
-    return {"state": state, "amount": amount, "buyer": buyer, "provider": provider}
+
+def _locked_escrow(
+    *,
+    amount: str = "1.0",
+    state: str = "locked",
+    buyer: str = BUYER,
+    provider: str = PROVIDER,
+    lock_tx_hash: str | None = None,
+) -> dict:
+    escrow = {"state": state, "amount": amount, "buyer": buyer, "provider": provider}
+    if lock_tx_hash:
+        escrow["lock_tx_hash"] = lock_tx_hash
+    return escrow
 
 
 async def _seed_access_job(
@@ -160,7 +182,11 @@ async def test_escrow_job_id_payload_binding_is_used() -> None:
     """ai-submit shape: escrow keyed by the coordinator job id, not the
     market job id — the token record binds it via payload.escrow_job_id."""
     market_job_id, ak, secret = await _seed_access_job(tag="aibind", escrow_job_id="coord_job_1")
-    rpc = _EscrowStub({"coord_job_1": _locked_escrow()})
+    lock_hash = "lock_coord_job_1"
+    rpc = _EscrowStub(
+        {"coord_job_1": _locked_escrow(lock_tx_hash=lock_hash)},
+        bindings={lock_hash: market_job_id},
+    )
     tok = await _verify(ak, secret, rpc)
     assert tok is not None
     assert tok["job_id"] == market_job_id

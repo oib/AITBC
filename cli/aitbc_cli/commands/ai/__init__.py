@@ -264,6 +264,7 @@ def _create_escrow_payment(
     idempotency_key: str | None = None,
     buyer_agent_id: str | None = None,
     provider_agent_id: str | None = None,
+    market_job_id: str | None = None,
 ) -> dict[str, Any]:
     from ...utils.address import to_canonical
 
@@ -290,6 +291,7 @@ def _create_escrow_payment(
         private_key,
         chain_id=chain_id,
         node_wallet=node_wallet,
+        market_job_id=market_job_id,
     )
     payload: dict[str, Any] = {
         "job_id": job_id,
