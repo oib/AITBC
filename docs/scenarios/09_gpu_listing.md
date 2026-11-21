@@ -239,6 +239,11 @@ aitbc resource status
 aitbc resource deallocate alloc_12345 --force
 ```
 
+> **Note:** `aitbc resource status`/`deallocate` operate on coordinator-side
+> `ResourceAllocation` rows — they do **not** see or close on-chain
+> `gpu_allocation` records. On-chain allocations are managed with
+> `aitbc gpu-onchain allocations` and `aitbc gpu-onchain release` (below).
+
 ---
 
 ## Code Examples Using Agent SDK
@@ -356,13 +361,25 @@ Cost: gas only; `--price-per-hour` takes a decimal **in AIT** (same unit as Step
 aitbc gpu-onchain register --gpu-id gpu-01 --miner-id 0xMiner --model rtx-4090 --memory-gb 24 --price-per-hour 0.1 --wallet my-agent-wallet
 ```
 
-### Step 10: Deregister a GPU
+### Step 10: Release an on-chain allocation, then deregister a GPU
 
-Removes a GPU from the on-chain registry.
+Complete an open on-chain allocation so the GPU's `active_allocations`
+count drops, then remove the GPU from the on-chain registry. `release`
+signs a `GPU_DEALLOCATE` transaction (chain state-transition v28+); the
+signing wallet must be the allocation's allocator or its recorded client.
+`deregister` warns when open allocations remain — they are not released by
+deregistration.
 
 Cost: 0 units — gas only.
 
 ```bash
+# Find the allocation id first
+aitbc gpu-onchain allocations --gpu-id gpu-01
+
+# Complete it on-chain (allocator or client wallet)
+aitbc gpu-onchain release --allocation-id alloc_<id> --wallet my-agent-wallet
+
+# Then deregister
 aitbc gpu-onchain deregister --gpu-id gpu-01 --wallet my-agent-wallet
 ```
 
@@ -403,12 +420,12 @@ aitbc resource status
 ## Related Resources
 
 - Source: `cli/aitbc_cli/commands/gpu_market.py` (`gpu` group: discover, register, unregister, update, list)
-- Source: `cli/aitbc_cli/commands/gpu_resources.py` (`gpu-onchain` group: register, query, allocate, allocations, deregister, list)
+- Source: `cli/aitbc_cli/commands/gpu_resources.py` (`gpu-onchain` group: register, query, allocate, release, allocations, deregister, list)
 - Source: `cli/aitbc_cli/commands/resource.py` (`resource` group: status, deallocate, experimental allocate/list/release/utilization/optimize)
 - SDK: `packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py` (`ComputeProvider.create_provider`, `offer_resources`, `set_availability`, `enable_dynamic_pricing`, `accept_job`)
 - [Next Scenario: Agent SDK Identity](./10_agent_sdk_identity.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-11-21*
+*Version: 1.3*

@@ -16,6 +16,7 @@ from .gpu_resources import (
     GPURegistration,
     gpu_allocate_admission_error,
     gpu_allocate_deactivated_error,
+    gpu_deallocate_error,
     gpu_deregister_error,
     retired_gpu_error,
 )
@@ -81,6 +82,21 @@ class _ValidationGpuMixin:
         # The rule lives in state/gpu_resources.py::gpu_deregister_error, shared with mempool admission
         # (rpc/transactions.py) so a transaction the proposer would drop is refused at the door too.
         error = gpu_deregister_error(ctx.session, ctx.chain_id, ctx.tx_data.get("payload"), ctx.sender_addr)
+        if error:
+            return (False, error)
+        return None
+
+    def _vt_gpu_deallocate(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        if ctx.tx_type != "GPU_DEALLOCATE" or ctx.block_version < 28:
+            return None
+        # v28 (#2403): the allocator or the recorded client closes an active
+        # allocation. Below v28 the name has no consensus meaning — the tx is
+        # left alone here exactly as GPU_DEREGISTER is below v10, and the
+        # zero-value rule keeps it from debiting. The rule lives in
+        # state/gpu_resources.py::gpu_deallocate_error, shared with mempool
+        # admission (rpc/transactions.py) so a transaction the proposer would
+        # drop is refused at the door too.
+        error = gpu_deallocate_error(ctx.session, ctx.chain_id, ctx.tx_data.get("payload"), ctx.sender_addr)
         if error:
             return (False, error)
         return None

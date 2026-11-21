@@ -2,7 +2,7 @@
 
 # `aitbc gpu-onchain deregister`
 
-Deactivate an on-chain GPU registration (signed by its registrant). The registration stays on the chain with status 'deactivated' and takes no new allocations; registering the same gpu-id again reactivates it. Takes effect only once the chain has activated state-transition v10; before that the node refuses the transaction. This is not `aitbc gpu unregister`, which only edits the local GPU service.
+Deactivate an on-chain GPU registration (signed by its registrant). The registration stays on the chain with status 'deactivated' and takes no new allocations; registering the same gpu-id again reactivates it. Takes effect only once the chain has activated state-transition v10; before that the node refuses the transaction. Open on-chain allocations are NOT released by deregistration — the command refuses while ``active_allocations`` is non-zero unless ``--force``; close them first with ``gpu-onchain release`` (chain v28+). This is not `aitbc gpu unregister`, which only edits the local GPU service.
 
 ## Usage
 

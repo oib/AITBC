@@ -49,9 +49,13 @@ def _is_zero_value_tx_type(tx_type: str, block_version: int) -> bool:
     """Whether ``tx_type`` may not carry value under the rules of ``block_version``.
 
     GPU_DEREGISTER joins the set from v10 only: below it the name has no consensus meaning and a block carrying it
-    replays as the plain transfer it always was.
+    replays as the plain transfer it always was. GPU_DEALLOCATE joins from v28 only, same rule (#2403).
     """
-    if tx_type in _ZERO_VALUE_TX_TYPES or (block_version >= 10 and tx_type == "GPU_DEREGISTER"):
+    if (
+        tx_type in _ZERO_VALUE_TX_TYPES
+        or (block_version >= 10 and tx_type == "GPU_DEREGISTER")
+        or (block_version >= 28 and tx_type == "GPU_DEALLOCATE")
+    ):
         return True
     # v21: session lifecycle txs move no value — the owner pays only the fee.
     return block_version >= 21 and tx_type in AGENT_SESSION_TX_TYPES
@@ -187,7 +191,7 @@ def get_block_version_for_height(height: int) -> int:
     # v9+ thresholds treat any configured value as active; v3-v8 additionally
     # require a positive threshold (their getattr default is 0). v2 inverts:
     # heights *below* its threshold run v1 rules.
-    for version in range(27, 2, -1):
+    for version in range(28, 2, -1):
         threshold = getattr(settings, f"state_transition_v{version}_height", None)
         if not threshold:
             continue

@@ -51,6 +51,98 @@ class TestGPUResourcesCommands:
 
         assert "deregister" in gpu.commands
 
+    def test_gpu_group_has_release_subcommand(self):
+        """The ``release`` subcommand is registered on the gpu group (#2403)."""
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        assert "release" in gpu.commands
+
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
+    @patch("aitbc_cli.utils.gpu_onchain.wait_for_tx")
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deallocate")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_release_wait_reports_mined(
+        self, mock_get_config, mock_submit, mock_wait, mock_chain_health, runner, mock_config, cli_obj
+    ):
+        """``gpu-onchain release --wait`` submits the signed tx and reports the mined block."""
+        mock_get_config.return_value = mock_config
+        mock_submit.return_value = {"transaction_hash": "0xdef456", "allocation_id": "alloc_1"}
+        mock_wait.return_value = {"block_height": 7300, "tx_hash": "0xdef456"}
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(
+            gpu, ["release", "--allocation-id", "alloc_1", "--wallet", "w1", "--wait"], obj=cli_obj
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_submit.assert_called_once()
+        # (ctx, rpc_url, chain_id, wallet, password, allocation_id)
+        assert mock_submit.call_args[0][3:6] == ("w1", None, "alloc_1")
+        assert mock_submit.call_args[1]["gpu_id"] is None
+        assert mock_wait.call_args[0][1] == "0xdef456"
+        assert "7300" in result.output
+
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deallocate")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_release_requires_a_wallet(self, mock_get_config, mock_submit, runner, mock_config, cli_obj):
+        """The signer is not optional: without ``--wallet`` nothing is submitted."""
+        mock_get_config.return_value = mock_config
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(gpu, ["release", "--allocation-id", "alloc_1"], obj=cli_obj)
+
+        assert result.exit_code != 0
+        mock_submit.assert_not_called()
+
+    @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_deregister_refuses_on_open_allocations(
+        self, mock_get_config, mock_submit, mock_chain_health, mock_http_class, runner, mock_config, cli_obj
+    ):
+        """#2403: deregister refuses while the GPU has active on-chain allocations.
+
+        The landed guard (#2403 verify-2403) is stricter than a warning: it
+        aborts before submit unless ``--force``; ``gpu-onchain release``
+        (v28+) is the named way to close the rows first.
+        """
+        mock_get_config.return_value = mock_config
+        mock_http_class.return_value.get.return_value = {"active_allocations": 2}
+        mock_submit.return_value = {"transaction_hash": "0xabc123"}
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(gpu, ["deregister", "--gpu-id", "gpu-0", "--wallet", "w1"], obj=cli_obj)
+
+        assert result.exit_code != 0, result.output
+        assert "active on-chain allocation" in result.output
+        assert "gpu-onchain release" in result.output
+        mock_http_class.return_value.get.assert_called_once()
+        assert "/rpc/gpu/info/gpu-0" in mock_http_class.return_value.get.call_args[0][0]
+        mock_submit.assert_not_called()
+
+    @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_deregister_probe_failure_does_not_block(
+        self, mock_get_config, mock_submit, mock_chain_health, mock_http_class, runner, mock_config, cli_obj
+    ):
+        """A failed active_allocations probe is advisory only — submit still runs."""
+        mock_get_config.return_value = mock_config
+        mock_http_class.return_value.get.side_effect = RuntimeError("rpc down")
+        mock_submit.return_value = {"transaction_hash": "0xabc123"}
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(gpu, ["deregister", "--gpu-id", "gpu-0", "--wallet", "w1"], obj=cli_obj)
+
+        assert result.exit_code == 0, result.output
+        mock_submit.assert_called_once()
+
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
     @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_resources.get_config")
@@ -332,6 +424,63 @@ class TestSubmitGpuDeregister:
         _, tx, _ = self._submit(fee=999)
 
         assert tx["fee"] == 999
+
+
+class TestSubmitGpuDeallocate:
+    """The transaction ``gpu-onchain release`` signs and sends (#2403)."""
+
+    KEY = "0x" + "11" * 32
+
+    def _submit(self, **kwargs):
+        from aitbc.crypto.crypto import derive_ethereum_address
+
+        from aitbc_cli.utils import gpu_onchain
+
+        address = derive_ethereum_address(self.KEY)
+        sent: list = []
+        with (
+            patch.object(gpu_onchain, "load_wallet_for_payment", return_value=(address, self.KEY, None)),
+            patch.object(gpu_onchain, "get_buyer_nonce", return_value=7),
+            patch.object(gpu_onchain, "_submit_signed_tx", side_effect=lambda _url, tx: sent.append(tx) or {"tx_hash": "0x1"}),
+        ):
+            result = gpu_onchain.submit_gpu_deallocate(
+                None, "http://node:8202", "ait-test", "w1", None, "alloc_abc", **kwargs
+            )
+        return address, sent[0], result
+
+    def test_transaction_shape(self):
+        """GPU_DEALLOCATE, value 0, signed by the wallet, naming the allocation."""
+        from aitbc.utils import DEFAULT_TX_FEE_UNITS
+
+        address, tx, result = self._submit()
+
+        assert result["allocation_id"] == "alloc_abc"
+        assert tx["type"] == "GPU_DEALLOCATE"
+        assert tx["from"] == address
+        assert tx["amount"] == 0
+        assert tx["nonce"] == 7
+        assert tx["fee"] == DEFAULT_TX_FEE_UNITS
+        assert tx["chain_id"] == "ait-test"
+        assert tx["payload"]["allocation_id"] == "alloc_abc"
+        assert "gpu_id" not in tx["payload"]
+
+    def test_gpu_id_is_optional_but_carried_when_given(self):
+        _, tx, _ = self._submit(gpu_id="gpu-0")
+
+        assert tx["payload"]["gpu_id"] == "gpu-0"
+
+    def test_signature_recovers_to_the_sender(self):
+        """The signature is over the canonical JSON the node rebuilds, so the node accepts it."""
+        import json
+
+        from aitbc.crypto.signature_recovery import verify_signature
+        from eth_utils import keccak
+
+        address, tx, _ = self._submit()
+
+        unsigned = {k: v for k, v in tx.items() if k not in ("signature", "sig", "tx_hash", "value")}
+        message = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+        assert verify_signature(keccak(message), tx["signature"], address)
 
 
 class TestWaitForTx:

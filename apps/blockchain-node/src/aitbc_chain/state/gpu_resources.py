@@ -147,6 +147,36 @@ def gpu_allocate_deactivated_error(session: Session, chain_id: str, payload: Any
     return None
 
 
+def gpu_deallocate_error(session: Session, chain_id: str, payload: Any, sender_addr: str) -> str | None:
+    """Why ``sender_addr`` may not complete the allocation named in ``payload`` (v28 rules), or None.
+
+    The single definition of the rule: ``StateTransition.validate_transaction`` applies it at block time and
+    mempool admission applies it at the door, so a transaction the proposer would drop is refused up front.
+    The allocator (``allocated_by``) or the recorded ``client_id`` may close the allocation; anyone else may
+    not. A missing, already-terminal, or foreign allocation is refused — ``active`` is the only status the
+    transition accepts.
+    """
+    if not isinstance(payload, dict):
+        return "GPU_DEALLOCATE payload must be an object"
+    allocation_id = payload.get("allocation_id")
+    if not isinstance(allocation_id, str) or not allocation_id:
+        return "GPU_DEALLOCATE payload must include allocation_id"
+    row = session.exec(
+        select(GPUAllocation).where(GPUAllocation.chain_id == chain_id, GPUAllocation.allocation_id == allocation_id)
+    ).first()
+    if row is None:
+        return f"GPU allocation not found: {allocation_id}"
+    if row.status != "active":
+        return f"GPU allocation {allocation_id} is already {row.status}"
+    allowed = {a for a in (row.allocated_by, row.client_id) if a}
+    if canonical_address(sender_addr) not in {canonical_address(a) for a in allowed}:
+        return (
+            f"GPU_DEALLOCATE for {allocation_id} must come from its allocator {row.allocated_by} "
+            f"or client {row.client_id}, got {sender_addr}"
+        )
+    return None
+
+
 def gpu_allocate_admission_error(session: Session, chain_id: str, payload: Any) -> str | None:
     """Why a ``GPU_ALLOCATE`` may not be admitted at/after v16, or None.
 

@@ -135,6 +135,10 @@ SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         "GPU_REGISTER",
         "GPU_ALLOCATE",
         "GPU_DEREGISTER",
+        # v28 (#2403): writes gpu_allocation.status/completed_at — same
+        # side-table class as GPU_ALLOCATE; below v28 it has no apply branch
+        # and replays as a plain transfer like every unknown name.
+        "GPU_DEALLOCATE",
         "GOVERNANCE_EXECUTE",
         "STAKE_RELEASE",
         "BOND_LOCK",

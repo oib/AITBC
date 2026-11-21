@@ -477,6 +477,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "gpu-onchain allocate",
         "gpu-onchain deregister",
         "gpu-onchain register",
+        "gpu-onchain release",
         "grant create",
         "grant disburse",
         "grant vote",

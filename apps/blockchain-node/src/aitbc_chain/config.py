@@ -286,6 +286,18 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # only after every validator runs the code — a mixed set would apply
     # different rules and fork.
     state_transition_v27_height: int | None = None
+    # v28 (#2403 GPU-DEALLOCATE-1): at or above this height ``GPU_DEALLOCATE``
+    # is a consensus tx type — a signed, value-zero transaction that marks an
+    # existing ``gpu_allocation`` row ``completed``. Until now nothing could
+    # transition an allocation out of ``active``, so ``active_allocations``
+    # counted open rows forever and deregister left the GPU permanently
+    # spoken-for. The tx is admitted only at/above this height: below it the
+    # name has no consensus meaning and the tx is refused at the door and at
+    # validation rather than sealed as a plain transfer. ``None`` (the
+    # default) keeps the rule unarmed: the activation height is an operator
+    # pin set fleet-wide with the validator restart wave — a mid-rollout
+    # mixed set would apply different rules and fork.
+    state_transition_v28_height: int | None = None
     # #2257: node-local reconciler for stale ``pending`` bridge transfer rows.
     # Bookkeeping only (no tx, no consensus effect). Off by default; with
     # ``dry_run`` on (default) it only logs what it would change.

@@ -44,7 +44,7 @@ def _build_gpu_tx(
     password_file: str | None = None,
     password_stdin: bool = False,
 ) -> tuple[dict[str, Any], str]:
-    """Build a GPU_REGISTER, GPU_ALLOCATE or GPU_DEREGISTER transaction and return (tx, private_key)."""
+    """Build a GPU_REGISTER, GPU_ALLOCATE, GPU_DEREGISTER or GPU_DEALLOCATE transaction and return (tx, private_key)."""
     address, private_key, _ = load_wallet_for_payment(
         ctx,
         wallet_name=wallet,
@@ -203,6 +203,46 @@ def submit_gpu_deregister(
     )
     tx["signature"] = _sign_tx(tx, private_key)
     return _submit_signed_tx(rpc_url, tx)
+
+
+def submit_gpu_deallocate(
+    ctx: Any,
+    rpc_url: str,
+    chain_id: str,
+    wallet: str,
+    password: str | None,
+    allocation_id: str,
+    gpu_id: str | None = None,
+    fee: int | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+) -> dict[str, Any]:
+    """Build, sign and submit a GPU_DEALLOCATE transaction (#2403, v28+).
+
+    The wallet must be the allocation's ``allocated_by`` signer or its recorded
+    ``client_id`` — the chain refuses the transaction from anyone else. It marks
+    the ``gpu_allocation`` row ``completed``; until v28 activates the node
+    refuses the type at admission.
+    """
+    payload: dict[str, Any] = {"allocation_id": allocation_id}
+    if gpu_id:
+        payload["gpu_id"] = gpu_id
+    tx, private_key = _build_gpu_tx(
+        ctx,
+        rpc_url,
+        chain_id,
+        wallet,
+        password,
+        "GPU_DEALLOCATE",
+        payload,
+        fee=fee,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
+    tx["signature"] = _sign_tx(tx, private_key)
+    result = _submit_signed_tx(rpc_url, tx)
+    result.setdefault("allocation_id", allocation_id)
+    return result
 
 
 def wait_for_tx(rpc_url: str, tx_hash: str, timeout: float = 120.0, poll_interval: float = 2.0) -> dict[str, Any] | None:
