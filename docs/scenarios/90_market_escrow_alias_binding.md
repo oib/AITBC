@@ -119,7 +119,7 @@ aitbc ai submit --type transcribe --input <url> --payment 0.01 --wallet <buyer> 
 carries the buyer signature (visible in market logs as a normal create);
 the gated shop call with the minted `X-Access-Key`/`X-Access-Secret`
 authenticates — the lock tx sealed with `payload.market_job_id` equal to
-the `ai_job_*` market job id (`aitbc transactions show <lock-tx>` shows
+the `ai_job_*` market job id (`aitbc transactions status <lock-tx>` shows
 the payload field).
 
 ---
@@ -132,8 +132,8 @@ curl -sS "$MARKET/jobs?buyer_address=$BUYER" -H "X-Api-Key: $API_KEY" | jq '.[] 
 # Expected: no rows (or empty)
 
 # Step-4 lock tx carries the binding:
-aitbc transactions show <escrow-lock-tx-hash> --output json | jq '.payload.market_job_id'
-# Expected: "ai_job_..." matching the market job id
+aitbc transactions status --tx-hash <escrow-lock-tx-hash>
+# Expected: sealed tx whose payload carries market_job_id = the ai_job_* market job id
 ```
 
 ---
