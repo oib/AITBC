@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -1697,3 +1698,23 @@ async def test_float_marked_topup_creates_no_lock(sell_env, caplog):
     caplog.set_level(logging.WARNING)
     await sellmon.poll_sells_once()
     assert get_sell_lock_by_ait_tx_hash("0x" + "f4" * 32) is None
+
+
+@pytest.mark.asyncio
+async def test_loop_warns_on_preflight_skip(sell_env, monkeypatch, caplog):
+    """#2354: same silent-skip fix on the sell lane — a dead key slot must
+    warn, not vanish into the DEBUG poll summary."""
+    import logging
+
+    async def _skipped():
+        return {"scanned": 0, "recorded": 0, "processed": 0, "skipped": True, "reason": "escrow key slot unusable: missing"}
+
+    monkeypatch.setattr(sellmon, "poll_sells_once", _skipped)
+    monkeypatch.setenv("SELL_POLL_INTERVAL", "1")
+    with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.sell_escrow_monitor"):
+        task = asyncio.create_task(sellmon.sell_monitor_loop())
+        await asyncio.sleep(0.3)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert "Sell escrow monitor poll skipped (1 consecutive): escrow key slot unusable" in caplog.text

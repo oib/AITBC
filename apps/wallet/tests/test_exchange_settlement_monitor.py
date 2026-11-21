@@ -1604,3 +1604,22 @@ class TestFixup:
         summary = await esm.poll_exchange_settlements_once()
         assert summary["skipped"] is False
         assert "locks" in summary and "credits" in summary
+
+
+@pytest.mark.asyncio
+async def test_loop_warns_on_preflight_skip(exchange_env, monkeypatch, caplog):
+    """#2354: a skipped poll must surface in the journal — the 19→21 Nov
+    escrow-key outage ran ~2 days silent because skips only reached DEBUG."""
+
+    async def _skipped():
+        return {"skipped": True, "reason": "escrow key slot unusable: missing"}
+
+    monkeypatch.setattr(esm, "poll_exchange_settlements_once", _skipped)
+    monkeypatch.setenv("EXCHANGE_SETTLEMENT_POLL_INTERVAL", "1")
+    with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.exchange_settlement_monitor"):
+        task = asyncio.create_task(esm.exchange_settlement_loop())
+        await asyncio.sleep(0.3)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert "Exchange settlement monitor poll skipped (1 consecutive): escrow key slot unusable" in caplog.text
