@@ -125,6 +125,11 @@ aitbc dispute vote --dispute-id 42 --vote plaintiff \
 aitbc dispute votes 42
 ```
 
+Each authorized arbitrator votes once; a changed verdict may be re-cast
+(latest vote counts), an identical re-cast is rejected as a duplicate.
+Votes are refused after `arbitration_deadline` (~7 days from filing);
+evidence closes after `evidence_deadline` (~3 days).
+
 ### 5. Resolution
 
 **Chain side (automatic):** once every authorized arbitrator has voted,
@@ -198,5 +203,10 @@ aitbc dispute arbitrator queue 0xArbitrator
   `aitbc market gpu agreement-create` and file as its provider or consumer.
 - `Dispute is closed` / `deadline has passed` — resolved, escalated, or
   deadline-expired disputes refuse further evidence and votes.
+- `Dispute N not found` on a dispute you just filed — the node predates the
+  shared-state store (#2387); upgrade/restart `aitbc-blockchain-rpc`.
+- `vote` rejected with "Not an authorized arbitrator" — the address isn't in
+  `AITBC_DISPUTE_ARBITRATORS` or the runtime registry; check
+  `aitbc dispute arbitrator list`.
 - `vote`/`resolve` rejected — those paths require arbitrator/operator
   credentials; check `aitbc auth status` and the node's operator wallet.
