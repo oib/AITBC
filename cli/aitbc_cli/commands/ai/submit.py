@@ -668,7 +668,11 @@ def submit(
 
         # Auth once and reuse for media upload and job submission.
         headers = _ai._require_auth_headers(ctx)
-        http_client = _ai.AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        # #2426: breaker off — slow coordinator calls (the escrow POST can
+        # legitimately run for minutes while the lock seals) must not open
+        # the breaker and kill the --wait poll path mid-submission. Same
+        # precedent as the market escrow/host payment clients.
+        http_client = _ai.AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers, enable_circuit_breaker=False)
 
         # Prepare job data in the JobCreate shape expected by coordinator-api
         job_type = job_type or "inference"

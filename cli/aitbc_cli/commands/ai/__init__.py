@@ -247,6 +247,59 @@ def _report_escrow_outcome(ctx, job_id: str, payment_result: dict[str, Any]) -> 
     )
 
 
+# POST /v1/payments holds the request while the coordinator seals the
+# escrow lock on-chain — live seals have taken ~2.5 min under contention
+# (#2426), far beyond the shared client's 30s timeout. A dedicated client
+# with a seal-horizon timeout keeps the common case a clean success; the
+# reconcile poll below still covers the residual ambiguous window.
+_AI_PAYMENT_POST_TIMEOUT = 240
+# After an ambiguous payments submit, poll the payment row this many
+# times (5s apart) before declaring the submit failed — same contract as
+# the market host reconcile (#2340), widened for the seal horizon.
+_AI_PAYMENT_RECONCILE_ATTEMPTS = 12
+_AI_PAYMENT_RECONCILE_DELAY = 5.0
+
+
+def _reconcile_ai_payment(client: AITBCHTTPClient, job_id: str) -> dict[str, Any] | None:
+    """Return the JobPaymentView for ``job_id`` if one exists, else None.
+
+    Used only after an ambiguous ``POST /v1/payments`` (timeout/reset): the
+    server may have committed the row anyway once the seal finishes. Any
+    non-404 answer — including a non-escrowed status — is returned so the
+    caller's status check decides; only "no row visible" yields None.
+    """
+    for attempt in range(_AI_PAYMENT_RECONCILE_ATTEMPTS):
+        try:
+            view = client.get(f"/v1/jobs/{job_id}/payment")
+        except _OPS_ERRORS:
+            view = None
+        if isinstance(view, dict) and view.get("payment_id") and view.get("status"):
+            return view
+        if attempt + 1 < _AI_PAYMENT_RECONCILE_ATTEMPTS:
+            time.sleep(_AI_PAYMENT_RECONCILE_DELAY)
+    return None
+
+
+def _escrow_payment_client(coord_http_client: AITBCHTTPClient) -> AITBCHTTPClient:
+    """Client for ``POST /v1/payments``: seal-horizon timeout, breaker off.
+
+    #2426: the escrow POST legitimately outlives the shared 30s client
+    timeout (the coordinator seals the lock before answering), and every
+    timeout used to count against the circuit breaker until it opened and
+    killed the ``--wait`` path. Same precedent as the market escrow/host
+    payment clients. Test doubles that are not ``AITBCHTTPClient``
+    instances are returned unchanged.
+    """
+    if type(coord_http_client) is not AITBCHTTPClient:
+        return coord_http_client
+    return AITBCHTTPClient(
+        base_url=coord_http_client.base_url,
+        timeout=_AI_PAYMENT_POST_TIMEOUT,
+        headers=coord_http_client.headers,
+        enable_circuit_breaker=False,
+    )
+
+
 def _create_escrow_payment(
     ctx,
     coord_http_client: AITBCHTTPClient,
@@ -317,9 +370,35 @@ def _create_escrow_payment(
         # #2371: the coordinator rebuilds the lock tx server-side — it must
         # see the same market_job_id the buyer signed into the payload.
         payload["market_job_id"] = market_job_id
-    if idempotency_key:
-        return _post_idempotent(coord_http_client, "/v1/payments", json=payload, idempotency_key=idempotency_key)
-    return coord_http_client.post("/v1/payments", json=payload)
+    pay_client = _escrow_payment_client(coord_http_client)
+    return _post_escrow_payment(pay_client, payload, job_id, idempotency_key)
+
+
+def _post_escrow_payment(
+    pay_client: AITBCHTTPClient,
+    payload: dict[str, Any],
+    job_id: str,
+    idempotency_key: str | None,
+) -> dict[str, Any]:
+    """POST /v1/payments, reconciling an ambiguous submit before failing.
+
+    A read timeout can fire after the server already committed the payment
+    row AND sealed the lock — same ambiguity class as #2340. Reconcile
+    against GET /v1/jobs/{id}/payment; only a truly absent row re-raises.
+    """
+    try:
+        if idempotency_key:
+            return _post_idempotent(pay_client, "/v1/payments", json=payload, idempotency_key=idempotency_key)
+        return pay_client.post("/v1/payments", json=payload)
+    except NetworkError as e:
+        payment = _reconcile_ai_payment(pay_client, job_id)
+        if payment is None:
+            raise
+        warning(
+            f"Payment POST was ambiguous ({type(e).__name__}: {e}) — reconciled server-side: "
+            f"payment {payment.get('payment_id')} status={payment.get('status')}"
+        )
+        return payment
 
 
 from ._group import ai
