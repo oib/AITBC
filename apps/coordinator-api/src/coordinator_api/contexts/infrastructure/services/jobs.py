@@ -601,8 +601,6 @@ class JobService:
             offer_quantity=offer_quantity,
             zk_status=receipt.get("zk_status"),
             zk_proof_id=zk_proof.get("circuit_hash"),
-            tee_status=receipt.get("tee_status"),
-            tee_attestation_id=receipt.get("tee_attestation_id"),
             auto_reinvest_pct=(job.constraints or {}).get("auto_reinvest_pct"),
             reinvest_status=meta.get("reinvest_status") or receipt.get("reinvest_status"),
             reinvest_stake_id=meta.get("reinvest_stake_id") or receipt.get("reinvest_stake_id"),
@@ -690,16 +688,6 @@ class JobService:
 
     def to_assigned(self, job: Job) -> AssignedJob:
         raw = dict(job.constraints) if isinstance(job.constraints, dict) else {}
-        from ...payments.services.payments import _zk_required_for_payment
-        from ...zk_applications.services import model_registry
-
-        model_id = model_registry.resolve_model_id(job, None)
-        payment = self._payment_for(job)
-        if _zk_required_for_payment(payment.amount if payment else job.payment_amount, job):
-            if model_id is None or model_registry.get_model(model_id) is None:
-                raw["tee_attestation_required"] = True
-                if not raw.get("tee_enclave_id"):
-                    raw["tee_enclave_id"] = os.getenv("COORDINATOR_TEE_DEFAULT_ENCLAVE_ID", "aitbc-miner-tee")
         constraints = Constraints(**raw)
         deadline = _to_utc(job.expires_at)
         return AssignedJob(

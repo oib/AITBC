@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1535
+- **Markdown files under docs/**: 1529
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 607 | Command-line interface reference |
+| [cli](cli/) | 601 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -797,12 +797,6 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/system-start.md](cli/commands/system-start.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/system-status.md](cli/commands/system-status.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/system-stop.md](cli/commands/system-stop.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/tee-attest.md](cli/commands/tee-attest.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/tee-keygen.md](cli/commands/tee-keygen.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/tee-launch.md](cli/commands/tee-launch.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/tee-register.md](cli/commands/tee-register.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/tee-status.md](cli/commands/tee-status.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/tee-verify.md](cli/commands/tee-verify.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/trade-chains.md](cli/commands/trade-chains.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/trade-create.md](cli/commands/trade-create.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/trade-discover.md](cli/commands/trade-discover.md) | [cli/commands/README.md](cli/commands/README.md) |

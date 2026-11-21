@@ -39,35 +39,6 @@ def test_edge_compliance_subnet_rejects_pci() -> None:
         pass
 
 
-def test_gpu_compliance_enclave_requires_attestation() -> None:
-    from apps.gpu.src.gpu_app.compliance_enclaves import ComplianceGPUEnclave
-
-    enclave = ComplianceGPUEnclave(
-        enclave_id="gpu-hipaa-1",
-        policy_framework=ComplianceFramework.HIPAA,
-        allowed_classifications={DataClassification.PHI},
-    )
-    try:
-        enclave.run("w-1", "phi", {"x": 1})
-        assert False, "expected PolicyViolationError"
-    except PolicyViolationError:
-        pass
-
-
-def test_gpu_compliance_enclave_runs_after_attestation() -> None:
-    from apps.gpu.src.gpu_app.compliance_enclaves import ComplianceGPUEnclave
-
-    enclave = ComplianceGPUEnclave(
-        enclave_id="gpu-hipaa-1",
-        policy_framework=ComplianceFramework.HIPAA,
-        allowed_classifications={DataClassification.PHI},
-    )
-    enclave.attest("measurement-1")
-    result = enclave.run("w-1", "phi", {"x": 1})
-    assert result["attested"] is True
-    assert result["classification"] == "phi"
-
-
 def test_consent_tracker() -> None:
     tracker = ConsentTracker()
     tracker.grant("patient-1", "treatment", classifications={"phi"})

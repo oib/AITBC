@@ -303,34 +303,10 @@ def _apply_simple_constraints(
         constraints["acceptance_window_seconds"] = acceptance_window
 
 
-def _apply_tee_constraints(
-    ctx,
-    constraints: dict[str, Any],
-    config,
-    *,
-    tee_attestation_required,
-    tee_enclave_id,
-    confidential,
-    enclave_measurement,
-) -> None:
-    """Apply TEE/confidentiality constraints after checking the feature flag."""
-    tee_requested = tee_attestation_required or tee_enclave_id or confidential or enclave_measurement
-    if tee_requested and not config.tee_attestation_enabled:
-        _ai.abort(
-            ctx,
-            "TEE attestation is not enabled. Remove --confidential, --tee-attestation-required, "
-            "--tee-enclave-id, and --enclave-measurement, or set TEE_ATTESTATION_ENABLED=true.",
-        )
-    if tee_attestation_required:
-        constraints["tee_attestation_required"] = True
-    if tee_enclave_id:
-        constraints["tee_enclave_id"] = tee_enclave_id
+def _apply_confidential_constraint(constraints: dict[str, Any], *, confidential: bool) -> None:
+    """Mark a job confidential; enclave attestation was removed (#2375)."""
     if confidential:
         constraints["confidential"] = True
-        constraints["tee_attestation_required"] = True
-    if enclave_measurement:
-        constraints["required_enclave_measurement"] = enclave_measurement
-        constraints["tee_enclave_id"] = enclave_measurement
 
 
 def _apply_payment_fields(
@@ -587,14 +563,7 @@ def _secure_escrow(
 @click.option(
     "--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release"
 )
-@click.option(
-    "--tee-attestation-required/--no-tee-attestation-required",
-    default=False,
-    help="Require a TEE attestation before escrow release",
-)
-@click.option("--tee-enclave-id", default=None, help="Required TEE enclave identity")
-@click.option("--confidential", is_flag=True, help="Mark this job as confidential (requires a TEE attestation)")
-@click.option("--enclave-measurement", default=None, help="Required enclave measurement for a confidential job")
+@click.option("--confidential", is_flag=True, help="Mark this job as confidential")
 @click.option(
     "--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment"
 )
@@ -642,10 +611,7 @@ def submit(
     acceptance_window,
     min_reputation,
     zk_proof_required,
-    tee_attestation_required,
-    tee_enclave_id,
     confidential,
-    enclave_measurement,
     auto_reinvest_pct,
     bond_required,
     min_bond_amount,
@@ -723,15 +689,7 @@ def submit(
             decode_seed=decode_seed,
             acceptance_window=acceptance_window,
         )
-        _apply_tee_constraints(
-            ctx,
-            job_data["constraints"],
-            config,
-            tee_attestation_required=tee_attestation_required,
-            tee_enclave_id=tee_enclave_id,
-            confidential=confidential,
-            enclave_measurement=enclave_measurement,
-        )
+        _apply_confidential_constraint(job_data["constraints"], confidential=confidential)
         _apply_payment_fields(
             ctx,
             job_data,

@@ -1,5 +1,12 @@
 # Scenario 46: Confidential AI job with TEE attestation
 
+> **Removed (#2375, 21 Nov 2026).** All TEE/enclave support was deleted —
+> no enclave hardware exists on the fleet. `aitbc tee`, the coordinator
+> attestation API, miner TEE quotes and the TEE settlement gate are gone;
+> the ZK gate governs high-value jobs. Confidential *payments* (Pedersen
+> commitments) remain as non-enclave cryptography — see Scenario 74.
+> Retained for history only.
+
 > **v0.14.4+ behavior.** Escrow releases only for VERIFIED **registered**
 > attestations — an unregistered enclave (`unregistered_enclave`) or a
 > missing quote (`tee_quote_missing`) triggers a refund. The coordinator no

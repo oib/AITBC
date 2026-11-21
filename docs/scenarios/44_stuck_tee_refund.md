@@ -6,6 +6,12 @@
 **Last Updated**: 2026-11-20
 **Version**: 1.0
 
+> **Obsolete (#2375, 21 Nov 2026).** All TEE/enclave support was removed —
+> there is no enclave hardware on the fleet and none is planned. The
+> `aitbc tee` CLI group, coordinator attestation API, miner quote path and
+> the TEE settlement gate are deleted; high-value jobs are governed by the
+> ZK receipt gate alone. This scenario is retained for history only.
+
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*

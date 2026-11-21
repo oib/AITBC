@@ -60,10 +60,7 @@ def _submit_ai_job_cli_options(
     offer_quantity: str | None,
     acceptance_window: int | None,
     zk_proof_required: bool,
-    tee_attestation_required: bool,
-    tee_enclave_id: str | None,
     confidential: bool,
-    enclave_measurement: str | None,
     auto_reinvest_pct: float | None,
     bond_required: bool,
     min_bond_amount: Decimal | None,
@@ -85,8 +82,6 @@ def _submit_ai_job_cli_options(
             "buyer-agent-id": buyer_agent_id,
             "provider-agent-id": provider_agent_id,
             "offer-quantity": offer_quantity,
-            "tee-enclave-id": tee_enclave_id,
-            "enclave-measurement": enclave_measurement,
         },
     )
     _merge_cli_numeric_options(
@@ -103,7 +98,6 @@ def _submit_ai_job_cli_options(
         options,
         {
             "zk-proof-required": zk_proof_required,
-            "tee-attestation-required": tee_attestation_required,
             "confidential": confidential,
             "bond-required": bond_required,
             "wait": wait,
@@ -174,22 +168,10 @@ def submit_ai_job(
         bool,
         Field(description="Require a ZK receipt proof before escrow release."),
     ] = False,
-    tee_attestation_required: Annotated[
-        bool,
-        Field(description="Require a TEE attestation before escrow release."),
-    ] = False,
-    tee_enclave_id: Annotated[
-        str | None,
-        Field(description="Required TEE enclave identity."),
-    ] = None,
     confidential: Annotated[
         bool,
-        Field(description="Mark this job as confidential (requires a TEE attestation)."),
+        Field(description="Mark this job as confidential."),
     ] = False,
-    enclave_measurement: Annotated[
-        str | None,
-        Field(description="Required enclave measurement for a confidential job."),
-    ] = None,
     auto_reinvest_pct: Annotated[
         float | None,
         Field(description="Percentage of released payment to auto-stake as reinvestment.", ge=0, le=100),
@@ -252,10 +234,7 @@ def submit_ai_job(
         offer_quantity=offer_quantity,
         acceptance_window=acceptance_window,
         zk_proof_required=zk_proof_required,
-        tee_attestation_required=tee_attestation_required,
-        tee_enclave_id=tee_enclave_id,
         confidential=confidential,
-        enclave_measurement=enclave_measurement,
         auto_reinvest_pct=auto_reinvest_pct,
         bond_required=bond_required,
         min_bond_amount=min_bond_amount,

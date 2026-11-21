@@ -57,7 +57,6 @@ Routers = `*router*.py` / `routers/` modules; services = `services/` modules.
 | security | 2 | 6 | security policies, audit |
 | settlement | 2 | 1 | settlement hooks, reconciliation |
 | staking | 2 | 2 | staking, bonds |
-| tee | 2 | 0 | TEE attestation surface |
 | trading | 2 | 7 | trading coordination |
 | agent_economics | 0 | 0 | models/logic only — no routers or services |
 | preferences | 0 | 0 | models/logic only — no routers or services |
@@ -81,7 +80,7 @@ Routers = `*router*.py` / `routers/` modules; services = `services/` modules.
 ## Why this exists
 
 The coordinator was meant to coordinate. It now also carries jobs, payments,
-reputation, market, governance, ZK, TEE, staking, trading, bounties,
+reputation, market, governance, ZK, staking, trading, bounties,
 portfolios, knowledge, multimodal RL, compliance, developer platform, and
 ecosystem endpoints — every bounded context that is neither consensus nor
 execution landed here. Any future consolidation should be a decided

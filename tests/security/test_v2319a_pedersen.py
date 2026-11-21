@@ -15,8 +15,7 @@ from decimal import Decimal
 import pytest
 from ecdsa import NIST256p
 
-from aitbc.agent_economics.confidential_payments import ConfidentialPayment, validate_payment
-from aitbc.tee.errors import TEEError
+from aitbc.agent_economics.confidential_payments import ConfidentialPayment, ConfidentialPaymentError, validate_payment
 from aitbc.wallet.confidential import (
     ConfidentialTransaction,
     ConfidentialWallet,
@@ -224,7 +223,7 @@ def test_validation_checks_a_supplied_opening() -> None:
     assert validate_payment(_payment(wallet, tx), opening=good) is True
 
     bad = Opening(amount=Decimal("9"), blinding=good.blinding)
-    with pytest.raises(TEEError, match="opening does not match"):
+    with pytest.raises(ConfidentialPaymentError, match="opening does not match"):
         validate_payment(_payment(wallet, tx), opening=bad)
 
 
@@ -233,7 +232,7 @@ def test_validation_still_rejects_a_bad_signature() -> None:
     wallet.deposit("10")
     tx = wallet.send("bob", "3", b"key")
     tx.signature = b"\x00" * 64
-    with pytest.raises(TEEError, match="signature is invalid"):
+    with pytest.raises(ConfidentialPaymentError, match="signature is invalid"):
         validate_payment(_payment(wallet, tx))
 
 
