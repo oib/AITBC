@@ -19,23 +19,42 @@ breadcrumb: Home > Scenarios > Secret-Form Coverage
 > on leaves tagged `unplayable:` (`scripts/ops/option-coverage-exclusions.json`
 > — dead flags, swallowed fallbacks, pre-guard writes).
 >
-> Played on node0 + node2 (`aitbc 0.25.9`), test wallet `sp-final-1`
-> (empty, encrypted, scenario artifact), `logger -t coderA`. Zero records
+> **Gate order (#2450):** every secret-bearing leaf now checks the wallet
+> before the password source — a nonexistent wallet refuses with the
+> wallet error even when `--password-file`/`--password-stdin` is also bad.
+> To reach the password-file/stdin refusals the wallet must resolve, so
+> the plays below create a throwaway `sp85-a` wallet first (zero funds,
+> local file only). The old `sp-final-1` fixture is gone; `sp85-a` replaces
+> it. Form B cannot be played through the MCP — `run_aitbc_cli` has no
+> stdin channel — CLI only.
+>
+> Played on node0 + node2 (`aitbc 0.25.9`), `logger -t coderA`. Zero records
 > written.
 
 ## Play patterns
 
 ```bash
-# Form A — nonexistent password file, real empty test wallet
-aitbc <leaf> --wallet sp-final-1 --password-file /tmp/sp554-nosuch.pw
-# Form B — empty stdin + nonexistent wallet
-aitbc <leaf> --wallet nosuch554 --password-stdin </dev/null
+# Setup — throwaway encrypted wallet for the password-gate plays
+printf 'sp85-pw\n' > /tmp/sp85.pw && chmod 600 /tmp/sp85.pw
+aitbc wallet create --name sp85-a --password-file /tmp/sp85.pw
+
+# Form A — resolvable wallet + nonexistent password file
+aitbc <leaf> --wallet sp85-a --password-file /tmp/sp85-nosuch.pw
+# Form A' — nonexistent wallet + nonexistent password file: the wallet
+# gate wins on every leaf (this is the #2450 unified order)
+aitbc <leaf> --wallet nosuch85 --password-file /tmp/sp85-nosuch.pw
+# Form B — empty stdin + nonexistent wallet (CLI only; MCP has no stdin)
+aitbc <leaf> --wallet nosuch85 --password-stdin </dev/null
+# Form B' — empty stdin + resolvable wallet reaches the stdin refusal
+aitbc <leaf> --wallet sp85-a --password-stdin </dev/null
 ```
 
-**Expected refusals:** `Cannot read password file '/tmp/sp554-nosuch.pw'`
-(exit 4, or 1 where the wallet daemon is consulted first) /
-`Wallet 'nosuch554' not found` / `No password on stdin` — all before the
-command's write path.
+**Expected refusals:** Form A `Cannot read password file
+'/tmp/sp85-nosuch.pw'` once the wallet resolves; Form B' `No password on
+stdin`; Form A'/B `Wallet 'nosuch85' not found` — the wallet gate fires
+first everywhere. Wallet/file refusals exit 2 (`NotFoundError`), the
+empty-stdin refusal exits 1; every refusal emits a JSON error object
+under `--output json`, before the command's write path.
 
 ## Result
 

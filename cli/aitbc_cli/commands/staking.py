@@ -19,6 +19,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..utils import DECIMAL
 from ..utils.fee_guard import ALLOW_HIGH_FEE_OPTION
+from ..utils.wallet_secret import wallet_password_options
 from .wallet import wallet as _wallet_group
 from .wallet.staking import liquidity_stake as _wallet_liquidity_stake
 from .wallet.staking import stake as _wallet_stake
@@ -63,11 +64,30 @@ See also: `aitbc wallet staking-info` lists active stakes and their IDs."""
 @click.option("--rpc-url", "rpc_url", help="Blockchain RPC URL (overrides config)")
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
+@wallet_password_options
 @click.pass_context
-def stake(ctx, wallet_name: str | None, wallet_path: str | None, rpc_url: str | None, amount: Decimal, duration: int):
+def stake(
+    ctx,
+    wallet_name: str | None,
+    wallet_path: str | None,
+    rpc_url: str | None,
+    amount: Decimal,
+    duration: int,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Stake AITBC tokens on-chain for a configurable lock duration."""
     _bind_wallet(ctx, wallet_name, wallet_path, rpc_url)
-    return ctx.invoke(_wallet_stake, amount=amount, duration=duration)
+    # #2450: expose the shared wallet-secret trio like `aitbc wallet stake`.
+    return ctx.invoke(
+        _wallet_stake,
+        amount=amount,
+        duration=duration,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
 
 
 @click.command(
@@ -83,11 +103,28 @@ Use `aitbc wallet staking-info` to find the stake IDs of your active stakes."""
 @click.option("--wallet-path", "wallet_path", help="Direct path to wallet file (overrides --wallet-name)")
 @click.option("--rpc-url", "rpc_url", help="Blockchain RPC URL (overrides config)")
 @click.option("--stake-id", "stake_id", required=True, help="Numeric stake ID returned by 'stake'.")
+@wallet_password_options
 @click.pass_context
-def unstake(ctx, wallet_name: str | None, wallet_path: str | None, rpc_url: str | None, stake_id: str):
+def unstake(
+    ctx,
+    wallet_name: str | None,
+    wallet_path: str | None,
+    rpc_url: str | None,
+    stake_id: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Unstake tokens once the lock period ends and withdraw the principal."""
     _bind_wallet(ctx, wallet_name, wallet_path, rpc_url)
-    return ctx.invoke(_wallet_unstake, stake_id=stake_id)
+    # #2450: expose the shared wallet-secret trio like `aitbc wallet unstake`.
+    return ctx.invoke(
+        _wallet_unstake,
+        stake_id=stake_id,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
 
 
 @click.command(
@@ -108,6 +145,7 @@ See also: `aitbc wallet liquidity-unstake` and `aitbc wallet liquidity-claim`.""
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @ALLOW_HIGH_FEE_OPTION
+@wallet_password_options
 @click.pass_context
 def liquidity_stake(
     ctx,
@@ -119,9 +157,14 @@ def liquidity_stake(
     lock_days: int,
     fee: Decimal,
     allow_high_fee: bool,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
 ):
     """Stake tokens into an on-chain liquidity pool to earn rewards."""
     _bind_wallet(ctx, wallet_name, wallet_path, rpc_url)
+    # #2450: expose the shared wallet-secret trio like `aitbc wallet
+    # liquidity-stake`.
     return ctx.invoke(
         _wallet_liquidity_stake,
         amount=amount,
@@ -129,4 +172,7 @@ def liquidity_stake(
         lock_days=lock_days,
         fee=fee,
         allow_high_fee=allow_high_fee,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
     )

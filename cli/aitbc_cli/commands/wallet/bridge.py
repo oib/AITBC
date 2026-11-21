@@ -13,6 +13,7 @@ from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.address import to_eip55
 from ...utils.chain_id import resolve_chain_id
+from ...utils.error_handling import abort
 from ...utils.wallet_paths import find_wallet_file_report, wallet_not_found_message
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, http_error_detail
@@ -52,8 +53,9 @@ def deposit(
     wallet_path = resolve_wallet_path(ctx, wallet_name)
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-        raise click.Abort()
+        # #2450: abort() like the other wallet gates — NotFoundError/exit 2
+        # and a JSON error object under --output json.
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
 
     password = resolve_wallet_password(
         wallet_name,
@@ -263,8 +265,9 @@ def withdraw(
     wallet_path = resolve_wallet_path(ctx, wallet_name)
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-        raise click.Abort()
+        # #2450: abort() like the other wallet gates — NotFoundError/exit 2
+        # and a JSON error object under --output json.
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
 
     password = resolve_wallet_password(
         wallet_name,
@@ -527,8 +530,9 @@ def _resolve_wallet(
     wallet_name = wallet_name or ctx.obj["wallet_name"]
     wallet_path = resolve_wallet_path(ctx, wallet_name)
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-        raise click.Abort()
+        # #2450: abort() like the other wallet gates — NotFoundError/exit 2
+        # and a JSON error object under --output json.
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
     return _load_wallet(
         wallet_path, wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
     )

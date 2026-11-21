@@ -634,6 +634,18 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
         return None
 
 
+def _wallet_file_present(wallet_name: str | None) -> bool:
+    """True when ``<wallet_name>.json`` resolves in the shared wallet search.
+
+    #2450: secret-bearing leaves gate on the wallet before the password
+    source, so a bad ``--password-file`` cannot preempt the wallet refusal.
+    """
+    if not wallet_name:
+        return False
+    report = find_wallet_file_report(wallet_name)
+    return report.path is not None and report.path.exists()
+
+
 def _resolve_send_password(
     ctx: click.Context | None,
     from_wallet: str | None,
@@ -652,6 +664,11 @@ def _resolve_send_password(
     if (from_wallet is None) == (key_env is None):
         abort(ctx, "Exactly one of --from <wallet> or --key-env <NAME> is required")
     if from_wallet is None:
+        return None
+    if not _wallet_file_present(from_wallet):
+        # #2450: wallet gate before secret gate — _send_transaction_impl
+        # reports the missing wallet; resolving the password here would let
+        # a bad --password-file preempt that refusal.
         return None
     return resolve_wallet_password(
         from_wallet,
@@ -845,7 +862,7 @@ def _emit_send_json_document(
 
 def _process_batch_entry(
     tx: dict[str, Any],
-    password: str,
+    password: str | None,
     rpc_url: str,
     seen_entries: set,
     seen_hashes: set,
@@ -977,13 +994,20 @@ def batch(
     if not isinstance(transactions_data, list):
         abort(None, "Batch must be a JSON list of transaction objects")
     first_wallet = transactions_data[0].get("from_wallet") if transactions_data else None
-    password = resolve_wallet_password(
-        first_wallet,
-        password=password,
-        password_file=password_file,
-        password_stdin=password_stdin,
-        allow_unencrypted=True,
-        ctx=click.get_current_context(silent=True),
+    # #2450: same wallet-before-secret order as `send` — when the wallet file
+    # is absent the per-entry impl reports the wallet refusal instead of a
+    # password-source error preempting it.
+    password = (
+        resolve_wallet_password(
+            first_wallet,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            allow_unencrypted=True,
+            ctx=click.get_current_context(silent=True),
+        )
+        if _wallet_file_present(first_wallet)
+        else None
     )
 
     if not rpc_url:

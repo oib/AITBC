@@ -34,6 +34,9 @@ def aitbc_liquidity_stake(
     lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -52,6 +55,7 @@ def aitbc_liquidity_stake(
             "pool": "pool",
             "lock_days": "lock-days",
             "fee": "fee",
+            "password_file": "password-file",
         },
     )
     args = None

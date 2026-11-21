@@ -30,6 +30,9 @@ def aitbc_unstake(
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to unstake into")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -40,7 +43,13 @@ def aitbc_unstake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "rpc_url": "rpc-url", "stake_id": "stake-id"},
+        values={
+            "wallet_name": "wallet-name",
+            "wallet_path": "wallet-path",
+            "rpc_url": "rpc-url",
+            "stake_id": "stake-id",
+            "password_file": "password-file",
+        },
     )
     args = None
     target = _host_for_role(role, host)

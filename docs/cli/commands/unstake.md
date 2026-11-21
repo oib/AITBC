@@ -18,6 +18,9 @@ aitbc unstake [OPTIONS]
 | `--wallet-path` | text | — | no | Direct path to wallet file (overrides --wallet-name) |
 | `--rpc-url` | text | — | no | Blockchain RPC URL (overrides config) |
 | `--stake-id` | text | — | yes | Numeric stake ID returned by 'stake'. |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 
 ## Examples
 
