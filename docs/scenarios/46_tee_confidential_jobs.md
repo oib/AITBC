@@ -1,207 +1,64 @@
 # Scenario 46: Confidential AI job with TEE attestation
 
-> **Removed (#2375, 21 Nov 2026).** All TEE/enclave support was deleted —
-> no enclave hardware exists on the fleet. `aitbc tee`, the coordinator
-> attestation API, miner TEE quotes and the TEE settlement gate are gone;
-> the ZK gate governs high-value jobs. Confidential *payments* (Pedersen
-> commitments) remain as non-enclave cryptography — see Scenario 74.
-> Retained for history only.
+**Level**: Intermediate
+**Prerequisites**: Scenario 47 ZK Proofs for High-Value Jobs
+**Estimated Time**: 10 minutes
+**Last Updated**: 2026-11-21
+**Version**: 2.0
 
-> **v0.14.4+ behavior.** Escrow releases only for VERIFIED **registered**
-> attestations — an unregistered enclave (`unregistered_enclave`) or a
-> missing quote (`tee_quote_missing`) triggers a refund. The coordinator no
-> longer auto-generates simulated quotes; `ai submit
-> --tee-attestation-required` also aborts client-side unless
-> `TEE_ATTESTATION_ENABLED` is set.
+## Navigation Path
 
+[Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*
 
-> **Simulated TEE path only.** The `aitbc tee` group was briefly deregistered in
-> `9079fb74a` (1 Sep) and re-registered in `87c5f2df16`, so `aitbc tee ...`
-> commands below do run. However, attestation, verification, and enclave
-> registration go through the **simulated/coordinator-side TEE path**
-> (`TEE_ATTESTATION_ENABLED=1   # TEE_ATTESTATION_ENABLED is fictional — nothing reads it`) — no live node has SGX/SEV/TPM hardware, so nothing here
-> proves a hardware root of trust. The coordinator-side attestation API
-> (`/v1/tee/attestations/...`) is live. Hardware-backed TEE stays deferred to
-> release 2.0; see `docs/releases/STATUS.md` and
-> `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`.
-
-> **Expected outcome without enclave infra (20 Nov 2026).** No fleet node
-> has SGX/SEV/TPM hardware, the coordinator no longer auto-generates
-> quotes, and `ai submit --tee-attestation-required` aborts client-side
-> unless `TEE_ATTESTATION_ENABLED` is set. The verified-release steps
-> below (Steps 1–4 showing `tee_status: verified` /
-> `payment_status: released`) therefore require real TEE hardware and
-> are **held** per the round-4 ruling. The realistic result today is a
-> client-side refusal, an `unverified_enclave` / `tee_quote_missing`
-> status, or the refund path — see Scenario 44.
-
-## Goal
-
-Run a CLI-first confidential inference job. The job is marked confidential,
-requires a TEE attestation for the target enclave measurement, and only
-releases escrow after a verified attestation is attached to the job receipt.
-
-## Preconditions
-
-- Coordinator API running on the hub (`aitbc-coordinator-api.service`).
-- Active `aitbc-miner` on a shop node that can execute Ollama jobs.
-- Customer wallet with enough AIT for payment (e.g. `genesis`).
-- A funded customer wallet (e.g. `customer-wallet`) and `aitbc auth login`.
-
-## Variables
-
-```bash
-# Customer / provider addresses from the live network
-CUSTOMER=0xFe2d63FE87Db282083b9159e5857Cac788af9E03
-PROVIDER=0xA54B82312beb65D0E90c21717ea372396991Fa36
-
-# A stable enclave measurement used to pin the job to a specific enclave image
-MEASUREMENT="sha256:0000000000000000000000000000000000000000000000000000000000000001"
-```
-
-## Step 1: Register a TEE enclave identity
-
-```bash
-export COORDINATOR_API_URL=http://127.0.0.1:8203
-export WALLET=customer-wallet
-
-# Log in once with a funded customer wallet; subsequent commands use the stored token.
-aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
-
-aitbc tee register --enclave-id enc-live-01 --public-key <enclave-pubkey>   # --public-key is required; --agent-id is deprecated/ignored
-```
-
-Expected output:
-
-```text
-{
-  "enclave_id": "enc-live-01",
-  "public_key": "xwLsql6cJ27SlqnfvDIQvYMnH5fAvuBGzwRPHgjJXmc=",
-  "status": "active",
-  "id": "ei_54cca06a04",
-  ...
-}
-```
-
-## Step 2: Query the enclave registration
-
-```bash
-aitbc tee status --enclave-id enc-live-01
-```
-
-Expected output: the same registration record with `status: active`.
-
-## Step 3: Submit a confidential TEE job
-
-```bash
-aitbc ai submit \
-  --prompt "Confidential TEE live validation" \
-  --payment 1.0 \
-  --wallet genesis \
-  --buyer-address "$CUSTOMER" \
-  --provider-address "$PROVIDER" \
-  --coordinator-url http://127.0.0.1:8203 \
-  --confidential \
-  --enclave-measurement "$MEASUREMENT" \
-  --wait \
-  --timeout 180
-```
-
-Expected job result:
-
-```json
-{
-  "job_id": "<job_id>",
-  "state": "COMPLETED",
-  "payment_status": "released",
-  "tee_status": "verified",
-  "tee_attestation_id": "<attestation_id>",
-  "escrow_tx_hash": "<0x...>",
-  "result": { ... }
-}
-```
-
-## Step 4: Verify the attestation record
-
-The coordinator stored the TEE attestation referenced in the receipt:
-
-```bash
-# The attestation id comes from the job receipt above, e.g. ta_a9bef0c722
-curl -s -H "Authorization: Bearer $(python3 -c "from aitbc_cli.auth import AuthManager; print(AuthManager().get_credential('client'))")" \
-  http://127.0.0.1:8203/v1/tee/attestations/<tee_attestation_id>
-```
-
-Expected response:
-
-```json
-{
-  "id": "ta_a9bef0c722",
-  "enclave_id": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
-  "measurement": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
-  "status": "verified",
-  ...
-}
-```
-
+breadcrumb: Home > Scenarios > Confidential AI job with TEE attestation
 
 ---
 
-<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+## See Also
 
-## Step 5: Verify a TEE attestation
-
-Verifies an enclave attestation quote or a job's recorded attestation.
-
-```bash
-aitbc tee verify --job-id job-001
-```
-
-## Step 6: Generate TEE keys
-
-`aitbc tee keygen --key-file /tmp/tee-key.pem` is writes enclave key material — a key operation.
-
-## Step 7: Launch an enclave
-
-`aitbc tee launch --enclave-id enc-001` is launches a TEE enclave — needs the operator's enclave provisioning.
-
-## Step 8: Attest an enclave
-
-`aitbc tee attest --enclave-id enc-001` is produces an enclave attestation — needs the operator's enclave provisioning.
+- **Previous Scenario**: [Contract Deploy & Call](./73_contract_deploy_call.md)
+- **Next Scenario**: [43 Compliance, Plugins and White-Label](./43_compliance_plugins_white_label.md)
+- **Related**: [74 Confidential Payments](./74_confidential_payments.md) (non-enclave Pedersen commitments — still live), [47 ZK High-Value Jobs](./47_zk_high_value_jobs.md) (the surviving high-value gate), [44 Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) (also obsolete)
 
 ---
 
-## What the CLI actually does
+> **Descoped — TEE support removed (#2375, 21 Nov 2026).**
+>
+> Operator ruling: no enclave hardware (SGX/SEV/TPM) will ever exist on the
+> fleet, so the entire TEE surface was deleted: the `aitbc tee` CLI group,
+> the coordinator attestation API (`/v1/tee/attestations/...`), miner TEE
+> quote generation, the `tee_attestation_required`/`tee_enclave_id`/
+> `enclave_measurement` job constraints, the `tee_quote`/`tee_attestation_id`
+> submit fields, and the ≥10 AIT TEE high-value settlement gate. High-value
+> jobs are now governed by the ZK receipt gate alone (Scenario 47).
+>
+> Confidential *payments* (Pedersen amount commitments, `aitbc confidential`)
+> are unrelated to enclaves and remain — see Scenario 74. The `--confidential`
+> flag on job submission still sets `constraints.confidential` but no longer
+> implies any attestation requirement.
+>
+> This scenario is retained for history only. The original playbook
+> (enclave registration → confidential job submit → verified-attestation
+> escrow release, v1.0) exercised a simulated attestation path even before
+> removal — no live node ever had a hardware root of trust — and every
+> command it documented (`aitbc tee register/status/verify/keygen/launch/
+> attest`, `ai submit --enclave-measurement`) no longer resolves. The
+> runnable steps are removed rather than left as false documentation.
 
-- `--confidential` sets `job.constraints.confidential = true` and
-  `job.constraints.tee_attestation_required = true`.
-- `--enclave-measurement` sets both `required_enclave_measurement` and
-  `tee_enclave_id` to the supplied measurement hash.
-- When the miner completes the job, the coordinator verifies a TEE
-  attestation for the required measurement and attaches it to the
-  receipt (`tee_status: verified`). (Pre-v0.14.4 the coordinator
-  auto-generated a simulated quote here; that path was removed —
-  without a real registered attestation the escrow refunds instead.)
-- Only after `tee_status: verified` does the coordinator release the escrow.
+## What the scenario covered (historical)
 
-## Validation
-
-- `cli/tests/test_tee.py` — 6 tests covering `tee register`, `status`, `attest`,
-  and local `verify`.
-- `cli/tests/test_ai_tee_submit.py` — 2 tests covering `--confidential` and
-  `--enclave-measurement` payload construction.
-- Live validation on `<hub-node>` + `<node2>` produced a released escrow with
-  `tee_status: verified` and `confidential: true` in the job constraints.
+A confidential inference job marked `confidential` +
+`tee_attestation_required`, pinned to an enclave measurement, whose escrow
+released only after the coordinator verified a registered-enclave TEE
+attestation on the job receipt (`tee_status: verified`). Without a verified
+registered attestation the escrow refunded (`tee_quote_missing` /
+`unregistered_enclave`). Live evidence existed only for the simulated
+self-consistency path; hardware-backed attestation was always deferred.
 
 ## Notes
 
-- This scenario uses the simulated TEE path (`TEE_ATTESTATION_ENABLED=1   # TEE_ATTESTATION_ENABLED is fictional — nothing reads it`). Real SGX/TDX
-  attestation is deferred to **release 2.0** and will stay deferred until
-  TEE-capable hardware is available to the fleet; no validator host currently has
-  an enclave runtime. See "Deferred to v2.0 — hardware-backed TEE" in
-  `docs/releases/STATUS.md`. Everything below therefore proves the gate logic, not
-  a hardware root of trust.
-- The `--enclave-measurement` value is treated as the target measurement by
-  both the job constraint and the auto-generated quote.
-- If the miner cannot produce a valid attestation, the job fails and escrow
-  can be refunded with `aitbc ai refund --job-id <job_id>` or
-  `aitbc market escrow refund --job-id <job_id>` (see Scenario 44).
+- Refunds for failed jobs remain available through the generic escrow
+  paths (see Scenario 44's successor notes and `market escrow release` as
+  the manual recovery path).
+- If confidential *payment* semantics are what you need, use Scenario 74 —
+  it exercises the Pedersen commitment path that survived the excision.

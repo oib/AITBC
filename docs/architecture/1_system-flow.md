@@ -96,9 +96,9 @@ aitbc --api-key "$CLIENT_JWT" ai submit \
 
 Optional fields `offer_id` / `offer_quantity` attach the job to a published offer. The coordinator creates a `JobPayment` record and posts the signed lock to `POST /rpc/escrow/create` on the blockchain RPC (8202), which submits the `ESCROW_LOCK` to `POST /rpc/transactions/market`. A job is only dispatchable once the payment row reaches `payment_status: escrowed` — an escrow that never locked is never handed to a miner.
 
-Use `aitbc ai submit --wait --timeout <seconds> --poll-interval <seconds>` to block until release and print the settlement transaction hash. `ai submit` also accepts `--offer-id`, `--offer-quantity`, `--acceptance-window`, `--min-reputation`, `--zk-proof-required`, and `--tee-attestation-required`.
+Use `aitbc ai submit --wait --timeout <seconds> --poll-interval <seconds>` to block until release and print the settlement transaction hash. `ai submit` also accepts `--offer-id`, `--offer-quantity`, `--acceptance-window`, `--min-reputation`, `--zk-proof-required`, and `--confidential`.
 
-Result-verification gates, marked per DESIGN_CYCLE §3/§4 — **partial, not fully live**: `--zk-proof-required` (the `receipt_model` circuit proves a *committed deterministic model* ran on committed input; it does not prove open-ended LLM correctness) and `--tee-attestation-required` (registered-enclave allowlist + identity pinning shipped, but no live miner has registered a stable enclave key — validation exercises the simulated/self-consistency paths).
+Result-verification gates, marked per DESIGN_CYCLE §3/§4 — **partial, not fully live**: `--zk-proof-required` (the `receipt_model` circuit proves a *committed deterministic model* ran on committed input; it does not prove open-ended LLM correctness). The former `--tee-attestation-required` gate was removed in #2375 — no enclave hardware exists on the fleet, so TEE attestation is gone entirely; the ZK gate is the only high-value check.
 
 ### 4. Match and execute
 
