@@ -188,7 +188,7 @@ def test_peers_success(runner, mock_client):
 
     assert result.exit_code == 0
     assert "Agent Coordinator Peers:" in result.output
-    mock_client.get.assert_called_once_with("/api/v1/agent/messages/discover")
+    mock_client.get.assert_called_once_with("/api/v1/agent/messages/discover", headers=None)
 
 
 def test_display_ws_url_strips_token():

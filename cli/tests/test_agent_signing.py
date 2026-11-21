@@ -1115,3 +1115,169 @@ class TestAgentStatusSigning:
         headers = call.kwargs["headers"]
         assert headers["X-Agent-Id"] == "agent-1"
         assert headers["X-Agent-Signature"].startswith("0x")
+
+
+# --------------------------------------------------------------------------- #
+# #2363: agent-msg peers / agent-comm list signed reads; wallet→agent honesty
+# --------------------------------------------------------------------------- #
+
+
+class TestAgentMsgPeersAuth:
+    """``agent-msg peers`` must authenticate ``GET .../messages/discover`` —
+    the route 401s anonymous callers, so ``--wallet`` + ``--signing-agent-id``
+    sign ``X-Agent-*`` headers exactly like ``agent-comm list``."""
+
+    def _invoke_peers(self, runner, client, args, monkeypatch):
+        from aitbc_cli.commands.agent import messaging
+
+        monkeypatch.delenv("AITBC_DEFAULT_WALLET", raising=False)
+        monkeypatch.delenv("AGENT_ID", raising=False)
+        with (
+            patch("aitbc_cli.commands.agent.AITBCHTTPClient", return_value=client),
+            patch("aitbc_cli.commands.agent.get_config", return_value=MagicMock(agent_coordinator_url="http://c")),
+        ):
+            return runner.invoke(messaging, ["peers", *args], obj={"output_format": "table"})
+
+    def test_peers_sends_signed_headers(self, runner, monkeypatch):
+        client = _mock_client(get_map={"/api/v1/agent/messages/discover": {"agents": []}})
+        with patch(
+            "aitbc_cli.utils.agent_signing.load_signing_wallet",
+            return_value=(ACCOUNT.address, PRIVATE_KEY),
+        ):
+            result = self._invoke_peers(runner, client, ["--wallet", "w1", "--signing-agent-id", "agent-a"], monkeypatch)
+        assert result.exit_code == 0, result.output
+        headers = client.get.call_args.kwargs["headers"]
+        assert headers["X-Agent-Id"] == "agent-a"
+        assert headers["X-Agent-Signature"].startswith("0x")
+        claim = {
+            "agent_id": "agent-a",
+            "nonce": headers["X-Agent-Nonce"],
+            "timestamp": headers["X-Agent-Timestamp"],
+        }
+        recovered = recover_address(domain_digest(claim, "aitbc-agent-req-v1"), headers["X-Agent-Signature"])
+        assert canonical_address(recovered) == canonical_address(ACCOUNT.address)
+
+    def test_peers_unsigned_without_wallet(self, runner, monkeypatch):
+        client = _mock_client(get_map={"/api/v1/agent/messages/discover": {"agents": []}})
+        with patch("aitbc_cli.utils.agent_signing.load_signing_wallet", return_value=None):
+            result = self._invoke_peers(runner, client, [], monkeypatch)
+        assert result.exit_code == 0, result.output
+        assert client.get.call_args.kwargs["headers"] is None
+
+    def test_peers_wallet_requires_signing_agent_id(self, runner, monkeypatch):
+        client = _mock_client(get_map={"/api/v1/agent/messages/discover": {"agents": []}})
+        with patch(
+            "aitbc_cli.utils.agent_signing.load_signing_wallet",
+            return_value=(ACCOUNT.address, PRIVATE_KEY),
+        ):
+            result = self._invoke_peers(runner, client, ["--wallet", "w1"], monkeypatch)
+        assert result.exit_code != 0
+        assert "--signing-agent-id" in result.output
+        client.get.assert_not_called()
+
+    def test_agent_comm_list_sends_signed_headers(self, runner, monkeypatch):
+        """``agent-comm list`` already had the options (#2212) — pin that the
+        discover POST actually carries the X-Agent-* headers."""
+        client = _mock_client(post_map={"/v1/agents/discover": {"agents": []}})
+        from aitbc_cli.commands.agent_comm import agent_comm
+
+        monkeypatch.delenv("AITBC_DEFAULT_WALLET", raising=False)
+        monkeypatch.delenv("AGENT_ID", raising=False)
+        with (
+            patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient", return_value=client),
+            patch(
+                "aitbc_cli.utils.agent_signing.load_signing_wallet",
+                return_value=(ACCOUNT.address, PRIVATE_KEY),
+            ),
+        ):
+            result = runner.invoke(
+                agent_comm,
+                ["list", "--wallet", "w1", "--signing-agent-id", "agent-a"],
+                obj=_agent_comm_obj(),
+            )
+        assert result.exit_code == 0, result.output
+        call = next(c for c in client.post.call_args_list if c.args[0] == "/v1/agents/discover")
+        headers = call.kwargs["headers"]
+        assert headers["X-Agent-Id"] == "agent-a"
+        assert headers["X-Agent-Signature"].startswith("0x")
+
+
+class TestFindAgentByIdentity:
+    """#2363 D6: wallet→agent resolution must see INACTIVE-retained agents
+    (#2367) and must not report a failed scan as 'no agent bound'."""
+
+    def _discover_client(self, by_status):
+        def _post(path, json=None, headers=None):
+            assert path == "/v1/agents/discover"
+            return {"agents": by_status.get((json or {}).get("status"), [])}
+
+        client = MagicMock()
+        client.post.side_effect = _post
+        return client
+
+    def test_inactive_retained_agent_resolves(self):
+        from aitbc_cli.utils.agent_signing import find_agent_by_identity
+
+        client = self._discover_client({None: [], "inactive": [{"agent_id": "agent-a", "identity_address": ACCOUNT.address}]})
+        assert find_agent_by_identity(client, ACCOUNT.address) == "agent-a"
+        queries = [c.kwargs["json"] for c in client.post.call_args_list]
+        assert queries == [{"limit": 500}, {"status": "inactive", "limit": 500}]
+
+    def test_active_agent_still_resolves_first_query(self):
+        from aitbc_cli.utils.agent_signing import find_agent_by_identity
+
+        client = self._discover_client({None: [{"agent_id": "agent-a", "identity_address": ACCOUNT.address}]})
+        assert find_agent_by_identity(client, ACCOUNT.address) == "agent-a"
+
+    def test_auth_failure_aborts_only_in_strict_mode(self):
+        from aitbc_cli.utils.agent_signing import find_agent_by_identity
+        from aitbc_cli.utils.error_handling import CLIError
+
+        client = MagicMock()
+        client.post.side_effect = Exception("POST request failed: 401 Client Error: agent authentication required")
+        with pytest.raises(CLIError, match="--from-agent"):
+            find_agent_by_identity(client, ACCOUNT.address, strict=True)
+        # agent-task's buyer-agent fallback stays soft.
+        assert find_agent_by_identity(client, ACCOUNT.address) is None
+
+    def test_send_reports_failed_scan_instead_of_unbound(self, runner, monkeypatch):
+        """End-to-end: an anonymous discover 401 must surface as a lookup
+        failure with --from-agent guidance, not 'no agent is bound'."""
+        client = _mock_client()
+        client.post.side_effect = Exception("POST request failed: 401 Client Error: agent authentication required")
+        from aitbc_cli.commands.agent import messaging
+
+        monkeypatch.delenv("AITBC_DEFAULT_WALLET", raising=False)
+        monkeypatch.delenv("AGENT_ID", raising=False)
+        with (
+            patch("aitbc_cli.commands.agent.AITBCHTTPClient", return_value=client),
+            patch("aitbc_cli.commands.agent.get_config", return_value=MagicMock(agent_coordinator_url="http://c")),
+            patch("aitbc_cli.commands.agent.load_signing_wallet", return_value=(ACCOUNT.address, PRIVATE_KEY)),
+        ):
+            result = runner.invoke(
+                messaging,
+                ["send", "hello", "--to-agent", "agent-b", "--wallet", "w1"],
+                obj={"output_format": "table"},
+            )
+        assert result.exit_code != 0
+        assert "registry" in result.output.lower() or "lookup failed" in result.output.lower()
+        assert "--from-agent" in result.output
+        assert not any(c.args[0] == "/api/v1/agent/messages/send" for c in client.post.call_args_list)
+
+
+class TestCheckRegistryBindingHeaders:
+    def test_signed_headers_sent_when_key_given(self):
+        from aitbc_cli.utils.agent_signing import check_registry_binding
+
+        client = _mock_client(get_map={"/v1/agents/agent-a": {"agent": {"identity_address": ACCOUNT.address}}})
+        assert check_registry_binding(client, "agent-a", ACCOUNT.address, PRIVATE_KEY) is None
+        headers = client.get.call_args.kwargs["headers"]
+        assert headers["X-Agent-Id"] == "agent-a"
+        assert headers["X-Agent-Signature"].startswith("0x")
+
+    def test_unsigned_lookup_unchanged(self):
+        from aitbc_cli.utils.agent_signing import check_registry_binding
+
+        client = _mock_client(get_map={"/v1/agents/agent-a": {"agent": {"identity_address": ACCOUNT.address}}})
+        assert check_registry_binding(client, "agent-a", ACCOUNT.address) is None
+        assert client.get.call_args.kwargs["headers"] is None

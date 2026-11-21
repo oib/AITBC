@@ -466,7 +466,7 @@ def send(
             # The coordinator only marks a signed envelope `verified` when the
             # signer equals the sender's bound identity_address — check first
             # so the failure is guidance, not a 403.
-            binding_error = check_registry_binding(client, sender_id, signing[0])
+            binding_error = check_registry_binding(client, sender_id, signing[0], signing[1])
             if binding_error:
                 abort(ctx, binding_error)
             body = sign_send_envelope(body, signing[0], signing[1])
