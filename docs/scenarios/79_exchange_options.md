@@ -111,19 +111,24 @@ fixturex` plus `status trading_active`, `initial_price 0.0001`.
 aitbc exchange add-liquidity --pair AIT/ETH --amount 100 --side buy --exchange fixturex
 ```
 
-**Expected output (exit 0):** `Added 100 liquidity to AIT/ETH on
-fixturex (buy side)` — the buy side adds to `quote_liquidity`
-(`0.5` → `100.5`).
+**Expected output (exit 0):** `Added liquidity to AIT/ETH on fixturex
+(buy side): 100 ETH` — the buy side adds to `quote_liquidity`
+(`0.5` → `100.5`), and since the pair is `BASE/QUOTE` = `AIT/ETH` the
+amount is denominated in the quote asset (ETH). `--side sell` would add
+base-asset (AIT) units to `base_liquidity`; `--side both` adds the
+amount to each side in that side's own units (#2447).
 
 ```bash
 aitbc exchange monitor --real-time --interval 30
 ```
 
-**Expected output (exit 0):** a JSON document with
+**Expected output (exit 0, runs until Ctrl-C):** a JSON document with
 `"monitoring_active": true`, `"real_time": true`, `"interval": 30`
 and the pair listed `status: active`, followed by the warning line
-`Real-time monitoring enabled. Updates every 30 seconds.` (the flag
-prints the warning; there is no update loop).
+`Real-time monitoring enabled. Re-scanning every 30 seconds (Ctrl-C to
+stop).` (#2447 — the flag now actually loops: the exchanges file is
+re-read and the snapshot re-printed every interval). For a scripted
+replay, run it under `timeout 35` and expect at least two snapshots.
 
 ```bash
 aitbc exchange monitor --pair AIT/ETH --exchange fixturex --interval 15
@@ -141,15 +146,17 @@ rm -rf /tmp/exchopts1-home
 ### Step 2: Hub-exchange reads (live, public)
 
 The hub's nginx serves the exchange's public GETs. `node list` is the
-participants board — every island node is `seeded`, none registered:
+participants board — six island nodes are `seeded`; `node0` registered
+itself on 2026-11-19 (#2447):
 
 ```bash
 aitbc exchange node list --exchange-url https://hub.aitbc.bubuit.net
 ```
 
-**Expected output (exit 0):** JSON `{"nodes": [...]}` — seven seeded
-rows (`bridge`, `bridge-old`, `hub`, `hub1`, `node0`, `node1`,
-`node2`), all `"status": "seeded"`, `"registered_at": null`.
+**Expected output (exit 0):** JSON `{"nodes": [...]}` — seven rows
+(`bridge`, `bridge-old`, `hub`, `hub1`, `node0`, `node1`, `node2`):
+`node0` reads `"status": "registered"` with a `registered_at` timestamp;
+the other six are `"status": "seeded"`, `"registered_at": null`.
 
 `order my` needs no wallet when a plain `--address` is passed — an
 address with no registry row reads back unregistered:

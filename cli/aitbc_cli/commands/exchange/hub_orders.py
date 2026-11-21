@@ -592,8 +592,15 @@ def node_set_payout(ctx, eth_address, wallet, password, password_file, password_
 
     try:
         checksummed = to_checksum_address(eth_address)
-    except (ValueError, TypeError) as e:
-        abort(ctx, f"Invalid --eth-address: {eth_address!r}", from_exception=e)
+    except (ValueError, TypeError):
+        # #2447: do not leak the web3/eth-utils internal ("when sending a str,
+        # it must be a hex string") into the JSON error detail — report a
+        # clean validation failure instead.
+        abort(
+            ctx,
+            f"Invalid --eth-address: {eth_address!r} (expected 0x followed by 40 hex chars)",
+            from_exception=ValueError("invalid hex address"),
+        )
         return
     address, private_key, _wallet_id = _load_signer(ctx, wallet, password, password_file, password_stdin)
     client = _exchange_client(ctx, exchange_url)

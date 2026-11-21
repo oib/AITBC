@@ -2,7 +2,9 @@
 Main exchange integration commands for AITBC CLI.
 """
 
+import builtins
 import json
+import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -199,24 +201,12 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
     )
 
 
-@exchange.command(
-    epilog="""Examples:
-
-  aitbc exchange monitor
-
-  aitbc exchange monitor --real-time --interval 30"""
-)
-@click.option("--pair", help="Trading pair symbol (e.g., AITBC/ETH)")
-@click.option("--exchange", help="Exchange name")
-@click.option("--real-time", is_flag=True, help="Enable real-time monitoring")
-@click.option("--interval", type=int, default=60, help="Update interval in seconds")
-@click.pass_context
-def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interval: int):
-    """Monitor exchange trading activity across registered pairs and exchanges."""
+def _load_monitoring_snapshot(pair: str | None, exchange: str | None) -> builtins.list[dict]:
+    """Read ~/.aitbc/exchanges.json and flatten the pairs under watch."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
-        return
+        return []
 
     with open(exchanges_file) as f:
         exchanges = json.load(f)
@@ -246,21 +236,52 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
 
     if not monitoring_data:
         abort(None, "No trading pairs found for monitoring.")
+        return []
+    return monitoring_data
+
+
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange monitor
+
+  aitbc exchange monitor --real-time --interval 30"""
+)
+@click.option("--pair", help="Trading pair symbol (e.g., AITBC/ETH)")
+@click.option("--exchange", help="Exchange name")
+@click.option("--real-time", is_flag=True, help="Re-scan the registered pairs every --interval seconds until Ctrl-C")
+@click.option("--interval", type=int, default=60, help="Update interval in seconds")
+@click.pass_context
+def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interval: int):
+    """Monitor exchange trading activity across registered pairs and exchanges."""
+    if interval < 1:
+        abort(ctx, "--interval must be at least 1 second")
         return
 
-    output(
-        {
-            "monitoring_active": True,
-            "real_time": real_time,
-            "interval": interval,
-            "pairs": monitoring_data,
-            "total_pairs": len(monitoring_data),
-        },
-        resolve_output_format(ctx),
-    )
-
-    if real_time:
-        warning(f"Real-time monitoring enabled. Updates every {interval} seconds.")
+    fmt = resolve_output_format(ctx)
+    first = True
+    while True:
+        monitoring_data = _load_monitoring_snapshot(pair, exchange)
+        output(
+            {
+                "monitoring_active": True,
+                "real_time": real_time,
+                "interval": interval,
+                "pairs": monitoring_data,
+                "total_pairs": len(monitoring_data),
+            },
+            fmt,
+        )
+        if not real_time:
+            return
+        if first:
+            warning(f"Real-time monitoring enabled. Re-scanning every {interval} seconds (Ctrl-C to stop).")
+            first = False
+        try:
+            time.sleep(interval)
+        except KeyboardInterrupt:
+            warning("Monitoring stopped.")
+            return
 
 
 def _decimal_str(value: object) -> str:
@@ -277,8 +298,15 @@ def _decimal_str(value: object) -> str:
   aitbc exchange add-liquidity --pair AITBC/ETH --amount 1000 --side buy"""
 )
 @click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/ETH)")
-@click.option("--amount", type=DECIMAL, required=True, help="Liquidity amount")
-@click.option("--side", type=click.Choice(["buy", "sell"]), default="both", help="Side to provide liquidity")
+@click.option(
+    "--amount",
+    type=DECIMAL,
+    required=True,
+    help="Liquidity amount in the side's own units: --side buy adds quote-asset units "
+    "(ETH for AITBC/ETH), --side sell adds base-asset units (AITBC), --side both adds "
+    "the amount to each side in that side's units",
+)
+@click.option("--side", type=click.Choice(["buy", "sell", "both"]), default="both", help="Side to provide liquidity")
 @click.option("--exchange", help="Exchange name")
 @click.pass_context
 def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | None):
@@ -322,13 +350,28 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
     with open(exchanges_file, "w") as f:
         json.dump(exchanges, f, indent=2)
 
-    success(f"Added {amount} liquidity to {pair} on {target_exchange} ({side} side)")
+    # #2447: state the unit — pair symbols are BASE/QUOTE (e.g. AITBC/ETH), so a
+    # buy adds quote-asset units to quote_liquidity and a sell adds base-asset
+    # units to base_liquidity; "both" adds the amount to each side in that
+    # side's own units.
+    base_asset, _, quote_asset = pair.partition("/")
+    unit_note = {
+        "buy": f"{amount} {quote_asset or 'quote'}",
+        "sell": f"{amount} {base_asset or 'base'}",
+        "both": f"{amount} {base_asset or 'base'} + {amount} {quote_asset or 'quote'}",
+    }[side]
+    success(f"Added liquidity to {pair} on {target_exchange} ({side} side): {unit_note}")
     output(
         {
             "pair": pair,
             "exchange": target_exchange,
             "amount": str(amount),
             "side": side,
+            "unit": {
+                "buy": quote_asset or "quote",
+                "sell": base_asset or "base",
+                "both": f"{base_asset or 'base'}+{quote_asset or 'quote'}",
+            }[side],
             "base_liquidity": _decimal_str(target_pair.get("base_liquidity")),
             "quote_liquidity": _decimal_str(target_pair.get("quote_liquidity")),
             "updated_at": target_pair["liquidity_updated_at"],

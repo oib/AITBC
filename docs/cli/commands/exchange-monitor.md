@@ -16,7 +16,7 @@ aitbc exchange monitor [OPTIONS]
 |---|---|---|---|---|
 | `--pair` | text | — | no | Trading pair symbol (e.g., AITBC/ETH) |
 | `--exchange` | text | — | no | Exchange name |
-| `--real-time` | flag | `false` | no | Enable real-time monitoring |
+| `--real-time` | flag | `false` | no | Re-scan the registered pairs every --interval seconds until Ctrl-C |
 | `--interval` | integer | `60` | no | Update interval in seconds |
 
 ## Examples
