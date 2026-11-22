@@ -27,10 +27,12 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-# Test-only transaction types that leaked onto the live chain (e.g. txs
-# built by apps/blockchain-node/tests). They are real sealed rows but are
-# not product activity, so the public timeline hides them (#2409).
-_TIMELINE_EXCLUDED_TX_TYPES = frozenset({"SOME_FUTURE_TYPE"})
+# #2496: analytics count only sealed transactions. Apply-rejected rows
+# (status='rejected', block_height NULL — never sealed) are not chain
+# activity, but every aggregate below used to count them as transactions,
+# senders, volume and activity. Same predicate the mempool uses for
+# sealed-on-chain lookups (#1300).
+_SEALED_TX_PREDICATE = "status = 'confirmed' AND block_height IS NOT NULL"
 
 
 def _activity_type_color(tx_type: str) -> str:
@@ -58,7 +60,9 @@ async def api_activity_timeline(
             # Get daily transaction counts for the last N days — scoped to
             # the requested chain (#1620).
             scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
-            where, params = scoped_where("created_at >= datetime('now', ?)", scope_sql, [f"-{int(days)} days"], scope_params)
+            where, params = scoped_where(
+                f"created_at >= datetime('now', ?) AND {_SEALED_TX_PREDICATE}", scope_sql, [f"-{int(days)} days"], scope_params
+            )
             await cursor.execute(
                 f"""
                 SELECT DATE(created_at) as day, type, COUNT(*) as count
@@ -76,8 +80,6 @@ async def api_activity_timeline(
             rows = await cursor.fetchall()
             for row in rows:
                 day, tx_type, count = row
-                if tx_type in _TIMELINE_EXCLUDED_TX_TYPES:
-                    continue
                 if day not in data:
                     data[day] = {}
                 data[day][tx_type] = count
@@ -152,7 +154,9 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             tx_scope, tx_scope_params = await chain_scope(conn, "transaction", cid)
 
             # Cumulative transfer volume, labeled as such (base units -> AIT)
-            where, params = scoped_where("type IN ('TRANSFER', 'GPU_MARKET')", tx_scope, [], tx_scope_params)
+            where, params = scoped_where(
+                f"type IN ('TRANSFER', 'GPU_MARKET') AND {_SEALED_TX_PREDICATE}", tx_scope, [], tx_scope_params
+            )
             await cursor.execute(
                 f"""
                 SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
@@ -171,7 +175,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             # json_valid keeps a malformed payload row from failing the whole
             # stats read (EXPLORER-QUERY-1, #1490).
             where, params = scoped_where(
-                "type IN ('GPU_MARKET', 'GPU_REGISTER') AND json_valid(payload)",
+                f"type IN ('GPU_MARKET', 'GPU_REGISTER') AND json_valid(payload) AND {_SEALED_TX_PREDICATE}",
                 tx_scope,
                 [],
                 tx_scope_params,
@@ -189,8 +193,8 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             row = await cursor.fetchone()
             anchored_offers = (row[0] if row else 0) or 0
 
-            # Unique sender addresses
-            where, params = scoped_where("", tx_scope, [], tx_scope_params)
+            # Unique sender addresses — sealed rows only (#2496)
+            where, params = scoped_where(_SEALED_TX_PREDICATE, tx_scope, [], tx_scope_params)
             all_tx_clause = f"WHERE {where}" if where else ""
             all_tx_params = list(params)
             await cursor.execute(f'SELECT COUNT(DISTINCT sender) FROM "transaction" {all_tx_clause}', all_tx_params)  # nosec B608 # WHERE fragments are internally generated clause strings; all values are bound parameters
@@ -204,7 +208,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             # out (the Python path skipped them via try/except), and the
             # double NULLIF reproduces the `or`-chain's falsy skip for ''/0.
             where, params = scoped_where(
-                "type IN ('GPU_MARKET', 'GPU_REGISTER') AND json_valid(payload)",
+                f"type IN ('GPU_MARKET', 'GPU_REGISTER') AND json_valid(payload) AND {_SEALED_TX_PREDICATE}",
                 tx_scope,
                 [],
                 tx_scope_params,
@@ -272,7 +276,7 @@ async def api_top_addresses(
 
             scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
             where, params = scoped_where(
-                "sender NOT IN ('bridge_release', 'bridge_refund') AND sender != '0x0000000000000000000000000000000000000000'",
+                f"sender NOT IN ('bridge_release', 'bridge_refund') AND sender != '0x0000000000000000000000000000000000000000' AND {_SEALED_TX_PREDICATE}",
                 scope_sql,
                 [],
                 scope_params,
@@ -330,7 +334,12 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = None)
             # unbounded (#1621), and the read is chain-scoped (#1620). The
             # OR-group keeps sender/recipient matching unambiguous.
             scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
-            where, params = scoped_where("(sender = ? OR recipient = ?)", scope_sql, [provider_id, provider_id], scope_params)
+            where, params = scoped_where(
+                f"(sender = ? OR recipient = ?) AND {_SEALED_TX_PREDICATE}",
+                scope_sql,
+                [provider_id, provider_id],
+                scope_params,
+            )
             await cursor.execute(
                 f"""
                 SELECT COUNT(*),

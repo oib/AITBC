@@ -54,25 +54,41 @@ def test_activity_timeline_unknown_type_gets_hsl_color(monkeypatch, tmp_path):
     assert dataset["backgroundColor"].startswith("hsl(")
 
 
-def test_activity_timeline_excludes_test_tx_types(monkeypatch, tmp_path):
-    """#2409: test-only types sealed on the live chain (SOME_FUTURE_TYPE)
-    must not appear as product activity on the public timeline."""
+def test_activity_timeline_excludes_unsealed_rows(monkeypatch, tmp_path):
+    """#2496: apply-rejected rows (status='rejected', block_height NULL) are
+    not chain activity — the timeline counts sealed rows only. This replaces
+    the #2409 SOME_FUTURE_TYPE name workaround, which the status filter made
+    unnecessary."""
     db = create_chain_db(tmp_path)
     patch_chain_db(monkeypatch, db)
     now = datetime.now(UTC).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
     conn = sqlite3.connect(db)
-    for i, tx_type in enumerate(("SOME_FUTURE_TYPE", "TRANSFER")):
-        conn.execute(
-            'INSERT INTO "transaction" VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-            (f"0x{i:064x}", "0xs", "0xr", "{}", 1, now, tx_type, "confirmed", 0, 0, i),
-        )
+    rows = [
+        # (tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce)
+        ("0xok", "0xs", "0xr", "{}", 1, now, "TRANSFER", "confirmed", 36_000_000, 0, 0),
+        ("0xrej", "0xs", "0xr", "{}", None, now, "TRANSFER", "rejected", 36_000_000, 0, 1),
+        ("0xpend", "0xghost", "0xr", "{}", None, now, "GPU_MARKET", "pending", 0, 0, 0),
+        # A confirmed row with NULL height is a pending writeback, not a seal.
+        ("0xnoh", "0xghost2", "0xr", "{}", None, now, "GPU_MARKET", "confirmed", 0, 0, 0),
+    ]
+    for row in rows:
+        conn.execute('INSERT INTO "transaction" VALUES (?,?,?,?,?,?,?,?,?,?,?)', row)
     conn.commit()
     conn.close()
 
     out = asyncio.run(analytics.api_activity_timeline(days=7))
-    labels = {d["label"] for d in out["datasets"]}
-    assert "SOME_FUTURE_TYPE" not in labels
-    assert "TRANSFER" in labels
+    counts = {d["label"]: sum(d["data"]) for d in out["datasets"]}
+    assert counts == {"TRANSFER": 1}
+
+    top = asyncio.run(analytics.api_top_addresses())
+    assert len(top["addresses"]) == 1
+    assert top["addresses"][0]["transaction_count"] == 1
+    assert top["addresses"][0]["volume"] == 1.0
+
+    rep = asyncio.run(analytics.api_provider_reputation("0xghost"))
+    assert rep["transactions"] == 0
+    rep_ok = asyncio.run(analytics.api_provider_reputation("0xs"))
+    assert rep_ok["transactions"] == 1
 
 
 def test_provider_reputation_score_levels(monkeypatch, tmp_path):
