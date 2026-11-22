@@ -57,7 +57,8 @@ def _rows(engine) -> list[MinerRegistry]:
         return session.exec(select(MinerRegistry)).all()
 
 
-def test_start_status_list_agree(bound):
+def test_start_status_list_agree(bound, monkeypatch):
+    _auth_as(monkeypatch, MINER)
     """The reported sequence: start → status/list must see the same miner."""
     out = rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 1})
     assert out["status"] == "started"
@@ -77,7 +78,8 @@ def test_start_status_list_agree(bound):
     assert listing["source"] == "chain.db"
 
 
-def test_stop_then_status_and_list_agree(bound):
+def test_stop_then_status_and_list_agree(bound, monkeypatch):
+    _auth_as(monkeypatch, MINER)
     """stop must be visible to status AND list — the old dict kept showing enabled."""
     rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 2})
     out = rpc_router.stop_mining_route(_req())
@@ -94,7 +96,8 @@ def test_stop_then_status_and_list_agree(bound):
     assert listing["miners"][0]["enabled"] is False
 
 
-def test_state_survives_across_sessions(bound):
+def test_state_survives_across_sessions(bound, monkeypatch):
+    _auth_as(monkeypatch, MINER)
     """Cross-worker property: a *different* session (another worker process)
     sees the same rows — the store is chain.db, not process memory."""
     rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 3})
@@ -106,7 +109,8 @@ def test_state_survives_across_sessions(bound):
         assert row.chain_id == "bc-2.test"  # conftest pins settings.chain_id
 
 
-def test_restart_updates_single_row(bound):
+def test_restart_updates_single_row(bound, monkeypatch):
+    _auth_as(monkeypatch, MINER)
     rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 1})
     rpc_router.stop_mining_route(_req())
     rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 8})
@@ -248,3 +252,81 @@ def test_stop_operator_authorized_row_for_other_miner(bound):
     _seed_row(bound, miner=MINER, authorized_by=ADMIN)
     out = rpc_router.stop_mining_route(_req())
     assert out["miner_addresses"] == [MINER]
+
+
+# --- #2500: start carries the same ownership scoping as stop ---
+
+
+def test_start_rejects_registering_another_wallets_address(bound, monkeypatch):
+    """Auditor repro: bob cannot create a row naming alice's address."""
+    _auth_as(monkeypatch, OTHER)
+    with pytest.raises(HTTPException) as exc:
+        rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 64})
+    assert exc.value.status_code == 403
+    assert _rows(bound) == []
+
+
+def test_start_cannot_hijack_existing_row(bound, monkeypatch):
+    """Auditor repro: bob's start on alice's row must not re-thread, re-enable
+    or rewrite authorized_by — and must not hand bob the stop scope check."""
+    stopped = datetime(2026, 11, 20, 9, 0, 0, tzinfo=UTC)
+    _seed_row(bound, miner=MINER, enabled=False, authorized_by=MINER, stopped_at=stopped)
+    original_started = datetime(2026, 11, 19, 8, 0, 0, tzinfo=UTC)
+    with Session(bound) as session:
+        row = session.exec(select(MinerRegistry).where(MinerRegistry.miner_address == MINER)).one()
+        row.started_at = original_started
+        row.threads = 2
+        session.add(row)
+        session.commit()
+
+    _auth_as(monkeypatch, OTHER)
+    with pytest.raises(HTTPException) as exc:
+        rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 64})
+    assert exc.value.status_code == 403
+
+    row = _rows(bound)[0]
+    assert row.threads == 2
+    assert row.enabled is False
+    assert row.authorized_by == MINER
+    assert row.stopped_at == stopped.replace(tzinfo=None)
+    assert row.started_at == original_started.replace(tzinfo=None)
+
+    # The failed takeover must not have armed bob's stop scope either.
+    with pytest.raises(HTTPException) as stop_exc:
+        rpc_router.stop_mining_route(_req(), {"miner_address": MINER})
+    assert stop_exc.value.status_code == 403
+
+
+def test_start_owned_row_preserves_authorized_by(bound, monkeypatch):
+    """The miner restarting its own row keeps the original authorizer —
+    authorized_by is registration-time state, not restart-time."""
+    _seed_row(bound, miner=MINER, authorized_by=ADMIN, enabled=False)
+
+    _auth_as(monkeypatch, MINER)
+    out = rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 4})
+    assert out["status"] == "started"
+
+    row = _rows(bound)[0]
+    assert row.enabled is True
+    assert row.threads == 4
+    assert row.authorized_by == ADMIN
+
+
+def test_start_via_authorized_by_ownership(bound):
+    """An operator who authorized a different miner address may still
+    restart that row — same predicate as stop."""
+    _seed_row(bound, miner=MINER, authorized_by=ADMIN, enabled=False)
+    out = rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 2})
+    assert out["status"] == "started"
+    row = _rows(bound)[0]
+    assert row.enabled is True
+    assert row.authorized_by == ADMIN
+
+
+def test_start_ownership_match_is_case_insensitive(bound, monkeypatch):
+    """Caller/miner comparison follows the stop route's lowercased match."""
+    mixed = "0x" + "CD" * 20
+    _auth_as(monkeypatch, mixed)
+    out = rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": 1})
+    assert out["status"] == "started"
+    assert _rows(bound)[0].miner_address == MINER

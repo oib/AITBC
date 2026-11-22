@@ -12158,6 +12158,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "miner_address must be the authenticated wallet / miner '{miner_address}' is not registered to the authenticated wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -24520,6 +24530,16 @@
           },
           "400": {
             "description": "miner_address is required / threads must be a positive integer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner_address must be the authenticated wallet / miner '{miner_address}' is not registered to the authenticated wallet",
             "content": {
               "application/json": {
                 "schema": {
