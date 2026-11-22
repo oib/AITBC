@@ -249,7 +249,12 @@ def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
             return {"success": True, "idempotent": True, "status": bounty.status}
         submission = session.exec(
             select(BountySubmissionRecord).where(
-                BountySubmissionRecord.chain_id == chain_id, BountySubmissionRecord.submission_id == str(submission_id)
+                BountySubmissionRecord.chain_id == chain_id,
+                BountySubmissionRecord.submission_id == str(submission_id),
+                # #2638: submission_id is unique per chain, not per bounty —
+                # without this predicate a submission made to bounty A could
+                # be "verified" against bounty B and paid out of B's lock.
+                BountySubmissionRecord.bounty_id == str(bounty_id),
             )
         ).first()
         if not submission:
