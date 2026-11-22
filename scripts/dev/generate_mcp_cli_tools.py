@@ -31,8 +31,17 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_ROOT = REPO_ROOT / "cli"
 MCP_ROOT = REPO_ROOT / "mcp-server"
 
-if str(CLI_ROOT) not in sys.path:
-    sys.path.insert(0, str(CLI_ROOT))
+# Repo root, cli/, and every packages/py/*/src must win over the venv's .pth
+# entries: on a linked worktree those point at the primary checkout
+# (/opt/aitbc), so ``aitbc``, ``aitbc_cli`` and the ``aitbc_*`` distributions
+# would otherwise resolve to stale code (#2648; same dance as
+# scripts/docs/gen_cli_command_docs.py).
+_path_roots = [CLI_ROOT, REPO_ROOT, *sorted((REPO_ROOT / "packages" / "py").glob("*/src"))]
+for _p in _path_roots:
+    _s = str(_p)
+    if _s in sys.path:
+        sys.path.remove(_s)
+    sys.path.insert(0, _s)
 
 import click
 
