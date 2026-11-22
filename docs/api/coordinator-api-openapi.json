@@ -39854,6 +39854,7 @@
           },
           "voting_days": {
             "type": "integer",
+            "maximum": 90.0,
             "minimum": 1.0,
             "title": "Voting Days",
             "default": 7

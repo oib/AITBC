@@ -17,7 +17,9 @@ class EconomicProposalCreate(BaseModel):
     unit: str | None = None
     current_value: str = "0"
     proposed_value: str = "0"
-    voting_days: int = Field(default=7, ge=1)
+    # #2512: unbounded voting_days let any user hold the delegation freeze
+    # open effectively forever — same 90-day cap as grants/governance.
+    voting_days: int = Field(default=7, ge=1, le=90)
 
 
 class EconomicProposalVoteRequest(BaseModel):

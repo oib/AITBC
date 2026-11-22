@@ -96,6 +96,13 @@ class TestCreateProposal:
         data = resp.json()
         assert data["voting_starts"] is not None and data["voting_ends"] is not None
 
+    def test_voting_days_capped_at_90(self, client: TestClient) -> None:
+        """#2512: an unbounded window let any user hold the delegation freeze
+        open forever; the economic window now matches grants/governance (90d)."""
+        assert client.post(BASE, json=_create_payload(voting_days=91), headers=_client()).status_code == 422
+        assert client.post(BASE, json=_create_payload(voting_days=100000), headers=_client()).status_code == 422
+        assert client.post(BASE, json=_create_payload(voting_days=90), headers=_client()).status_code == 201
+
 
 class TestGetAndList:
     def test_get_found(self, client: TestClient, db_session: Session) -> None:
