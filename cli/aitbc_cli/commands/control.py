@@ -53,17 +53,20 @@ def _role_env(role: str | None) -> dict:
 
 def _role_services(role: str | None) -> list:
     """Resolve the systemd units for the given or detected role."""
-    result = subprocess.run(
-        [
-            "bash",
-            "-c",
-            f'source {HEALTH_CHECK_SCRIPT} >/dev/null 2>&1 && printf "%s\\n" "${{ROLE_SERVICES[@]}}"',
-        ],
-        capture_output=True,
-        text=True,
-        env=_role_env(role),
-        timeout=30,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'source {HEALTH_CHECK_SCRIPT} >/dev/null 2>&1 && printf "%s\\n" "${{ROLE_SERVICES[@]}}"',
+            ],
+            capture_output=True,
+            text=True,
+            env=_role_env(role),
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Timed out resolving role services") from None
     if result.returncode != 0:
         raise RuntimeError(f"Failed to resolve role services: {result.stderr.strip()}")
     services = [s for s in result.stdout.splitlines() if s]
@@ -132,10 +135,26 @@ def _run_service_action(prefix: list, action: str, svc: str, dry_run: bool, huma
     """
     cmd = prefix + ["systemctl", action, svc]
     if dry_run:
-        click.echo(f"would run: {' '.join(cmd)}")
+        if human:
+            click.echo(f"would run: {' '.join(cmd)}")
         return {"service": svc, "action": action, "status": "dry-run"}, True
 
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        # A hung unit must not end the wave: record the timeout and let the
+        # loop continue so every attempted unit appears in the results.
+        if human:
+            _ = error(f"{action} {svc} timed out after 120s")
+        return (
+            {
+                "service": svc,
+                "action": action,
+                "status": "timeout",
+                "message": "systemctl timed out after 120s",
+            },
+            False,
+        )
     ok = res.returncode == 0
     if ok:
         if human:
@@ -214,7 +233,7 @@ def _abort_failed_services(ctx, action: str, results: list, payload: dict, fmt: 
     does not accept extra payload fields). Human formats emit the results
     doc first, then abort()'s error line ends the output.
     """
-    failed = [r["service"] for r in results if r["status"] == "failed"]
+    failed = [r["service"] for r in results if r["status"] in ("failed", "timeout")]
     msg = f"{action} failed for services: {', '.join(failed)}"
     if fmt in ("json", "yaml"):
         doc = {"error": "CLIError", "message": msg, "exit_code": 1, **payload}

@@ -134,9 +134,9 @@ def test_missing_unit_marked_skipped_in_json_payload(runner):
         installed={"aitbc-here.service"},
     )
     assert result.exit_code == 0
-    # dry-run's "would run:" echo precedes the doc even in json mode
-    # (pre-existing); the payload itself starts at the first '{'.
-    doc = json.loads(result.output[result.output.find("{") :])
+    # dry-run's "would run:" echo is human-only since #2589; stdout is
+    # already the single JSON document.
+    doc = json.loads(result.output)
     statuses = {s["service"]: s["status"] for s in doc["services"]}
     assert statuses == {"aitbc-here.service": "dry-run", "aitbc-absent.service": "skipped"}
 
