@@ -7,8 +7,10 @@ importing the entire command package at module load time.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import cast
 
@@ -48,18 +50,37 @@ def validate_wallet_name(name: object) -> str:
 def write_json_0600(path: Path, data: dict, *, fsync: bool = False) -> None:
     """Write JSON to *path* readable only by the owner, never via a symlink.
 
-    ``O_NOFOLLOW`` refuses a planted symlink at *path*; the create mode is
-    0600 and ``fchmod`` runs on every call so a pre-existing lax file is
-    tightened too — there is no umask window at any point of the write
-    (CLI-WALLET-FILE-MODES-1, #845).
+    The payload is serialized into a same-directory 0600 temp file that is
+    fsynced and ``os.replace``d onto *path*, so a failed or interrupted
+    rewrite can never leave a truncated wallet behind
+    (AUDIT-WALLET-WRITE-TORN-1, #2525). A symlink at *path* is refused with
+    ELOOP rather than silently replaced — the ``O_NOFOLLOW`` guarantee of
+    CLI-WALLET-FILE-MODES-1 (#845) is preserved — and the published file is
+    always mode 0600, tightening any pre-existing lax file.
     """
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "w") as f:
-        os.fchmod(fd, 0o600)
-        json.dump(data, f, indent=2)
-        f.flush()
-        if fsync:
+    if path.is_symlink():
+        raise OSError(errno.ELOOP, "too many levels of symbolic links", str(path))
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as f:
+            os.fchmod(fd, 0o600)
+            json.dump(data, f, indent=2)
+            f.flush()
             os.fsync(f.fileno())
+        os.replace(tmp, path)
+        if fsync:
+            dirfd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dirfd)
+            finally:
+                os.close(dirfd)
+    except BaseException:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def _resolve_wallet_name_and_path(

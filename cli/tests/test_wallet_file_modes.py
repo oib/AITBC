@@ -59,6 +59,38 @@ def test_write_json_0600_refuses_symlink(tmp_path):
     assert json.loads(victim.read_text()) == {"keep": True}
 
 
+def test_write_json_0600_failed_rewrite_keeps_old_file(tmp_path, monkeypatch):
+    """#2525: a dump that fails mid-write must not truncate the wallet."""
+    target = tmp_path / "w.json"
+    write_json_0600(target, {"private_key": "old"})
+
+    real_dump = json.dump
+
+    def _boom(data, f, **kw):
+        f.write('{"private_key": "tor')
+        f.flush()
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(json, "dump", _boom)
+    with pytest.raises(RuntimeError, match="disk full"):
+        write_json_0600(target, {"private_key": "new"})
+    monkeypatch.setattr(json, "dump", real_dump)
+
+    # The old wallet survives byte-for-byte; no temp file is left behind.
+    assert json.loads(target.read_text()) == {"private_key": "old"}
+    assert _mode(target) == 0o600
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_write_json_0600_replace_is_atomic(tmp_path):
+    """#2525: the published file is the complete new payload, mode 0600."""
+    target = tmp_path / "w.json"
+    write_json_0600(target, {"v": 1})
+    write_json_0600(target, {"v": 2})
+    assert json.loads(target.read_text()) == {"v": 2}
+    assert _mode(target) == 0o600
+
+
 def test_create_writes_0600(tmp_path, monkeypatch):
     result = _invoke(tmp_path, ["create", "--name", "w1", "--type", "simple", "--no-encrypt"], monkeypatch)
     assert result.exit_code == 0, result.output
