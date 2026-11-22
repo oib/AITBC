@@ -328,7 +328,12 @@ def _release_reinvest(
                     reinvest_amount_units = _er.ait_to_units(reinvest_amount_ait)
                     if reinvest_amount_units > 0:
                         reinvest_stake_id = _er._auto_stake(reinvest_address, reinvest_amount_units, _er._chain_id(), job_id)
-                        reinvest_amount = reinvest_amount_ait
+                        # Report the amount only when a stake actually came
+                        # back — _auto_stake is retired (v9) and returns None,
+                        # and callers record reinvest_amount as "scheduled"
+                        # when it is non-zero without a stake id (#2663).
+                        if reinvest_stake_id is not None:
+                            reinvest_amount = reinvest_amount_ait
                     _er._logger.info(
                         "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
                         job_id,
