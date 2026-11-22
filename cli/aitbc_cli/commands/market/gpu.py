@@ -27,7 +27,7 @@ from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.agent_identity_resolve import resolve_escrow_parties
-from ...utils.chain_id import agent_registry_chain_id, resolve_chain_id
+from ...utils.chain_id import resolve_chain_id
 from ...utils.energy_quote import (
     assert_configured_native_chain,
     expected_quote_chain_id,
@@ -452,7 +452,7 @@ def buy(
             provider=parsed.provider,
             buyer_agent_id=buyer_agent_id,
             provider_agent_id=provider_agent_id,
-            chain_id=agent_registry_chain_id(bind_chain),
+            chain_id=bind_chain,
         )
         if to_canonical(provider_resolved) != to_canonical(parsed.provider):
             error(f"Resolved provider {provider_resolved} does not match quote provider {parsed.provider}")

@@ -160,7 +160,7 @@ def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5, *,
     return get_chain_id_from_health(rpc_url, timeout, strict=strict)
 
 
-def agent_registry_chain_id(chain: str | None) -> int:
+def agent_registry_chain_id(chain: int | str | None) -> int:
     """Map a chain id/name to the integer id the agent-identity resolve API expects.
 
     Mirrors the coordinator's ``default_resolve_chain_id``: a numeric chain

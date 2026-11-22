@@ -123,14 +123,14 @@ def pay(
         )
 
         if buyer_agent_id or provider_agent_id:
-            pay_chain = int(chain_id) if chain_id else _ai.resolve_chain_id(ctx, rpc_url)
+            pay_chain = chain_id or _ai.resolve_chain_id(ctx, rpc_url)
             buyer_address, provider_address, buyer_agent_id, provider_agent_id = _ai.resolve_escrow_parties(
                 ctx,
                 buyer=buyer_address,
                 provider=provider_address,
                 buyer_agent_id=buyer_agent_id,
                 provider_agent_id=provider_agent_id,
-                chain_id=int(pay_chain),
+                chain_id=pay_chain,
             )
 
         raw_payload = job.get("payload")

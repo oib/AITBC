@@ -897,17 +897,20 @@ def escrow_create_cmd(
         from aitbc.crypto.signature_recovery import canonical_address
 
         from ...utils.agent_identity_resolve import resolve_agent_payment_address
+        from ...utils.chain_id import agent_registry_chain_id
         from ...utils.money import wallet_amount
         from ...utils.wallet_loader import load_wallet_for_payment
+        from . import get_chain_id
 
         config = get_config()
+        registry_chain = agent_registry_chain_id(get_chain_id())
         if buyer_agent_id:
-            resolved_buyer = resolve_agent_payment_address(ctx, buyer_agent_id)
+            resolved_buyer = resolve_agent_payment_address(ctx, buyer_agent_id, registry_chain)
             if buyer and canonical_address(buyer) != resolved_buyer:
                 abort(ctx, f"--buyer does not match resolved address for {buyer_agent_id}")
             buyer = buyer or resolved_buyer
         if provider_agent_id:
-            resolved_provider = resolve_agent_payment_address(ctx, provider_agent_id)
+            resolved_provider = resolve_agent_payment_address(ctx, provider_agent_id, registry_chain)
             if provider and canonical_address(provider) != resolved_provider:
                 abort(ctx, f"--provider does not match resolved address for {provider_agent_id}")
             provider = provider or resolved_provider

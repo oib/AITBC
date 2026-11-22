@@ -668,14 +668,14 @@ def submit(
         if buyer_agent_id or provider_agent_id:
             if not (payment or offer_id):
                 _ai.abort(ctx, "--buyer-agent-id / --provider-agent-id require a paid submission (--payment or --offer-id)")
-            bind_chain = int(chain_id) if chain_id else _ai.resolve_chain_id(ctx, rpc_url)
+            bind_chain = chain_id or _ai.resolve_chain_id(ctx, rpc_url)
             buyer_address, provider_address, buyer_agent_id, provider_agent_id = _ai.resolve_escrow_parties(
                 ctx,
                 buyer=buyer_address,
                 provider=provider_address or os.environ.get("SHOP_WALLET_ADDRESS"),
                 buyer_agent_id=buyer_agent_id,
                 provider_agent_id=provider_agent_id,
-                chain_id=int(bind_chain),
+                chain_id=bind_chain,
             )
 
         # Auth once and reuse for media upload and job submission.
