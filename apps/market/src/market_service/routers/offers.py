@@ -5,14 +5,14 @@ and handler bodies are unchanged; only the registration target moved from
 ``app`` to an ``APIRouter`` included by ``main``.
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
@@ -169,13 +169,17 @@ async def book_offer(
         result = await svc.book_offer(offer_id, booking_data)
         logger.info("POST /v1/market/offers/%s/book completed", offer_id)
         buyer = booking_data.get("wallet") or booking_data.get("buyer")
-        provider = booking_data.get("provider") or result.get("provider")
+        # #2618: escrow terms come from the authoritative rows — the offer's
+        # provider and the accepted bid's price — never the request body,
+        # which used to steer the on-chain escrow at a foreign provider for
+        # a dust amount.
+        provider = result.get("provider")
         # The booking already committed — a malformed amount must not turn a
         # successful booking into a 500, and a non-finite one must never reach
         # the on-chain escrow payload (svc.book_offer rejects these up front;
         # this is the belt-and-braces read of the same fields).
         try:
-            amount = Decimal(str(booking_data.get("amount") or booking_data.get("price") or 0))
+            amount = Decimal(str(result.get("price") or 0))
         except _OPS_ERRORS:
             amount = Decimal("0")
         bid_id = result.get("bid_id")
@@ -269,6 +273,31 @@ class MatchRequest(BaseModel):
             raise ValueError(f"max_price must be a finite amount between 0 and {MAX_PAYMENT_AMOUNT}")
         return v
 
+    @model_validator(mode="after")
+    def _valid_requirements(self) -> "MatchRequest":
+        """#2619: requirements feed the match score and the coordinator
+        payload — a non-numeric ``max_price``/``capacity`` used to 500
+        *after* the offer was reserved and the task submitted. Reject them
+        here, before any reservation side effect."""
+        req = self.requirements or {}
+        raw_max = req.get("max_price")
+        if raw_max is not None:
+            try:
+                parsed = Decimal(str(raw_max))
+            except InvalidOperation as exc:
+                raise ValueError("requirements.max_price must be a finite number") from exc
+            if not parsed.is_finite() or parsed < 0 or parsed > MAX_PAYMENT_AMOUNT:
+                raise ValueError(f"requirements.max_price must be a finite amount between 0 and {MAX_PAYMENT_AMOUNT}")
+        raw_cap = req.get("capacity")
+        if raw_cap is not None:
+            try:
+                cap = Decimal(str(raw_cap))
+            except InvalidOperation as exc:
+                raise ValueError("requirements.capacity must be a finite number") from exc
+            if not cap.is_finite() or cap <= 0:
+                raise ValueError("requirements.capacity must be a positive finite number")
+        return self
+
 
 def _match_signature_binding(request: MatchRequest, buyer: str) -> dict[str, Any]:
     """Canonical binding a buyer signs for ``POST /v1/market/match`` (#2612).
@@ -355,6 +384,11 @@ async def match_request(
         if key:
             await _get_operations_ledger().complete_async(key, attempt, result)
         return result
+    except ValueError as e:
+        # #2619: invalid requirements are a client error — and they are
+        # validated before any reservation, so nothing was claimed.
+        logger.info("Rejecting match request: %s", e)
+        return await _reject_operation(key, attempt, JSONResponse(status_code=400, content={"error": str(e)}))
     except Exception as e:
         logger.error("Error in POST /v1/market/match: %s: %s", type(e).__name__, str(e))
         await _fail_operation(key, attempt, type(e).__name__)
@@ -517,21 +551,8 @@ async def get_offer_history(offer_id: str, svc: Annotated[MarketService, Depends
     offer = await svc.get_offer(offer_id)
     if not offer:
         return JSONResponse(status_code=404, content={"error": "Offer not found"})
-    history = {
-        "offer_id": offer_id,
-        "created_at": offer.created_at,
-        "price_history": [
-            {
-                "price": str(offer.price_per_hour) if offer.price_per_hour is not None else None,
-                "timestamp": offer.created_at,
-                "reason": "initial_listing",
-            }
-        ],
-        "booking_count": 0,
-        "total_revenue": 0,
-        "last_booked": None,
-    }
-    return history
+    # #2624: figures computed from the offer's bids — no more fixed zeros.
+    return await svc.get_offer_history(offer)
 
 
 @router.post("/v1/market/offers/{offer_id}/cancel", dependencies=[Depends(require_market_api_key)])
@@ -628,19 +649,9 @@ async def get_market_performance(
 ) -> Any:
     """Get market performance metrics (migrated from Coordinator API)"""
     logger.info("GET /v1/market/performance called with period=%s", period)
-    analytics = await svc.get_analytics(period_type=period)
-    performance = {
-        "period": period,
-        "total_volume": analytics.get("total_volume", 0),
-        "total_trades": analytics.get("total_trades", 0),
-        "average_price": analytics.get("average_price", 0),
-        "price_volatility": analytics.get("price_volatility", 0),
-        "liquidity_score": analytics.get("liquidity_score", 0),
-        "active_providers": analytics.get("active_providers", 0),
-        "utilization_rate": analytics.get("utilization_rate", 0),
-        "fill_rate": analytics.get("fill_rate", 0),
-    }
-    return performance
+    # #2624: computed from bids/offers — the previous body returned the
+    # analytics defaults (all zero) for every performance field.
+    return await svc.get_market_performance(period)
 
 
 @router.post("/v1/market/dynamic-pricing", dependencies=[Depends(require_market_api_key)])

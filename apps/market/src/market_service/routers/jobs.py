@@ -34,7 +34,7 @@ from ..gates import (
     _signed_jobs_request,
     _warn_secret_query_transport,
 )
-from ..services.market_service import MarketService, _secret_matches, max_page_size, public_job_view
+from ..services.market_service import AccessKeyConflict, MarketService, _secret_matches, max_page_size, public_job_view
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
 # "market_service.main".
@@ -66,6 +66,10 @@ async def create_market_job(
             view["deduplicated"] = True
             return view
         return result
+    except AccessKeyConflict as e:
+        # #2607: a duplicate access_key is a conflict, not a bad request —
+        # the key is the shop-gate lookup credential.
+        return JSONResponse(status_code=409, content={"error": str(e)})
     except ValueError as e:
         logger.info("Rejecting market job creation: %s", e)
         return JSONResponse(status_code=400, content={"error": str(e)})
@@ -250,7 +254,10 @@ async def cancel_market_job(
         result = await svc.cancel_market_job(job_id, reason=cancel_data.get("reason", ""))
         return result
     except ValueError as e:
-        return JSONResponse(status_code=404, content={"error": str(e)})
+        # #2609: a state refusal (e.g. provider-confirmed delivery) is a
+        # client error, not a missing job.
+        status = 404 if str(e).startswith("Job not found") else 400
+        return JSONResponse(status_code=status, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/market/jobs/%s/cancel: %s: %s", job_id, type(e).__name__, str(e))
         raise

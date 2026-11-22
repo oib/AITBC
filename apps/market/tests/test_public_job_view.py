@@ -87,7 +87,8 @@ def _seed_ipfs_job(private_key: str = _TEST_PRIVATE_KEY, **overrides: Any) -> di
             "cid": "QmSec4",
             "file_name": "customer-file.txt",
             "ipfs_api": "http://127.0.0.1:5002",
-            "access_key": "rental-ak-sec4",
+            # #2607: job access_key is unique — the seed runs per test.
+            "access_key": f"rental-ak-sec4-{time.time_ns()}",
             "access_secret": "rental-secret-sec4",
             "days": 3,
             "size": 2048,
@@ -327,7 +328,7 @@ def test_signed_single_job_full_record(client: TestClient) -> None:
     response = client.get(route, params=params)
     assert response.status_code == 200
     row = response.json()
-    assert row["payload"]["access_key"] == "rental-ak-sec4"
+    assert row["payload"]["access_key"] == job["payload"]["access_key"]
     assert row["buyer_address"]
 
 
@@ -342,11 +343,12 @@ def test_signed_single_job_not_a_party_is_403(client: TestClient) -> None:
 def test_access_credential_gets_owner_record(client: TestClient) -> None:
     job = _seed_ipfs_job()
     route = f"/v1/market/jobs/{job['job_id']}"
-    response = client.get(route, headers={"X-Access-Key": "rental-ak-sec4", "X-Access-Secret": "rental-secret-sec4"})
+    access_key = job["payload"]["access_key"]
+    response = client.get(route, headers={"X-Access-Key": access_key, "X-Access-Secret": "rental-secret-sec4"})
     assert response.status_code == 200
     assert response.json()["payload"]["cid"] == "QmSec4"
 
-    wrong = client.get(route, headers={"X-Access-Key": "rental-ak-sec4", "X-Access-Secret": "nope"})
+    wrong = client.get(route, headers={"X-Access-Key": access_key, "X-Access-Secret": "nope"})
     assert wrong.status_code == 403
 
 
@@ -540,15 +542,16 @@ def test_job_access_operator_key_gets_metadata(client: TestClient, market_api_ke
     assert response.status_code == 200
     body = response.json()
     assert body["cid"] == "QmSec4"
-    assert body["access_key"] == "rental-ak-sec4"
+    assert body["access_key"] == job["payload"]["access_key"]
     assert "access_secret" not in body
 
 
 def test_job_access_credential_gets_metadata(client: TestClient, market_api_keys: dict[str, str]) -> None:
     job = _seed_ipfs_job()
+    access_key = job["payload"]["access_key"]
     headers = {
         **market_api_keys,
-        "X-Access-Key": "rental-ak-sec4",
+        "X-Access-Key": access_key,
         "X-Access-Secret": "rental-secret-sec4",
     }
     response = client.get(_access_route(job), headers=headers)
@@ -557,7 +560,7 @@ def test_job_access_credential_gets_metadata(client: TestClient, market_api_keys
 
     wrong = client.get(
         _access_route(job),
-        headers={**market_api_keys, "X-Access-Key": "rental-ak-sec4", "X-Access-Secret": "nope"},
+        headers={**market_api_keys, "X-Access-Key": access_key, "X-Access-Secret": "nope"},
     )
     assert wrong.status_code == 403
 

@@ -146,7 +146,9 @@ async def _seed_job(
                     provider_address=_provider_address(),
                 )
             )
-        payload = {"access_key": _ACCESS_KEY, "access_secret": _ACCESS_SECRET}
+        # #2607: access_key is unique per job — derive it from the job id so
+        # _billing_headers can present the same credential.
+        payload = {"access_key": f"{_ACCESS_KEY}-{job_id}", "access_secret": _ACCESS_SECRET}
         created = await svc.create_market_job(
             {
                 "id": job_id,
@@ -295,7 +297,7 @@ async def test_buyer_cannot_seed_attested_billing_at_creation() -> None:
                 "buyer_address": _buyer_address(),
                 "provider_address": _provider_address(),
                 "payload": {
-                    "access_key": _ACCESS_KEY,
+                    "access_key": f"{_ACCESS_KEY}-{uuid4().hex[:8]}",
                     "access_secret": _ACCESS_SECRET,
                     PAYLOAD_BILLING_KEY: {"metrics": {"eval_count": "1"}},
                 },
@@ -470,20 +472,20 @@ async def test_billing_route_requires_access_triple() -> None:
     resp = client.post(
         f"/v1/market/jobs/{job_id}/billing",
         json={"metrics": {"eval_count": 1}},
-        headers={"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": "wrong", "X-Job-Id": job_id},
+        headers={"X-Access-Key": f"{_ACCESS_KEY}-{job_id}", "X-Access-Secret": "wrong", "X-Job-Id": job_id},
     )
     assert resp.status_code == 403
 
     resp = client.post(
         f"/v1/market/jobs/{job_id}/billing",
         json={"metrics": {"eval_count": 1}},
-        headers={"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": "other-job"},
+        headers={"X-Access-Key": f"{_ACCESS_KEY}-{job_id}", "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": "other-job"},
     )
     assert resp.status_code == 403
 
 
 def _billing_headers(job_id: str) -> dict[str, str]:
-    return {"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": job_id}
+    return {"X-Access-Key": f"{_ACCESS_KEY}-{job_id}", "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": job_id}
 
 
 async def test_billing_route_accepts_valid_report() -> None:

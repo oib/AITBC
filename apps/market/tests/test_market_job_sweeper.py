@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from uuid import uuid4
 
 from aitbc.market import BlockchainRPCClient
 from market_service.domain.market import MarketJob, MarketJobPayment
@@ -1270,7 +1271,8 @@ async def _ipfs_job_with_escrow(service, *, expires_at: datetime | None = None) 
         "service_type": "ipfs",
         "buyer_address": derive_ethereum_address(buyer_key),
         "provider_address": derive_ethereum_address(provider_key),
-        "payload": {"cid": "QmTest", "access_key": "ak-x", "access_secret": "sec-x"},
+        # #2607: job access_key is unique — this helper runs once per test.
+        "payload": {"cid": "QmTest", "access_key": f"ak-x-{uuid4().hex[:8]}", "access_secret": "sec-x"},
         "payment": {"amount": "1.0", "status": "escrowed"},
     }
     if expires_at is not None:
@@ -1500,17 +1502,17 @@ async def test_token_update_rejects_differing_rental_id(sweeper) -> None:
                 **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
             }
         )
-    # A standalone token cannot acquire a rental_id via update either.
-    await service.register_ipfs_rental_token({"access_key": "ak-plain", "access_secret": "sec"})
+    # #2623: standalone tokens can no longer be created at all — every
+    # token must bind to a resolvable market job, so the "acquire a
+    # rental_id via update" path cannot arise.
     with pytest.raises(ValueError, match="rental_id"):
-        await service.register_ipfs_rental_token({"access_key": "ak-plain", "access_secret": "sec2", "rental_id": job_id})
+        await service.register_ipfs_rental_token({"access_key": "ak-plain", "access_secret": "sec"})
 
 
 @pytest.mark.asyncio
-async def test_standalone_token_update_stays_unsigned(sweeper) -> None:
-    """#2514: tokens with no job binding keep the legacy unsigned update —
-    there is no provider job to verify against."""
+async def test_standalone_token_registration_refused(sweeper) -> None:
+    """#2623: a token with no job binding was unsigned and never expired —
+    new standalone registrations are refused outright."""
     service, _sw, _rpc = sweeper
-    await service.register_ipfs_rental_token({"access_key": "ak-legacy", "access_secret": "sec-1", "cid": "QmA"})
-    result = await service.register_ipfs_rental_token({"access_key": "ak-legacy", "access_secret": "sec-2", "cid": "QmB"})
-    assert result["cid"] == "QmB"
+    with pytest.raises(ValueError, match="rental_id"):
+        await service.register_ipfs_rental_token({"access_key": "ak-legacy", "access_secret": "sec-1", "cid": "QmA"})

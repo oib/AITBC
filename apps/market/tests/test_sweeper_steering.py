@@ -29,6 +29,76 @@ from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
 
 
+# #2623: new rental tokens must bind to a resolvable market job and carry
+# the job provider's wallet signature — the allowlist tests register
+# through that path so they exercise the same contract the route enforces.
+_PROVIDER_KEY = "0x" + "22" * 32
+_BUYER_KEY = "0x" + "11" * 32
+
+
+def _addr(private_key: str) -> str:
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    return derive_ethereum_address(private_key)
+
+
+def _proof(private_key: str, route: str, binding: dict) -> dict:
+    import time
+
+    from aitbc.crypto.crypto import sign_transaction_data
+    from aitbc.market.job_request_signature import jobs_request_message
+    from aitbc.utils.chain_id import resolve_chain_id
+    from market_service.config import settings
+
+    address = _addr(private_key)
+    chain_id = settings.default_chain_id or resolve_chain_id()
+    issued_at = int(time.time())
+    return {
+        "signer_address": address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(
+            jobs_request_message(address, chain_id, issued_at, route, binding=binding), private_key
+        ),
+    }
+
+
+async def _job_and_binding(svc: MarketService, session: AsyncSession) -> tuple[str, dict]:
+    created = await svc.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": _addr(_BUYER_KEY),
+            "provider_address": _addr(_PROVIDER_KEY),
+            "payload": {"cid": "QmTest", "size": 10},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+    job = await session.get(MarketJob, job_id)
+    assert job is not None
+    binding = {
+        "rental_id": job_id,
+        "cid": str((job.payload or {}).get("cid") or ""),
+        "buyer_address": str(job.buyer_address or ""),
+        "provider_address": str(job.provider_address or ""),
+    }
+    return job_id, binding
+
+
+async def _register(
+    svc: MarketService, session: AsyncSession, access_key: str, rental_id: str, binding: dict, **extra
+) -> None:
+    await svc.register_ipfs_rental_token(
+        {
+            "access_key": access_key,
+            "access_secret": "s",
+            "rental_id": rental_id,
+            **_proof(_PROVIDER_KEY, "/v1/market/ipfs/rental-token", binding),
+            **extra,
+        }
+    )
+
+
 @pytest.fixture
 async def session() -> AsyncIterator[AsyncSession]:
     async with get_session_context() as s:
@@ -46,29 +116,42 @@ class TestRentalTokenSplatAllowlist:
     @pytest.mark.asyncio
     async def test_settlement_fields_are_dropped_on_create(self, session):
         svc = MarketService(session)
-        await svc.register_ipfs_rental_token(
-            {
-                "access_key": "k-allow-1",
-                "access_secret": "s",
-                "rental_id": "victim-escrow-1",
-                "escrow_contract_id": "victim-escrow-1",
-                "pinned": False,
-                "status": "expired",
-                "expires_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
-                "tx_hash": None,
-            }
+        job_id, binding = await _job_and_binding(svc, session)
+        await _register(
+            svc,
+            session,
+            "k-allow-1",
+            job_id,
+            binding,
+            escrow_contract_id="victim-escrow-1",
+            pinned=False,
+            status="expired",
+            expires_at=(datetime.now(UTC) - timedelta(days=2)).isoformat(),
+            tx_hash=None,
         )
         row = (await session.execute(select(IpfsRentalToken).where(IpfsRentalToken.access_key == "k-allow-1"))).scalar_one()
         assert row.status == "active"
         assert row.pinned is True
-        assert row.expires_at is None
+        # #2623: the caller's past expires_at is dropped AND the token now
+        # inherits the job's settlement clock — it cannot live forever.
+        assert row.expires_at is not None
+        assert row.expires_at > datetime.now(UTC).replace(tzinfo=None)
 
     @pytest.mark.asyncio
     async def test_update_cannot_rewrite_settlement_fields(self, session):
         svc = MarketService(session)
-        await svc.register_ipfs_rental_token({"access_key": "k-allow-2", "access_secret": "s", "rental_id": "r1"})
+        job_id, binding = await _job_and_binding(svc, session)
+        await _register(svc, session, "k-allow-2", job_id, binding)
+        # #2623/#2514: updates on a job-bound token need the provider
+        # signature again — authorization comes from the stored rental_id.
         await svc.register_ipfs_rental_token(
-            {"access_key": "k-allow-2", "pinned": False, "status": "expired", "escrow_contract_id": "victim"}
+            {
+                "access_key": "k-allow-2",
+                "pinned": False,
+                "status": "expired",
+                "escrow_contract_id": "victim",
+                **_proof(_PROVIDER_KEY, "/v1/market/ipfs/rental-token", binding),
+            }
         )
         row = (await session.execute(select(IpfsRentalToken).where(IpfsRentalToken.access_key == "k-allow-2"))).scalar_one()
         assert row.status == "active"

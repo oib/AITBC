@@ -128,6 +128,27 @@ class MatchingService:
             logger.error("Error in find_best_match: %s: %s", type(e).__name__, str(e))
             raise
 
+    @staticmethod
+    def _validate_match_requirements(requirements: dict[str, Any]) -> None:
+        """#2619: parse-check the numerics _calculate_match_score consumes —
+        run before the offer claim so bad input leaves no reservation."""
+        raw_max = requirements.get("max_price")
+        if raw_max is not None:
+            try:
+                parsed = Decimal(str(raw_max))
+            except Exception as exc:
+                raise ValueError("requirements.max_price must be a finite number") from exc
+            if not parsed.is_finite() or parsed < 0:
+                raise ValueError("requirements.max_price must be a non-negative finite number")
+        raw_cap = requirements.get("capacity")
+        if raw_cap is not None:
+            try:
+                cap = Decimal(str(raw_cap))
+            except Exception as exc:
+                raise ValueError("requirements.capacity must be a finite number") from exc
+            if not cap.is_finite() or cap <= 0:
+                raise ValueError("requirements.capacity must be a positive finite number")
+
     def _calculate_match_score(self, offer: MarketOffer, requirements: dict[str, Any]) -> float:
         """
         Calculate a match score for an offer based on requirements
@@ -200,6 +221,11 @@ class MatchingService:
         Returns a dict with the match details, task_id, and escrow_id.
         """
         try:
+            # #2619: validate the requirement numerics BEFORE any offer is
+            # claimed — _calculate_match_score parses them after the CAS
+            # commit, so garbage used to 500 with the offer already
+            # reserved and the coordinator task submitted.
+            self._validate_match_requirements(requirements)
             # Price-time priority: order by price asc, then created_at asc (oldest first)
             # Same alias-aware status filter as find_best_match (#1442), same
             # bound (#1445) — the matcher only consumes offers[0].
@@ -281,6 +307,14 @@ class MatchingService:
                 released_attrs.pop("_reserved_until", None)
                 best_offer.attributes = released_attrs
                 await self.session.commit()
+                # #2620: a failed task submit is a failed match — never
+                # report "matched" with null task/escrow/job ids.
+                return {
+                    "status": "no_match",
+                    "chain_id": chain_id,
+                    "offer_id": best_offer.id,
+                    "error": f"coordinator task submission failed: {e}",
+                }
 
             logger.info(
                 "Matched offer %s (price=%s) for chain_id=%s, task_id=%s",

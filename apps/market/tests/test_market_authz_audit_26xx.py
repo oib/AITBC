@@ -421,7 +421,7 @@ async def _seed_job() -> str:
                 state="RUNNING",
                 offer_id="offer_x",
                 payload={"cid": "bafy-secret", "file_name": "customer-private.zip"},
-                access_key="secret-access-key",
+                access_key=f"secret-access-key-{job_id}",
                 payment_id=payment.id,
                 payment_status="escrowed",
             )

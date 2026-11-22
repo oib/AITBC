@@ -73,10 +73,28 @@ if engine.dialect.name == "sqlite":
             cursor.close()
 
 
+def _dsn_log_summary(url: str) -> str:
+    """#2615: dialect/host/database only — never the password.
+
+    ``MARKET_DATABASE_URL`` is a Postgres DSN that can carry credentials;
+    logging it raw wrote the password into the journal on every import.
+    """
+    try:
+        from sqlalchemy.engine import make_url
+
+        parsed = make_url(url)
+        host = parsed.host or ""
+        if parsed.port:
+            host = f"{host}:{parsed.port}"
+        return f"{parsed.drivername or parsed.get_backend_name()}://{host}/{parsed.database or ''}"
+    except Exception:  # noqa: BLE001 - a malformed DSN must not break import logging
+        return "unparseable"
+
+
 logger.info(
     "Storage module loaded: engine=%s, DATABASE_URL=%s",
     engine,
-    market_getenv("MARKET_DATABASE_URL", "not set"),
+    _dsn_log_summary(DATABASE_URL),
 )
 
 

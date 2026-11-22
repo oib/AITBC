@@ -55,11 +55,78 @@ def _token_data(access_key: str, secret: str) -> dict[str, Any]:
     }
 
 
+# #2623: new rental tokens must bind to a resolvable market job and carry
+# the job provider's wallet signature — the hashing tests register through
+# that path so they exercise the same contract the route enforces.
+PROVIDER_KEY = "0x" + "44" * 32
+BUYER_KEY = "0x" + "33" * 32
+
+
+def _addr(private_key: str) -> str:
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    return derive_ethereum_address(private_key)
+
+
+def _proof(private_key: str, route: str, binding: dict) -> dict[str, Any]:
+    import time
+
+    from aitbc.crypto.crypto import sign_transaction_data
+    from aitbc.market.job_request_signature import jobs_request_message
+    from aitbc.utils.chain_id import resolve_chain_id
+    from market_service.config import settings
+
+    address = _addr(private_key)
+    chain_id = settings.default_chain_id or resolve_chain_id()
+    issued_at = int(time.time())
+    return {
+        "signer_address": address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(
+            jobs_request_message(address, chain_id, issued_at, route, binding=binding), private_key
+        ),
+    }
+
+
+async def _make_job(svc: MarketService) -> str:
+    created = await svc.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": _addr(BUYER_KEY),
+            "provider_address": _addr(PROVIDER_KEY),
+            "payload": {"cid": "QmTest", "size": 10},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    return created["job_id"]
+
+
+async def _register(svc: MarketService, session: AsyncSession, access_key: str, secret: str, rental_id: str) -> dict[str, Any]:
+    job = await session.get(MarketJob, rental_id)
+    assert job is not None
+    binding = {
+        "rental_id": rental_id,
+        "cid": str((job.payload or {}).get("cid") or ""),
+        "buyer_address": str(job.buyer_address or ""),
+        "provider_address": str(job.provider_address or ""),
+    }
+    return await svc.register_ipfs_rental_token(
+        {
+            "access_key": access_key,
+            "access_secret": secret,
+            "rental_id": rental_id,
+            **_proof(PROVIDER_KEY, "/v1/market/ipfs/rental-token", binding),
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_register_stores_digest_not_plaintext(session: AsyncSession) -> None:
     svc = MarketService(session)
     ak1 = _unique("ak1")
-    await svc.register_ipfs_rental_token(_token_data(ak1, "plain-secret"))
+    rental_id = await _make_job(svc)
+    await _register(svc, session, ak1, "plain-secret", rental_id)
 
     stored = await svc.get_ipfs_rental_token(ak1, "plain-secret")
     assert stored is not None
@@ -75,7 +142,8 @@ async def test_register_stores_digest_not_plaintext(session: AsyncSession) -> No
 async def test_wrong_secret_rejected(session: AsyncSession) -> None:
     svc = MarketService(session)
     ak2 = _unique("ak2")
-    await svc.register_ipfs_rental_token(_token_data(ak2, "right-secret"))
+    rental_id = await _make_job(svc)
+    await _register(svc, session, ak2, "right-secret", rental_id)
     assert await svc.get_ipfs_rental_token(ak2, "wrong-secret") is None
 
 
@@ -83,8 +151,9 @@ async def test_wrong_secret_rejected(session: AsyncSession) -> None:
 async def test_upsert_rehashes_new_secret(session: AsyncSession) -> None:
     svc = MarketService(session)
     ak3 = _unique("ak3")
-    await svc.register_ipfs_rental_token(_token_data(ak3, "first-secret"))
-    await svc.register_ipfs_rental_token(_token_data(ak3, "second-secret"))
+    rental_id = await _make_job(svc)
+    await _register(svc, session, ak3, "first-secret", rental_id)
+    await _register(svc, session, ak3, "second-secret", rental_id)
 
     assert await svc.get_ipfs_rental_token(ak3, "first-secret") is None
     assert await svc.get_ipfs_rental_token(ak3, "second-secret") is not None
