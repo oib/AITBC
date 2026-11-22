@@ -26,7 +26,8 @@ from ..cross_chain.bridge_tx_root import (
     tx_only_root_active,
 )
 from ..models import Account, Receipt, Transaction
-from ..rpc.utils import verify_request_signature
+from ..protocol_escrow import protocol_auth_signature_sealed, tx_auth_signature
+from ..rpc.utils import _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES, verify_request_signature
 from .agent_spend import agent_spend_verdict
 from .bridge_credit import (
     bridge_refund_lock_hash,
@@ -66,9 +67,32 @@ from .state_transition import (
 from .state_transition_validation_gpu import _ValidationGpuMixin
 
 
+def _operator_auth_message(ctx: _TxValidationCtx) -> dict[str, Any] | None:
+    """The ``payload.auth.message`` of an operator-shaped protocol envelope (#2480).
+
+    Returns the signed message only when the envelope is in scope for the
+    replay gate: a gossip-admissible protocol type whose auth carries no
+    account ``nonce`` (wallet-auth staking keeps its account-nonce rules).
+    """
+    if ctx.tx_type not in _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES:
+        return None
+    payload = ctx.tx_data.get("payload")
+    auth = payload.get("auth") if isinstance(payload, dict) else None
+    if not isinstance(auth, dict):
+        return None
+    message = auth.get("message")
+    if not isinstance(message, dict):
+        return None
+    nonce = message.get("nonce")
+    if isinstance(nonce, int) and not isinstance(nonce, bool):
+        return None  # wallet-auth path: the account nonce rules apply
+    return message
+
+
 class _ValidationMixin(_ValidationGpuMixin):
     if TYPE_CHECKING:
         _processed_tx_hashes: set[str]
+        _processed_auth_sigs: set[str]
 
     @staticmethod
     def _verify_payload_auth(tx_type: str, auth: Any, tx_data: dict[str, Any]) -> bool:
@@ -192,6 +216,39 @@ class _ValidationMixin(_ValidationGpuMixin):
                 )
             except ValueError as e:
                 return (False, str(e))
+        return None
+
+    def _vt_protocol_auth_replay(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        """v29 (#2480): burn operator ``payload.auth`` signatures one-shot.
+
+        Operator-signed protocol bodies sign business fields, not the
+        envelope — a captured ``auth`` replayed under fresh nonce/fee mints
+        a new tx hash and slips past ``_vt_dedup``, which is how one sealed
+        ``BOUNTY_PAYOUT`` auth paid out three times. v29 requires the
+        one-shot ``auth_nonce`` inside the signed message and rejects any
+        envelope whose ``auth.signature`` was already applied in this block
+        or already sealed. Only operator-shaped messages (no account
+        ``nonce``) on gossip-admissible protocol types are touched:
+        wallet-auth staking keeps its account-nonce rules, and auth-less
+        protocol transfers carry no authorization to burn. Legacy sealed
+        rows without ``auth_nonce`` sit below the v29 height and replay
+        under the old rules; a no-nonce auth appearing at v29+ is refused.
+        """
+        if ctx.block_version < 29 or ctx.skip_dedup:
+            return None
+        message = _operator_auth_message(ctx)
+        if message is None:
+            return None
+        auth_nonce = message.get("auth_nonce")
+        if not (isinstance(auth_nonce, str) and auth_nonce.strip()):
+            return (False, "operator protocol auth missing auth_nonce")
+        signature = tx_auth_signature(ctx.tx_data)
+        if signature is None:
+            return None  # the payload-auth signature gate reports malformed auth
+        if signature in self._processed_auth_sigs:
+            return (False, "protocol auth signature already used (replay)")
+        if protocol_auth_signature_sealed(ctx.session, ctx.chain_id, signature):
+            return (False, "protocol auth signature already sealed (replay)")
         return None
 
     def _vt_liquidity(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:

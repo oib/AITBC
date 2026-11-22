@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from ..base_models import _to_ait_address
 from ..logger import get_logger
 from ..models import Account, Transaction
+from ..protocol_escrow import tx_auth_signature
 from ..rpc.utils import verify_transaction_signature
 from ..v24_rules import v24_rules_active
 from .authoritative_reads import read_current_account as read_current_account
@@ -231,6 +232,10 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
     def __init__(self, *, cache_side_effects: bool = True) -> None:
         self._processed_nonces: dict[str, int] = {}
         self._processed_tx_hashes: set[str] = set()
+        # #2480: one-shot payload.auth signatures applied in the current
+        # block — the in-memory half of the v29 replay bound (the sealed-row
+        # half lives in protocol_escrow.protocol_auth_signature_sealed).
+        self._processed_auth_sigs: set[str] = set()
         # #1940 F4: speculative applies (the attestation post-state probe)
         # construct with cache_side_effects=False so no Redis invalidation
         # fires for state that is never committed. The production singleton
@@ -247,6 +252,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
         """
         self._processed_nonces.clear()
         self._processed_tx_hashes.clear()
+        self._processed_auth_sigs.clear()
 
     def validate_transaction(
         self,
@@ -291,6 +297,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
             self._vt_chain_id,
             self._vt_dedup,
             self._vt_prepare,
+            self._vt_protocol_auth_replay,
             self._vt_liquidity,
             self._vt_bridge_credit,
             self._vt_bridge_lock_sig,
@@ -447,7 +454,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
         )
         if side is not None:
             return side
-        return self._apply_success_epilogue(
+        result = self._apply_success_epilogue(
             session,
             chain_id,
             tx_hash,
@@ -459,6 +466,15 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
             fee,
             block_version=block_version,
         )
+        if result[0]:
+            # #2480: burn the payload.auth signature for the rest of this
+            # block — the v29 replay gate refuses a second envelope carrying
+            # it, and protocol_auth_signature_sealed takes over once the row
+            # is sealed.
+            auth_sig = tx_auth_signature(tx_data)
+            if auth_sig is not None:
+                self._processed_auth_sigs.add(auth_sig)
+        return result
 
     def apply_transaction_guarded(
         self,
@@ -581,6 +597,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
         """Reset the state transition validator (for testing)."""
         self._processed_nonces.clear()
         self._processed_tx_hashes.clear()
+        self._processed_auth_sigs.clear()
 
 
 _state_transition = StateTransition()

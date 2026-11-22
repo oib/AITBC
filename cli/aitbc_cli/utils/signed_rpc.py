@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -150,6 +151,18 @@ def sign_fields(fields: dict[str, Any], private_key: str) -> str:
     return sign_transaction_hash("0x" + keccak(message).hex(), private_key)
 
 
+def _fresh_auth_nonce(body: dict[str, Any]) -> None:
+    """Stamp the one-shot ``auth_nonce`` a signed body must carry (#2480).
+
+    The operator signature covers every field except ``signature``, so a
+    unique nonce inside the body makes each authorization's signature
+    unique — the replay bound the node enforces at admission and at apply
+    (v29). Callers may pin ``auth_nonce`` explicitly (tests, retries of the
+    identical authorization); otherwise a fresh uuid4 hex is used.
+    """
+    body.setdefault("auth_nonce", uuid.uuid4().hex)
+
+
 def post_signed(
     ctx: click.Context,
     path: str,
@@ -180,6 +193,7 @@ def post_signed(
         fields[default_user_field] = address
     body = {k: v for k, v in fields.items() if v is not None}
     body.setdefault("chain_id", resolve_chain_id(ctx, rpc, chain_id))
+    _fresh_auth_nonce(body)
     body["signature"] = sign_fields(body, private_key)
     try:
         result = AITBCHTTPClient(base_url=rpc, timeout=30).post(path, json=body)
@@ -225,6 +239,7 @@ def post_signed_resolved(
     probe = {k: v for k, v in fields.items() if v is not None}
     probe["chain_id"] = cid
     probe["resolve_only"] = True
+    _fresh_auth_nonce(probe)
     probe["signature"] = sign_fields(probe, private_key)
     try:
         probe_result = client.post(path, json=probe)
@@ -242,6 +257,7 @@ def post_signed_resolved(
     body["chain_id"] = cid
     body["to"] = resolved["to"]
     body["amount"] = resolved["amount"]
+    _fresh_auth_nonce(body)
     body["signature"] = sign_fields(body, private_key)
     try:
         result = client.post(path, json=body)

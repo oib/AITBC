@@ -438,8 +438,17 @@ def _admission_protocol_auth_gate(session: Any, chain_id: str, tx_data: dict[str
     # The live-nonce replay check applies to the wallet-auth path only —
     # its signed message carries the account nonce it was minted against.
     # Operator-signed bodies carry no account nonce (#2457); their replay
-    # bound is the tx-hash dedup plus the transfer binding verified above.
+    # bound is the one-shot auth signature (#2480): ``auth_nonce`` presence
+    # was already enforced inside ``unsigned_protocol_transfer_admissible``,
+    # and a signature already carried by a sealed transaction can never be
+    # admitted again — envelope nonce/fee changes mint a new tx hash, so
+    # hash dedup alone cannot see the replay.
     if not _protocol_auth_nonce_present(message):
+        from ..protocol_escrow import protocol_auth_signature_sealed, tx_auth_signature
+
+        signature = tx_auth_signature(tx_data)
+        if signature is not None and protocol_auth_signature_sealed(session, chain_id, signature):
+            raise ValueError("payload.auth signature already used by a sealed transaction")
         return
     signer = _to_ait_address(str(auth.get("signer")))
     account = session.get(Account, (chain_id, signer))

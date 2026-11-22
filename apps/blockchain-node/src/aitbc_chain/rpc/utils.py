@@ -230,6 +230,19 @@ def _operator_protocol_amount_bound(tx_type: str, message: dict[str, Any], tx_da
         return False
 
 
+def _operator_auth_nonce_present(message: dict[str, Any]) -> bool:
+    """The one-shot ``auth_nonce`` every operator-signed body must carry (#2480).
+
+    The operator signature covers the signed RPC body but not the envelope,
+    so without a per-authorization nonce inside the message a captured
+    ``payload.auth`` replays under fresh envelope nonce/fee forever. The
+    nonce makes each honest authorization unique; dedup then burns the
+    signature itself at admission and at apply (v29).
+    """
+    nonce = message.get("auth_nonce")
+    return isinstance(nonce, str) and bool(nonce.strip())
+
+
 def _operator_protocol_auth_ok(tx_type: str, auth: dict[str, Any], message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
     """Operator-signed admissibility (#2457, extended #2472).
 
@@ -247,6 +260,8 @@ def _operator_protocol_auth_ok(tx_type: str, auth: dict[str, Any], message: dict
     ``_payload_auth_binds_transfer`` just proved.
     """
     if tx_type not in _GOSSIP_OPERATOR_PROTOCOL_TX_TYPES:
+        return False
+    if not _operator_auth_nonce_present(message):
         return False
     if not _operator_protocol_amount_bound(tx_type, message, tx_data):
         return False

@@ -56,6 +56,7 @@ def _payout_tx(message_over: dict[str, Any] | None = None, **overrides: Any) -> 
         "submission_id": "sub-1",
         "to": USER,
         "amount": 500,
+        "auth_nonce": "po-1",
         "chain_id": CHAIN,
         **(message_over or {}),
     }
@@ -79,6 +80,7 @@ def _refund_tx(message_over: dict[str, Any] | None = None, **overrides: Any) -> 
         "user_address": USER,
         "to": USER,
         "amount": 300,
+        "auth_nonce": "re-1",
         "chain_id": CHAIN,
         **(message_over or {}),
     }
@@ -102,6 +104,7 @@ def _release_tx(message_over: dict[str, Any] | None = None, **overrides: Any) ->
         "user_address": USER,
         "to": USER,
         "amount": 700,
+        "auth_nonce": "sr-1",
         "chain_id": CHAIN,
         **(message_over or {}),
     }
@@ -147,7 +150,14 @@ def test_bound_agent_stake_release_passes(monkeypatch):
 def test_payout_without_amount_dropped(monkeypatch):
     """Legacy envelope (no signed amount) must not ride gossip."""
     _operator_env(monkeypatch)
-    msg = {"bounty_id": "b-1", "submission_id": "sub-1", "to": USER, "amount": None, "chain_id": CHAIN}
+    msg = {
+        "bounty_id": "b-1",
+        "submission_id": "sub-1",
+        "to": USER,
+        "amount": None,
+        "auth_nonce": "po-unb-1",
+        "chain_id": CHAIN,
+    }
     assert gossip_transaction_drop_reason(_payout_tx(msg)) == "invalid_protocol_auth"
 
 
@@ -201,6 +211,7 @@ def test_payout_foreign_signature_dropped(monkeypatch):
         "submission_id": "sub-1",
         "to": USER,
         "amount": 500,
+        "auth_nonce": "po-forged-1",
         "chain_id": CHAIN,
     }
     forged = _auth(message, signer=OPERATOR, key=USER_KEY)
@@ -252,7 +263,14 @@ def test_admission_accepts_bound_release(door):
 
 
 def test_admission_rejects_unbound_payout(door):
-    msg = {"bounty_id": "b-1", "submission_id": "sub-1", "to": USER, "amount": None, "chain_id": CHAIN}
+    msg = {
+        "bounty_id": "b-1",
+        "submission_id": "sub-1",
+        "to": USER,
+        "amount": None,
+        "auth_nonce": "po-unb-2",
+        "chain_id": CHAIN,
+    }
     with pytest.raises(ValueError):
         door(_payout_tx(msg))
 

@@ -298,6 +298,17 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # pin set fleet-wide with the validator restart wave — a mid-rollout
     # mixed set would apply different rules and fork.
     state_transition_v28_height: int | None = None
+    # v29 (#2480 OPERATOR-AUTH-REPLAY-1): at or above this height an
+    # operator-shaped ``payload.auth`` (signed message with no account
+    # ``nonce``) on a gossip-admissible protocol type must carry the
+    # one-shot ``auth_nonce`` and its ``auth.signature`` may be applied at
+    # most once — checked against same-block applications and every sealed
+    # transaction. Below the height the rules are unchanged so historical
+    # blocks and in-flight legacy auths replay identically. ``None`` (the
+    # default) keeps the rung dormant: pin fleet-wide only after every
+    # validator runs the code, since a mixed set would apply different
+    # rules and fork.
+    state_transition_v29_height: int | None = None
     # #2257: node-local reconciler for stale ``pending`` bridge transfer rows.
     # Bookkeeping only (no tx, no consensus effect). Off by default; with
     # ``dry_run`` on (default) it only logs what it would change.
