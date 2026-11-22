@@ -1020,6 +1020,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/bridge/release/{transfer_id}",
+          "upstream": "/rpc/bridge/release/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/bridge/security/status",
           "upstream": "/rpc/bridge/security/status",
           "methods": [
@@ -2340,6 +2347,13 @@
         {
           "public": "/api/v2/chain/v1/bridge/pending",
           "upstream": "/v1/bridge/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/release/{transfer_id}",
+          "upstream": "/v1/bridge/release/{transfer_id}",
           "methods": [
             "GET"
           ]

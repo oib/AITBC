@@ -306,6 +306,33 @@ def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, Any]:
 
 
 @rate_limit(rate=100, per=60)
+def get_bridge_release(request: Request, transfer_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Authoritative release evidence for a transfer (#2503).
+
+    Unlike ``/bridge/transfer/{id}`` — which 404s when the node holds no
+    ``cross_chain_transfer`` row — this answers from the sealed
+    ``BRIDGE_RELEASE`` index too, so a target chain that released a
+    hub-originated transfer without a local row still reports
+    ``released:true``. Always 200 with a definitive ``released`` flag while
+    the bridge is up; store/DB failures surface as 500 so remote callers
+    keep their fail-closed ``unreachable`` verdict.
+    """
+    from ..cross_chain.bridge import get_cross_chain_bridge
+
+    bridge = get_cross_chain_bridge()
+    if not bridge:
+        raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+    try:
+        return bridge.release_evidence(transfer_id, chain_id=chain_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Get bridge release evidence failed: %s", e)
+        _logger.exception("Unhandled exception")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@rate_limit(rate=100, per=60)
 def get_bridge_proof(
     request: Request,
     transfer_id: str,
