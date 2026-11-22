@@ -3,11 +3,29 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+from typing import cast
 
 import click
 
 from ..utils import output, success
+from ..utils.error_handling import abort
+
+_DEPLOY_SLUG_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _deploy_slug(ctx, value: object, field: str) -> str:
+    """Validate a path component used under --storage (#2533).
+
+    ``--network`` and the manifest ``brand_id`` are joined into the output
+    path unvalidated — ``../`` and absolute paths escaped --storage. Only
+    slug characters are accepted; the resolved-target check below is the
+    second wall.
+    """
+    if not isinstance(value, str) or not _DEPLOY_SLUG_RE.fullmatch(value):
+        abort(ctx, f"Invalid {field} {value!r}: use only letters, digits, '-' and '_'")
+    return cast(str, value)
 
 
 @click.group(
@@ -40,7 +58,12 @@ def deploy_brand(ctx, config_path: str, network: str, storage: str):
     with open(manifest_path, encoding="utf-8") as f:
         manifest = json.load(f)
 
-    target = Path(storage) / network / manifest.get("brand_id", "brand")
+    network = _deploy_slug(ctx, network, "--network")
+    brand_id = _deploy_slug(ctx, manifest.get("brand_id", "brand"), "manifest brand_id")
+    storage_root = Path(storage).resolve()
+    target = storage_root / network / brand_id
+    if not target.resolve().is_relative_to(storage_root):
+        abort(ctx, f"Deployment target escapes --storage: {target}")
     target.mkdir(parents=True, exist_ok=True)
     deployed_path = target / "brand-manifest.json"
     with open(deployed_path, "w", encoding="utf-8") as f:
