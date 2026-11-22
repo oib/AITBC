@@ -3,11 +3,10 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
@@ -16,9 +15,8 @@ from ..base_models import MinerRegistry
 from ..chain_id import resolve_chain_id
 from ..database import session_scope
 from ..logger import get_logger
-from ..mempool import get_mempool as get_mempool_instance
 from .auth import get_authenticated_address, security
-from .transactions import TransactionRequest  # noqa: F401  # re-exported for backward compatibility
+from .transactions import TransactionRequest, get_mempool as get_mempool_route  # noqa: F401  # TransactionRequest re-exported for backward compatibility
 
 _logger = get_logger(__name__)
 
@@ -414,10 +412,7 @@ def list_miners_route(
 @rate_limit(rate=100, per=60)
 def get_pending_transactions_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Get pending transactions from mempool (alias for /mempool)"""
-    try:
-        mempool = get_mempool_instance()
-        pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
-        return {"transactions": pending_txs, "count": len(pending_txs)}
-    except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
-        _logger.error("Error getting pending transactions: %s", e)
-        return {"transactions": [], "count": 0, "error": str(e)}
+    # #2633: delegate to the /mempool handler so the alias gets the same
+    # limit clamp, chain_id defaulting, and sealed-tx eviction — it used to
+    # call the raw mempool and skip all three.
+    return cast("dict[str, Any]", get_mempool_route(request, chain_id=chain_id, limit=limit))
