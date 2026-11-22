@@ -117,6 +117,163 @@ class SettlementReconciler:
         )
         return list(session.execute(stmt).scalars().all())
 
+    def _find_unsealed_release_hashes(self, session: Any) -> list[Any]:
+        """Released payments whose recorded tx hash is old enough to have sealed.
+
+        The release endpoint reports the hash of the envelope it *submitted*.
+        A pending envelope that later dies (mempool eviction, nonce race) is
+        replaced by a resubmission that seals under a different hash, leaving
+        ``transaction_hash`` pointing at a transaction that never existed
+        on-chain (#2483). This pass audits those rows against the chain.
+        """
+        cutoff = (datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)).replace(tzinfo=None)
+        stmt = (
+            select(JobPayment)
+            .where(JobPayment.status == "released")
+            .where(JobPayment.transaction_hash.is_not(None))  # type: ignore[union-attr]
+            .where(JobPayment.released_at.is_not(None))  # type: ignore[union-attr]
+            .where(JobPayment.released_at < cutoff)  # type: ignore[operator]
+            .limit(self.batch_size)
+        )
+        return list(session.execute(stmt).scalars().all())
+
+    @staticmethod
+    async def _recorded_hash_state(client: httpx.AsyncClient, rpc: str, tx_hash: str) -> bool | None:
+        """True when the recorded hash resolves to a sealed tx, False on a
+        definitive 404, None when the answer is unverifiable."""
+        try:
+            resp = await client.get(f"{rpc}/rpc/transaction/{tx_hash}")
+        except httpx.HTTPError:
+            return None
+        if resp.status_code == 200:
+            return True
+        if resp.status_code == 404:
+            return False
+        return None
+
+    @staticmethod
+    async def _sealed_release_hashes(client: httpx.AsyncClient, rpc: str, job_id: str) -> set[str] | None:
+        """Confirmed ESCROW_RELEASE hashes for a job; None when unverifiable."""
+        try:
+            resp = await client.get(
+                f"{rpc}/rpc/transactions",
+                params={"transaction_type": "ESCROW_RELEASE", "job_id": job_id, "limit": 20},
+            )
+        except httpx.HTTPError:
+            return None
+        if resp.status_code != 200:
+            return None
+        try:
+            rows = resp.json()
+        except ValueError:
+            return None
+        return {
+            str(row.get("transaction_hash") or row.get("tx_hash"))
+            for row in rows
+            if isinstance(row, dict)
+            and row.get("status") == "confirmed"
+            and (row.get("transaction_hash") or row.get("tx_hash"))
+        }
+
+    @staticmethod
+    def _readopt_release_hash(session: Any, payment: Any, recorded: str, new_hash: str, counts: dict[str, int]) -> None:
+        session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
+        if payment.status != "released":
+            return
+        meta = dict(payment.meta_data or {})
+        meta["release_tx_hash_corrected"] = {
+            "from": recorded,
+            "to": new_hash,
+            "at": datetime.now(UTC).isoformat(),
+        }
+        payment.transaction_hash = new_hash
+        payment.meta_data = meta
+        payment.updated_at = datetime.now(UTC)
+        session.add(payment)
+        session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        counts["hash_readopted"] += 1
+        logger.warning(
+            "Payment %s release hash corrected for job %s: %s -> %s (recorded envelope never sealed)",
+            payment.id,
+            payment.job_id,
+            recorded,
+            new_hash,
+        )
+
+    async def _audit_one_release_hash(
+        self,
+        client: httpx.AsyncClient,
+        rpc: str,
+        session: Any,
+        payment: Any,
+        counts: dict[str, int],
+    ) -> None:
+        recorded = payment.transaction_hash
+        state = await self._recorded_hash_state(client, rpc, recorded)
+        if state is None:
+            counts["hash_unreachable"] += 1
+        elif state:
+            counts["hash_ok"] += 1
+        else:
+            await self._audit_missing_hash(client, rpc, session, payment, recorded, counts)
+
+    async def _audit_missing_hash(
+        self,
+        client: httpx.AsyncClient,
+        rpc: str,
+        session: Any,
+        payment: Any,
+        recorded: str,
+        counts: dict[str, int],
+    ) -> None:
+        sealed = await self._sealed_release_hashes(client, rpc, payment.job_id)
+        if sealed is None:
+            counts["hash_unreachable"] += 1
+            return
+        sealed.discard(recorded)
+        if len(sealed) == 1:
+            self._readopt_release_hash(session, payment, recorded, sealed.pop(), counts)
+        elif not sealed:
+            counts["hash_unbacked"] += 1
+            logger.critical(
+                "Payment %s is released but no sealed ESCROW_RELEASE exists for job %s "
+                "(recorded hash %s never sealed) -- manual chain verification required",
+                payment.id,
+                payment.job_id,
+                recorded,
+            )
+        else:
+            counts["hash_ambiguous"] += 1
+            logger.error(
+                "Payment %s job %s has multiple sealed ESCROW_RELEASE hashes %s -- leaving recorded %s",
+                payment.id,
+                payment.job_id,
+                sorted(sealed),
+                recorded,
+            )
+
+    async def _audit_release_hashes(self) -> dict[str, int]:
+        """Verify each released payment's recorded hash actually sealed.
+
+        When the recorded envelope never sealed but exactly one confirmed
+        ESCROW_RELEASE exists for the same job, adopt that hash — the payment
+        *was* settled, only the recorded pointer was stale. A released payment
+        with no sealed release behind it is logged critical: the audit never
+        guesses a hash, and an unreachable chain leaves the row untouched.
+        """
+        counts = {"hash_ok": 0, "hash_readopted": 0, "hash_unbacked": 0, "hash_ambiguous": 0, "hash_unreachable": 0}
+        with self._session_factory() as session:
+            candidates = [p for p in self._find_unsealed_release_hashes(session) if getattr(p, "transaction_hash", None)]
+            if not candidates:
+                return counts
+            from . import payments as _pm
+
+            rpc = _pm.settings.blockchain_rpc_url.rstrip("/")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                for payment in candidates:
+                    await self._audit_one_release_hash(client, rpc, session, payment, counts)
+        return counts
+
     async def run_once(self) -> dict[str, int]:
         """One reconciliation pass. Returns counts for logging and tests."""
         from .payments import PaymentService
@@ -147,15 +304,22 @@ class SettlementReconciler:
                 else:
                     counts["failed"] += 1
                     logger.warning("Job %s still unsettled after retry; leaving it escrowed", job.id)
+        counts.update(await self._audit_release_hashes())
         # Heartbeat. A pass with nothing to do logs nothing else, so at info level
         # "ran clean" and "the task died" are indistinguishable. Debug so a normal
         # deployment stays quiet but an operator can prove the loop is alive.
         logger.debug(
-            "Settlement reconciliation pass complete: scanned=%s retried=%s settled=%s failed=%s",
+            "Settlement reconciliation pass complete: scanned=%s retried=%s settled=%s failed=%s "
+            "hash_ok=%s hash_readopted=%s hash_unbacked=%s hash_ambiguous=%s hash_unreachable=%s",
             scanned,
             counts["retried"],
             counts["settled"],
             counts["failed"],
+            counts["hash_ok"],
+            counts["hash_readopted"],
+            counts["hash_unbacked"],
+            counts["hash_ambiguous"],
+            counts["hash_unreachable"],
         )
         return counts
 
