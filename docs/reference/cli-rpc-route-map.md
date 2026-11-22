@@ -107,6 +107,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc crosschain stats` | `/rpc/cross-chain/stats` | `get_cross_chain_stats` (cross_chain.py) | —
 | `aitbc crosschain status` | `/rpc/cross-chain/swap/` | — | —
 | `aitbc crosschain status` | `/rpc/cross-chain/swap/{swap_id}` | `get_cross_chain_swap` (cross_chain.py) | —
+| `aitbc crosschain swap` | `/rpc/cross-chain/rates` | `get_cross_chain_rates` (cross_chain.py) | —
 | `aitbc crosschain swap` | `/rpc/cross-chain/swap/` | — | —
 | `aitbc crosschain swap` | `/rpc/cross-chain/swap/{swap_id}` | `get_cross_chain_swap` (cross_chain.py) | —
 | `aitbc crosschain swap` | `/rpc/swap` | `create_cross_chain_swap` (cross_chain.py) | —

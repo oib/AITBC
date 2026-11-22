@@ -20,7 +20,7 @@ aitbc crosschain swap [OPTIONS]
 | `--to-token` | text | — | yes | Target token symbol |
 | `--amount` | decimal | — | yes | Amount to swap (AIT) |
 | `--min-amount` | decimal | — | no | Minimum amount to receive on target chain (AIT) |
-| `--slippage` | float | `0.01` | no | Slippage tolerance (0-0.1) |
+| `--slippage` | float range | `0.01` | no | Slippage tolerance as a fraction (0-0.1); enforced as a minimum received amount derived from the server quote unless --min-amount is given |
 | `--recipient` | text | — | no | Recipient address on the target chain (defaults to the sender) |
 | `--wallet` | text | — | no | Wallet name or file path for signing |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |

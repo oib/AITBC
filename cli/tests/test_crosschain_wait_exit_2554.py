@@ -34,7 +34,19 @@ def _wallet(tmp_path, monkeypatch):
 def _client(post_result, get_side_effect):
     client = mock.Mock()
     client.post = mock.Mock(return_value=post_result)
-    client.get = mock.Mock(side_effect=get_side_effect)
+    responses = [get_side_effect] if isinstance(get_side_effect, Exception) else list(get_side_effect)
+
+    def _get(url, **kwargs):
+        # #2597: swap now GETs /rpc/cross-chain/rates before signing; answer
+        # it with a parity rate and leave the queue for status polls.
+        if "rates" in url:
+            return {"rates": {"chain-a::chain-b": 1.0}}
+        item = responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    client.get = mock.Mock(side_effect=_get)
     return client
 
 
