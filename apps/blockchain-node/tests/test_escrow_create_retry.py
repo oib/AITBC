@@ -81,6 +81,28 @@ def _lock_body() -> dict:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("bad", ["NaN", "sNaN", "Infinity", "-Infinity"])
+async def test_create_rejects_non_finite_amount(patched, bad):
+    """Non-finite amounts must answer 400, not escape as raw
+    InvalidOperation/OverflowError (503 via the outer middleware).
+
+    Regression for AUDIT-BN-ESCROW-CREATE-NONFINITE-AMOUNT-500-1 (#2651):
+    ``Decimal("NaN") <= 0`` raises and ``Decimal("Infinity")`` overflows in
+    ``ait_to_units`` — the is_finite guard mirrors the release route's.
+    """
+    body = {
+        "job_id": "job-nonfinite",
+        "buyer": BUYER,
+        "provider": PROVIDER,
+        "amount": bad,
+    }
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(body)
+    assert exc_info.value.status_code == 400
+    assert "finite" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
 async def test_failed_lock_submit_leaves_no_orphan_and_retry_succeeds(patched, engine, monkeypatch):
     """First submit fails: no contract, no row; the same-job_id retry must succeed."""
     mgr = patched

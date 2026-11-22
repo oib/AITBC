@@ -232,6 +232,11 @@ def _parse_create_request(body: dict[str, Any]) -> tuple[str, str, str, Decimal,
         raise HTTPException(status_code=400, detail=f"Invalid amount: {amount}") from None
     if not isinstance(job_id, str) or not isinstance(buyer, str) or not isinstance(provider, str):
         raise HTTPException(status_code=400, detail="Invalid types for job_id, buyer, or provider") from None
+    # NaN/sNaN/±Infinity parse fine but must never reach a comparison or the
+    # unit conversion (NaN <= 0 raises InvalidOperation, Infinity raises
+    # OverflowError in ait_to_units) — same guard as the release route.
+    if not amount_dec.is_finite():
+        raise HTTPException(status_code=400, detail="amount must be a finite decimal number") from None
     if amount_dec <= 0:
         raise HTTPException(status_code=400, detail="escrow amount must be positive") from None
     if _to_canonical(buyer) == _to_canonical(_NODE_WALLET):
@@ -433,7 +438,7 @@ def _resolve_create_lock_tx(
                 settlement_asset=quote.settlement_asset if quote else None,
                 settlement_unit_scale=quote.settlement_unit_scale if quote else None,
             )
-        except ValueError as e:
+        except (ValueError, OverflowError) as e:
             raise HTTPException(status_code=400, detail=str(e)) from None
         tx_to_submit["signature"] = lock_signature
         return tx_to_submit
@@ -444,7 +449,7 @@ def _verify_create_lock_tx(tx_to_submit: dict[str, Any], job_id: str, buyer: str
     """Verify the lock tx moves the expected amount to the node wallet."""
     try:
         expected_tx, _ = _build_lock_tx(job_id, buyer, provider, amount_dec, tx_to_submit.get("nonce", 0))
-    except ValueError as e:
+    except (ValueError, OverflowError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
 
     if tx_to_submit.get("from") != expected_tx["from"]:

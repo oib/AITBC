@@ -24943,7 +24943,7 @@
             }
           },
           "400": {
-            "description": "job_id, buyer, provider, and amount are required / Invalid amount: {amount} / Invalid types for job_id, buyer, or provider / escrow amount must be positive / \u2026",
+            "description": "job_id, buyer, provider, and amount are required / Invalid amount: {amount} / Invalid types for job_id, buyer, or provider / amount must be a finite decimal number / \u2026",
             "content": {
               "application/json": {
                 "schema": {
