@@ -233,7 +233,9 @@ def sync_ratings(ctx, remote_url: str, limit: int):
             if sync_response.get("status") == "success":
                 # Mark local ratings as synced
                 rating_ids = [r["id"] for r in unsynced_ratings]
-                mark_response = local_client.post("/v1/market/ratings/mark-synced", json={"rating_ids": rating_ids})
+                # #2521: the route takes a bare JSON list (`list[str]` body),
+                # not an object — wrapping it 422s and nothing is marked.
+                mark_response = local_client.post("/v1/market/ratings/mark-synced", json=rating_ids)
 
                 success(
                     f"Synced {sync_response.get('synced', 0)} new, {sync_response.get('updated', 0)} updated ratings to remote"

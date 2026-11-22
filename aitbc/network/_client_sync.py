@@ -195,7 +195,7 @@ class AITBCHTTPClient:
         self,
         endpoint: str,
         data: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
+        json: dict[str, Any] | list[Any] | None = None,
         headers: dict[str, str] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -260,7 +260,7 @@ class AITBCHTTPClient:
         self,
         endpoint: str,
         data: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
+        json: dict[str, Any] | list[Any] | None = None,
         headers: dict[str, str] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -320,7 +320,7 @@ class AITBCHTTPClient:
     def patch(
         self,
         endpoint: str,
-        json: dict[str, Any] | None = None,
+        json: dict[str, Any] | list[Any] | None = None,
         headers: dict[str, str] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:

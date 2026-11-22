@@ -810,6 +810,20 @@ def test_get_unsynced_ratings_default_limit(client):
     assert response.json() == {"ratings": [], "count": 0}
 
 
+def test_mark_ratings_synced_body_contract(client):
+    """#2521: the route takes a bare JSON list of ids — an object wrapper 422s.
+
+    The CLI's sync-ratings used to post ``{"rating_ids": [...]}`` and every
+    mark-synced call failed validation, so ratings were never marked synced.
+    """
+    ok = client.post("/v1/market/ratings/mark-synced", json=["no-such-rating"])
+    assert ok.status_code == 200
+    assert ok.json() == {"status": "success", "marked_synced": 0}
+
+    bad = client.post("/v1/market/ratings/mark-synced", json={"rating_ids": ["no-such-rating"]})
+    assert bad.status_code == 422
+
+
 # --- Offer query (plugin market) ---
 
 
