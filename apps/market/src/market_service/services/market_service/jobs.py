@@ -13,6 +13,7 @@ from sqlmodel import col, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import OfferFSM, OfferStatus
+from aitbc.market.job_request_signature import verify_jobs_request_signature
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
 
@@ -282,6 +283,9 @@ class _JobsMixin(_CoreMixin):
         from ...domain.market import IpfsRentalToken
 
         try:
+            # #2491: the signature fields are not token columns — capture them
+            # before the writable allowlist strips them.
+            sig = {k: data.get(k) for k in ("signer_address", "chain_id", "issued_at", "signature")}
             access_key, data = self._normalize_ipfs_token_data(data)
 
             # #2348: derive the settlement clock from the market job. The
@@ -295,9 +299,7 @@ class _JobsMixin(_CoreMixin):
             # steer settlement at a foreign escrow (#815).
             rental_id = data.get("rental_id")
             if rental_id:
-                job = await self.session.get(MarketJob, str(rental_id))
-                if job is not None and job.expires_at is not None:
-                    data["expires_at"] = job.expires_at
+                await self._apply_job_bound_token_rules(str(rental_id), data, sig)
 
             stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
             result = await self.session.execute(stmt)
@@ -327,6 +329,77 @@ class _JobsMixin(_CoreMixin):
         except Exception as e:
             logger.error("Error in register_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
             raise
+
+    async def _apply_job_bound_token_rules(self, rental_id: str, data: dict[str, Any], sig: dict[str, Any]) -> None:
+        """#2348/#2491: job-bound token rules — inherit the settlement clock,
+        require the provider's wallet signature, bind parties/CID to the job."""
+        job = await self.session.get(MarketJob, rental_id)
+        if job is None:
+            return
+        if job.expires_at is not None:
+            data["expires_at"] = job.expires_at
+        # #2491: a token bound to a market job's escrow may only be
+        # registered by that job's provider — the market API key alone must
+        # not let a third party attach a token that flips the expired-job
+        # refund into a release.
+        await self._verify_ipfs_rental_token_signature(job, sig)
+        self._bind_ipfs_token_to_job(data, job)
+
+    async def _verify_ipfs_rental_token_signature(self, job: MarketJob, sig: dict[str, Any]) -> None:
+        """#2491: prove the registrant controls the job provider's wallet.
+
+        The provider signs the canonical jobs-request message over the
+        rental-token route and a job-authoritative binding (``rental_id``,
+        ``cid``, ``buyer_address``, ``provider_address`` — all read from the
+        stored job, never from the request). The recovered signer must be
+        the job's provider: the offer-listed ``SoftwareService`` provider
+        when the job is offer-bound (#2365 — ``provider_address`` is
+        caller-writable at creation), else the job's provider address.
+        Fails closed on any missing or mismatched piece.
+        """
+        payload = job.payload or {}
+        binding = {
+            "rental_id": str(job.id),
+            "cid": str(payload.get("cid") or ""),
+            "buyer_address": str(job.buyer_address or ""),
+            "provider_address": str(job.provider_address or ""),
+        }
+        error, signer = verify_jobs_request_signature(
+            signer_address=sig.get("signer_address"),
+            chain_id=sig.get("chain_id"),
+            issued_at=sig.get("issued_at"),
+            route="/v1/market/ipfs/rental-token",
+            signature=sig.get("signature"),
+            expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+            binding=binding,
+        )
+        if error or not signer:
+            raise ValueError(error or "provider signature required")
+        expected = job.provider_address
+        if job.offer_id:
+            offer_provider = await self._offer_provider_address(job.offer_id)
+            if not offer_provider:
+                raise ValueError("cannot resolve the offer's provider for this job")
+            expected = offer_provider
+        if canonical_address(signer) != canonical_address(str(expected or "")):
+            raise ValueError("signer is not this job's provider")
+
+    @staticmethod
+    def _bind_ipfs_token_to_job(data: dict[str, Any], job: MarketJob) -> None:
+        """#2491: a job-bound token inherits the job's parties and CID.
+
+        The on-chain escrow settles to the job's recorded parties, so
+        caller-supplied ``buyer_address``/``provider_address``/``cid`` on a
+        job-bound registration are claims, not authority — overwrite them
+        with the stored job values (canonicalized like the normalizer).
+        """
+        payload = job.payload or {}
+        for field in ("buyer_address", "provider_address"):
+            value = getattr(job, field)
+            if value:
+                data[field] = canonical_address(str(value))
+        if payload.get("cid"):
+            data["cid"] = str(payload["cid"])
 
     def _normalize_ipfs_token_data(self, data: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         """Validate and normalize caller-supplied token fields; returns

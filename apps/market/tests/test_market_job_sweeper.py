@@ -129,12 +129,15 @@ async def _apply_lifecycle(
     state: str,
     escrow_contract_id: str,
     updated_at: datetime | None = None,
+    provider_confirmed: bool = False,
 ) -> None:
     """Set the lifecycle columns the payment path owns.
 
     ``create_market_job`` ignores caller-supplied state, escrow_contract_id,
     updated_at and payment.status (#815) — sweeper fixtures drive those
     columns directly, the way settlement would have left them.
+    ``provider_confirmed`` models the #1922 provider-signed pin-confirm
+    payload flag (#2491).
     """
     async with get_session_context() as session:
         job = await session.get(MarketJob, job_id)
@@ -142,6 +145,10 @@ async def _apply_lifecycle(
         job.state = state
         job.escrow_contract_id = escrow_contract_id
         job.payment_status = "escrowed"
+        if provider_confirmed:
+            payload = dict(job.payload or {})
+            payload["provider_confirmed"] = True
+            job.payload = payload
         if updated_at is not None:
             job.updated_at = updated_at
         payment = await session.get(MarketJobPayment, job.payment_id)
@@ -951,9 +958,10 @@ async def test_sweeper_does_not_adopt_unlocked_or_mismatched_escrow(sweeper) -> 
 
 @pytest.mark.asyncio
 async def test_expired_job_with_rental_token_keeps_escrow(sweeper) -> None:
-    """#2348: an expired ipfs job covered by an active IpfsRentalToken does
-    not refund — the rental sweeper releases to the provider at token
-    expiry. The job still expires so access ends."""
+    """#2348/#2491: an expired ipfs job covered by an active IpfsRentalToken
+    does not refund — but only once the provider's signed pin-confirm has
+    proven delivery (``provider_confirmed``). The job still expires so
+    access ends."""
     from market_service.domain.market import IpfsRentalToken
 
     service, sw, rpc = sweeper
@@ -968,7 +976,7 @@ async def test_expired_job_with_rental_token_keeps_escrow(sweeper) -> None:
         }
     )
     job_id = created["job_id"]
-    await _apply_lifecycle(job_id, state="RUNNING", escrow_contract_id=job_id)
+    await _apply_lifecycle(job_id, state="RUNNING", escrow_contract_id=job_id, provider_confirmed=True)
     async with get_session_context() as session:
         session.add(
             IpfsRentalToken(
@@ -1003,32 +1011,78 @@ async def test_expired_job_with_rental_token_keeps_escrow(sweeper) -> None:
     assert job_id in rpc.refunded
 
 
+def _rental_token_signature(
+    job_id: str,
+    cid: str,
+    buyer_address: str,
+    provider_address: str,
+    private_key: str,
+    signer_address: str,
+) -> dict:
+    """#2491: provider-signed rental-token registration proof."""
+    import time
+
+    from aitbc.crypto.crypto import sign_transaction_data
+    from aitbc.market.job_request_signature import jobs_request_message
+    from aitbc.utils.chain_id import resolve_chain_id
+    from market_service.config import settings
+
+    chain_id = settings.default_chain_id or resolve_chain_id()
+    issued_at = int(time.time())
+    binding = {
+        "rental_id": job_id,
+        "cid": cid,
+        "buyer_address": buyer_address,
+        "provider_address": provider_address,
+    }
+    return {
+        "signer_address": signer_address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(
+            jobs_request_message(signer_address, chain_id, issued_at, "/v1/market/ipfs/rental-token", binding=binding),
+            private_key,
+        ),
+    }
+
+
 @pytest.mark.asyncio
 async def test_register_ipfs_rental_token_derives_expires_at(sweeper) -> None:
     """#2348: token registration inherits the market job's expires_at — the
     writable allowlist strips caller-supplied settlement fields, so without
-    the derivation the token would never expire."""
+    the derivation the token would never expire. #2491: a job-bound
+    registration carries the provider's wallet signature."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
     service, _sw, _rpc = sweeper
+    provider_key = "0x" + "22" * 32
+    provider_address = derive_ethereum_address(provider_key)
+    buyer_address = derive_ethereum_address("0x" + "11" * 32)
     expires = (datetime.now(UTC) + timedelta(days=7)).replace(tzinfo=None)
     created = await service.create_market_job(
         {
             "service_type": "ipfs",
-            "buyer_address": "0x" + "11" * 20,
-            "provider_address": "0x" + "22" * 20,
+            "buyer_address": buyer_address,
+            "provider_address": provider_address,
             "payload": {"cid": "QmTest", "access_key": "ak-der", "access_secret": "sec-der"},
             "expires_at": expires.isoformat(),
         }
     )
+    job_id = created["job_id"]
     result = await service.register_ipfs_rental_token(
         {
             "access_key": "ak-der",
             "access_secret": "sec-der",
-            "rental_id": created["job_id"],
+            "rental_id": job_id,
             "cid": "QmTest",
             "size": 100,
+            **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
         }
     )
     assert result["expires_at"] is not None
+    # #2491: job-bound party fields come from the job, not the caller.
+    assert result["buyer_address"] == buyer_address
+    assert result["provider_address"] == provider_address
 
 
 async def _terminal_pending_job(job_id: str, state: str) -> None:
@@ -1203,3 +1257,121 @@ async def test_hashless_refund_stores_null_not_empty_string(sweeper) -> None:
     assert job["state"] == "REFUNDED"
     assert job["refund_tx_hash"] is None
     assert job["payment"]["refund_transaction_hash"] is None
+
+
+async def _ipfs_job_with_escrow(service, *, expires_at: datetime | None = None) -> tuple[str, str, str]:
+    """Create an ipfs market job with derived party keys; return
+    (job_id, buyer_address, provider_address)."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    buyer_key = "0x" + "11" * 32
+    provider_key = "0x" + "22" * 32
+    data = {
+        "service_type": "ipfs",
+        "buyer_address": derive_ethereum_address(buyer_key),
+        "provider_address": derive_ethereum_address(provider_key),
+        "payload": {"cid": "QmTest", "access_key": "ak-x", "access_secret": "sec-x"},
+        "payment": {"amount": "1.0", "status": "escrowed"},
+    }
+    if expires_at is not None:
+        data["expires_at"] = expires_at.isoformat()
+    created = await service.create_market_job(data)
+    return created["job_id"], derive_ethereum_address(buyer_key), derive_ethereum_address(provider_key)
+
+
+@pytest.mark.asyncio
+async def test_job_bound_token_registration_requires_provider_signature(sweeper) -> None:
+    """#2491: the market API key alone must not attach a rental token to a
+    job's escrow — unsigned and foreign-signed registrations are refused."""
+    service, _sw, _rpc = sweeper
+    job_id, buyer_address, provider_address = await _ipfs_job_with_escrow(service)
+
+    base = {
+        "access_key": "ak-forged",
+        "access_secret": "sec",
+        "rental_id": job_id,
+        "cid": "QmTest",
+    }
+    # Unsigned -> refused.
+    with pytest.raises(ValueError, match="signer_address"):
+        await service.register_ipfs_rental_token(dict(base))
+    # Signed by a foreign key -> refused. The signer_address matches the
+    # recovered signer so verification itself passes and the provider
+    # check is what fails.
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    foreign_addr = derive_ethereum_address("0x" + "33" * 32)
+    foreign = _rental_token_signature(job_id, "QmTest", buyer_address, provider_address, "0x" + "33" * 32, foreign_addr)
+    with pytest.raises(ValueError, match="provider"):
+        await service.register_ipfs_rental_token({**base, **foreign})
+    # Signed by the buyer, not the provider -> refused.
+    buyer_key = "0x" + "11" * 32
+    buyer_sig = _rental_token_signature(job_id, "QmTest", buyer_address, provider_address, buyer_key, buyer_address)
+    with pytest.raises(ValueError, match="provider"):
+        await service.register_ipfs_rental_token({**base, **buyer_sig})
+    # No token row may exist for any of the refused attempts.
+    from market_service.domain.market import IpfsRentalToken
+
+    async with get_session_context() as session:
+        rows = (
+            (await session.execute(select(IpfsRentalToken).where(IpfsRentalToken.access_key == "ak-forged"))).scalars().all()
+        )
+        assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_job_bound_token_binds_job_parties(sweeper) -> None:
+    """#2491: caller-supplied party/CID claims on a job-bound token are
+    overwritten with the stored job values."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    service, _sw, _rpc = sweeper
+    job_id, buyer_address, provider_address = await _ipfs_job_with_escrow(service)
+    provider_key = "0x" + "22" * 32
+    attacker = derive_ethereum_address("0x" + "99" * 32)
+    result = await service.register_ipfs_rental_token(
+        {
+            "access_key": "ak-bind",
+            "access_secret": "sec",
+            "rental_id": job_id,
+            "cid": "QmFake",
+            "buyer_address": attacker,
+            "provider_address": attacker,
+            **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
+        }
+    )
+    assert result["provider_address"] == provider_address
+    assert result["buyer_address"] == buyer_address
+    assert result["cid"] == "QmTest"
+
+
+@pytest.mark.asyncio
+async def test_expired_job_with_unproven_token_refunds(sweeper) -> None:
+    """#2491 exploit regression: an active rental token that has no
+    provider-signed pin proof must NOT suppress the expired-job refund —
+    previously any market-API-key holder could register one and flip the
+    refund into a release."""
+    from market_service.domain.market import IpfsRentalToken
+
+    service, sw, rpc = sweeper
+    job_id, _buyer, _provider = await _ipfs_job_with_escrow(service, expires_at=datetime.now(UTC) - timedelta(days=1))
+    await _apply_lifecycle(job_id, state="RUNNING", escrow_contract_id=job_id)
+    async with get_session_context() as session:
+        session.add(
+            IpfsRentalToken(
+                access_key="ak-unproven",
+                access_secret="hashed-secret",
+                rental_id=job_id,
+                cid="QmTest",
+                status="active",
+                expires_at=datetime.now(UTC).replace(tzinfo=None),
+            )
+        )
+        await session.commit()
+
+    # First pass expires the job; the refund itself waits out min_age.
+    await sw.sweep_once()
+    await _age_job(job_id)
+    counts = await sw.sweep_once()
+    assert job_id in rpc.refunded
+    assert counts["refunded"] == 1
