@@ -39,7 +39,10 @@ def _serving_chain_lookup(chain_id):
 
 
 def test_send_nonce_offset_reaches_signed_nonce(runner, tmp_path, monkeypatch):
-    """--nonce-offset N signs with account nonce + N — the queue-a-second-nonce path."""
+    """--nonce-offset N signs with account nonce + N — the queue-a-second-nonce path.
+
+    #2479: the offset is the probe-FAILURE fallback only, so this fake's
+    mempool read must fail for the offset to apply."""
     wallet_dir = tmp_path / "wallets"
     wallet_dir.mkdir()
     _write_named_wallet(wallet_dir, "w1", "0x1111111111111111111111111111111111111111")
@@ -51,6 +54,10 @@ def test_send_nonce_offset_reaches_signed_nonce(runner, tmp_path, monkeypatch):
             self.base_url = base_url
 
         def get(self, endpoint, **kw):
+            if endpoint.startswith("/rpc/mempool"):
+                from aitbc.exceptions import NetworkError
+
+                raise NetworkError("mempool unreachable")
             return {"nonce": 1}
 
         def post(self, endpoint, json=None, **kw):
@@ -123,13 +130,21 @@ def test_batch_entries_carry_type_and_payload(runner, tmp_path, monkeypatch):
         )
     )
 
-    posted = []
+    posted: list[dict] = []
 
     class _C:
         def __init__(self, base_url="", **kw):
             self.base_url = base_url
 
         def get(self, endpoint, **kw):
+            if endpoint.startswith("/rpc/mempool"):
+                # #2479: the floor now comes from the readable mempool —
+                # earlier entries' posted txs ARE the pending slots.
+                return {
+                    "transactions": [
+                        {"from": "0x1111111111111111111111111111111111111111", "nonce": p["nonce"]} for p in posted
+                    ]
+                }
             return {"nonce": 1}
 
         def post(self, endpoint, json=None, **kw):

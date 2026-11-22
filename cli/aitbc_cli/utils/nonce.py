@@ -22,14 +22,18 @@ def pending_nonce_floor(
     sealed_nonce: int,
     chain_id: str | None = None,
     limit: int = 500,
-) -> int:
+) -> int | None:
     """Next free nonce: ``max(sealed, highest pending mempool nonce + 1)``.
 
     The sealed account nonce ignores the sender's own in-flight transactions,
-    so two back-to-back submits collide on the same nonce slot (#2395). A
-    mempool probe miss (non-200, unreachable, malformed answer) degrades to
-    ``sealed_nonce`` — same containment as the server-side
-    ``_mempool_nonce_floor`` in escrow_routes_helpers.
+    so two back-to-back submits collide on the same nonce slot (#2395).
+
+    Returns None when the mempool probe itself failed (non-200, unreachable,
+    malformed answer) — distinct from a successful probe that found nothing
+    pending, which returns ``sealed_nonce`` (#2479). Callers that add a
+    per-batch offset must only do so on the None path: a readable empty
+    mempool means earlier batch entries already sealed and the offset would
+    skip nonces.
     """
     try:
         query = f"limit={limit}"
@@ -47,9 +51,9 @@ def pending_nonce_floor(
         ]
         if pending_nonces:
             return max(sealed_nonce, max(pending_nonces) + 1)
+        return sealed_nonce
     except _MEMPOOL_PROBE_ERRORS:
-        pass
-    return sealed_nonce
+        return None
 
 
 def next_send_nonce(client: _HttpGet, sender_address: str, chain_id: str | None = None) -> int:
@@ -66,4 +70,5 @@ def next_send_nonce(client: _HttpGet, sender_address: str, chain_id: str | None 
     if nonce is None:
         raise ValueError(f"/rpc/account/{sender_address} response carried no nonce")
     sealed = int(nonce)
-    return pending_nonce_floor(client, sender_address, sealed, chain_id)
+    floor = pending_nonce_floor(client, sender_address, sealed, chain_id)
+    return floor if floor is not None else sealed

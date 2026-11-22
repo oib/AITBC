@@ -86,7 +86,9 @@ def get_buyer_nonce(ctx, rpc_url: str, buyer: str) -> int:
         nonce = account.get("nonce")
         if nonce is None:
             raise ValueError(f"/rpc/account/{buyer} response carried no nonce")
-        return pending_nonce_floor(client, buyer, int(nonce))
+        sealed = int(nonce)
+        floor = pending_nonce_floor(client, buyer, sealed)
+        return floor if floor is not None else sealed
     except Exception as e:
         abort(
             ctx,

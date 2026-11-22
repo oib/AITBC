@@ -92,8 +92,9 @@ def test_tx_resolve_next_nonce_skips_pending(monkeypatch):
 
 
 def test_tx_resolve_next_nonce_offset_only_when_floor_cannot_advance(monkeypatch):
-    """A readable mempool already counts queued txs — offset must not
-    double them; it survives only as the probe-failure/empty fallback."""
+    """#2479: a readable mempool already counts queued txs AND a mid-batch
+    seal — the floor is the next nonce, offset must not be added again.
+    The sealed+offset guess survives only as the probe-failure fallback."""
     from aitbc_cli.commands import transactions as tx_mod
 
     monkeypatch.delenv("CHAIN_ID", raising=False)
@@ -104,20 +105,35 @@ def test_tx_resolve_next_nonce_offset_only_when_floor_cannot_advance(monkeypatch
 
         def get(self, endpoint, **kw):
             if endpoint.startswith("/rpc/mempool"):
-                return {}  # malformed → unknown
+                from aitbc.exceptions import NetworkError
+
+                raise NetworkError("mempool unreachable")
             return {"nonce": 5}
 
         def post(self, endpoint, json=None, **kw):
             return {"transaction_hash": "0xhash"}
 
     with patch("aitbc_cli.commands.transactions.AITBCHTTPClient", _NoMempool):
+        # Probe failed: legacy sealed+offset fallback, with a warning.
         assert tx_mod._resolve_next_nonce("http://node:8202", SENDER, "ait-test", nonce_offset=2) == 7
 
     fake = _endpoint_client(5, [])
     with patch("aitbc_cli.commands.transactions.AITBCHTTPClient", fake):
-        # Probe ok, nothing pending: the legacy offset still applies.
-        assert tx_mod._resolve_next_nonce("http://node:8202", SENDER, "ait-test", nonce_offset=2) == 7
+        # Probe ok, nothing pending: offset must NOT apply — sealed IS next.
+        assert tx_mod._resolve_next_nonce("http://node:8202", SENDER, "ait-test", nonce_offset=2) == 5
         assert tx_mod._resolve_next_nonce("http://node:8202", SENDER, "ait-test") == 5
+
+
+def test_tx_resolve_next_nonce_sealed_advanced_empty_mempool_ignores_offset(monkeypatch):
+    """#2479 repro: batch of 6, entries 1-5 sealed mid-batch (sealed nonce 10,
+    mempool readable but empty for the sender). Entry 6 with offset 5 must
+    take nonce 10 — sealed+offset=15 would gap into an unsealable slot."""
+    from aitbc_cli.commands import transactions as tx_mod
+
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    fake = _endpoint_client(10, [])
+    with patch("aitbc_cli.commands.transactions.AITBCHTTPClient", fake):
+        assert tx_mod._resolve_next_nonce("http://node:8202", SENDER, "ait-test", nonce_offset=5) == 10
 
 
 def test_tx_resolve_next_nonce_batch_entries_do_not_double_count(monkeypatch):
