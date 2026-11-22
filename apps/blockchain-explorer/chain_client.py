@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import AsyncIterator, Iterable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -105,13 +105,23 @@ def chain_db_path_for(chain_id: str | None) -> Path | None:
     honestly — the row is not here).
     """
     if chain_id:
+        # #2487: the value is joined into a filesystem path — refuse
+        # anything that is not a bare chain name before a ``..`` climb or
+        # an absolute path can replace the data root.
+        if not validate_chain_id(chain_id):
+            logger.warning("Invalid chain_id format for per-chain db lookup")
+            return None
         try:
             local = resolve_chain_id()
         except Exception:  # noqa: BLE001 - unconfigured local id: try the per-chain path anyway
             local = None
         if chain_id != local:
-            candidate = Path(str(_DATA_ROOT / chain_id / "chain.db"))
-            if candidate.exists():
+            root = _DATA_ROOT.resolve()
+            candidate = _DATA_ROOT / chain_id / "chain.db"
+            # Belt over validate_chain_id: the resolved file must still sit
+            # at <data-root>/<chain_id>/chain.db — a symlinked chain dir
+            # cannot smuggle the open outside the root.
+            if candidate.resolve().parent.parent == root and candidate.exists():
                 return candidate
     return chain_db_path()
 
@@ -124,17 +134,52 @@ def chain_db_path_for(chain_id: str | None) -> Path | None:
 _CHAIN_DB_TIMEOUT_SECS = 30
 
 
+def _readonly_db_uri(db_path: Path) -> str:
+    """SQLite ``file:`` URI opening ``db_path`` read-only (#2487)."""
+    return db_path.resolve().as_uri() + "?mode=ro"
+
+
+async def _open_chain_db(db_path: Path) -> aiosqlite.Connection:
+    """Open ``db_path`` preferring a read-only handle.
+
+    ``mode=ro`` keeps a stray path from being written or growing ``-wal``/
+    ``-shm`` side files. A WAL store whose ``-shm`` is gone (node stopped
+    cleanly) refuses the read-only open, so fall back to the read-write
+    handle — ``PRAGMA query_only=ON`` still blocks every write at the SQL
+    layer, exactly as before.
+    """
+    conn: aiosqlite.Connection | None = None
+    try:
+        conn = aiosqlite.connect(_readonly_db_uri(db_path), timeout=_CHAIN_DB_TIMEOUT_SECS, uri=True)
+        await conn
+        # Force the open: a WAL db without -shm only fails once the schema
+        # is touched, not on connect.
+        await conn.execute("SELECT name FROM sqlite_master LIMIT 1")
+        return conn
+    except Exception:  # noqa: BLE001 - any ro-open failure takes the rw fallback
+        if conn is not None:
+            with suppress(Exception):
+                await conn.close()
+    conn = aiosqlite.connect(str(db_path), timeout=_CHAIN_DB_TIMEOUT_SECS)
+    await conn
+    await conn.execute("SELECT name FROM sqlite_master LIMIT 1")
+    return conn
+
+
 @asynccontextmanager
 async def chain_db_connect(db_path: Path) -> AsyncIterator[aiosqlite.Connection]:
-    """Open ``chain.db`` for read-only queries with a sane lock-wait budget.
+    """Open ``chain.db`` read-only where possible with a sane lock-wait budget.
 
     ``timeout`` maps to sqlite's busy handler (the connect-level equivalent of
     ``PRAGMA busy_timeout``); ``PRAGMA query_only=ON`` makes any accidental write
     fail at the SQL layer instead of mutating the consensus store.
     """
-    async with aiosqlite.connect(str(db_path), timeout=_CHAIN_DB_TIMEOUT_SECS) as conn:
+    conn = await _open_chain_db(db_path)
+    try:
         await conn.execute("PRAGMA query_only=ON")
         yield conn
+    finally:
+        await conn.close()
 
 
 async def chain_scope(
@@ -143,6 +188,7 @@ async def chain_scope(
     chain_id: str,
     *,
     alias: str = "",
+    strict: bool = False,
 ) -> tuple[str, list[str]]:
     """Chain-id predicate fragment for ``table`` plus its bind params (#1620).
 
@@ -156,13 +202,17 @@ async def chain_scope(
     A legacy single-chain ``chain.db`` that predates the column yields
     ``("", [])``: the read stays unscoped instead of erroring into the RPC
     fallback, and on such a store there is only one chain anyway, so nothing
-    leaks. Callers append the fragment to their WHERE clause and extend the
+    leaks — unless the caller passed ``strict=True`` for an *explicit*
+    ``chain_id`` (#2487): then the store cannot prove the rows belong to
+    the requested chain, so the scope fails closed with a match-nothing
+    predicate instead of returning whatever chain the file happens to
+    hold. Callers append the fragment to their WHERE clause and extend the
     bind params — an empty fragment means "no predicate, no params".
     """
     cursor = await conn.execute(f'PRAGMA table_info("{table}")')
     columns = {row[1] for row in await cursor.fetchall()}
     if "chain_id" not in columns:
-        return "", []
+        return ("1 = 0", []) if strict else ("", [])
     qualified = f"{alias}.chain_id" if alias else "chain_id"
     return f"{qualified} = ?", [chain_id]
 
