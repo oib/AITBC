@@ -2384,7 +2384,7 @@
             }
           },
           "409": {
-            "description": "job state changed; billing report not recorded",
+            "description": "offer_id is ambiguous \u2014 multiple services claim it / job state changed; billing report not recorded",
             "content": {
               "application/json": {
                 "schema": {
@@ -2740,6 +2740,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -3402,6 +3412,21 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3477,6 +3502,21 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3520,6 +3560,21 @@
           },
           "404": {
             "description": "Service not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {

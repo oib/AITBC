@@ -53,6 +53,18 @@ _OPS_ERRORS = (
 )
 
 
+class AmbiguousOfferIdError(ValueError):
+    """#2610: ``offer_id`` matched multiple SoftwareService rows — the
+    ``scalar_one_or_none`` lookup cannot pick an authority. A ValueError so
+    best-effort callers in ``_OPS_ERRORS`` (e.g. ``_offer_provider_address``)
+    still degrade to their documented fallback."""
+
+
+class OfferIdConflictError(Exception):
+    """#2610: a registration claimed an ``offer_id`` another SoftwareService
+    row already holds. Mapped to HTTP 409 by the offer routes."""
+
+
 # #1673: caller-supplied ttl_seconds reaches ``timedelta(seconds=...)`` when
 # expires_at is derived — an unbounded value like 1e18 overflows the C long
 # inside timedelta and answers 500. Jobs are short-lived by design; one year

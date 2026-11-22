@@ -20,7 +20,12 @@ from aitbc.network.url_safety import validate_fleet_outbound_url
 from ..config import settings
 from ..deps import get_market_service, get_session_dep, require_market_api_key, require_market_operator_key
 from ..gates import _party_signature_precheck, _warn_secret_query_transport, rating_signature_error
-from ..services.market_service import MarketService, max_page_size
+from ..services.market_service import (
+    AmbiguousOfferIdError,
+    MarketService,
+    OfferIdConflictError,
+    max_page_size,
+)
 from ..storage import get_session
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
@@ -140,6 +145,10 @@ async def register_offer(service_data: dict[str, Any], svc: Annotated[MarketServ
         result = await svc.register_software_service(service_data)
         logger.info("POST /v1/market/offer registered offer: %s", result["plugin_id"])
         return result
+    except OfferIdConflictError as e:
+        # #2610: offer_id already held by another service row.
+        logger.info("POST /v1/market/offer rejected: %s", e)
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except PermissionError as e:
         # Rejected provider signature — 403, not a server error.
         logger.info("POST /v1/market/offer rejected: %s", e)
@@ -343,7 +352,11 @@ async def rate_service(
         # answered 200 and wrote an orphan row that no aggregate would ever count (V23-81).
         # A service id resolves either way round, the same two lookups `get_service_ratings`
         # does below.
-        service = await svc.get_software_service(service_id) or await svc.get_service_by_offer_id(service_id)
+        try:
+            service = await svc.get_software_service(service_id) or await svc.get_service_by_offer_id(service_id)
+        except AmbiguousOfferIdError as e:
+            # #2610: duplicate offer_id rows — 409, not a 500.
+            return JSONResponse(status_code=409, content={"error": str(e)})
         if not service:
             return JSONResponse(status_code=404, content={"error": "Service not found"})
         rating = await svc.add_service_rating(
@@ -388,9 +401,13 @@ async def get_service_ratings(
         limit = min(max(limit, 1), max_page_size())
         offset = max(offset, 0)
         ratings = await svc.get_service_ratings(service_id, limit, offset)
-        service = await svc.get_software_service(service_id)
-        if not service:
-            service = await svc.get_service_by_offer_id(service_id)
+        try:
+            service = await svc.get_software_service(service_id)
+            if not service:
+                service = await svc.get_service_by_offer_id(service_id)
+        except AmbiguousOfferIdError as e:
+            # #2610: duplicate offer_id rows — 409, not a 500.
+            return JSONResponse(status_code=409, content={"error": str(e)})
         # The handler already resolved the service and already knew it was absent; it just
         # never said so, answering 200 with a zeroed `service_info` and an empty list that a
         # client cannot tell from a real service nobody has rated yet (V23-81).
@@ -418,7 +435,11 @@ async def get_offer_by_id(offer_id: str, svc: Annotated[MarketService, Depends(g
     """Get a market service offer by offer_id (blockchain offer ID)"""
     try:
         logger.info("GET /v1/market/offer-by-id/%s called", offer_id)
-        service = await svc.get_service_by_offer_id(offer_id)
+        try:
+            service = await svc.get_service_by_offer_id(offer_id)
+        except AmbiguousOfferIdError as e:
+            # #2610: duplicate offer_id rows — 409, not a 500.
+            return JSONResponse(status_code=409, content={"error": str(e)})
         if not service:
             return JSONResponse(status_code=404, content={"error": "Service not found"})
         return service

@@ -638,3 +638,31 @@ async def test_billing_route_404_for_unknown_job() -> None:
         headers={"X-Access-Key": _ACCESS_KEY, "X-Access-Secret": _ACCESS_SECRET, "X-Job-Id": "no-such-job"},
     )
     assert resp.status_code == 404
+
+
+async def test_billing_route_refuses_ambiguous_offer_id() -> None:
+    """#2610: two SoftwareService rows claiming one offer_id must not 500
+    the billing gate — the lookup raises a typed ambiguity the gate maps
+    to 409 instead of an unhandled MultipleResultsFound."""
+    offer_id = "offer-billing-ambiguous-2610"
+    job_id, _ = await _seed_job(offer_id=offer_id)
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                service_type="ollama",
+                model="llama3",
+                offer_id=offer_id,
+                provider_address=_buyer_address(),
+            )
+        )
+        await session.commit()
+
+    from market_service.main import app
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.post(
+        f"/v1/market/jobs/{job_id}/billing",
+        json=_billing_body(job_id, {"eval_count": 1}, final=True),
+        headers=_billing_headers(job_id),
+    )
+    assert resp.status_code == 409, resp.text

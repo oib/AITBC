@@ -27,6 +27,7 @@ from .shared import (
     _GPU_LISTING_DEFAULT_STATUS,
     _OPS_ERRORS,
     _REGISTRATION_FIELDS,
+    OfferIdConflictError,
     _gpu_offer_to_service_dict,
     _local_offer_dict,
     max_page_size,
@@ -551,6 +552,27 @@ class _OffersSoftwareMixin(_CoreMixin):
         query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
         result = await self.session.execute(query)
         existing = result.scalar_one_or_none()
+        offer_id = data.get("offer_id")
+        if offer_id:
+            # #2610: offer_id resolves through scalar_one_or_none lookups —
+            # a second row claiming it breaks billing signer resolution,
+            # ratings and by-id reads with MultipleResultsFound. One row
+            # per offer_id regardless of provider; the row's own plugin_id
+            # is exempt so an update keeping its offer_id still works.
+            conflict = (
+                (
+                    await self.session.execute(
+                        select(SoftwareService)
+                        .where(SoftwareService.offer_id == str(offer_id))  # type: ignore[arg-type]
+                        .where(SoftwareService.plugin_id != plugin_id)  # type: ignore[arg-type]
+                        .limit(1)
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if conflict is not None:
+                raise OfferIdConflictError(f"offer_id {offer_id} is already registered by plugin {conflict.plugin_id}")
         if existing:
             # Ownership gate (the GPU_REGISTER check one layer up): a
             # valid signature proves who is asking, not who owns the row.
