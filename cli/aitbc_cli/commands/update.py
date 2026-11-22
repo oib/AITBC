@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -132,10 +133,14 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
 
     if output_format != "json":
         info(f"Pulling {branch} from {remote}...")
+    # Machine-readable stdout must stay a single report document: git's
+    # diffstat and update.sh's progress lines go to stderr instead.
+    child_stdout = sys.stderr if output_format in ("json", "yaml") else None
     pull = subprocess.run(
         ["git", "pull", "--ff-only", remote, branch],
         cwd=REPO_ROOT,
         check=False,
+        stdout=child_stdout,
     )
     if pull.returncode != 0:
         error(f"git pull {remote} {branch} failed")
@@ -147,6 +152,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
 def _deploy(remote: str, branch: str, no_deploy: bool, before: str | None, output_format: str):
     """Post-pull: report SHAs, optionally run update.sh."""
     after = _short_sha("HEAD", cwd=REPO_ROOT)
+    child_stdout = sys.stderr if output_format in ("json", "yaml") else None
 
     if no_deploy:
         _report(before, after, remote, branch, deployed=False, output_format=output_format)
@@ -160,6 +166,7 @@ def _deploy(remote: str, branch: str, no_deploy: bool, before: str | None, outpu
         ["bash", str(UPDATE_SCRIPT)],
         cwd=REPO_ROOT,
         check=False,
+        stdout=child_stdout,
     )
     if run.returncode != 0:
         error(f"{UPDATE_SCRIPT} failed")
