@@ -486,6 +486,37 @@ def protocol_auth_identity_pending(session: Any, chain_id: str, identity: str) -
     return False
 
 
+def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload_key: str, payload_value: Any) -> bool:
+    """True when a mempool entry already carries this protocol transfer (#2629).
+
+    Generic sibling of ``protocol_auth_identity_pending`` for callers that
+    need "is this exact flow already queued" — e.g. a stake release retry
+    deciding whether a ``withdrawn`` row still owes its STAKE_RELEASE.
+    """
+    import json as _json
+
+    if not _PAYLOAD_KEY_RE.fullmatch(payload_key):
+        return False
+    try:
+        from sqlmodel import select
+
+        from .mempool_common import MempoolEntry
+
+        rows = session.exec(select(MempoolEntry.content).where(MempoolEntry.chain_id == chain_id)).all()
+    except Exception:  # noqa: BLE001 - mempool table absent (tests/minimal schemas): no pending copies exist
+        return False
+    for content in rows:
+        try:
+            tx = _json.loads(content) if isinstance(content, str) else content
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(tx, dict) or tx.get("type") != tx_type:
+            continue
+        if str((tx.get("payload") or {}).get(payload_key, "")) == str(payload_value):
+            return True
+    return False
+
+
 _BOUNTY_FLOW_TYPES = ("BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND")
 
 
