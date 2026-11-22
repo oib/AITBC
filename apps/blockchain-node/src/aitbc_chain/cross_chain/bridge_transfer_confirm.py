@@ -544,6 +544,30 @@ class BridgeTransferConfirmMixin(BridgeBase):
             if record.status == "confirmed":
                 self._check_refund_postfinality_age(record)
 
+            # #2459: a sealed BRIDGE_RELEASE for this transfer on the target
+            # chain means the payout already happened — refunding would pay
+            # the sender twice. Reconcile the local row to completed from
+            # chain evidence and refuse. When this node holds no
+            # target-chain store the check is skipped and the time gates
+            # above remain the only guard.
+            if record.target_chain and self._chain_db_ready(record.target_chain):
+                released = self._sealed_transfer_index(record.target_chain, "BRIDGE_RELEASE", {transfer_id})
+                if transfer_id in released:
+                    release_hash, _released_at = released[transfer_id]
+                    record.status = "completed"
+                    record.target_tx_hash = release_hash
+                    if record.confirm_time is None:
+                        record.confirm_time = datetime.now(UTC)
+                    session.add(record)
+                    session.commit()
+                    logger.error(
+                        "Bridge transfer %s already released on %s (tx %s) — refusing refund that would double-pay",
+                        transfer_id,
+                        record.target_chain,
+                        release_hash,
+                    )
+                    raise ValueError(f"Transfer {transfer_id} already released on target chain {record.target_chain}")
+
             # Return the locked amount to the sender (fee was already deducted at lock time)
             block_scoped = block_scoped_preregistered_for_next_block(session, record.source_chain)
             refund_nonce = self._refund_credit_legacy_nonce(session, record, block_scoped)
