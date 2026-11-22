@@ -298,8 +298,12 @@ class _DbAdmissionMixin:
         fee = tx.get("fee", 0)
 
         # Same nonce-slot rule as add(): a same-slot occupant is
-        # displaced only by a strictly higher fee.
+        # displaced only by a strictly higher fee. The occupant is only
+        # deleted after every refusing check has passed, so a refused batch
+        # member cannot evict accepted state (#2666, same rule as the
+        # in-memory pool's restore in #2665).
         slot = _tx_slot_key(tx)
+        occupant = None
         if slot is not None:
             occupant = session.exec(
                 select(MempoolEntry).where(
@@ -308,14 +312,32 @@ class _DbAdmissionMixin:
                     MempoolEntry.nonce == slot[1],
                 )
             ).first()
-            if occupant is not None and occupant.tx_hash != tx_hash:
-                if fee <= occupant.fee:
-                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                    return False, current_count
-                session.delete(occupant)
-                self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
-                current_count -= 1
-                metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
+            if occupant is not None and occupant.tx_hash == tx_hash:
+                occupant = None
+            elif occupant is not None and fee <= occupant.fee:
+                metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+                return False, current_count
+
+        # Same double-release guard as add() (#2666): two pending
+        # STAKE_RELEASEs claiming one lock must never coexist. The occupant
+        # being replaced is excluded, matching add()'s post-delete view;
+        # earlier members of this batch are visible to the row query via
+        # autoflush.
+        occupant_hash = occupant.tx_hash if occupant is not None else None
+        try:
+            _reject_conflicting_stake_release(
+                tx,
+                ((h, c) for h, c in _pending_tx_rows(session, chain_id) if h != occupant_hash),
+            )
+        except ValueError:
+            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+            return False, current_count
+
+        if occupant is not None:
+            session.delete(occupant)
+            self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
+            current_count -= 1
+            metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
 
         # Evict if full (use in-memory count, decrement on eviction)
         # — only when the newcomer outbids the floor.
