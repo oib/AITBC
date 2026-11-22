@@ -918,7 +918,10 @@ def bridge_security_status(request: Request) -> dict[str, Any]:
         # Count validators across all chains
         validator_count = 0
         current_epoch = 0
-        if bridge_initialized:
+        # #2634: must test the local flag — `bridge_initialized` is the
+        # Prometheus gauge object, always truthy, so an uninitialised bridge
+        # fell into bridge._session_factory() and answered 500.
+        if bridge_initialized_value:
             from sqlmodel import select as _select
 
             from ..models import BridgeValidator
