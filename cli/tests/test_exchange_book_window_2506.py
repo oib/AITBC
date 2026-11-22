@@ -137,3 +137,102 @@ def test_exhausted_history_is_not_truncated():
     rows = [_order("z1", "sell", 0.01, 1)]
     live, truncated = _live_book_orders(_client(rows), "island", lambda live: False)
     assert live and not truncated
+
+
+# ------------------------------------------------------------------ #2520
+
+
+def _envelope(order_fields, tid, tx_status="confirmed", block_height=100):
+    """Real /rpc/transactions shape: tx metadata top-level, order fields in payload."""
+    return {
+        "transaction_id": tid,
+        "tx_hash": f"0x{tid:064x}",
+        "type": "EXCHANGE",
+        "status": tx_status,
+        "block_height": block_height,
+        "sender": "0xw",
+        "payload": dict(order_fields),
+    }
+
+
+def _env_order(oid, side, price, tid, tx_status="confirmed", block_height=100):
+    return _envelope(
+        {
+            "action": side,
+            "order_id": oid,
+            "pair": "AIT/ETH",
+            "side": side,
+            "status": "open",
+            "min_price": price if side == "sell" else None,
+            "max_price": price if side == "buy" else None,
+            "amount": 1.0,
+            "user_id": "0xw",
+        },
+        tid,
+        tx_status=tx_status,
+        block_height=block_height,
+    )
+
+
+def _env_cancel(oid, tid, tx_status="confirmed", block_height=101):
+    return _envelope(
+        {"action": "cancel", "order_id": oid, "user_id": "0xw", "status": "cancelled"},
+        tid,
+        tx_status=tx_status,
+        block_height=block_height,
+    )
+
+
+def test_rejected_order_row_is_not_live():
+    """#2520: an apply-rejected order envelope must not read as a live order."""
+    rows = [
+        _env_order("live1", "sell", 0.02, 1),
+        _env_order("rej1", "sell", 0.01, 2, tx_status="rejected", block_height=None),
+        _env_order("fail1", "sell", 0.015, 3, tx_status="failed", block_height=None),
+    ]
+    live, _ = _live_book_orders(_client(rows), "island", lambda live: False)
+    oids = {p["order_id"] for p in live}
+    assert oids == {"live1"}
+
+
+def test_rejected_cancel_does_not_cancel_live_order():
+    """#2520: a rejected cancel envelope must not flip the order it names."""
+    rows = [
+        _env_cancel("o1", 2, tx_status="rejected", block_height=None),  # newest, rejected
+        _env_order("o1", "sell", 0.02, 1),
+    ]
+    live, _ = _live_book_orders(_client(rows), "island", lambda live: False)
+    assert [p["order_id"] for p in live] == ["o1"]
+    assert live[0]["status"] == "open"
+
+
+def test_confirmed_cancel_still_cancels():
+    """Control: a sealed cancel still closes its order."""
+    rows = [
+        _env_cancel("o1", 2),
+        _env_order("o1", "sell", 0.02, 1),
+    ]
+    live, _ = _live_book_orders(_client(rows), "island", lambda live: False)
+    assert live == []
+
+
+def test_confirmed_status_without_height_is_not_sealed():
+    """#2520: status=confirmed with block_height NULL is not sealed."""
+    rows = [_env_order("o1", "sell", 0.02, 1, block_height=None)]
+    live, _ = _live_book_orders(_client(rows), "island", lambda live: False)
+    assert live == []
+
+
+def test_fetch_exchange_transactions_drops_unsealed_rows():
+    """#2520: the orders command's fetch path applies the same seal filter."""
+
+    class _Once:
+        def get_json(self, path, params=None, **kwargs):
+            return [
+                _env_order("live", "buy", 0.01, 1),
+                _env_order("rej", "buy", 0.02, 2, tx_status="rejected", block_height=None),
+            ]
+
+    rows = mod._fetch_exchange_transactions(cast(AITBCHTTPClient, _Once()), {"transaction_type": "EXCHANGE"})
+    oids = {((r.get("payload") or r).get("order_id")) for r in rows}
+    assert oids == {"live"}

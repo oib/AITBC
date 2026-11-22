@@ -69,6 +69,25 @@ def _transaction_rows(response: Any) -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], rows or [])
 
 
+def _row_is_sealed(row: dict[str, Any]) -> bool:
+    """Only confirmed, block-sealed rows count in the read model (#2520).
+
+    ``/rpc/transactions`` also returns apply-rejected rows — ``status`` of
+    ``rejected``/``failed`` with ``block_height`` NULL. A rejected order
+    must not read as live, and a rejected cancel must not cancel a live
+    order.
+
+    The check applies only to RPC envelope rows, which always carry
+    ``tx_hash``/``type``/``block_height`` keys (``_tx_result_row`` emits
+    them unconditionally). Payload-shaped rows — simulated fallback and
+    legacy flat fixtures — have none of these keys and no tx status to
+    check, so they pass through untouched.
+    """
+    if not ({"tx_hash", "type", "block_height"} & row.keys()):
+        return True
+    return row.get("status") == "confirmed" and row.get("block_height") is not None
+
+
 def _row_sender(row: dict[str, Any]) -> str:
     """Tx-level sender of a transaction row, normalised for comparison.
 
@@ -557,7 +576,7 @@ def _fetch_exchange_transactions(http_client: AITBCHTTPClient, params: dict[str,
             if key not in seen:
                 seen.add(key)
                 rows.append(extra)
-    return rows
+    return [r for r in rows if _row_is_sealed(r)]
 
 
 _BOOK_PAGE_SIZE = 500  # the RPC clamps limit to 500
@@ -596,7 +615,7 @@ def _live_book_orders(
         page = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
         if not page:
             return live, False
-        rows.extend(page)
+        rows.extend(r for r in page if _row_is_sealed(r))
         kept, _cancelled = _apply_cancels(rows)
         live = [
             payload
