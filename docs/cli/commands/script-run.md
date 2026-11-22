@@ -15,7 +15,8 @@ aitbc script run [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--script-path` | text | — | yes | Path to script file |
-| `--args` | text | — | no | Script arguments |
+| `--args` | text | — | no | Script arguments (shell-quoted, e.g. '--verbose "a b"') |
+| `--timeout` | float | — | no | Kill the script after N seconds |
 
 ## Examples
 
