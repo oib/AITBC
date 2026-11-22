@@ -88,20 +88,23 @@ class MarketListing(BaseModel):
 class MarketCreateRequest(BaseModel):
     """Request to create market listing"""
 
-    seller_address: str
-    item_type: str
+    # String fields are length-bounded: the in-memory store is per-process and
+    # a listing could otherwise be as large as the request-body limit allows
+    # (AUDIT-BN-MARKET-LISTING-STORE-UNBOUNDED-1).
+    seller_address: str = Field(..., max_length=128)
+    item_type: str = Field(..., max_length=64)
     # not-money: becomes the price field of a listing in the wire format above
     price: float
-    description: str
-    gpu_name: str | None = None
-    gpu_device: str | None = None
-    gpu_uuid: str | None = None
-    gpu_model: str | None = None
+    description: str = Field(..., max_length=4000)
+    gpu_name: str | None = Field(default=None, max_length=128)
+    gpu_device: str | None = Field(default=None, max_length=128)
+    gpu_uuid: str | None = Field(default=None, max_length=128)
+    gpu_model: str | None = Field(default=None, max_length=128)
     memory_gb: int | None = None
-    compute_capability: str | None = None
+    compute_capability: str | None = Field(default=None, max_length=32)
     # secp256k1 signature over the rest of the payload, from seller_address —
     # the write path is unauthenticated without it (#1056).
-    signature: str | None = None
+    signature: str | None = Field(default=None, max_length=512)
 
 
 class MarketDeleteRequest(BaseModel):
@@ -133,6 +136,7 @@ def market_listings(request: Request, limit: int = 100) -> dict[str, Any]:
     # Same clamp as the other list endpoints (#1057): an unbounded SELECT used
     # to materialise every confirmed GPU_MARKET tx ever anchored (#1622).
     limit = max(1, min(limit, 500))
+    _purge_expired_listings()
     try:
         metrics_registry.increment("rpc_market_listings_total")
 
@@ -212,12 +216,44 @@ def market_listings(request: Request, limit: int = 100) -> dict[str, Any]:
 # gossips, and the seller "auth" is a self-chosen keypair, so writes are
 # effectively anonymous.
 _MARKET_LISTINGS_MAX = 10_000
+# AUDIT-BN-MARKET-LISTING-STORE-UNBOUNDED-1: the global cap alone lets one
+# throwaway key fill the store and 429 every other seller until restart, and
+# nothing bounded entry size or age. Per-seller cap, field length limits
+# (on MarketCreateRequest), and a TTL eviction on every access.
+_MARKET_LISTINGS_PER_SELLER_MAX = 200
+_MARKET_LISTING_TTL_SECONDS = 7 * 86400
+
+
+def _purge_expired_listings() -> None:
+    """Evict in-memory listings older than the TTL. Entries without a
+    ``created_ts`` (written before the field existed, or by tests) are kept —
+    they cannot be proven expired."""
+    cutoff = datetime.now(UTC).timestamp() - _MARKET_LISTING_TTL_SECONDS
+    kept = []
+    for listing in _market_listings:
+        try:
+            ts = listing.get("created_ts")
+            expired = ts is not None and float(ts) < cutoff
+        except (TypeError, ValueError):
+            expired = False
+        if not expired:
+            kept.append(listing)
+    if len(kept) != len(_market_listings):
+        _market_listings[:] = kept
+
+
+def _seller_listing_count(seller_address: str) -> int:
+    """Live listings held by ``seller_address`` (case-insensitive — the same
+    key controls every casing of its address)."""
+    seller = seller_address.lower()
+    return sum(1 for listing in _market_listings if str(listing.get("seller_address", "")).lower() == seller)
 
 
 @router.post("/market/create", summary="Create market listing", tags=["market"])
 @rate_limit(rate=10, per=60)
 async def market_create(request: MarketCreateRequest, req: Request) -> dict[str, Any]:
     """Create a new market listing"""
+    _purge_expired_listings()
     try:
         metrics_registry.increment("rpc_market_create_total")
         if len(_market_listings) >= _MARKET_LISTINGS_MAX:
@@ -236,6 +272,16 @@ async def market_create(request: MarketCreateRequest, req: Request) -> dict[str,
                 severity="WARNING",
             )
             raise HTTPException(status_code=403, detail="seller signature required")
+
+        # Per-seller cap: one keypair must not be able to exhaust the shared
+        # store (AUDIT-BN-MARKET-LISTING-STORE-UNBOUNDED-1).
+        if _seller_listing_count(request.seller_address) >= _MARKET_LISTINGS_PER_SELLER_MAX:
+            security_auditor.log_event(
+                action="market_create_seller_cap",
+                details={"seller_address": request.seller_address},
+                severity="WARNING",
+            )
+            raise HTTPException(status_code=429, detail="seller listing capacity reached")
 
         # Security validation: validate amount
         if not SecurityValidator.validate_amount(request.price):
@@ -271,6 +317,7 @@ async def market_create(request: MarketCreateRequest, req: Request) -> dict[str,
             "compute_capability": request.compute_capability,
             "status": "active",
             "created_at": datetime.now(UTC).isoformat(),
+            "created_ts": datetime.now(UTC).timestamp(),
         }
 
         # Add to storage
@@ -298,6 +345,7 @@ async def market_create(request: MarketCreateRequest, req: Request) -> dict[str,
 @router.get("/market/listing/{listing_id}", summary="Get market listing by ID", tags=["market"])
 def market_get_listing(listing_id: str) -> dict[str, Any]:
     """Get a specific market listing"""
+    _purge_expired_listings()
     try:
         metrics_registry.increment("rpc_market_get_total")
 
@@ -321,6 +369,7 @@ def market_get_listing(listing_id: str) -> dict[str, Any]:
 @rate_limit(rate=20, per=60)
 async def market_delete_listing(listing_id: str, req: Request, body: MarketDeleteRequest | None = None) -> dict[str, Any]:
     """Delete a market listing"""
+    _purge_expired_listings()
     try:
         metrics_registry.increment("rpc_market_delete_total")
 
