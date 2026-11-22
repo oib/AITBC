@@ -253,10 +253,12 @@ def _report_escrow_outcome(ctx, job_id: str, payment_result: dict[str, Any]) -> 
 # with a seal-horizon timeout keeps the common case a clean success; the
 # reconcile poll below still covers the residual ambiguous window.
 _AI_PAYMENT_POST_TIMEOUT = 240
-# After an ambiguous payments submit, poll the payment row this many
-# times (5s apart) before declaring the submit failed — same contract as
-# the market host reconcile (#2340), widened for the seal horizon.
-_AI_PAYMENT_RECONCILE_ATTEMPTS = 12
+# After an ambiguous payments submit, poll the payment row until it leaves
+# "pending" or the seal-horizon budget ends — same contract as the market
+# host reconcile (#2340), widened for the seal horizon. The pending row is
+# committed BEFORE the escrow network window (#2401), so "pending" means
+# keep waiting, not fail (#2476); 48 x 5s covers the ~180s hub seal wait.
+_AI_PAYMENT_RECONCILE_ATTEMPTS = 48
 _AI_PAYMENT_RECONCILE_DELAY = 5.0
 
 
@@ -264,20 +266,25 @@ def _reconcile_ai_payment(client: AITBCHTTPClient, job_id: str) -> dict[str, Any
     """Return the JobPaymentView for ``job_id`` if one exists, else None.
 
     Used only after an ambiguous ``POST /v1/payments`` (timeout/reset): the
-    server may have committed the row anyway once the seal finishes. Any
-    non-404 answer — including a non-escrowed status — is returned so the
-    caller's status check decides; only "no row visible" yields None.
+    server may have committed the row anyway once the seal finishes.
+    ``pending`` means the seal is still in flight, so polling continues
+    until a terminal status or the budget ends; the last view seen is
+    returned so the caller can report the payment id. Only "no row visible
+    at all" yields None.
     """
+    last_view: dict[str, Any] | None = None
     for attempt in range(_AI_PAYMENT_RECONCILE_ATTEMPTS):
         try:
             view = client.get(f"/v1/jobs/{job_id}/payment")
         except _OPS_ERRORS:
             view = None
         if isinstance(view, dict) and view.get("payment_id") and view.get("status"):
-            return view
+            last_view = view
+            if view.get("status") != "pending":
+                return view
         if attempt + 1 < _AI_PAYMENT_RECONCILE_ATTEMPTS:
             time.sleep(_AI_PAYMENT_RECONCILE_DELAY)
-    return None
+    return last_view
 
 
 def _escrow_payment_client(coord_http_client: AITBCHTTPClient) -> AITBCHTTPClient:

@@ -153,3 +153,43 @@ class TestSubmitClientBreaker:
 
         src = inspect.getsource(submit_mod.submit.callback)
         assert "enable_circuit_breaker=False" in src
+
+
+class TestReconcilePollsThroughPending:
+    """#2476: the pending row is committed before the escrow network window —
+    reconcile must keep polling until a terminal status, not return the
+    first pending view after one GET."""
+
+    def test_pending_pending_escrowed_returns_escrowed(self, monkeypatch):
+        monkeypatch.setattr(_ai, "_AI_PAYMENT_RECONCILE_DELAY", 0)
+        views = iter(
+            [
+                {"payment_id": "pay-9", "status": "pending"},
+                {"payment_id": "pay-9", "status": "pending"},
+                {"payment_id": "pay-9", "status": "escrowed"},
+            ]
+        )
+        client = _FakeCoordClient(
+            post_side_effect=NetworkError("POST request failed: Read timed out"),
+            get_side_effect=lambda path: next(views),
+        )
+        warnings: list[str] = []
+        with patch.object(_ai, "warning", lambda m, **kw: warnings.append(m)):
+            result = _call_create(client)
+        assert result == {"payment_id": "pay-9", "status": "escrowed"}
+        assert client.gets == ["/v1/jobs/coord-job-1/payment"] * 3
+        assert warnings and "reconciled" in warnings[0]
+
+    def test_pending_forever_returns_last_pending_view(self, monkeypatch):
+        """Budget exhausted while still pending -> the pending view is
+        returned (caller warns, names the payment id) rather than None."""
+        monkeypatch.setattr(_ai, "_AI_PAYMENT_RECONCILE_ATTEMPTS", 3)
+        monkeypatch.setattr(_ai, "_AI_PAYMENT_RECONCILE_DELAY", 0)
+        pending = {"payment_id": "pay-9", "status": "pending"}
+        client = _FakeCoordClient(
+            post_side_effect=NetworkError("POST request failed: Read timed out"),
+            get_side_effect=lambda path: dict(pending),
+        )
+        result = _call_create(client)
+        assert result == pending
+        assert client.gets == ["/v1/jobs/coord-job-1/payment"] * 3
