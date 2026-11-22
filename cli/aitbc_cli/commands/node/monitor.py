@@ -58,8 +58,16 @@ def _monitor_metric_rows(node_info):
     return rows
 
 
-def _monitor_metrics_table(node_info):
-    return _monitor_metric_rows(node_info)
+def _monitor_metrics_renderable(node_info):
+    """Metric rows as a rich Table — str(list-of-rows) showed a Python repr (#2588)."""
+    from rich.table import Table
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Metric")
+    table.add_column("Value")
+    for label, value in _monitor_metric_rows(node_info):
+        table.add_row(label, value)
+    return table
 
 
 def _monitor_chains_text(node_info):
@@ -79,7 +87,7 @@ def _build_monitor_layout(node_id, node_info):
     layout.split_column(Layout(name="header", size=3), Layout(name="metrics"), Layout(name="chains", size=10))
 
     layout["header"].update(f"Node Monitor: {node_id} - {str(node_info.get('status', 'unknown')).upper()}")
-    layout["metrics"].update(str(_monitor_metrics_table(node_info)))
+    layout["metrics"].update(_monitor_metrics_renderable(node_info))
     layout["chains"].update(_monitor_chains_text(node_info))
 
     return layout
@@ -120,6 +128,8 @@ def monitor_command(ctx, node_id, realtime, interval):
                 title=f"Node Statistics: {node_id}",
             )
 
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort() from e

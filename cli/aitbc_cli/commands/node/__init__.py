@@ -34,7 +34,7 @@ from .monitor import monitor_command, test_command
 )
 @click.option("--node-id", "node_id", required=True, help="The Node id.")
 @click.option("--realtime", is_flag=True, help="Real-time monitoring")
-@click.option("--interval", default=5, help="Update interval in seconds")
+@click.option("--interval", default=5, type=click.IntRange(min=1), help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, node_id, realtime, interval):
     """Monitor activity for a specific node."""
