@@ -34,6 +34,29 @@ class _RatingsMixin(_CoreMixin):
     # accepted from a reviewer who reached one of these with this service.
     _RATING_PROVEN_STATES = frozenset({"RELEASED", "COMPLETED"})
 
+    def _job_proves_rating(self, job: MarketJob, reviewer: str, provider: str, service_offer_id: str) -> bool:
+        """#2617: a completed job proves a rating only when it names THIS
+        service's offer and was settled by THIS provider.
+        ``provider_address`` is caller-writable at job creation, so a
+        sockpuppet provider on a dust job must not rate the real service —
+        and a sibling offer of the same plugin is a different service. When
+        the service has no live offer_id, only offer-less (plugin-bound)
+        jobs count; when it has no provider_address, no job proves."""
+        if not (
+            job.buyer_address
+            and job.state in self._RATING_PROVEN_STATES
+            and self._canonical_address(str(job.buyer_address)) == reviewer
+        ):
+            return False
+        job_offer = str(job.offer_id or "")
+        if service_offer_id:
+            if job_offer != service_offer_id:
+                return False
+        elif job_offer:
+            return False
+        job_provider = self._canonical_address(str(job.provider_address or ""))
+        return bool(provider) and bool(job_provider) and job_provider == provider
+
     async def _require_local_rating_binding(self, service_id: str, service: dict[str, Any] | None, reviewer_id: str) -> None:
         """Bind a locally-submitted rating to a real counterparty interaction (#1584).
 
@@ -62,6 +85,7 @@ class _RatingsMixin(_CoreMixin):
             raise ValueError("Reviewer has already rated this service")
 
         service = service or {}
+        service_offer_id = str(service.get("offer_id") or "")
         keys = {k for k in {service_id, service.get("plugin_id"), service.get("offer_id")} if k}
 
         def _buyer_proven(buyer: Any, state: str | None, completed_states: frozenset[str]) -> bool:
@@ -80,7 +104,7 @@ class _RatingsMixin(_CoreMixin):
             .all()
         )
         for job in job_rows:
-            if _buyer_proven(job.buyer_address, job.state, self._RATING_PROVEN_STATES):
+            if self._job_proves_rating(job, reviewer, provider, service_offer_id):
                 return
         bid_rows = (
             (

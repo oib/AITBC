@@ -1801,7 +1801,7 @@
             }
           },
           "403": {
-            "description": "provider_confirmed requires a signed binding {\"cid\", \"size\"} / signer is not this job's provider / pin attestation cid does not match this job / pin attestation size does not match the reported size",
+            "description": "provider_confirmed requires a signed binding {\"cid\", \"size\"} / pin attestation provider identity unresolvable for this job / signer is not this job's provider / pin attestation cid does not match this job / \u2026",
             "content": {
               "application/json": {
                 "schema": {

@@ -297,6 +297,25 @@ async def _job_party_signature_gate(
     return None
 
 
+async def _pin_attestation_expected_provider(svc: MarketService, job: dict[str, Any]) -> str:
+    """#2617: the pin-attestation signer is the offer's SoftwareService
+    provider — ``job.provider_address`` is caller-writable at job creation,
+    so a buyer could name a sockpuppet wallet and attest its own pin.
+    Resolve through the offer row first, the plugin row for plugin-bound
+    jobs; "" means unresolvable and the gate fails closed (same authority
+    rule as the billing gate, #2365)."""
+    expected = ""
+    if job.get("offer_id"):
+        service = await svc.get_service_by_offer_id(str(job["offer_id"]))
+        if service:
+            expected = str(service.get("provider_address") or "")
+    if not expected and job.get("plugin_id"):
+        service = await svc.get_software_service(str(job["plugin_id"]))
+        if service:
+            expected = str(service.get("provider_address") or "")
+    return expected
+
+
 async def _pin_confirm_attestation_gate(
     svc: MarketService,
     job_id: str,
@@ -332,7 +351,10 @@ async def _pin_confirm_attestation_gate(
     )
     if error or not signer:
         return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
-    if canonical_address(signer) != canonical_address(str(job.get("provider_address") or "")):
+    expected = await _pin_attestation_expected_provider(svc, job)
+    if not expected:
+        return JSONResponse(status_code=403, content={"error": "pin attestation provider identity unresolvable for this job"})
+    if canonical_address(signer) != canonical_address(expected):
         return JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
     # The signature covers ``binding`` verbatim; these checks bind the
     # attested content to THIS job — the stored CID is authoritative
