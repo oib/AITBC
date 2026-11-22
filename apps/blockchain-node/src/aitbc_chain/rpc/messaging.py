@@ -230,27 +230,43 @@ def messaging_search(
     request: Request,
     query: str | None = None,
     q: str | None = None,
+    topic: str | None = None,
+    author: str | None = None,
+    include_hidden: bool = False,
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
-    """Literal substring search over message bodies (LIKE metachars escaped)."""
+    """Literal substring search over message bodies (LIKE metachars escaped).
+
+    ``topic``/``author``/``include_hidden`` compose with the body match
+    exactly as on the plain messages route — the CLI sends them, so they
+    must filter here rather than be silently dropped.
+    """
     text = (q if q is not None else query) or ""
     if len(text.strip()) < MIN_SEARCH_CHARS:
         raise HTTPException(status_code=400, detail=f"query must be at least {MIN_SEARCH_CHARS} characters")
     if offset < 0 or offset > MAX_OFFSET:
         raise HTTPException(status_code=400, detail=f"offset must be 0..{MAX_OFFSET}")
     _check_cursor(cursor)
+    canonical_topic: str | None = None
+    if topic is not None:
+        canonical_topic = normalize_topic(topic)
+        if canonical_topic is None:
+            raise HTTPException(status_code=400, detail=f"topic '{topic}' is not a valid slug")
     resolved = get_chain_id(chain_id)
     with session_scope(resolved) as session:
         result = list_messages(
             session,
             resolved,
+            topic=canonical_topic,
+            author=author,
             body_contains=text.strip(),
             limit=_clamp_limit(limit),
             offset=offset,
             cursor=cursor,
+            include_hidden=include_hidden,
         )
     result["query"] = text.strip()
     return result

@@ -198,7 +198,9 @@ def parse_cursor(cursor: str | None) -> tuple[int, str] | None:
     ``Transaction.id`` was a node-local autoincrement, so cursors and
     same-block ordering differed between nodes. Stored tx_hash values are
     lowercase hex (``_validate_hex``); a cursor echoes one back and is
-    normalised the same way for the comparison.
+    normalised the same way for the comparison. ``next_cursor`` values are
+    ``0x``-prefixed, so the prefix is stripped before validation — a
+    cursor this endpoint emits must always parse.
     """
     if not cursor:
         return None
@@ -208,9 +210,12 @@ def parse_cursor(cursor: str | None) -> tuple[int, str] | None:
     except (ValueError, AttributeError):
         height = -1
         hash_s = ""
-    if height < 0 or not _CURSOR_HASH_RE.fullmatch(hash_s or ""):
+    hash_s = (hash_s or "").strip().lower()
+    if hash_s.startswith("0x"):
+        hash_s = hash_s[2:]
+    if height < 0 or not _CURSOR_HASH_RE.fullmatch(hash_s):
         raise ValueError("invalid cursor (want '<block_height>:<tx_hash>' from a previous next_cursor)")
-    return height, hash_s.lower()
+    return height, hash_s
 
 
 def _like_escape(text: str) -> str:
@@ -386,14 +391,19 @@ def _candidate_select(
 
 
 def _apply_cursor(stmt, cursor: tuple[int, str] | None):
-    """Keyset filter for DESC (block_height, tx_hash) ordering."""
+    """Keyset filter for DESC (block_height, tx_hash) ordering.
+
+    The stored ``tx_hash`` column is ``0x``-prefixed while the cursor hash
+    is bare — compare the normalized (bare) form on both sides or the
+    same-block boundary filters the wrong rows.
+    """
     if cursor is None:
         return stmt
     height, tx_hash = cursor
     return stmt.where(
         or_(
             col(Transaction.block_height) < height,
-            and_(col(Transaction.block_height) == height, col(Transaction.tx_hash) < tx_hash),
+            and_(col(Transaction.block_height) == height, _tx_hash_bare() < tx_hash),
         )
     )
 

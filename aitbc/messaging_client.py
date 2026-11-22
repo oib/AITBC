@@ -195,8 +195,13 @@ def fetch_message(rpc_url: str, tx_hash: str, *, timeout: float = 10.0) -> Any:
 
 
 def message_sort_key(message: dict[str, Any]) -> tuple[int, str]:
-    """The index's ordering key: ``(block_height, tx_hash)``, newest last."""
-    return (int(message.get("block_height") or 0), str(message.get("tx_hash") or "").lower())
+    """The index's ordering key: ``(block_height, tx_hash)``, newest last.
+
+    Stored ``tx_hash`` values are ``0x``-prefixed while resume cursors carry
+    the bare 64-hex form — both sides normalise to bare lowercase here so a
+    ``--from-cursor`` marker compares correctly against same-block rows.
+    """
+    return (int(message.get("block_height") or 0), str(message.get("tx_hash") or "").lower().removeprefix("0x"))
 
 
 def parse_seen_cursor(cursor: str | None) -> tuple[int, str] | None:
@@ -208,6 +213,87 @@ def parse_seen_cursor(cursor: str | None) -> tuple[int, str] | None:
         return (int(h), hsh.lower().removeprefix("0x"))
     except (ValueError, AttributeError):
         return None
+
+
+#: Baseline for "the topic was empty when polling started": every row sorts
+#: strictly newer, so the first post on a previously-empty topic is delivered
+#: instead of becoming the baseline itself.
+EMPTY_BASELINE: tuple[int, str] = (-1, "")
+
+
+class SubscribeGapError(Exception):
+    """A resume cursor is further back than the back-page bound can reach.
+
+    Raised instead of silently advancing the cursor past rows that were
+    never fetched — the caller must surface the gap, not skip it.
+    """
+
+
+#: Pages of history ``newer_than_cursor`` walks back per poll while looking
+#: for the resume cursor (``limit`` rows per page).
+SUBSCRIBE_BACK_PAGE_LIMIT = 50
+
+
+def fetch_topic_page(
+    rpc_url: str,
+    topic: str,
+    *,
+    cursor: str | None = None,
+    limit: int = 50,
+    timeout: float = 10.0,
+) -> tuple[list[dict[str, Any]], str | None] | None:
+    """One newest-first page of ``topic`` → ``(rows oldest-first, next_cursor)``.
+
+    ``None`` on transport failure or a non-200 answer — callers retry on the
+    next poll. ``next_cursor`` pages *older* (the index is DESC).
+    """
+    data = fetch_messages(rpc_url, topic=topic, cursor=cursor, limit=limit, timeout=timeout)
+    if not isinstance(data, dict):
+        return None
+    rows = sorted((data.get("messages") or []), key=message_sort_key)
+    next_cursor = data.get("next_cursor")
+    return rows, str(next_cursor) if next_cursor else None
+
+
+def newer_than_cursor(
+    rpc_url: str,
+    topic: str,
+    seen: tuple[int, str],
+    *,
+    limit: int = 50,
+    timeout: float = 10.0,
+    max_back_pages: int = SUBSCRIBE_BACK_PAGE_LIMIT,
+) -> list[dict[str, Any]]:
+    """All ``topic`` rows strictly newer than ``seen``, oldest-first.
+
+    The index only pages *backwards* from the head, so a resume cursor older
+    than one page would otherwise be skipped: this walks ``next_cursor``
+    pages back until a row ``<= seen`` or the index start is reached, which
+    proves the fetched set is contiguous. Returns ``[]`` when the index
+    cannot be read this poll (the caller retries with ``seen`` unchanged —
+    nothing is lost). Raises ``SubscribeGapError`` when the back-page bound
+    is hit first: rows between ``seen`` and the oldest fetched page may be
+    missing and the cursor must not advance past them.
+    """
+    page = fetch_topic_page(rpc_url, topic, limit=limit, timeout=timeout)
+    if page is None:
+        return []
+    collected, next_cursor = page
+    oldest_key = message_sort_key(collected[0]) if collected else None
+    back_pages = 0
+    while oldest_key is not None and oldest_key > seen and next_cursor and back_pages < max_back_pages:
+        page = fetch_topic_page(rpc_url, topic, cursor=next_cursor, limit=limit, timeout=timeout)
+        if page is None:
+            return []
+        older, next_cursor = page
+        if not older:
+            break
+        collected = older + collected
+        oldest_key = message_sort_key(older[0])
+        back_pages += 1
+    if oldest_key is not None and oldest_key > seen and next_cursor:
+        raise SubscribeGapError(f"more than {max_back_pages * limit} messages on '{topic}' are newer than the resume cursor")
+    return sorted((r for r in collected if message_sort_key(r) > seen), key=message_sort_key)
 
 
 def subscribe(
@@ -232,24 +318,23 @@ def subscribe(
     ``max_polls`` bounds the generator for one-shot consumers; ``None``
     follows forever. Transport failures are skipped silently (the next poll
     retries); the caller decides how long an outage is acceptable.
+    ``SubscribeGapError`` propagates when a resume cursor falls outside the
+    back-page bound — the gap is reported, never skipped.
     """
     seen = parse_seen_cursor(from_cursor)
-    first = True
     polls = 0
     while max_polls is None or polls < max_polls:
         polls += 1
-        data = fetch_messages(rpc_url, topic=topic, limit=limit, timeout=timeout)
-        if isinstance(data, dict):
-            rows = list(data.get("messages") or [])
-            rows.sort(key=message_sort_key)
-            if first and seen is None and rows:
-                # Start at the head: emit nothing historical.
-                seen = message_sort_key(rows[-1])
-            elif seen is None and rows:
-                seen = message_sort_key(rows[-1])
-            for row in rows:
-                if seen is not None and message_sort_key(row) > seen:
-                    seen = message_sort_key(row)
-                    yield row
-        first = False
+        if seen is None:
+            # First successful read establishes the baseline: the current
+            # head, or EMPTY_BASELINE when the topic has no rows yet — an
+            # empty topic means everything posted afterwards is new.
+            page = fetch_topic_page(rpc_url, topic, limit=limit, timeout=timeout)
+            if page is not None:
+                rows, _ = page
+                seen = message_sort_key(rows[-1]) if rows else EMPTY_BASELINE
+        else:
+            for row in newer_than_cursor(rpc_url, topic, seen, limit=limit, timeout=timeout):
+                seen = message_sort_key(row)
+                yield row
         sleep(interval)

@@ -210,7 +210,8 @@ class MessagingClient:
         ``from_cursor`` resumes after a ``<height>:<tx_hash>`` marker; the
         default starts at the current head (no backlog). Poll interval and
         ``max_polls`` are caller-chosen — this can run forever, so bound it
-        in the caller.
+        in the caller. ``SubscribeGapError`` propagates when the cursor is
+        too far back to page through — the gap is reported, never skipped.
         """
         if parse_seen_cursor(from_cursor or "") is None and from_cursor:
             raise AITBCError(f"from_cursor {from_cursor!r} is not a '<height>:<tx_hash>' cursor")

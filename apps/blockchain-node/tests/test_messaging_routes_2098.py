@@ -55,3 +55,21 @@ def test_route_awaits_shared_handler(monkeypatch, path, handler_attr, _q):
     r = _client().get(path)
     assert r.status_code == 200, f"{path} -> {r.status_code}: {r.text[:200]}"
     assert r.json()["stub"] == handler_attr
+
+
+def test_search_route_forwards_filters(monkeypatch):
+    """AUDIT-MESSAGING-LIST-QUERY-FILTERS-1: topic/author/include_hidden on
+    /messages/search must reach the handler — the CLI sends them and they
+    were silently dropped before."""
+    seen = {}
+
+    async def _stub(request, **kwargs):
+        seen.update(kwargs)
+        return {"success": True}
+
+    monkeypatch.setattr(messaging_router_mod, "messaging_search", _stub)
+    r = _client().get("/rpc/messaging/messages/search?query=hi&topic=Dev&author=0xAbC&include_hidden=true")
+    assert r.status_code == 200, r.text
+    assert seen["query"] == "hi"
+    assert seen["topic"] == "Dev" and seen["author"] == "0xAbC"
+    assert seen["include_hidden"] is True

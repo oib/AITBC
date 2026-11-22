@@ -396,6 +396,41 @@ class TestKeygenFlow:
         assert on_disk["keys"][0]["published_tx"] is None
         assert "unpublished" in result.output or "kept" in result.output
 
+    def test_dry_run_writes_no_key_era(self, tmp_path, monkeypatch):
+        """#2577: `dm keygen` without --confirm must not persist a key era —
+        each dry run used to append another unpublished key to the store."""
+        from click.testing import CliRunner
+
+        from aitbc_cli.commands.messaging import messaging
+
+        key_path = tmp_path / "w.json"
+        sent = _keygen_patches(monkeypatch, tmp_path, key_path)
+        runner = CliRunner()
+        for _ in range(2):
+            result = runner.invoke(messaging, ["dm", "keygen", "--wallet", "w"])
+            assert result.exit_code == 0, result.output
+            assert "DRY RUN" in result.output
+        assert sent == []
+        assert not key_path.exists() or dm_store_load(key_path, strict=True)["keys"] == []
+
+    def test_rotate_dry_run_writes_no_key_era(self, tmp_path, monkeypatch):
+        """#2577: --rotate dry run on a published key adds nothing to the store."""
+        from click.testing import CliRunner
+
+        from aitbc_cli.commands.messaging import messaging
+
+        key_path = tmp_path / "w.json"
+        dm_store_save(
+            key_path,
+            {"keys": [{"enc_pubkey": BOB_PUB, "secret_key": BOB_SEC, "published_tx": "ab" * 32}]},
+        )
+        before = dm_store_load(key_path, strict=True)
+        _keygen_patches(monkeypatch, tmp_path, key_path)
+        result = CliRunner().invoke(messaging, ["dm", "keygen", "--wallet", "w", "--rotate"])
+        assert result.exit_code == 0, result.output
+        assert "DRY RUN" in result.output
+        assert dm_store_load(key_path, strict=True) == before
+
     def test_retry_publishes_the_same_era(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
 

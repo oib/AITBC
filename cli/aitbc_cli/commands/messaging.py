@@ -414,7 +414,15 @@ def list(ctx, topic, author, query, limit, offset, cursor, include_hidden, rpc_u
         if query:
             result = http_client.get(
                 "/rpc/messaging/messages/search",
-                params={"query": query, "limit": limit, "offset": offset, "cursor": cursor},
+                params={
+                    "query": query,
+                    "topic": topic,
+                    "author": author,
+                    "limit": limit,
+                    "offset": offset,
+                    "cursor": cursor,
+                    "include_hidden": str(include_hidden).lower(),
+                },
             )
         else:
             result = http_client.get(
@@ -481,43 +489,48 @@ def subscribe(ctx, topic, from_cursor, follow, interval, max_polls, limit, rpc_u
     subscribe path (MSG-15) — the same kernel the SDK's
     ``MessagingClient.subscribe`` uses.
     """
-    from aitbc.messaging_client import parse_seen_cursor
+    from aitbc.messaging_client import EMPTY_BASELINE, SubscribeGapError, parse_seen_cursor
 
     if from_cursor and parse_seen_cursor(from_cursor) is None:
         abort(ctx, f"--from-cursor '{from_cursor}' is not a '<height>:<tx_hash>' marker")
     rpc = _resolve_transaction_rpc_url(rpc_url)
-    seen, rows = _subscribe_first_batch(ctx, rpc, topic, limit, parse_seen_cursor(from_cursor))
+    try:
+        seen, rows = _subscribe_first_batch(ctx, rpc, topic, limit, parse_seen_cursor(from_cursor))
+    except SubscribeGapError as e:
+        abort(ctx, f"Cannot resume subscribe on '{topic}': {e}", from_exception=e)
     if follow:
         marker = f"{seen[0]}:{seen[1]}" if seen else None
         last = _subscribe_follow(ctx, rpc, topic, marker, interval, max_polls)
         if last is not None:
             seen = last
-    if seen is not None:
+    if seen is not None and seen != EMPTY_BASELINE:
         click.echo(f"next_cursor: {seen[0]}:{seen[1]}", err=True)
     elif not rows:
         click.echo(f"no messages on topic '{topic}'", err=True)
 
 
 def _subscribe_first_batch(ctx, rpc, topic, limit, seen):
-    """Fetch the topic head, emit rows newer than ``seen``; returns ``(seen, rows)``."""
-    from aitbc.messaging_client import (
-        UNREACHABLE,
-        fetch_messages,
-        message_sort_key,
-    )
+    """Fetch the topic head, emit rows newer than ``seen``; returns ``(seen, rows)``.
 
-    data = fetch_messages(rpc, topic=topic, limit=limit)
-    if data is UNREACHABLE:
-        abort(ctx, f"Blockchain RPC unavailable at {rpc}")
-    if not isinstance(data, dict):
-        abort(ctx, f"Messages index returned no data for topic '{topic}' at {rpc}")
-    rows = sorted((data.get("messages") or []), key=message_sort_key)
-    for row in rows:
-        if seen is not None and message_sort_key(row) > seen:
+    A successful fetch with no rows establishes ``EMPTY_BASELINE`` — the
+    topic was empty, so everything posted afterwards is new. A ``seen``
+    cursor resumes through ``newer_than_cursor``, which pages back until
+    the cursor is reached instead of skipping rows older than one page.
+    """
+    from aitbc.messaging_client import EMPTY_BASELINE, fetch_topic_page, message_sort_key, newer_than_cursor
+
+    if seen is not None:
+        rows = newer_than_cursor(rpc, topic, seen, limit=limit)
+        for row in rows:
             seen = message_sort_key(row)
             _sub_emit(ctx, row)
-    if seen is None and rows:
-        seen = message_sort_key(rows[-1])
+        return seen, rows
+    page = fetch_topic_page(rpc, topic, limit=limit)
+    if page is None:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}")
+        raise AssertionError("unreachable")  # abort raises CLIError
+    rows, _ = page
+    seen = EMPTY_BASELINE if not rows else message_sort_key(rows[-1])
     return seen, rows
 
 
@@ -527,7 +540,7 @@ def _sub_emit(ctx, row):
 
 def _subscribe_follow(ctx, rpc, topic, marker, interval, max_polls):
     """Poll loop for ``messaging subscribe --follow``; returns the last sort key emitted."""
-    from aitbc.messaging_client import message_sort_key
+    from aitbc.messaging_client import SubscribeGapError, message_sort_key
     from aitbc.messaging_client import subscribe as _subscribe
 
     last = None
@@ -537,6 +550,8 @@ def _subscribe_follow(ctx, rpc, topic, marker, interval, max_polls):
             _sub_emit(ctx, row)
     except KeyboardInterrupt:
         pass
+    except SubscribeGapError as e:
+        warning(f"Subscribe on '{topic}' stopped: {e} — resume from the last next_cursor")
     return last
 
 
@@ -1193,7 +1208,7 @@ def dm_keygen(ctx, wallet_name, fee, allow_high_fee, confirm, rotate, rpc_url, p
     validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     path = _dm_key_file(ctx, wallet_name)
     try:
-        era, store = _dm_prepare_era(path, rotate=rotate)
+        era, store = _dm_prepare_era(path, rotate=rotate, persist=confirm)
     except DmStoreCorruptError as e:
         abort(ctx, str(e), from_exception=e)
     if era is None:
