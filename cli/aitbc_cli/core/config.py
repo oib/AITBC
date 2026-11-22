@@ -2,6 +2,8 @@
 Multi-chain configuration management for AITBC CLI
 """
 
+import os
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -53,7 +55,10 @@ def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
 
     try:
         with open(config_file) as f:
-            config_data = yaml.safe_load(f)
+            # An empty/truncated file loads as None — treat it as an empty
+            # mapping so the registry degrades to defaults instead of
+            # crashing every caller with a pydantic TypeError (#2579).
+            config_data = yaml.safe_load(f) or {}
 
         return _with_local_rpc_fallback(MultiChainConfig(**config_data))
     except Exception as e:
@@ -91,8 +96,21 @@ def save_multichain_config(config: MultiChainConfig, config_path: str | None = N
         if "chains" in config_dict and "backup_path" in config_dict["chains"]:
             config_dict["chains"]["backup_path"] = str(config_dict["chains"]["backup_path"])
 
-        with open(config_file, "w") as f:
-            yaml.dump(config_dict, f, default_flow_style=False, indent=2)
+        # Serialize to a same-directory temp file, fsync, then os.replace —
+        # a failed dump must never leave a truncated registry behind (#2579).
+        fd, tmp_name = tempfile.mkstemp(dir=config_file.parent, prefix=config_file.name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                yaml.dump(config_dict, f, default_flow_style=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_name, config_file)
+        except BaseException:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+            raise
     except Exception as e:
         raise ValueError(f"Failed to save configuration to {config_path}: {e}") from e
 
