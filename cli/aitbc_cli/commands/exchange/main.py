@@ -4,6 +4,8 @@ Main exchange integration commands for AITBC CLI.
 
 import builtins
 import json
+import os
+import sys
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -14,6 +16,7 @@ import click
 from aitbc_cli.config import get_config  # noqa: F401
 from aitbc_cli.utils import DECIMAL, output, resolve_output_format, success, warning
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
+from aitbc_cli.utils.wallet_loader import write_json_0600
 
 from .hub_orders import node as hub_node
 from .hub_orders import order as hub_order
@@ -37,6 +40,94 @@ def exchange():
     pass
 
 
+def _exchanges_file() -> Path:
+    return Path.home() / ".aitbc" / "exchanges.json"
+
+
+def _read_exchanges() -> dict:
+    path = _exchanges_file()
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        data = json.load(f)
+    return data if isinstance(data, dict) else {}
+
+
+def _write_exchanges(exchanges: dict) -> None:
+    """Persist exchanges.json owner-only: dir 0700, file 0600, no umask window.
+
+    The file holds exchange API credentials (#2591) — every writer goes
+    through here so no command can recreate it world-readable.
+    """
+    path = _exchanges_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(path.parent, 0o700)
+    write_json_0600(path, exchanges)
+
+
+def _read_secret_file(path: str, label: str) -> str:
+    """Credential material from a file; warns when the mode is wider than 0600."""
+    key_path = Path(path)
+    raw = key_path.read_text().strip()
+    if not raw:
+        abort(None, f"{label} file {path} is empty")
+    mode = key_path.stat().st_mode & 0o777
+    if mode & 0o077:
+        warning(f"{label} file {path} is group/other-accessible (mode {mode:o}); chmod 600 it")
+    return raw
+
+
+def _read_secret_stdin() -> str:
+    line = sys.stdin.readline().strip()
+    if not line:
+        abort(None, "no credential provided on stdin")
+    return line
+
+
+def _resolve_exchange_credential(
+    *,
+    argv_value: str | None,
+    file_value: str | None,
+    stdin_flag: bool,
+    env_name: str,
+    label: str,
+    option: str,
+    required: bool,
+) -> str | None:
+    """Resolve an exchange credential without argv when possible (#2591).
+
+    Order: --<option>-file > --<option>-stdin > env > deprecated argv
+    (warns) > hidden prompt (required only). ``ps``/shell history expose
+    argv values to every local user, so the file/stdin/prompt forms are
+    the documented path.
+    """
+    if argv_value:
+        warning(
+            f"--{option} exposes the {label} in the process list and shell history; "
+            f"prefer --{option}-file, --{option}-stdin, ${env_name}, or the prompt"
+        )
+    if file_value:
+        return _read_secret_file(file_value, label)
+    if stdin_flag:
+        return _read_secret_stdin()
+    env_value = (os.environ.get(env_name) or "").strip()
+    if env_value:
+        return env_value
+    if argv_value:
+        return argv_value
+    if required:
+        return str(click.prompt(f"{label}", hide_input=True))
+    return None
+
+
+def _mask_credential(value: object) -> str:
+    """Last-four mask for stored credentials; 'NOT_SET' stays readable."""
+    s = "" if value is None else str(value)
+    if not s or s == "NOT_SET":
+        return s or "***"
+    return "***" + s[-4:] if len(s) > 4 else "***"
+
+
 @exchange.command(
     epilog="""Examples:
 
@@ -45,13 +136,50 @@ def exchange():
   aitbc exchange register --name binance --api-key key --secret-key secret --sandbox"""
 )
 @click.option("--name", required=True, help="Exchange name (e.g., Binance, Coinbase, Kraken)")
-@click.option("--api-key", required=True, help="Exchange API key")
-@click.option("--secret-key", help="Exchange API secret key")
+@click.option("--api-key", help="Exchange API key (deprecated on argv: prefer --api-key-file/--api-key-stdin)")
+@click.option("--api-key-file", type=click.Path(dir_okay=False), help="File containing the API key (mode 0600)")
+@click.option("--api-key-stdin", is_flag=True, help="Read the API key from one line of stdin")
+@click.option("--secret-key", help="Exchange API secret key (deprecated on argv: prefer --secret-key-file/--secret-key-stdin)")
+@click.option("--secret-key-file", type=click.Path(dir_okay=False), help="File containing the secret key (mode 0600)")
+@click.option("--secret-key-stdin", is_flag=True, help="Read the secret key from one line of stdin")
 @click.option("--sandbox", is_flag=True, help="Use sandbox/testnet environment")
 @click.option("--description", help="Exchange description")
 @click.pass_context
-def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool, description: str | None):
+def register(
+    ctx,
+    name: str,
+    api_key: str | None,
+    api_key_file: str | None,
+    api_key_stdin: bool,
+    secret_key: str | None,
+    secret_key_file: str | None,
+    secret_key_stdin: bool,
+    sandbox: bool,
+    description: str | None,
+):
     """Register a new exchange integration with API credentials and optional sandbox mode."""
+    api_key = _resolve_exchange_credential(
+        argv_value=api_key,
+        file_value=api_key_file,
+        stdin_flag=api_key_stdin,
+        env_name="AITBC_EXCHANGE_API_KEY",
+        label="API key",
+        option="api-key",
+        required=True,
+    )
+    secret_key = _resolve_exchange_credential(
+        argv_value=secret_key,
+        file_value=secret_key_file,
+        stdin_flag=secret_key_stdin,
+        env_name="AITBC_EXCHANGE_SECRET_KEY",
+        label="secret key",
+        option="secret-key",
+        required=False,
+    )
+    if not api_key:
+        abort(ctx, "API key is required")
+        return
+
     exchange_config = {
         "name": name,
         "api_key": api_key,
@@ -64,18 +192,9 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
         "last_sync": None,
     }
 
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
-    exchanges_file.parent.mkdir(parents=True, exist_ok=True)
-
-    exchanges = {}
-    if exchanges_file.exists():
-        with open(exchanges_file) as f:
-            exchanges = json.load(f)
-
+    exchanges = _read_exchanges()
     exchanges[name.lower()] = exchange_config
-
-    with open(exchanges_file, "w") as f:
-        json.dump(exchanges, f, indent=2)
+    _write_exchanges(exchanges)
 
     success(f"Exchange '{name}' registered successfully")
     output(
@@ -104,13 +223,11 @@ def create_pair(
     """Create a new trading pair on a registered exchange with precision and minimum order size."""
     pair_symbol = f"{base_asset}/{quote_asset}"
 
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
-    if not exchanges_file.exists():
+    if not _exchanges_file().exists():
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
-    with open(exchanges_file) as f:
-        exchanges = json.load(f)
+    exchanges = _read_exchanges()
 
     if exchange.lower() not in exchanges:
         abort(None, f"Exchange '{exchange}' not registered.")
@@ -129,8 +246,7 @@ def create_pair(
 
     exchanges[exchange.lower()]["trading_pairs"].append(pair_config)
 
-    with open(exchanges_file, "w") as f:
-        json.dump(exchanges, f, indent=2)
+    _write_exchanges(exchanges)
 
     success(f"Trading pair '{pair_symbol}' created on {exchange}")
     output(pair_config, resolve_output_format(ctx))
@@ -151,13 +267,11 @@ def create_pair(
 @click.pass_context
 def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
     """Start trading for a specific pair with optional initial price and liquidity."""
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
-    if not exchanges_file.exists():
+    if not _exchanges_file().exists():
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
-    with open(exchanges_file) as f:
-        exchanges = json.load(f)
+    exchanges = _read_exchanges()
 
     target_exchange = None
     target_pair = None
@@ -183,8 +297,7 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
     target_pair["base_liquidity"] = base_liquidity
     target_pair["quote_liquidity"] = quote_liquidity
 
-    with open(exchanges_file, "w") as f:
-        json.dump(exchanges, f, indent=2)
+    _write_exchanges(exchanges)
 
     success(f"Trading started for pair '{pair}' on {target_exchange}")
     output(
@@ -203,13 +316,11 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
 
 def _load_monitoring_snapshot(pair: str | None, exchange: str | None) -> builtins.list[dict]:
     """Read ~/.aitbc/exchanges.json and flatten the pairs under watch."""
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
-    if not exchanges_file.exists():
+    if not _exchanges_file().exists():
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return []
 
-    with open(exchanges_file) as f:
-        exchanges = json.load(f)
+    exchanges = _read_exchanges()
 
     monitoring_data = []
 
@@ -311,13 +422,11 @@ def _decimal_str(value: object) -> str:
 @click.pass_context
 def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | None):
     """Add liquidity to a trading pair on the specified side."""
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
-    if not exchanges_file.exists():
+    if not _exchanges_file().exists():
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
-    with open(exchanges_file) as f:
-        exchanges = json.load(f)
+    exchanges = _read_exchanges()
 
     target_exchange = None
     target_pair = None
@@ -347,8 +456,7 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
 
     target_pair["liquidity_updated_at"] = datetime.now(UTC).isoformat()
 
-    with open(exchanges_file, "w") as f:
-        json.dump(exchanges, f, indent=2)
+    _write_exchanges(exchanges)
 
     # #2447: state the unit — pair symbols are BASE/QUOTE (e.g. AITBC/ETH), so a
     # buy adds quote-asset units to quote_liquidity and a sell adds base-asset
@@ -390,7 +498,7 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
 @click.pass_context
 def list(ctx):
     """List all registered exchanges and their trading pairs."""
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
+    exchanges_file = _exchanges_file()
     if not exchanges_file.exists():
         if ctx.obj and ctx.obj.get("output_format") == "json":
             click.echo("[]")
@@ -398,8 +506,7 @@ def list(ctx):
             warning("No exchanges registered.")
         return
 
-    with open(exchanges_file) as f:
-        exchanges = json.load(f)
+    exchanges = _read_exchanges()
 
     exchange_list = []
     for _exchange_name, exchange_data in exchanges.items():
@@ -426,19 +533,22 @@ def list(ctx):
 @click.pass_context
 def status(ctx, exchange_name: str):
     """Get the status and configuration of a specific registered exchange."""
-    exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
-    if not exchanges_file.exists():
+    if not _exchanges_file().exists():
         abort(None, "No exchanges registered.")
         return
 
-    with open(exchanges_file) as f:
-        exchanges = json.load(f)
+    exchanges = _read_exchanges()
 
     if exchange_name.lower() not in exchanges:
         abort(None, f"Exchange '{exchange_name}' not found.")
         return
 
-    exchange_data = exchanges[exchange_name.lower()]
+    exchange_data = dict(exchanges[exchange_name.lower()])
+    # Stored credentials are never echoed — status is a read-only call and
+    # its output lands in transcripts/logs (#2591).
+    for field in ("api_key", "secret_key"):
+        if field in exchange_data:
+            exchange_data[field] = _mask_credential(exchange_data[field])
     output(exchange_data, resolve_output_format(ctx), title=f"Exchange Status: {exchange_name}")
 
 
