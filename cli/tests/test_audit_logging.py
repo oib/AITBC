@@ -272,7 +272,7 @@ def test_compliance_export_audit_emits_entry(audit_log, tmp_path, monkeypatch):
     # Force the offline/simulated path — no coordinator configured.
     monkeypatch.setattr(compliance_mod, "_api_client", lambda *a, **k: None)
     out = tmp_path / "audit-export.json"
-    result = _invoke(compliance, ["export-audit", "--output-file", str(out)])
+    result = _invoke(compliance, ["export-audit", "--output-file", str(out), "--simulate"])
     assert result.exit_code == 0, result.output
     assert out.exists()
 

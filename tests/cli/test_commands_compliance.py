@@ -142,21 +142,57 @@ class TestComplianceExportAudit:
 
         target = tmp_path / "audit.json"
         with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
-            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target), "--simulate"])
 
         assert result.exit_code == 0, result.output
         assert target.exists()
 
         payload = json.loads(target.read_text())
         assert "exported_at" in payload
+        assert payload["simulated"] is True
         assert isinstance(payload["records"], list)
+
+    def test_export_audit_refuses_to_fabricate_without_simulate(self, runner, tmp_path):
+        """#2502: no coordinator + no --simulate must abort — fabricated PHI/txn
+        records in an audit export are a compliance hazard, not a feature."""
+        from aitbc_cli.commands.compliance import compliance
+
+        target = tmp_path / "audit.json"
+        with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+
+        assert result.exit_code != 0
+        assert "--simulate" in result.output
+        assert not target.exists()
+
+    def test_export_audit_rejects_misshapen_live_response(self, runner, tmp_path):
+        """#2502: a non-list audit-logs payload aborts instead of writing garbage."""
+        from aitbc_cli.commands.compliance import compliance
+
+        config = MagicMock(coordinator_api_url="http://node.test", timeout=30, api_key=None)
+        client = MagicMock()
+        client.get_json.return_value = {"unexpected": "shape"}
+        target = tmp_path / "audit.json"
+        with (
+            patch("aitbc_cli.commands.compliance.get_config", return_value=config),
+            patch("aitbc_cli.commands.compliance.AITBCHTTPClient", return_value=client),
+        ):
+            result = runner.invoke(
+                compliance,
+                ["export-audit", "--output-file", str(target)],
+                obj={"output_format": "json", "api_key": None},
+            )
+
+        assert result.exit_code != 0
+        assert "shape" in result.output
+        assert not target.exists()
 
     def test_export_audit_records_carry_expected_fields(self, runner, tmp_path):
         from aitbc_cli.commands.compliance import compliance
 
         target = tmp_path / "audit.json"
         with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
-            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target), "--simulate"])
 
         assert result.exit_code == 0, result.output
         records = json.loads(target.read_text())["records"]
@@ -164,6 +200,7 @@ class TestComplianceExportAudit:
         assert records, "export produced no audit records"
         for record in records:
             assert {"timestamp", "actor_id", "action", "resource_id", "outcome"} <= set(record)
+            assert record["simulated"] is True
 
     def test_export_audit_reports_record_count(self, runner, tmp_path):
         """The reported count must match what actually landed in the file."""
@@ -171,7 +208,7 @@ class TestComplianceExportAudit:
 
         target = tmp_path / "audit.json"
         with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
-            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target), "--simulate"])
 
         assert result.exit_code == 0, result.output
         written = len(json.loads(target.read_text())["records"])

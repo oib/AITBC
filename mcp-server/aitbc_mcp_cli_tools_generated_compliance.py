@@ -102,6 +102,10 @@ def aitbc_compliance_classify(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_compliance_export_audit(
     output_file: Annotated[str | None, Field(description="File to write exported audit records")] = None,
+    simulate: Annotated[
+        bool | None,
+        Field(description="Write clearly-marked placeholder records when no coordinator API is configured (offline use only)"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -111,7 +115,7 @@ def aitbc_compliance_export_audit(
     """Export the compliance audit trail to a JSON file."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"simulate": "simulate"},
         values={"output_file": "output-file"},
     )
     args = None

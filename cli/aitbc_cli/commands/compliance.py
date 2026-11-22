@@ -144,19 +144,35 @@ def classify(ctx, label: str):
   aitbc compliance export-audit --output-file /tmp/audit.json""",
 )
 @click.option("--output-file", default="audit-export.json", help="File to write exported audit records")
+@click.option(
+    "--simulate",
+    is_flag=True,
+    help="Write clearly-marked placeholder records when no coordinator API is configured (offline use only)",
+)
 @click.pass_context
-def export_audit(ctx, output_file: str):
+def export_audit(ctx, output_file: str, simulate: bool):
     """Export the compliance audit trail to a JSON file.
 
     With a coordinator API configured this pulls the live merged audit
     logs (``GET /v1/compliance/audit-logs``, admin credential) from
-    ``transaction_audit_record`` and ``phi_access_log``; without one it
-    writes the two simulated records kept for offline use.
+    ``transaction_audit_record`` and ``phi_access_log``. Without one the
+    command refuses — fabricated PHI/transaction records in an audit
+    export are worse than no export (#2502); ``--simulate`` writes a
+    file whose ``simulated`` marker makes the placeholder status
+    unmissable.
     """
     try:
         client = _api_client(ctx.obj.get("api_key") if ctx.obj else None, credential="admin")
-        records: list[dict[str, Any]] | dict[str, Any]
+        simulated = client is None
         if client is None:
+            if not simulate:
+                abort(
+                    ctx,
+                    "No coordinator API configured — export-audit needs a coordinator "
+                    "(coordinator_api_url / COORDINATOR_API_URL). Pass --simulate to write a "
+                    "clearly-marked placeholder file for offline testing.",
+                )
+                return
             records = [
                 {
                     "timestamp": datetime.now(UTC).isoformat(),
@@ -165,6 +181,7 @@ def export_audit(ctx, output_file: str):
                     "action": "access",
                     "resource_id": "phi-record-1",
                     "outcome": "allowed",
+                    "simulated": True,
                 },
                 {
                     "timestamp": datetime.now(UTC).isoformat(),
@@ -173,17 +190,36 @@ def export_audit(ctx, output_file: str):
                     "action": "authorize",
                     "resource_id": "txn-1",
                     "outcome": "approved",
+                    "simulated": True,
                 },
             ]
         else:
             payload = client.get_json("/v1/compliance/audit-logs")
-            records = payload["records"] if isinstance(payload, dict) else payload
+            # The live endpoint returns a JSON array of records; tolerate a
+            # {"records": [...]} envelope but reject anything else — a
+            # silently mis-shaped export is a compliance hazard (#2502).
+            candidate: Any = payload.get("records") if isinstance(payload, dict) else payload
+            if not isinstance(candidate, list) or not all(isinstance(r, dict) for r in candidate):
+                abort(
+                    ctx,
+                    f"Unexpected /v1/compliance/audit-logs response shape: "
+                    f"{type(candidate).__name__} (expected a list of record objects)",
+                )
+                return
+            records = candidate
+        document: dict[str, Any] = {
+            "exported_at": datetime.now(UTC).isoformat(),
+            "simulated": simulated,
+            "records": records,
+        }
+        if simulated:
+            document["notice"] = "Placeholder records — no coordinator API configured (--simulate)."
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump({"exported_at": datetime.now(UTC).isoformat(), "records": records}, f, indent=2)
+            json.dump(document, f, indent=2)
         result = {
             "output_file": output_file,
             "record_count": len(records),
-            "status": "simulated" if client is None else "exported",
+            "status": "simulated" if simulated else "exported",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Audit Export")
 
