@@ -167,6 +167,15 @@ def test_tx_query_zero_limit_still_bounded(tx_env):
     assert len(out) <= 500
 
 
+def test_tx_query_negative_limit_returns_newest_not_empty(tx_env):
+    # #2632: limit=-N hit the SQL clamp (-> 1 row) then the Python slice
+    # results[:-N] emptied it. The single clamp now yields the newest row.
+    _seed_txs(tx_env, 3)
+    out = rpc_tx.query_transactions(_request(), limit=-1)
+    assert len(out) == 1
+    assert out[0]["tx_hash"] == "0x" + "2".zfill(64)
+
+
 # --- /cross-chain/swaps (routers/cross_chain.py:512) ------------------------
 
 
