@@ -187,9 +187,17 @@ def authorize_arbitrator(
     """
     Authorize a new arbitrator.
     This can only be called by the contract owner.
+
+    #2524: ``authorized=false`` is not a grant — it must not silently
+    authorize anyway. Revocation lives at ``/arbitrators/revoke``.
     """
     try:
         owner_address = get_authenticated_address(http_request, credentials)
+        if request.authorized is False:
+            raise HTTPException(
+                status_code=400,
+                detail="authorized=false is not a grant; use POST /rpc/disputes/arbitrators/revoke",
+            )
         result = dispute_resolution_service.authorize_arbitrator(
             arbitrator_address=request.arbitrator_address,
             reputation_score=1,
