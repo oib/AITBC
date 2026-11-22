@@ -17,12 +17,42 @@ from ..state.state_transition import block_scoped_preregistered_for_next_block
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Transaction
 from .bridge_base import BridgeBase, _OPS_ERRORS
+from .bridge_transfer_reconcile import _parse_iso8601
 from .bridge_types import BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
 
 
 class BridgeTransferConfirmMixin(BridgeBase):
+    def _refund_release_evidence(
+        self, session: Any, record: CrossChainTransfer, transfer_id: str
+    ) -> tuple[bool, str | None, datetime | None]:
+        """(released, tx_hash, confirm_time) — the target chain's view of a
+        transfer for the refund guard (#2486).
+
+        Local target store: the sealed ``BRIDGE_RELEASE`` index. Store-less
+        host: the target chain's own bridge API via ``CHAIN_SYNC_SOURCES``.
+        An unreachable peer fails closed for ``confirmed`` rows (post-
+        finality is exactly when a lost release writeback hurts) and stays
+        time-gated for ``pending``/``locked``; no configured source keeps
+        the documented store-less time gates.
+        """
+        if self._chain_db_ready(record.target_chain):
+            released = self._sealed_transfer_index(record.target_chain, "BRIDGE_RELEASE", {transfer_id})
+            if transfer_id in released:
+                return True, released[transfer_id][0], None
+            return False, None, None
+        verdict, row = self._remote_release_verdict(record.target_chain, transfer_id)
+        if verdict == "released" and row is not None:
+            tx_hash = row.get("target_tx_hash")
+            return True, tx_hash if isinstance(tx_hash, str) else None, _parse_iso8601(row.get("confirm_time"))
+        if verdict == "unreachable" and record.status == "confirmed":
+            raise ValueError(
+                f"Cannot verify whether transfer {transfer_id} was released on {record.target_chain}: "
+                "the target chain's bridge API is unreachable — refusing refund fail-closed for a confirmed transfer"
+            )
+        return False, None, None
+
     def _target_chain_from_proof(self, transfer_id: str, proof: dict[str, Any]) -> str:
         """Determine the target chain for a confirm from the proof or record."""
         # v0.7.3: Multi-chain bridge. The proof may carry an explicit target_chain.
@@ -544,20 +574,21 @@ class BridgeTransferConfirmMixin(BridgeBase):
             if record.status == "confirmed":
                 self._check_refund_postfinality_age(record)
 
-            # #2459: a sealed BRIDGE_RELEASE for this transfer on the target
-            # chain means the payout already happened — refunding would pay
-            # the sender twice. Reconcile the local row to completed from
-            # chain evidence and refuse. When this node holds no
-            # target-chain store the check is skipped and the time gates
-            # above remain the only guard.
-            if record.target_chain and self._chain_db_ready(record.target_chain):
-                released = self._sealed_transfer_index(record.target_chain, "BRIDGE_RELEASE", {transfer_id})
-                if transfer_id in released:
-                    release_hash, _released_at = released[transfer_id]
+            # #2459/#2486: a sealed BRIDGE_RELEASE for this transfer on the
+            # target chain means the payout already happened — refunding
+            # would pay the sender twice. Reconcile the local row to
+            # completed from chain evidence and refuse. When this node holds
+            # no target-chain store the target chain's own bridge API is
+            # asked via CHAIN_SYNC_SOURCES; an unreachable peer fails closed
+            # for confirmed rows and stays time-gated for pending/locked.
+            if record.target_chain:
+                released_hit, release_hash, release_confirmed_at = self._refund_release_evidence(session, record, transfer_id)
+                if released_hit:
                     record.status = "completed"
-                    record.target_tx_hash = release_hash
+                    if release_hash and not record.target_tx_hash:
+                        record.target_tx_hash = release_hash
                     if record.confirm_time is None:
-                        record.confirm_time = datetime.now(UTC)
+                        record.confirm_time = release_confirmed_at or datetime.now(UTC)
                     session.add(record)
                     session.commit()
                     logger.error(
