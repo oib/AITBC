@@ -117,6 +117,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc dashboard customer` | `/rpc/escrow/{job_id}` | `get_escrow` (escrow_routes.py) | —
 | `aitbc dispute active` | `/rpc/disputes/active` | `get_active_disputes_route` (disputes.py) | —
 | `aitbc dispute arbitrator authorize` | `/rpc/disputes/arbitrators/authorize` | `authorize_arbitrator_route` (disputes.py) | —
+| `aitbc dispute arbitrator authorize` | `/rpc/disputes/arbitrators/revoke` | `revoke_arbitrator_route` (disputes.py) | —
 | `aitbc dispute arbitrator list` | `/rpc/disputes/arbitrators` | `get_authorized_arbitrators_route` (disputes.py) | —
 | `aitbc dispute arbitrator queue` | `/rpc/disputes/arbitrators/` | `get_authorized_arbitrators_route` (disputes.py) | —
 | `aitbc dispute arbitrator queue` | `/rpc/disputes/arbitrators/{arbitrator_address}` | `get_arbitrator_disputes_route` (disputes.py) | —
