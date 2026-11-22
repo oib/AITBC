@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 
+from ..config import get_config
 from ..utils import output, success
 
 
@@ -38,6 +39,9 @@ def init_platform(ctx, name: str, template: str, output_dir: str):
     """Initialize a white-label platform brand manifest in the output directory."""
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
+    config = get_config()
+    coordinator_url = config.coordinator_api_url or "http://localhost:8203"
+    wallet_url = config.wallet_daemon_url or "http://localhost:8108"
     manifest = {
         "brand_id": name.lower().replace(" ", "-"),
         "name": name,
@@ -50,8 +54,8 @@ def init_platform(ctx, name: str, template: str, output_dir: str):
             "secondary_color": "#ffffff",
         },
         "endpoints": {
-            "coordinator": "http://localhost:8000",
-            "wallet": "http://localhost:8001",
+            "coordinator": coordinator_url,
+            "wallet": wallet_url,
         },
         "settlement": {
             "default_asset": "",
