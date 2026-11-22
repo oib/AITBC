@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_exchange_deposit_eth(
-    amount: Annotated[str, Field(description="Amount of AIT.")],
+    amount: Annotated[str, Field(description="Amount of ETH (Sepolia) to deposit.")],
     ait_address: Annotated[
         str | None, Field(description="AIT address that will receive minted AIT (defaults to the sending wallet address)")
     ] = None,
@@ -253,7 +253,7 @@ def aitbc_market_exchange_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_exchange_withdraw_eth(
-    amount: Annotated[str | None, Field(description="Amount of AIT.")] = None,
+    amount: Annotated[str | None, Field(description="Amount of ETH (Sepolia).")] = None,
     address: Annotated[str | None, Field(description="Blockchain address to fund.")] = None,
     tx_hash: Annotated[
         str | None, Field(description="Re-check a previously broadcast withdrawal hash instead of sending a new one")
