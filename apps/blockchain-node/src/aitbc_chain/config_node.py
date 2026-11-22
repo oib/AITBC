@@ -181,6 +181,12 @@ class NodeConfig(BaseModel):
     # proposer mempool past the min age is marked ``void`` — no funds moved.
     escrow_phantom_void_min_age_seconds: int = 3600
     escrow_phantom_void_max_rows: int = 50
+    # Known-unproven baseline (#2604): comma-separated job_ids whose deferred
+    # unproven rows are recorded dispositions. The settlement passes count
+    # these under the deferred_unproven_baseline result instead of
+    # deferred_unproven, so the Escrow*UnprovenRows alerts fire only on rows
+    # outside the recorded baseline. Runbook: docs/ops/escrow-settlement-ops.md.
+    escrow_unproven_baseline_job_ids: str = ""
     # How many nonces ahead of the account nonce a pending transaction may sit.
     # Admission rejects beyond this so one sender cannot queue an unbounded
     # pipeline of not-yet-executable transactions.

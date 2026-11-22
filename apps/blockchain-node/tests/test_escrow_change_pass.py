@@ -729,3 +729,26 @@ async def test_change_pass_runs_before_fee_pass(monkeypatch):
     monkeypatch.setattr(ess, "sweep_once", lambda s, n, p: {"demoted": 0, "remarked": 0, "rows": 0, "verified": 0})
     await ess._sweep_once()
     assert order == ["change", "fee"]
+
+
+def test_unproven_baseline_counts_apart(session):
+    """#2604: a job_id recorded in the unproven baseline counts under
+    deferred_unproven_baseline, so the UnprovenRows alert (which watches
+    deferred_unproven) sees only rows outside the recorded baseline."""
+    _metered_chain(session)
+    _row(session, billed_legs=None)
+    candidates, stats = _candidates(session, unproven_baseline={JOB})
+    assert candidates == []
+    assert stats["deferred_unproven"] == 0
+    assert stats["deferred_unproven_baseline"] == 1
+
+
+def test_unproven_outside_baseline_still_counts(session):
+    """#2604: a job_id NOT in the baseline still counts as deferred_unproven —
+    one extra row fires the alert."""
+    _metered_chain(session)
+    _row(session, billed_legs=None)
+    candidates, stats = _candidates(session, unproven_baseline={"other_job"})
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+    assert stats["deferred_unproven_baseline"] == 0

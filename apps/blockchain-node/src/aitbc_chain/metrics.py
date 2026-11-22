@@ -264,7 +264,8 @@ escrow_fee_sweep_total = Counter(
 
 # Periodic fee-residue pass (Task A4): one tick of the sealed-legs sweeper.
 # Results: submitted, dry_run, deferred_custody, deferred_unproven,
-# deferred_pending, deferred_grace, skipped_floor, error.
+# deferred_unproven_baseline (#2604 recorded dispositions — excluded from the
+# UnprovenRows alerts), deferred_pending, deferred_grace, skipped_floor, error.
 escrow_fee_sweep_pass_total = Counter(
     "blockchain_escrow_fee_sweep_pass_total",
     "Periodic escrow fee-residue pass outcomes by result",
@@ -272,7 +273,8 @@ escrow_fee_sweep_pass_total = Counter(
 )
 
 # Periodic owed-change pass (Task A6/F1b): pays buyer change deferred by the
-# release route, derived from sealed chain legs only.
+# release route, derived from sealed chain legs only. deferred_unproven_baseline
+# (#2604) counts recorded dispositions excluded from the UnprovenRows alerts.
 escrow_change_pass_total = Counter(
     "blockchain_escrow_change_pass_total",
     "Periodic escrow owed-change pass outcomes by result",
