@@ -15,14 +15,15 @@ aitbc bridge sign-proof [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--proof-file` | path | — | yes | Unsigned proof JSON file |
-| `--private-key` | text (multiple) | — | yes | Private key hex to sign with (use multiple times for multi-sig; first becomes proposer_signature) |
+| `--private-key` | text (multiple) | — | no | DEPRECATED: private key hex to sign with (exposes the key in the process list; prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEYS, or the prompt). Use multiple times for multi-sig; first becomes proposer_signature |
+| `--private-key-file` | path (multiple) | — | no | File containing one private key hex (repeat for multi-sig; first becomes proposer_signature) |
 | `--output`, `-o` | path | — | no | Output file (defaults to proof-file) |
 
 ## Examples
 
 ```bash
-aitbc bridge sign-proof --proof-file <proof_file> --private-key <private_key>
-aitbc bridge sign-proof --proof-file <proof_file> --private-key <private_key> --output json
+aitbc bridge sign-proof --proof-file <proof_file>
+aitbc bridge sign-proof --proof-file <proof_file> --output json
 ```
 
 ## Related

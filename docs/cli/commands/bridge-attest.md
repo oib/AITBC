@@ -18,7 +18,8 @@ aitbc bridge attest [OPTIONS]
 | `--source-rpc` | text | — | no | RPC URL to fetch the block from (alternative to --header-file) |
 | `--height` | integer | — | no | Block height to fetch from source |
 | `--chain-id` | text | — | no | Chain ID for the block |
-| `--private-key` | text | — | yes | Validator private key hex to sign with |
+| `--private-key` | text | — | no | DEPRECATED: validator private key hex to sign with (exposes the key in the process list; prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEY, or the prompt) |
+| `--private-key-file` | path | — | no | File containing the validator private key hex |
 | `--proposer` | text | — | no | Proposer/validator address (defaults to derived address) |
 | `--target-rpc` | text | `http://localhost:8202/rpc` | no | RPC URL to store the attested header on <!-- check-ports: ignore --> |
 | `--output`, `-o` | path | — | no | Write the attested header to a JSON file |
@@ -26,8 +27,8 @@ aitbc bridge attest [OPTIONS]
 ## Examples
 
 ```bash
-aitbc bridge attest --private-key <private_key>
-aitbc bridge attest --private-key <private_key> --output json
+aitbc bridge attest
+aitbc bridge attest --output json
 ```
 
 ## Related

@@ -17,7 +17,8 @@ aitbc bridge confirm [OPTIONS]
 | `--transfer-id` | text | — | yes | Transfer ID to confirm |
 | `--confirmer` | text | — | yes | Confirmer address |
 | `--signature` | text | — | no | Confirmer signature (hex) |
-| `--confirmer-private-key` | text | — | no | Private key to sign the confirm request |
+| `--confirmer-private-key` | text | — | no | DEPRECATED: private key to sign the confirm request (exposes the key in the process list; prefer --confirmer-private-key-file, $AITBC_BRIDGE_CONFIRMER_PRIVATE_KEY, or omit for --signature) |
+| `--confirmer-private-key-file` | path | — | no | File containing the confirmer private key hex |
 | `--proof-file` | path | — | yes | JSON file containing the lock proof |
 | `--rpc-url` | text | `http://localhost:8202/rpc` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
 

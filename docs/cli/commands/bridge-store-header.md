@@ -15,16 +15,17 @@ aitbc bridge store-header [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--proof-file` | path | — | yes | Signed proof JSON file |
-| `--admin-private-key` | text | — | yes | Private key of a configured bridge admin |
+| `--admin-private-key` | text | — | no | DEPRECATED: private key of a configured bridge admin (exposes the key in the process list; prefer --admin-private-key-file, $AITBC_BRIDGE_ADMIN_PRIVATE_KEY, or the prompt) |
+| `--admin-private-key-file` | path | — | no | File containing the bridge admin private key hex |
 | `--admin-address` | text | — | no | Admin address (defaults to address of admin-private-key) |
 | `--rpc-url` | text | `http://localhost:8202/rpc` | no | Blockchain RPC URL of the target node <!-- check-ports: ignore --> |
 
 ## Examples
 
 ```bash
-aitbc bridge store-header --proof-file <proof_file> --admin-private-key <admin_private_key>
+aitbc bridge store-header --proof-file <proof_file>
 RPC_URL=http://127.0.0.1:8202/rpc
-aitbc bridge store-header --proof-file <proof_file> --admin-private-key <admin_private_key> --rpc-url "$RPC_URL"
+aitbc bridge store-header --proof-file <proof_file> --rpc-url "$RPC_URL"
 ```
 
 ## Related

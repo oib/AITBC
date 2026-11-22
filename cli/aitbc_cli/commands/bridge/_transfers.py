@@ -10,11 +10,13 @@ import click
 
 from ._group import _get_bridge_client, _resolve_node_chain_id, bridge
 from ._helpers import (
+    BRIDGE_CONFIRMER_KEY_ENV,
     _OPS_ERRORS,
     _abort_ops,
     _derive_address,
     _event_bridge_status,
     _load_private_key,
+    _resolve_bridge_key,
     _sign_dict,
 )
 from ...utils import output, warning
@@ -147,17 +149,35 @@ def lock(
 @click.option("--transfer-id", required=True, help="Transfer ID to confirm")
 @click.option("--confirmer", required=True, help="Confirmer address")
 @click.option("--signature", default="", help="Confirmer signature (hex)")
-@click.option("--confirmer-private-key", default=None, help="Private key to sign the confirm request")
+@click.option(
+    "--confirmer-private-key",
+    default=None,
+    help="DEPRECATED: private key to sign the confirm request (exposes the key in the process list; "
+    "prefer --confirmer-private-key-file, $AITBC_BRIDGE_CONFIRMER_PRIVATE_KEY, or omit for --signature)",
+)
+@click.option(
+    "--confirmer-private-key-file",
+    "confirmer_private_key_file",
+    type=click.Path(exists=True),
+    help="File containing the confirmer private key hex",
+)
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="JSON file containing the lock proof")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof_file, rpc_url):
+def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, confirmer_private_key_file, proof_file, rpc_url):
     """Confirm and release a cross-chain bridge transfer using a proof file."""
     try:
         proof = json.loads(Path(proof_file).read_text())
     except _OPS_ERRORS as e:
         _abort_ops(ctx, "Failed to read proof file", e)
 
+    confirmer_private_key = _resolve_bridge_key(
+        argv_value=confirmer_private_key,
+        key_file=confirmer_private_key_file,
+        env_name=BRIDGE_CONFIRMER_KEY_ENV,
+        required=False,
+        option="confirmer-private-key",
+    )
     if confirmer_private_key:
         sign_data = {"transfer_id": transfer_id, "confirmer": confirmer}
         signature = _sign_dict(confirmer_private_key, sign_data)

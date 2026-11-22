@@ -21,7 +21,7 @@ from aitbc.exceptions import AITBCError
 from eth_keys.exceptions import BadSignature
 from eth_utils.exceptions import ValidationError as EthValidationError
 
-from ...utils import info
+from ...utils import info, warning
 from ...utils.error_handling import CLIError, abort
 
 # Expected failure surface for the bridge command handlers: filesystem/JSON,
@@ -232,6 +232,81 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
     if not isinstance(private_key, str) or not private_key:
         raise click.ClickException("Wallet does not contain a usable private_key")
     return private_key
+
+
+# Private keys must never ride argv — `ps` exposes them to every local
+# user (#2544). Every bridge key option resolves in this order:
+#   --<name>-key-file > env var > hidden prompt (required keys only) >
+#   the deprecated --<name> argv option (still accepted, warns).
+BRIDGE_PRIVATE_KEY_ENV = "AITBC_BRIDGE_PRIVATE_KEY"
+BRIDGE_PRIVATE_KEYS_ENV = "AITBC_BRIDGE_PRIVATE_KEYS"
+BRIDGE_ADMIN_KEY_ENV = "AITBC_BRIDGE_ADMIN_PRIVATE_KEY"
+BRIDGE_CONFIRMER_KEY_ENV = "AITBC_BRIDGE_CONFIRMER_PRIVATE_KEY"
+
+
+def _read_bridge_key_file(path: str) -> str:
+    """Raw key material from a file; warns when the mode is wider than 0600."""
+    key_path = Path(path)
+    raw = key_path.read_text().strip()
+    if not raw:
+        raise click.ClickException(f"private key file {path} is empty")
+    mode = key_path.stat().st_mode & 0o777
+    if mode & 0o077:
+        warning(f"private key file {path} is group/other-accessible (mode {mode:o}); chmod 600 it")
+    return raw
+
+
+def _warn_argv_key(option: str, env_name: str) -> None:
+    warning(
+        f"--{option} exposes the private key in the process list; "
+        f"prefer --{option}-file, ${env_name}, or the interactive prompt"
+    )
+
+
+def _resolve_bridge_key(
+    *, argv_value: str | None, key_file: str | None, env_name: str, required: bool, option: str
+) -> str | None:
+    """Resolve one bridge private key without argv when possible.
+
+    ``option`` is the argv flag's long name so the deprecation warning can
+    name both forms. Returns None only for an optional key with no source;
+    a required key with no source is read from a hidden prompt.
+    """
+    if argv_value:
+        _warn_argv_key(option, env_name)
+    if key_file:
+        return _read_bridge_key_file(key_file)
+    env_value = (os.environ.get(env_name) or "").strip()
+    if env_value:
+        return env_value
+    if argv_value:
+        return argv_value
+    if required:
+        return str(click.prompt(f"{option} private key", hide_input=True))
+    return None
+
+
+def _resolve_bridge_keys(
+    *, argv_values: tuple[str, ...], key_files: tuple[str, ...], env_name: str, required: bool, option: str
+) -> list[str]:
+    """Multi-key sibling of :func:`_resolve_bridge_key` (sign-proof multi-sig).
+
+    A key file holds one key; the env var and the prompt take a
+    comma-separated list whose first entry becomes the proposer signature.
+    """
+    if argv_values:
+        _warn_argv_key(option, env_name)
+    if key_files:
+        return [_read_bridge_key_file(f) for f in key_files]
+    env_value = (os.environ.get(env_name) or "").strip()
+    if env_value:
+        return [k.strip() for k in env_value.split(",") if k.strip()]
+    if argv_values:
+        return list(argv_values)
+    if required:
+        raw = str(click.prompt(f"{option} private keys (comma-separated)", hide_input=True))
+        return [k.strip() for k in raw.split(",") if k.strip()]
+    return []
 
 
 def _resolve_node_chain_id(rpc_url: str) -> str:
