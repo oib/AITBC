@@ -6,6 +6,7 @@ by real submissions.
 """
 
 import logging
+import math
 import re
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -88,7 +89,11 @@ class AIJobRequest(BaseModel):
     # Decimal is not JSON-serializable, and even with an encoder "0.5" != 0.5 would
     # invalidate every signature already issued. Changing it is a hard fork -- see
     # docs/architecture/money-types-and-the-signature-boundary.md.
-    payment: float = Field(..., ge=0, description="Payment in AIT")
+    # No ``ge`` here on purpose: a model-level rejection echoes the offending
+    # value into the 422 detail, and starlette's JSONResponse (allow_nan=False)
+    # cannot serialize NaN/±Infinity — the "client error" would itself die as
+    # a 500. The handler validates payment below and answers a clean 400.
+    payment: float = Field(..., description="Payment in AIT (finite, non-negative)")
     parameters: dict[str, Any] | None = Field(default=None, description="Additional job parameters")
     nonce: int = Field(default=0, ge=0, description="Sender account nonce")
     fee: int = Field(default=DEFAULT_TX_FEE_UNITS, ge=0, description="Transaction fee in compute-units (1 AIT = 36_000_000)")
@@ -166,6 +171,13 @@ def ai_submit_job(request: AIJobRequest, req: Request) -> dict[str, Any]:
     try:
         metrics_registry.increment("rpc_ai_submit_total")
 
+        # Refuse non-finite and negative payments here, before ait_to_units
+        # converts the amount (InvalidOperation/OverflowError would escape as
+        # an unhandled 503). This replaces the Field's old ``ge=0`` — see the
+        # model comment for why the check cannot live in the schema.
+        if not math.isfinite(request.payment) or request.payment < 0:
+            raise HTTPException(status_code=400, detail="payment must be a finite, non-negative number")
+
         chain_id = get_chain_id()
         mempool = get_mempool()
 
@@ -217,7 +229,7 @@ def ai_submit_job(request: AIJobRequest, req: Request) -> dict[str, Any]:
 
     except HTTPException:
         raise
-    except ValueError as e:
+    except (ValueError, OverflowError) as e:
         # Rejected before admission: malformed amount/fee/nonce, unknown sender,
         # insufficient balance, wrong nonce, or unsupported chain. These are
         # client errors, and failing here is the point — the previous version

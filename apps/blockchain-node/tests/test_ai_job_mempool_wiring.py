@@ -166,6 +166,24 @@ class TestAIJobRequiresSignature:
         del body["signature"]
         assert client.post("/ai/submit", json=body).status_code == 422
 
+    @pytest.mark.parametrize("bad_payment", [float("inf"), float("-inf"), float("nan")])
+    def test_non_finite_payment_is_400_not_500(self, client: TestClient, mempool: MagicMock, bad_payment: float) -> None:
+        """AUDIT-BN-AI-SUBMIT-INFINITE-PAYMENT-500-1: ge=0 admits NaN/±Infinity;
+        the amount conversion used to raise InvalidOperation/OverflowError into
+        the unhandled-503 path. The route must answer 400 before converting."""
+        body = _job_request()
+        body["payment"] = bad_payment
+        # httpx's json= encoder refuses non-finite floats; send the literal
+        # the auditor's repro used (Python's json emits bare Infinity/NaN,
+        # which the server's parser accepts into a float field).
+        content = json.dumps(body, allow_nan=True)
+        with patch("aitbc_chain.mempool.get_mempool", return_value=mempool):
+            response = client.post("/ai/submit", content=content, headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 400, response.text
+        assert "payment" in response.json()["detail"]
+        mempool.add.assert_not_called()
+
     def test_rejected_job_returns_400_not_silent_success(self, client: TestClient, mempool: MagicMock) -> None:
         """Admission failures (unknown sender, low balance, bad nonce) must surface."""
         with (

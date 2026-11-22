@@ -11749,7 +11749,7 @@
             }
           },
           "400": {
-            "description": "Failed to submit AI job: {e}",
+            "description": "payment must be a finite, non-negative number / Failed to submit AI job: {e}",
             "content": {
               "application/json": {
                 "schema": {
@@ -24170,7 +24170,7 @@
             }
           },
           "400": {
-            "description": "Failed to submit AI job: {e}",
+            "description": "payment must be a finite, non-negative number / Failed to submit AI job: {e}",
             "content": {
               "application/json": {
                 "schema": {
@@ -25749,9 +25749,8 @@
           },
           "payment": {
             "type": "number",
-            "minimum": 0.0,
             "title": "Payment",
-            "description": "Payment in AIT"
+            "description": "Payment in AIT (finite, non-negative)"
           },
           "parameters": {
             "anyOf": [
