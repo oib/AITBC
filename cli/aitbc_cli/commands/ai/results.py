@@ -88,14 +88,12 @@ def _refund_after_cancel(ctx, http_client: _ai.AITBCHTTPClient, result, job_id: 
   aitbc ai cancel --job-id job-123 --refund --reason 'customer requested'"""
 )
 @click.option("--job-id", required=True, help="Job ID")
-@click.option("--wallet", help="Wallet name (optional)")
-@_ai.wallet_password_options
 @click.option("--refund", is_flag=True, help="Also refund the escrowed payment after cancel")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund, reason, coordinator_url, format):
+def cancel(ctx, job_id, refund, reason, coordinator_url, format):
     """Cancel an AI job and optionally refund the payment to the customer."""
     _ai.get_config()
 
@@ -111,14 +109,33 @@ def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund,
 
         http_client = _ai.AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post(f"/v1/jobs/{job_id}/cancel")
-
-        if refund:
-            result = _refund_after_cancel(ctx, http_client, result, job_id, reason)
-
-        _ai.success(f"Job {job_id} cancelled")
-        _ai.output(result, _ai.resolve_output_format(ctx, format))
-
     except _ai.NetworkError as e:
         _ai._abort_for_network(ctx, e)
     except _ai._OPS_ERRORS as e:
         _ai.abort(ctx, f"Error cancelling job: {e}", from_exception=e)
+
+    _ai.success(f"Job {job_id} cancelled")
+
+    if refund:
+        # The cancel already landed — a refund failure must not relabel it.
+        # Report the refund separately with the manual retry command (#2558).
+        try:
+            result = _refund_after_cancel(ctx, http_client, result, job_id, reason)
+        except _ai.NetworkError as e:
+            detail = _ai._login_hint(ctx) if _ai.is_unauthorized(e) else str(e)
+            _ai.abort(
+                ctx,
+                f"Job {job_id} cancelled but the refund failed: {detail}. "
+                f"Refund manually with: aitbc market escrow refund --job-id {job_id} --reason {reason}",
+                from_exception=e,
+            )
+        except _ai._OPS_ERRORS as e:
+            detail = str(e) or type(e).__name__
+            _ai.abort(
+                ctx,
+                f"Job {job_id} cancelled but the refund failed: {detail}. "
+                f"Refund manually with: aitbc market escrow refund --job-id {job_id} --reason {reason}",
+                from_exception=e,
+            )
+
+    _ai.output(result, _ai.resolve_output_format(ctx, format))

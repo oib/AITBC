@@ -15,10 +15,6 @@ aitbc ai cancel [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--job-id` | text | — | yes | Job ID |
-| `--wallet` | text | — | no | Wallet name (optional) |
-| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
-| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
-| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--refund` | flag | `false` | no | Also refund the escrowed payment after cancel |
 | `--reason` | text | `buyer_requested` | no | Reason for refund |
 | `--coordinator-url` | text | — | no | Coordinator URL |
