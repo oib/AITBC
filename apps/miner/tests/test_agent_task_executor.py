@@ -900,3 +900,57 @@ class TestExecutorResourceBounds:
         # A different buyer has an independent budget.
         ate._account_ipfs_pin(state, "buyer2", {"payload_ref": "QmC"}, json.dumps({"size": 900}).encode())
         assert state["ipfs_usage"]["buyer2"] == 900
+
+
+class TestWalletsPermsDriftWarning:
+    """#2433: an unreadable wallet key file must surface a perms-drift
+    diagnostic (dir mode/owner), not just the generic unsigned warning."""
+
+    def test_permission_error_warns_with_dir_mode(self, tmp_path, monkeypatch, caplog):
+        import logging
+        import os
+
+        wallet_dir = tmp_path / "wallets"
+        wallet_dir.mkdir()
+        key_file = wallet_dir / "default.json"
+        key_file.write_text(json.dumps({"private_key": "0x01", "address": "0xabc"}))
+        # Strip all access — PermissionError on read_text for non-root users.
+        os.chmod(wallet_dir, 0o000)
+        monkeypatch.setenv("MINER_WALLET_KEY_FILE", str(key_file))
+        monkeypatch.setattr(ate, "_warned_wallets_perms", False)
+        monkeypatch.setattr(ate, "_warned_unsigned", False)
+        try:
+            if os.geteuid() == 0:
+                pytest.skip("root bypasses permission bits")
+            with caplog.at_level(logging.ERROR):
+                key, address = ate._signing_material()
+            assert (key, address) == (None, None)
+            drift = [r for r in caplog.records if "mode=" in r.getMessage()]
+            assert drift, "expected a wallets-perms drift diagnostic"
+            msg = drift[0].getMessage()
+            assert "chmod 750" in msg and "aitbc-wallet:aitbc-services" in msg
+            assert "0000" in msg  # observed mode rendered
+        finally:
+            os.chmod(wallet_dir, 0o700)
+
+    def test_drift_warning_fires_once(self, monkeypatch, caplog):
+        import logging
+
+        monkeypatch.setattr(ate, "_warned_wallets_perms", False)
+        with caplog.at_level(logging.ERROR):
+            ate._warn_wallets_perms("/var/lib/aitbc/wallets/default.json")
+            ate._warn_wallets_perms("/var/lib/aitbc/wallets/default.json")
+        drift = [r for r in caplog.records if "mode=" in r.getMessage()]
+        assert len(drift) == 1
+
+    def test_missing_file_keeps_generic_unsigned_path(self, monkeypatch, caplog):
+        """A nonexistent key file is NOT a perms drift — no drift diagnostic."""
+        import logging
+
+        monkeypatch.setenv("MINER_WALLET_KEY_FILE", "/nonexistent/key.json")
+        monkeypatch.setattr(ate, "_warned_wallets_perms", False)
+        monkeypatch.setattr(ate, "_warned_unsigned", False)
+        with caplog.at_level(logging.WARNING):
+            key, address = ate._signing_material()
+        assert (key, address) == (None, None)
+        assert not [r for r in caplog.records if "mode=" in r.getMessage()]

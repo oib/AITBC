@@ -36,6 +36,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -167,6 +168,7 @@ AGENT_REQ_DOMAIN = "aitbc-agent-req-v1"
 _signing_cache_inputs: tuple[Any, ...] | None = None
 _signing_cache_value: tuple[str | None, str | None] = (None, None)
 _warned_unsigned = False
+_warned_wallets_perms = False
 
 
 def _warn_unsigned_once() -> None:
@@ -178,6 +180,56 @@ def _warn_unsigned_once() -> None:
             "advisory mode only"
         )
         _warned_unsigned = True
+
+
+def _warn_wallets_perms(key_file: str) -> None:
+    """One-shot drift diagnostic for an unreadable wallet key file (#2433).
+
+    The 21 Nov incident: ``/var/lib/aitbc/wallets`` drifted to mode ``700`` and
+    the miner (group ``aitbc-services``) silently lost signing for ~9h. When the
+    key file cannot be read at all, report the directory's actual mode/owner so
+    the operator sees *why* instead of a generic unsigned warning.
+    """
+    global _warned_wallets_perms
+    if _warned_wallets_perms:
+        return
+    _warned_wallets_perms = True
+    wallet_dir = os.path.dirname(key_file) or "."
+    try:
+        st = os.stat(wallet_dir)
+        mode = f"{stat.S_IMODE(st.st_mode):04o}"
+        owner = f"uid={st.st_uid} gid={st.st_gid}"
+    except OSError as e:
+        mode, owner = "unreadable", str(e)
+    logger.error(
+        "Agent wallet key file %s is not readable — dir %s mode=%s %s. "
+        "Expected mode 750 owned aitbc-wallet:aitbc-services (setup.sh); "
+        "a drifted mode like 700 locks out group members such as the miner. "
+        "Agent traffic is UNSIGNED until fixed: chmod 750 %s && "
+        "chown aitbc-wallet:aitbc-services %s",
+        key_file,
+        wallet_dir,
+        mode,
+        owner,
+        wallet_dir,
+        wallet_dir,
+    )
+
+
+def _read_wallet_key_file(key_file: str) -> str | None:
+    """Read ``private_key`` from the wallet JSON, or None when unreadable.
+
+    A ``PermissionError`` gets the one-shot perms-drift diagnostic (#2433) —
+    the dir mode/owner is the actionable detail, not just "no key".
+    """
+    try:
+        data = json.loads(Path(key_file).read_text())
+    except PermissionError:
+        _warn_wallets_perms(key_file)
+        return None
+    except (OSError, ValueError, TypeError):
+        return None
+    return str(data["private_key"]) if data.get("private_key") else None
 
 
 def _signing_material(provider_wallet: str = "") -> tuple[str | None, str | None]:
@@ -196,14 +248,7 @@ def _signing_material(provider_wallet: str = "") -> tuple[str | None, str | None
     if inputs == _signing_cache_inputs:
         return _signing_cache_value
 
-    key = env_key or None
-    if key is None:
-        try:
-            data = json.loads(Path(key_file).read_text())
-            if data.get("private_key"):
-                key = str(data["private_key"])
-        except (OSError, ValueError, TypeError):
-            key = None
+    key = env_key or _read_wallet_key_file(key_file)
 
     if key is None:
         _warn_unsigned_once()

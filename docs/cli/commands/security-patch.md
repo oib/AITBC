@@ -2,7 +2,7 @@
 
 # `aitbc security patch`
 
-Apply safe permission fixes under the aitbc data directories. chmod 0600 on wallet/credential/audit files and chmod 0700 on aitbc directories that grant group/other access. Missing targets are skipped, chmod failures are reported per-target (never fatal), and nothing outside ``~/.aitbc`` / ``/var/lib/aitbc`` is modified.
+Apply safe permission fixes under the aitbc data directories. chmod 0600 on wallet/credential/audit files and chmod 0700 on aitbc directories that grant group/other access — except the shared service wallets dir (``/var/lib/aitbc/wallets``), which is repaired to 0750 so aitbc-services members keep traverse access (#2433). Missing targets are skipped, chmod failures are reported per-target (never fatal), and nothing outside ``~/.aitbc`` / ``/var/lib/aitbc`` is modified.
 
 ## Usage
 
