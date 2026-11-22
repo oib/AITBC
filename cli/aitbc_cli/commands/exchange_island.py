@@ -555,29 +555,85 @@ def _fetch_exchange_transactions(http_client: AITBCHTTPClient, params: dict[str,
     return rows
 
 
+_BOOK_PAGE_SIZE = 500  # the RPC clamps limit to 500
+_BOOK_MAX_PAGES = 10  # hard cap: 5000 EXCHANGE txs scanned per command
+
+
+def _live_book_orders(
+    http_client: AITBCHTTPClient,
+    island_id: str,
+    done: Any,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Paged newest->oldest EXCHANGE scan returning live (uncancelled) order payloads.
+
+    #2506: cancel rows carry no ``pair`` and a ``cancelled`` payload status,
+    so a status/pair-filtered query can never see them (#2338 needed a
+    second merge query that had its own window). Scanning the stream
+    unfiltered with ``before_id`` paging folds every cancel into
+    ``_apply_cancels``; a cancel is always newer than its order, so an
+    early stop never misses one.
+
+    ``done(live_payloads)`` is evaluated after each page — True stops the
+    scan. Returns ``(live order payloads, truncated)``; truncated is True
+    when the page cap stopped the scan with history possibly remaining.
+    """
+    rows: list[dict[str, Any]] = []
+    before_id: int | None = None
+    live: list[dict[str, Any]] = []
+    for _ in range(_BOOK_MAX_PAGES):
+        params: dict[str, Any] = {
+            "transaction_type": "EXCHANGE",
+            "island_id": island_id,
+            "limit": _BOOK_PAGE_SIZE,
+        }
+        if before_id is not None:
+            params["before_id"] = before_id
+        page = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+        if not page:
+            return live, False
+        rows.extend(page)
+        kept, _cancelled = _apply_cancels(rows)
+        live = [
+            payload
+            for row in kept
+            if isinstance((payload := row.get("payload") or row), dict)
+            and payload.get("status") == "open"
+            and payload.get("order_id")
+        ]
+        if done(live):
+            return live, False
+        ids = [tid for r in page if isinstance((tid := r.get("transaction_id")), int)]
+        if not ids or len(page) < _BOOK_PAGE_SIZE:
+            return live, False
+        before_id = min(ids)
+    return live, True
+
+
 def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit: int) -> tuple[list[Any], bool]:
     """Query open exchange orders; simulated fallback when the RPC is down.
 
     Returns ``(transactions, simulated)`` — callers MUST surface the flag so
     simulated rows are never mistaken for live order-book state (#2204).
     """
-    params = {
-        "transaction_type": "EXCHANGE",
-        "island_id": island_id,
-        "pair": pair,
-        "status": "open",
-        "limit": limit * 2,  # Get both buys and sells
-    }
-
     http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
     simulated = False
     try:
-        transactions = _fetch_exchange_transactions(http_client, params)
+        # #2506: page until the pair has `limit` live orders on each side —
+        # the old single 2x-limit window let cancelled rows eat the slots
+        # and could return far fewer than `limit` live orders.
+        def _enough(live: list[dict[str, Any]]) -> bool:
+            buys = sum(1 for p in live if p.get("pair") == pair and p.get("side") == "buy")
+            sells = sum(1 for p in live if p.get("pair") == pair and p.get("side") == "sell")
+            return buys >= limit and sells >= limit
+
+        live, truncated = _live_book_orders(http_client, island_id, _enough)
+        if truncated:
+            warning(f"Order book scan hit the {_BOOK_MAX_PAGES * _BOOK_PAGE_SIZE}-row cap — the book may be incomplete")
+        transactions = [p for p in live if p.get("pair") == pair]
     except NetworkError:
         transactions = _simulated_orderbook_transactions(pair, limit)
         simulated = True
-    transactions, _book_cancelled = _apply_cancels(transactions)
-    return [t for t in transactions if ((t.get("payload") or t).get("order_id") not in _book_cancelled)], simulated
+    return transactions, simulated
 
 
 def _split_sorted_orders(transactions) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -696,25 +752,30 @@ def rates(ctx):
         rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
-        # Query blockchain for exchange orders to calculate rates
+        # Query blockchain for exchange orders to calculate rates.
+        # #2506: one paged scan covers every pair — per-pair windows let
+        # cancels eat the slots and truncated each pair independently.
         rates_data = []
         any_simulated = False
 
-        for pair in SUPPORTED_PAIRS:
-            params = {"transaction_type": "EXCHANGE", "island_id": island_id, "pair": pair, "status": "open", "limit": 100}
+        http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+        try:
+            live, truncated = _live_book_orders(http_client, island_id, lambda _live: False)
+            if truncated:
+                warning(
+                    f"Rates scan hit the {_BOOK_MAX_PAGES * _BOOK_PAGE_SIZE}-row cap — "
+                    "order counts and best prices may be incomplete"
+                )
+        except NetworkError:
+            live = [o for pair in SUPPORTED_PAIRS for o in _simulated_orders_for_pair(pair, 100)]
+            any_simulated = True
 
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            try:
-                orders = _fetch_exchange_transactions(http_client, params)
-                orders, _rates_cancelled = _apply_cancels(orders)
-                orders = [o for o in orders if ((o.get("payload") or o).get("order_id") not in _rates_cancelled)]
-            except NetworkError:
-                orders = _simulated_orders_for_pair(pair, 100)
-                any_simulated = True
+        for pair in SUPPORTED_PAIRS:
+            orders = [o for o in live if o.get("pair") == pair]
 
             # Calculate rates from order book
-            buy_orders = [o.get("payload", o) for o in orders if (o.get("payload") or o).get("side") == "buy"]
-            sell_orders = [o.get("payload", o) for o in orders if (o.get("payload") or o).get("side") == "sell"]
+            buy_orders = [o for o in orders if o.get("side") == "buy"]
+            sell_orders = [o for o in orders if o.get("side") == "sell"]
 
             # Get best bid and ask
             best_bid = max([_as_decimal(o.get("max_price", 0)) for o in buy_orders]) if buy_orders else Decimal(0)
