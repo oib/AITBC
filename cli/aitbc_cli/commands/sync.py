@@ -195,8 +195,11 @@ def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
             hub_status,
         )
 
-    divergence = hub_status.get("divergence", "none")
-    if alert and divergence not in ("none", "N/A", "HUB_UNREACHABLE"):
+    # #2541: --alert means "page a human" — an unconfigured hub, an
+    # unreachable hub, and any real divergence all fail; only a healthy
+    # in-threshold comparison (or no --alert) exits 0.
+    divergence = hub_status.get("divergence", "none") if hub_status else "NO_HUB"
+    if alert and (not hub_status or divergence not in ("none", "N/A")):
         ctx.exit(1)
 
     _print_sync_optimization(sync_optimization, fmt)
@@ -255,7 +258,9 @@ def _hub_divergence(hub_height, hub_hash, height, block_hash, gap_threshold: int
     gap = (hub_height - height) if (hub_height is not None and height is not None) else None
     if gap is not None and gap > gap_threshold:
         return f"BEHIND_BY_{gap}"
-    if gap is not None and gap < 0:
+    # #2541: the ahead direction honours --gap-threshold too — any negative
+    # gap used to report AHEAD_BY regardless of the configured threshold.
+    if gap is not None and gap < -gap_threshold:
         return f"AHEAD_BY_{-gap}"
     if hub_height is not None and height == hub_height and hub_hash and block_hash and hub_hash != block_hash:
         return "HASH_MISMATCH"
