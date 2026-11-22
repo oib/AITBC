@@ -71,7 +71,11 @@ def _render(message: Any, format: str, disable_numparse: bool = False) -> str:
         try:
             import yaml
 
-            return cast(str, yaml.safe_dump(message, sort_keys=False, default_flow_style=False)).rstrip("\n")
+            # #2530: safe_dump can't represent Decimal/datetime/Path — the
+            # json format prints them via default=str, so normalise through
+            # the same round trip first.
+            normalised = json.loads(json.dumps(message, default=str))
+            return cast(str, yaml.safe_dump(normalised, sort_keys=False, default_flow_style=False)).rstrip("\n")
         except ImportError:
             return json.dumps(message, indent=2, default=str)
 
