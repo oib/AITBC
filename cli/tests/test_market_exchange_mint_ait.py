@@ -42,6 +42,8 @@ def _deposit(status: str = "pending", **over) -> dict:
 
 class _Config:
     api_key = "k"
+    wallet_daemon_url = "http://wallet.test:8108"
+    wallet_api_key = "wk"
     wallet_address = OPERATOR_WALLET
     chain_id = "bc-2"
     genesis_wallet_address = TREASURY

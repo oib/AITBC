@@ -26,6 +26,17 @@ logger = get_logger(__name__)
 from ._group import market
 
 
+def _exchange_client(config) -> AITBCHTTPClient:
+    """Wallet-daemon client for /v1/exchange/* — same resolution the wallet
+    commands use (``wallet_daemon_url`` + ``wallet_api_key``), never a
+    hard-coded localhost or the generic api_key (#2548)."""
+    return AITBCHTTPClient(
+        base_url=config.wallet_daemon_url,
+        timeout=10,
+        api_key=config.wallet_api_key,
+    )
+
+
 def _sign_transaction(tx_payload: dict, private_key: str) -> str:
     """Sign ``tx_payload`` the way the RPC endpoint verifies it.
 
@@ -71,7 +82,7 @@ def exchange_price(ctx):
     """Get the current ETH-AIT exchange rate."""
     try:
         config = get_config()
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
+        client = _exchange_client(config)
 
         response = client.get("/v1/exchange/price")
 
@@ -110,7 +121,7 @@ def list_deposits(ctx, status: str, limit: int):
     """List ETH deposits and their status."""
     try:
         config = get_config()
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
+        client = _exchange_client(config)
 
         response = client.get("/v1/exchange/deposits", params={"status": status, "limit": limit})
         deposits = response.get("deposits", [])
@@ -492,7 +503,7 @@ def mint_ait(ctx, deposit_id: str):
     """Mint AIT tokens for a verified ETH deposit."""
     try:
         config = get_config()
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
+        client = _exchange_client(config)
 
         deposit = _mintable_deposit(client, deposit_id)
         deposit_amount_ait = Decimal(deposit.get("amount_ait", 0))
@@ -518,6 +529,8 @@ def mint_ait(ctx, deposit_id: str):
     except NetworkError as e:
         error(f"Network error: {e}")
         raise click.Abort() from e
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error minting AIT: {e}")
         raise click.Abort() from e
@@ -531,7 +544,7 @@ def mint_ait(ctx, deposit_id: str):
 
   aitbc market exchange withdraw-eth --amount 0.1 --address 0x... --output json""",
 )
-@click.option("--amount", "amount", type=DECIMAL, help="Amount of AIT.")
+@click.option("--amount", "amount", type=DECIMAL, help="Amount of ETH (Sepolia).")
 @click.option("--address", "address", help="Blockchain address to fund.")
 @click.option(
     "--tx-hash",
@@ -731,7 +744,7 @@ def exchange_status(ctx):
     """Get the current bridge service status."""
     try:
         config = get_config()
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
+        client = _exchange_client(config)
 
         response = client.get("/v1/exchange/status")
 
@@ -749,6 +762,65 @@ def exchange_status(ctx):
         raise click.Abort() from e
 
 
+def _validate_eth_deposit_args(bridge_address: str | None, ait_address: str | None, amount: Decimal) -> str:
+    """Validate every argument that needs no wallet BEFORE touching the wallet,
+    so a bad --bridge-address is refused the same way on every host instead
+    of dying on a missing default-wallet key first (#2115). Returns the
+    resolved bridge deposit address."""
+    from web3 import Web3
+
+    if not bridge_address:
+        bridge_address = os.environ.get("BRIDGE_ETH_ADDRESS")
+    if not bridge_address:
+        error("Bridge deposit address is required: set --bridge-address or BRIDGE_ETH_ADDRESS")
+        raise click.Abort()
+    if not Web3.is_address(bridge_address):
+        error(f"Invalid bridge deposit address: {bridge_address}")
+        raise click.Abort()
+    if ait_address and not Web3.is_address(ait_address):
+        error(f"Invalid AIT recipient address: {ait_address}")
+        raise click.Abort()
+    if amount <= 0:
+        error("Amount must be greater than 0")
+        raise click.Abort()
+    return bridge_address
+
+
+def _broadcast_eth_deposit(
+    w3, *, amount: Decimal, bridge_address: str, ait_address: str, gas_limit: int, sender_address: str, private_key: str
+) -> str:
+    """Build, sign, broadcast and wait for an ETH bridge deposit.
+
+    Broadcast alone is not a deposit: the receipt must carry status 1
+    before the caller reports success (#2582). Raises click.Abort on a
+    failed receipt.
+    """
+    from web3 import Web3
+
+    value_wei = w3.to_wei(str(amount), "ether")
+    gas_price = w3.eth.gas_price
+    nonce = w3.eth.get_transaction_count(sender_address, "pending")
+
+    tx = {
+        "nonce": nonce,
+        "to": Web3.to_checksum_address(bridge_address),
+        "value": value_wei,
+        "gas": gas_limit,
+        "gasPrice": gas_price,
+        "chainId": 11155111,
+        "data": Web3.to_checksum_address(ait_address),
+    }
+    signed = w3.eth.account.sign_transaction(tx, private_key)
+    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+    tx_hash_hex = str(tx_hash.hex())
+    if getattr(receipt, "status", 0) != 1:
+        error(f"Deposit transaction {tx_hash_hex} failed on-chain (status 0)")
+        raise click.Abort()
+    return tx_hash_hex
+
+
 @exchange.command(
     name="deposit-eth",
     epilog="""Examples:
@@ -757,7 +829,7 @@ def exchange_status(ctx):
 
   aitbc market exchange deposit-eth --amount 0.1 --ait-address 0x...""",
 )
-@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of ETH (Sepolia) to deposit.")
 @click.option("--ait-address", help="AIT address that will receive minted AIT (defaults to the sending wallet address)")
 @click.option(
     "--bridge-address", default=None, help="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)"
@@ -772,23 +844,7 @@ def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: s
         eth_rpc = EthereumRPCClient()
         w3 = eth_rpc._get_web3()
 
-        # Validate every argument that needs no wallet BEFORE touching the wallet,
-        # so a bad --bridge-address is refused the same way on every host instead
-        # of dying on a missing default-wallet key first (#2115).
-        if not bridge_address:
-            bridge_address = os.environ.get("BRIDGE_ETH_ADDRESS")
-        if not bridge_address:
-            error("Bridge deposit address is required: set --bridge-address or BRIDGE_ETH_ADDRESS")
-            raise click.Abort()
-        if not Web3.is_address(bridge_address):
-            error(f"Invalid bridge deposit address: {bridge_address}")
-            raise click.Abort()
-        if ait_address and not Web3.is_address(ait_address):
-            error(f"Invalid AIT recipient address: {ait_address}")
-            raise click.Abort()
-        if amount <= 0:
-            error("Amount must be greater than 0")
-            raise click.Abort()
+        bridge_address = _validate_eth_deposit_args(bridge_address, ait_address, amount)
 
         wallet_name = ctx.obj.get("market_wallet")
         wallet_path = ctx.obj.get("market_wallet_path")
@@ -805,31 +861,30 @@ def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: s
 
         if not ait_address:
             ait_address = address
+        if private_key is None:
+            error("Wallet has no private key; cannot sign the deposit transaction")
+            raise click.Abort()
 
-        value_wei = w3.to_wei(str(amount), "ether")
-        gas_price = w3.eth.gas_price
-        nonce = w3.eth.get_transaction_count(address, "pending")
-
-        tx = {
-            "nonce": nonce,
-            "to": Web3.to_checksum_address(bridge_address),
-            "value": value_wei,
-            "gas": gas_limit,
-            "gasPrice": gas_price,
-            "chainId": 11155111,
-            "data": Web3.to_checksum_address(ait_address),
-        }
-        signed = w3.eth.account.sign_transaction(tx, private_key)
-        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        tx_hash_hex = _broadcast_eth_deposit(
+            w3,
+            amount=amount,
+            bridge_address=bridge_address,
+            ait_address=ait_address,
+            gas_limit=gas_limit,
+            sender_address=address,
+            private_key=private_key,
+        )
 
         success(f"Deposited {amount} Sepolia ETH to bridge {bridge_address}")
-        info(f"Sepolia tx hash: {tx_hash.hex()}")
+        info(f"Sepolia tx hash: {tx_hash_hex}")
         info(f"AIT recipient: {Web3.to_checksum_address(ait_address)}")
         info("The bridge monitor will mint AIT once the deposit is confirmed.")
 
     except ImportError:
         error("web3.py not installed. Install with: pip install web3")
         raise click.Abort() from None
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error depositing ETH: {e}")
         raise click.Abort() from e

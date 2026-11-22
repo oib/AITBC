@@ -14,7 +14,7 @@ aitbc market exchange withdraw-eth [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--amount` | decimal | — | no | Amount of AIT. |
+| `--amount` | decimal | — | no | Amount of ETH (Sepolia). |
 | `--address` | text | — | no | Blockchain address to fund. |
 | `--tx-hash` | text | — | no | Re-check a previously broadcast withdrawal hash instead of sending a new one |
 
