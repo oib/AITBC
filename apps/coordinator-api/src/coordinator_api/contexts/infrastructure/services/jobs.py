@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import math
 import os
 
 from datetime import UTC, datetime, timedelta
@@ -33,7 +35,9 @@ logger = get_logger(__name__)
 
 # Expected failure surface for the job dispatch/execute helpers:
 # filesystem/JSON, data-shape (incl. pydantic ValidationError, a ValueError),
-# runtime, SQLAlchemy session errors, the lazy GPURegistry import inside
+# runtime (incl. ArithmeticError/OverflowError from unbounded duration
+# math on legacy rows, #2490), SQLAlchemy session errors, the lazy
+# GPURegistry import inside
 # _provider_binding_blocks_dispatch, and list indexing. BaseExceptions
 # still propagate; business-logic ValueErrors are still re-raised after
 # the FAILED transition in execute_job.
@@ -44,6 +48,7 @@ _OPS_ERRORS = (
     IndexError,
     TypeError,
     AttributeError,
+    ArithmeticError,
     RuntimeError,
     ImportError,
     SQLAlchemyError,
@@ -213,16 +218,55 @@ _GPU_COMPUTE_RENTAL_SLACK_SECONDS = int(
     os.getenv("COORDINATOR_GPU_JOB_RENTAL_SLACK_SECONDS", str(_GPU_COMPUTE_CLAIM_SLACK_SECONDS))
 )
 
+# #2490: the payload duration is buyer-controlled and feeds timedelta() in
+# the claim path — an unbounded value overflows datetime arithmetic
+# (poison-pilling every acquire_next_job poll) or pushes expires_at decades
+# out, producing an immortal RUNNING rental that outlives the job TTL
+# backstop. Bound it to the same ceiling the miner enforces for execution
+# (GPU_COMPUTE_MAX_SECONDS, default 3600) via a coordinator-side setting.
+_GPU_COMPUTE_MAX_DURATION_SECONDS = max(1, int(os.getenv("COORDINATOR_GPU_JOB_MAX_DURATION_SECONDS", "3600")))
 
-def _payload_duration_seconds(payload: dict[str, Any]) -> float:
-    """Rental seconds from a job payload: ``duration_seconds`` or ``duration_hours``."""
+
+def _raw_payload_duration_seconds(payload: dict[str, Any]) -> float | None:
+    """Uncapped rental seconds from a payload, or None when unparseable.
+
+    Non-finite floats (nan/inf) pass through untouched — the submit-side
+    validator rejects them while the deadline math treats them as absent.
+    """
     raw = payload.get("duration_seconds")
     if raw is None:
         raw = (payload.get("duration_hours") or 0) * 3600
     try:
         return float(raw)
     except (TypeError, ValueError):
+        return None
+
+
+def _gpu_compute_duration_error(payload: dict[str, Any]) -> str | None:
+    """Submit-side rejection reason for an out-of-bounds gpu_compute duration."""
+    value = _raw_payload_duration_seconds(payload)
+    if value is None:
+        return None
+    if not math.isfinite(value):
+        return "gpu_compute duration must be a finite number of seconds"
+    if value > _GPU_COMPUTE_MAX_DURATION_SECONDS:
+        return f"gpu_compute duration exceeds the maximum of {_GPU_COMPUTE_MAX_DURATION_SECONDS} seconds"
+    return None
+
+
+def _payload_duration_seconds(payload: dict[str, Any]) -> float:
+    """Rental seconds from a job payload: ``duration_seconds`` or ``duration_hours``.
+
+    Sanitised for the deadline math (#2490): unparseable and non-finite
+    values read as 0 (no extension), and finite values clamp to
+    ``_GPU_COMPUTE_MAX_DURATION_SECONDS`` so rows stored before the
+    submit-side bound existed can neither overflow ``timedelta`` nor
+    stretch a rental past the job TTL.
+    """
+    value = _raw_payload_duration_seconds(payload)
+    if value is None or not math.isfinite(value):
         return 0.0
+    return min(value, _GPU_COMPUTE_MAX_DURATION_SECONDS)
 
 
 def _gpu_compute_claim_expiry(job: Job) -> datetime | None:
