@@ -97,11 +97,17 @@ class TestWorkflowCommands:
         assert result.exit_code == 0, result.output
         assert "gpu-market" in result.output
 
+    @patch("httpx.get")
     @patch("aitbc_cli.commands.workflow.get_config")
-    def test_workflow_run_dry_run(self, mock_get_config, runner):
+    def test_workflow_run_dry_run(self, mock_get_config, mock_get, runner):
         """``workflow run --dry-run`` prints a dry-run message without executing."""
         mock_config = mock_get_config.return_value
         mock_config.coordinator_api_url = "http://localhost:8203"
+
+        # #2603: dry-run verifies the workflow exists before claiming success.
+        lookup = MagicMock()
+        lookup.status_code = 200
+        mock_get.return_value = lookup
 
         from aitbc_cli.commands.workflow import workflow
 
@@ -170,7 +176,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["status", "--workflow-name", "exec-123"])
+        result = runner.invoke(workflow, ["status", "--execution-id", "exec-123"])
 
         assert result.exit_code == 0, result.output
         assert "running" in result.output
@@ -189,7 +195,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["stop", "--workflow-name", "exec-123"])
+        result = runner.invoke(workflow, ["stop", "--workflow-name", "test-workflow", "--execution-id", "exec-123"])
 
         assert result.exit_code == 0, result.output
         assert "Cancelled" in result.output
