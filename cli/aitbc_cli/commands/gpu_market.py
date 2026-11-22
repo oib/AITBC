@@ -3,7 +3,7 @@ Local GPU service commands for hardware management
 """
 
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import click
 import httpx
@@ -49,6 +49,26 @@ def gpu():
 def _gpu_hint(config) -> str:
     """Loopback hint suffix for GPU-service failures (CLI-LOOPBACK-1)."""
     return loopback_service_hint(getattr(config, "gpu_service_url", ""), "GPU")
+
+
+def _price_per_hour(raw: object) -> Decimal:
+    """Validated price from a JSON scalar or a ``{"price_per_hour": N}`` object (#2564).
+
+    Rejects non-numeric values (``Decimal`` raises ``InvalidOperation``,
+    not ``ValueError``), NaN/Infinity, negatives, and dicts with no
+    ``price_per_hour`` key — all of which used to reach the service.
+    """
+    if isinstance(raw, dict):
+        if "price_per_hour" not in raw:
+            raise ValueError("pricing JSON has no 'price_per_hour' key")
+        raw = raw["price_per_hour"]
+    try:
+        price = Decimal(str(raw))
+    except (InvalidOperation, ValueError, TypeError) as e:
+        raise ValueError(f"Invalid pricing value: {raw!r}") from e
+    if not price.is_finite() or price < 0:
+        raise ValueError("pricing must be a finite, non-negative number")
+    return price
 
 
 @gpu.command(
@@ -155,16 +175,13 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
         if pricing:
             try:
                 pricing_data = json.loads(pricing)
-                if isinstance(pricing_data, dict):
-                    update_data["price_per_hour"] = pricing_data.get("price_per_hour")
-                else:
-                    update_data["price_per_hour"] = str(Decimal(str(pricing_data)))
             except json.JSONDecodeError:
-                # Try as direct number
-                try:
-                    update_data["price_per_hour"] = str(Decimal(pricing))
-                except ValueError:
-                    abort(ctx, "Invalid pricing value")
+                # Not JSON — treat the whole value as a bare number.
+                pricing_data = pricing
+            try:
+                update_data["price_per_hour"] = str(_price_per_hour(pricing_data))
+            except ValueError as e:
+                abort(ctx, str(e))
         if status:
             update_data["status"] = status
 
