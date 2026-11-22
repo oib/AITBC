@@ -12,6 +12,7 @@ Complete command-line interface for AI compute miner operations including:
 import json
 import os
 import time
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -364,73 +365,67 @@ def update_capabilities(
         return {"action": "update", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
+# Period spellings accepted by check_earnings → days of history.
+_EARNINGS_PERIOD_DAYS = {"day": 1, "24h": 1, "week": 7, "7d": 7, "month": 30, "30d": 30}
+
+
+def _earnings_error(miner_id: str, period: str, status: str) -> dict:
+    """Failure payload for check_earnings — no fabricated zero totals (#2565)."""
+    return {"action": "earnings", "miner_id": miner_id, "period": period, "status": status}
+
+
 def check_earnings(
     miner_id: str, api_key: str = DEFAULT_API_KEY, coordinator_url: str = DEFAULT_COORDINATOR_URL, period: str = "all"
 ) -> dict | None:
-    """Check miner earnings"""
+    """Check miner earnings via POST /v1/miners/{id}/earnings (#2565).
+
+    The route is POST-only; the old GET on /jobs returned 405 and the
+    caller reported 0.00 earnings with a failure string.
+    """
+    headers = {"X-API-Key": api_key}
+    params: dict[str, str] = {}
+    days = _EARNINGS_PERIOD_DAYS.get(period)
+    if days is not None:
+        params["from_time"] = (datetime.now() - timedelta(days=days)).isoformat()
+
     try:
-        from datetime import datetime, timedelta
-
-        import httpx
-
-        # Query coordinator API for completed jobs and payments
-        headers = {"X-API-Key": api_key}
-
-        # Calculate time period filter
-        time_filter = None
-        if period == "24h":
-            time_filter = (datetime.now() - timedelta(hours=24)).isoformat()
-        elif period == "7d":
-            time_filter = (datetime.now() - timedelta(days=7)).isoformat()
-        elif period == "30d":
-            time_filter = (datetime.now() - timedelta(days=30)).isoformat()
-
-        # Query completed jobs for the miner
-        response = httpx.get(
-            f"{coordinator_url}/v1/miners/{miner_id}/jobs",
+        response = requests.post(
+            f"{coordinator_url}/v1/miners/{miner_id}/earnings",
             headers=headers,
-            params={"status": "completed", "since": time_filter} if time_filter else {},
+            params=params,
+            timeout=30,
         )
+    except requests.exceptions.ConnectionError as e:
+        return _earnings_error(miner_id, period, f"❌ Connection error: {e}")
+    except requests.exceptions.Timeout as e:
+        return _earnings_error(miner_id, period, f"❌ Request timeout: {e}")
+    except requests.exceptions.RequestException as e:
+        return _earnings_error(miner_id, period, f"❌ Request failed: {e}")
 
-        if response.status_code != 200:
-            return {  # not-money: demo/simulation value, not a live amount
-                "action": "earnings",
-                "miner_id": miner_id,
-                "period": period,
-                "status": f"❌ Failed to query earnings: {response.text}",
-                "total_earnings": 0.0,
-                "jobs_completed": 0,
-                "average_payment": 0.0,
-            }
+    if response.status_code != 200:
+        return _earnings_error(miner_id, period, f"❌ Failed to query earnings: HTTP {response.status_code}")
 
-        jobs_data = response.json()
-        jobs = jobs_data.get("jobs", [])
+    try:
+        data = response.json()
+    except ValueError as e:
+        return _earnings_error(miner_id, period, f"❌ Invalid response from server: {e}")
 
-        # Calculate earnings from completed jobs
-        total_earnings = 0.0  # not-money: demo/simulation value, not a live amount
-        jobs_completed = len(jobs)
+    total = Decimal(str(data.get("total_earnings") or "0"))
+    completed = int(data.get("completed_jobs") or 0)
+    average = str(total / completed) if completed > 0 else "0"
 
-        for job in jobs:
-            payment_amount = job.get("payment_amount", 0)
-            total_earnings += payment_amount
-
-        average_payment = (
-            (total_earnings / jobs_completed) if jobs_completed > 0 else 0.0
-        )  # not-money: demo/simulation value, not a live amount
-
-        return {
-            "action": "earnings",
-            "miner_id": miner_id,
-            "period": period,
-            "status": "📊 Earnings calculated",
-            "total_earnings": total_earnings,
-            "jobs_completed": jobs_completed,
-            "average_payment": average_payment,
-            "currency": "AIT",
-        }
-
-    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
-        return {"action": "earnings", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
+    return {
+        "action": "earnings",
+        "miner_id": miner_id,
+        "period": period,
+        "status": "📊 Earnings calculated",
+        "total_earnings": str(total),
+        "pending_earnings": str(data.get("pending_earnings") or "0"),
+        "paid_earnings": str(data.get("paid_earnings") or "0"),
+        "jobs_completed": completed,
+        "average_payment": average,
+        "currency": data.get("currency") or "AITBC",
+    }
 
 
 def list_market_offers(
