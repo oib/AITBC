@@ -876,11 +876,34 @@ def _resolve_download_cid(
     access_key: str | None,
     access_secret: str | None,
     cid: str | None,
+    *,
+    signing: tuple[str, str] | None = None,
 ) -> str | None:
     """Resolve the CID to download from a market rental or access token."""
     if rental_id:
+        # #2515: the job access route no longer serves any user-tier key —
+        # send the job's access credential when the caller has it, and a
+        # buyer/provider wallet signature when a signable wallet resolved.
+        headers: dict[str, str] = {}
+        params: dict[str, Any] | None = None
+        if access_key and access_secret:
+            headers["X-Access-Key"] = access_key
+            headers["X-Access-Secret"] = access_secret
+        if signing:
+            wallet_address, private_key = signing
+            chain_id = get_chain_id()
+            issued_at = int(time.time())
+            route = f"/v1/market/jobs/{rental_id}/access"
+            params = {
+                "signer_address": wallet_address,
+                "chain_id": chain_id,
+                "issued_at": issued_at,
+                "signature": sign_transaction_data(
+                    jobs_request_message(wallet_address, chain_id, issued_at, route), private_key
+                ),
+            }
         try:
-            result = _market_client().get(f"/v1/market/jobs/{rental_id}/access")
+            result = _market_client().get(f"/v1/market/jobs/{rental_id}/access", params=params, headers=headers or None)
             cid = _apply_access_result(ipfs_api, result, cid)
         except NetworkError as e:
             warning(f"Could not resolve rental {rental_id}: {e}")
@@ -980,7 +1003,20 @@ def download(
     # ipfs_api may be the provider's loopback address or a stale endpoint.
     ipfs_api = _resolve_ipfs_api({})
 
-    cid = _resolve_download_cid(ipfs_api, rental_id, access_key, access_secret, cid)
+    # #2515: the job access route requires the job credential or a party
+    # wallet signature — resolve a signable wallet best-effort; callers
+    # who only hold --access-key/--access-secret still authenticate via
+    # the credential headers.
+    signing: tuple[str, str] | None = None
+    if rental_id:
+        try:
+            wallet_address, private_key, _wallet_name = get_market_wallet(ctx)
+            if wallet_address and private_key:
+                signing = (wallet_address, private_key)
+        except Exception:  # noqa: BLE001 - wallet resolution may abort(); signing is best-effort, the credential path still works
+            signing = None
+
+    cid = _resolve_download_cid(ipfs_api, rental_id, access_key, access_secret, cid, signing=signing)
 
     if not cid:
         error("Provide a CID, --rental-id, or --access-key/--access-secret")

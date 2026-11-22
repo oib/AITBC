@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 
-from ..deps import _is_market_admin, get_market_service, require_market_api_key, require_market_operator_key
+from ..deps import _is_market_admin, _is_operator, get_market_service, require_market_api_key, require_market_operator_key
 from ..gates import (
     _alias_claim_signature_gate,
     _billing_access_gate,
@@ -399,20 +399,34 @@ async def refund_market_job_payment(
 async def get_market_job_access(
     job_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
+    request: Request,
     authenticated: Annotated[dict[str, Any], Depends(require_market_api_key)],
+    signer_address: str | None = None,
+    chain_id: str | None = None,
+    issued_at: int | None = None,
+    signature: str | None = None,
+    x_access_key: str | None = Header(default=None),
+    x_access_secret: str | None = Header(default=None),
 ) -> Any:
     """Return the access metadata for a market job (customer only).
 
     access_secret is no longer returned: it is stored as a digest, so the
     plaintext cannot be recovered here — the customer receives it once in
     the CLI output at purchase time.
+
+    #2515: the user-tier market key is distributed, so it alone must not
+    read another job's cid/ipfs_api/access_key. Operator credential, the
+    job's own access credential (``X-Access-Key`` + ``X-Access-Secret``),
+    or a wallet signature from the job's buyer or provider — the same
+    parties ``GET /v1/market/jobs/{id}`` trusts, minus the key-holder
+    shortcut this route never should have had.
     """
     try:
         logger.info("GET /v1/market/jobs/%s/access called", job_id)
         job = await svc.get_market_job(job_id)
         if not job:
             return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-        return {
+        metadata = {
             "cid": job.get("payload", {}).get("cid"),
             "ipfs_api": job.get("payload", {}).get("ipfs_api"),
             "public_endpoint": job.get("payload", {}).get("public_endpoint"),
@@ -420,6 +434,26 @@ async def get_market_job_access(
             "expires_at": job.get("expires_at"),
             "size": job.get("payload", {}).get("size"),
         }
+        if _is_operator(request):
+            return metadata
+        payload = job.get("payload") or {}
+        if x_access_key or x_access_secret:
+            if job.get("access_key") == x_access_key and _secret_matches(
+                str(payload.get("access_secret") or ""), x_access_secret or ""
+            ):
+                return metadata
+        signer, error_response = _signed_jobs_request(
+            route=f"/v1/market/jobs/{job_id}/access",
+            signer_address=signer_address,
+            chain_id=chain_id,
+            issued_at=issued_at,
+            signature=signature,
+        )
+        if error_response is not None:
+            return error_response
+        if signer and canonical_address(signer) in _job_party_addresses(job):
+            return metadata
+        return JSONResponse(status_code=403, content={"error": "not authorized for this job's access metadata"})
     except Exception as e:
         logger.error("Error in GET /v1/market/jobs/%s/access: %s: %s", job_id, type(e).__name__, str(e))
         raise

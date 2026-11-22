@@ -441,3 +441,99 @@ def test_pin_confirm_wrong_provider_is_403(client: TestClient) -> None:
     }
     response = client.post(route, json=body)
     assert response.status_code == 403
+
+
+# --- job access route party gate (#2515) -------------------------------------
+
+
+@pytest.fixture
+def market_api_keys(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """Arm both key tiers the way production runs them.
+
+    ``require_market_api_key`` authenticates via the authenticator
+    singletons; ``_is_operator`` reads the same objects plus
+    ``settings.auth_enabled`` — all four must agree or the gate sees an
+    auth-disabled deployment and waves everyone through.
+    """
+    from market_service import main as market_main
+
+    monkeypatch.setattr(settings, "auth_enabled", True)
+    monkeypatch.setattr(settings, "api_key", "test-market-key")
+    monkeypatch.setattr(settings, "operator_api_key", "test-operator-key")
+    monkeypatch.setattr(market_main._market_user_key_auth, "auth_enabled", True)
+    monkeypatch.setattr(market_main._market_user_key_auth, "expected_key", "test-market-key")
+    monkeypatch.setattr(market_main._market_operator_key_auth, "auth_enabled", True)
+    monkeypatch.setattr(market_main._market_operator_key_auth, "expected_key", "test-operator-key")
+    return {"X-Api-Key": "test-market-key"}
+
+
+def _access_route(job: dict[str, Any]) -> str:
+    return f"/v1/market/jobs/{job['job_id']}/access"
+
+
+def test_job_access_user_key_alone_is_403(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    """#2515 repro: any holder of the distributed user-tier key could read
+    cid/ipfs_api/access_key for any job — now refused."""
+    job = _seed_ipfs_job()
+    response = client.get(_access_route(job), headers=market_api_keys)
+    assert response.status_code == 403
+
+
+def test_job_access_operator_key_gets_metadata(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    response = client.get(_access_route(job), headers={"X-Api-Key": "test-operator-key"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cid"] == "QmSec4"
+    assert body["access_key"] == "rental-ak-sec4"
+    assert "access_secret" not in body
+
+
+def test_job_access_credential_gets_metadata(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    headers = {
+        **market_api_keys,
+        "X-Access-Key": "rental-ak-sec4",
+        "X-Access-Secret": "rental-secret-sec4",
+    }
+    response = client.get(_access_route(job), headers=headers)
+    assert response.status_code == 200
+    assert response.json()["cid"] == "QmSec4"
+
+    wrong = client.get(
+        _access_route(job),
+        headers={**market_api_keys, "X-Access-Key": "rental-ak-sec4", "X-Access-Secret": "nope"},
+    )
+    assert wrong.status_code == 403
+
+
+def test_job_access_signed_party_gets_metadata(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    route = _access_route(job)
+    provider = _address(_TEST_PRIVATE_KEY)
+    params = _signed_params(provider, route)
+    response = client.get(route, params=params, headers=market_api_keys)
+    assert response.status_code == 200
+    assert response.json()["cid"] == "QmSec4"
+
+    buyer = _address(_OTHER_PRIVATE_KEY)
+    buyer_params = _signed_params(buyer, route, private_key=_OTHER_PRIVATE_KEY)
+    buyer_response = client.get(route, params=buyer_params, headers=market_api_keys)
+    assert buyer_response.status_code == 200
+
+
+def test_job_access_foreign_signer_is_403(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    route = _access_route(job)
+    foreign = "0x" + "66" * 32
+    params = _signed_params(_address(foreign), route, private_key=foreign)
+    response = client.get(route, params=params, headers=market_api_keys)
+    assert response.status_code == 403
+
+
+def test_job_access_bad_signature_is_403(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    route = _access_route(job)
+    params = _signed_params(_address(_TEST_PRIVATE_KEY), route, issued_at=int(time.time()) - 3600)
+    response = client.get(route, params=params, headers=market_api_keys)
+    assert response.status_code == 403

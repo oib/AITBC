@@ -2027,7 +2027,7 @@
     "/v1/market/jobs/{job_id}/access": {
       "get": {
         "summary": "Get Market Job Access",
-        "description": "Return the access metadata for a market job (customer only).\n\naccess_secret is no longer returned: it is stored as a digest, so the\nplaintext cannot be recovered here \u2014 the customer receives it once in\nthe CLI output at purchase time.",
+        "description": "Return the access metadata for a market job (customer only).\n\naccess_secret is no longer returned: it is stored as a digest, so the\nplaintext cannot be recovered here \u2014 the customer receives it once in\nthe CLI output at purchase time.\n\n#2515: the user-tier market key is distributed, so it alone must not\nread another job's cid/ipfs_api/access_key. Operator credential, the\njob's own access credential (``X-Access-Key`` + ``X-Access-Secret``),\nor a wallet signature from the job's buyer or provider \u2014 the same\nparties ``GET /v1/market/jobs/{id}`` trusts, minus the key-holder\nshortcut this route never should have had.",
         "operationId": "get_market_job_access_v1_market_jobs__job_id__access_get",
         "parameters": [
           {
@@ -2037,6 +2037,102 @@
             "schema": {
               "type": "string",
               "title": "Job Id"
+            }
+          },
+          {
+            "name": "signer_address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signer Address"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          },
+          {
+            "name": "issued_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issued At"
+            }
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signature"
+            }
+          },
+          {
+            "name": "x-access-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Access-Key"
+            }
+          },
+          {
+            "name": "x-access-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Access-Secret"
             }
           }
         ],
@@ -2057,6 +2153,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not authorized for this job's access metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
