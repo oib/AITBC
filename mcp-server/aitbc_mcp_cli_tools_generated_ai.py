@@ -515,7 +515,10 @@ def aitbc_ai_submit(
         float | None, Field(description="Minimum provider reputation score (0-1) required for this job")
     ] = None,
     zk_proof_required: Annotated[bool | None, Field(description="Require a ZK receipt proof before escrow release")] = None,
-    confidential: Annotated[bool | None, Field(description="Mark this job as confidential")] = None,
+    confidential: Annotated[
+        bool | None,
+        Field(description="Mark this job as confidential (unsupported: rejected — TEE attestation removed in #2375)"),
+    ] = None,
     auto_reinvest_pct: Annotated[
         float | None, Field(description="Percentage of released payment to auto-stake as reinvestment")
     ] = None,

@@ -5,8 +5,16 @@ Shared types and enums for the AITBC Coordinator API
 from decimal import Decimal
 
 from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+# Constraint keys the coordinator honored via TEE attestation before #2375
+# removed the enclave machinery. Accepting them silently would be a fail-open
+# privacy claim — the prompt and result travel to the provider like any other
+# job — so job creation rejects them outright (see Constraints below).
+RETIRED_CONSTRAINT_KEYS = frozenset({"tee_attestation_required", "tee_enclave_id", "required_enclave_measurement"})
+CONFIDENTIAL_UNSUPPORTED_MSG = "confidential/TEE jobs are not supported: TEE attestation was removed in #2375"
 
 
 class JobState(StrEnum):
@@ -50,6 +58,36 @@ def job_state_filter_help() -> str:
 
 class Constraints(BaseModel):
     model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_retired_constraints(cls, data: Any) -> Any:
+        """Fail closed on confidential/TEE claims (#2474).
+
+        ``extra="ignore"`` would otherwise drop the removed ``tee_*`` keys and
+        ``confidential: true`` has no consumer, so a privacy request would be
+        accepted and dispatched as an ordinary job. Reject at validation so
+        the API answers 422. Already-built instances pass through, and
+        ``from_record`` sanitizes legacy stored rows.
+        """
+        if isinstance(data, Constraints) or not isinstance(data, dict):
+            return data
+        if RETIRED_CONSTRAINT_KEYS & data.keys() or data.get("confidential"):
+            raise ValueError(CONFIDENTIAL_UNSUPPORTED_MSG)
+        return data
+
+    @classmethod
+    def from_record(cls, raw: dict[str, Any]) -> "Constraints":
+        """Rehydrate constraints stored on a job row.
+
+        Rows written before #2375 may carry confidential/TEE keys that
+        creation now rejects; strip them so reads and dispatch of legacy jobs
+        keep working.
+        """
+        cleaned = {k: v for k, v in raw.items() if k not in RETIRED_CONSTRAINT_KEYS}
+        if cleaned.get("confidential"):
+            cleaned["confidential"] = False
+        return cls(**cleaned)
 
     gpu: str | None = None
     cuda: str | None = None
