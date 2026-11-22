@@ -22,7 +22,7 @@ from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
 from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, post_signed_resolved, resolve_rpc_url
-from ..utils.tx_history import scan_transactions_for_payload_id
+from ..utils.tx_history import pending_protocol_matches, pending_tx_type, scan_transactions_for_payload_id
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -237,6 +237,23 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
         deadline_height = (tx.get("payload") or {}).get("deadline_height")
         if deadline_height is not None:
             break
+    # #2457: a queued-but-unsealed BOUNTY_* transfer is invisible to the
+    # sealed scan above — surface it from the mempool so `state` can say
+    # pending|sealed instead of reading as absent until the next block.
+    pending: dict[str, list[dict[str, Any]]] = {}
+    pending_error = False
+    try:
+        for row in pending_protocol_matches(
+            client,
+            tx_types=("BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND"),
+            payload_key="bounty_id",
+            payload_id=bounty_id,
+            chain_id=chain_id,
+        ):
+            pending.setdefault(str(pending_tx_type(row)), []).append(row)
+    except _OPS_ERRORS:
+        pending_error = True
+    state = "sealed" if found else ("pending" if pending else None)
     output(
         # #2451: `found` distinguishes "no BOUNTY_* rows for this id" from
         # a known bounty — an empty transactions map alone was ambiguous.
@@ -247,7 +264,10 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
             "found": bool(found),
             "truncated": truncated,
             "deadline_height": deadline_height,
+            "state": state,
+            "pending_lookup_failed": pending_error,
             "transactions": found,
+            "pending_transactions": pending,
         },
         "json" if as_json else resolve_output_format(ctx),
         title=f"Bounty {bounty_id}",
