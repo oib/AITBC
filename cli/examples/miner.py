@@ -5,6 +5,7 @@ AITBC Miner CLI Tool - Register, poll for jobs, and submit results
 
 import argparse
 import json
+import os
 import time
 from datetime import UTC, datetime
 
@@ -12,7 +13,7 @@ import httpx
 
 # Configuration
 DEFAULT_COORDINATOR = "http://localhost:8000"
-DEFAULT_API_KEY = "${MINER_API_KEY}"
+DEFAULT_API_KEY = os.environ.get("MINER_API_KEY")
 DEFAULT_MINER_ID = "cli-miner"
 
 
@@ -93,14 +94,14 @@ class AITBCMiner:
 
     def send_heartbeat(self) -> bool:
         """Send heartbeat to coordinator"""
+        # This example measures nothing: report only what is actually known
+        # instead of invented GPU figures.
         heartbeat_data = {
             "status": "ONLINE",
             "inflight": 0,
             "metadata": {
                 "last_seen": datetime.now(UTC).isoformat(),
-                "gpu_utilization": 75,
-                "gpu_memory_used": 8000,
-                "gpu_temperature": 65,
+                "mock": True,
             },
         }
 
@@ -119,7 +120,7 @@ class AITBCMiner:
 
     def mine_continuous(self, max_jobs: int | None = None, simulate_work: bool = True):
         """Continuously mine jobs"""
-        print("⛏️  Starting continuous mining...")
+        print("⛏️  Starting continuous mining (MOCK miner — canned results, no real work)...")
         print(f"   Miner ID: {self.miner_id}")
         print(f"   Max jobs: {max_jobs or 'unlimited'}")
         print()
@@ -140,18 +141,17 @@ class AITBCMiner:
                         print("⚙️  Processing job...")
                         time.sleep(2)  # Simulate work
 
-                    # Submit result
                     result = {
                         "status": "completed",
-                        "output": f"Job {job['job_id']} processed by {self.miner_id}",
+                        "output": f"Job {job['job_id']} processed by {self.miner_id} (mock result)",
                         "execution_time_ms": 2000,
                     }
 
-                    metrics = {"compute_time": 2.0, "aitbc_earned": 10.0}
-
-                    if self.submit_result(job["job_id"], result, metrics):
+                    # No fabricated metrics: this example measures nothing, so
+                    # it must not claim compute time or earnings it never had.
+                    if self.submit_result(job["job_id"], result):
                         jobs_completed += 1
-                        print("💰 Earned 10 AITBC!")
+                        print("📤 Mock result submitted (no earnings claimed)")
                         print(f"   Total jobs completed: {jobs_completed}")
 
                         # Check if this job is now a block with proposer
@@ -172,7 +172,7 @@ class AITBCMiner:
 def main():
     parser = argparse.ArgumentParser(description="AITBC Miner CLI")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
-    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
+    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key (or MINER_API_KEY env var)")
     parser.add_argument("--miner-id", default=DEFAULT_MINER_ID, help="Miner ID")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
@@ -199,6 +199,9 @@ def main():
     if not args.command:
         parser.print_help()
         return
+
+    if not args.api_key:
+        parser.error("--api-key is required (or set the MINER_API_KEY environment variable)")
 
     miner = AITBCMiner(args.url, args.api_key, args.miner_id)
 

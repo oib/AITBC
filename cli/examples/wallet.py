@@ -22,8 +22,12 @@ class Wallet:
             try:
                 with open(self.wallet_file) as f:
                     return json.load(f)  # type: ignore[no-any-return]
-            except (OSError, json.JSONDecodeError):
-                pass
+            except (OSError, json.JSONDecodeError) as e:
+                # Never silently replace a damaged wallet: the next save()
+                # would overwrite the only copy of the ledger.
+                raise SystemExit(
+                    f"Wallet file {self.wallet_file} is unreadable ({e}); fix or remove it manually before continuing"
+                ) from e
 
         # Create new wallet
         return {
@@ -34,12 +38,17 @@ class Wallet:
         }
 
     def save(self):
-        """Save wallet to file"""
-        with open(self.wallet_file, "w") as f:
+        """Save wallet to file atomically"""
+        tmp_file = self.wallet_file + ".tmp"
+        with open(tmp_file, "w") as f:
             json.dump(self.data, f, indent=2)
+        os.replace(tmp_file, self.wallet_file)
 
     def add_earnings(self, amount: float, job_id: str, description: str = ""):
         """Add earnings from completed job"""
+        if not amount > 0:
+            print("❌ Amount must be a positive number!")
+            return
         transaction = {
             "type": "earn",
             "amount": amount,
@@ -57,6 +66,9 @@ class Wallet:
 
     def spend(self, amount: float, description: str):
         """Spend tokens"""
+        if not amount > 0:
+            print("❌ Amount must be a positive number!")
+            return False
         if self.data["balance"] < amount:
             print("❌ Insufficient balance!")
             print(f"   Balance: {self.data['balance']} tokens")

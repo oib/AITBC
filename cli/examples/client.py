@@ -4,12 +4,13 @@ AITBC Client CLI Tool - Submit jobs and check status
 """
 
 import argparse
+import os
 
 import httpx
 
 # Configuration
 DEFAULT_COORDINATOR = "http://localhost:8000"
-DEFAULT_API_KEY = "${CLIENT_API_KEY}"
+DEFAULT_API_KEY = os.environ.get("CLIENT_API_KEY")
 
 
 class AITBCClient:
@@ -108,7 +109,7 @@ class AITBCClient:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AITBC Client CLI")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
-    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
+    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key (or CLIENT_API_KEY env var)")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -157,7 +158,7 @@ def _cmd_submit(client: AITBCClient, args) -> None:
     if job_id:
         print("✅ Job submitted successfully!")
         print(f"   Job ID: {job_id}")
-        print(f"   Track with: python3 cli/client.py status {job_id}")
+        print(f"   Track with: python3 cli/examples/client.py status {job_id}")
 
 
 def _cmd_status(client: AITBCClient, args) -> None:
@@ -283,6 +284,9 @@ def main():
     if not args.command:
         parser.print_help()
         return
+
+    if not args.api_key:
+        parser.error("--api-key is required (or set the CLIENT_API_KEY environment variable)")
 
     client = AITBCClient(args.url, args.api_key)
     handler = _COMMANDS.get(args.command)
