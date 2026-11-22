@@ -844,9 +844,18 @@ def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
         if not bridge:
             raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
 
-        # Parse epoch from query params if provided
+        # Parse epoch from query params if provided (#2635): a non-integer
+        # used to surface as a 500 via the generic handler; negative epochs
+        # are meaningless. Both are client errors → 400.
         epoch_str = request.query_params.get("epoch")
-        epoch = int(epoch_str) if epoch_str else None
+        epoch: int | None = None
+        if epoch_str:
+            try:
+                epoch = int(epoch_str)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="epoch must be an integer") from None
+            if epoch < 0:
+                raise HTTPException(status_code=400, detail="epoch must be non-negative")
 
         vset = bridge.get_validator_set(chain_id, epoch)
         if vset is None:
