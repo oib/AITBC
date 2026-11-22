@@ -53,7 +53,8 @@ def aitbc_script_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_script_run(
     script_path: Annotated[str, Field(description="Path to script file")],
-    args: Annotated[str | None, Field(description="Script arguments")] = None,
+    args: Annotated[str | None, Field(description="Script arguments (shell-quoted, e.g. '--verbose \"a b\"')")] = None,
+    timeout_opt: Annotated[float | None, Field(description="Kill the script after N seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -64,7 +65,7 @@ def aitbc_script_run(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"script_path": "script-path", "args": "args"},
+        values={"script_path": "script-path", "args": "args", "timeout_opt": "timeout"},
     )
     args = None
     target = _host_for_role(role, host)

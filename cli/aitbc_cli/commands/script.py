@@ -28,22 +28,30 @@ def script():
   aitbc script run --script-path /opt/aitbc/scripts/setup.sh --args '--verbose'"""
 )
 @click.option("--script-path", required=True, help="Path to script file")
-@click.option("--args", help="Script arguments")
+@click.option("--args", help="Script arguments (shell-quoted, e.g. '--verbose \"a b\"')")
+@click.option("--timeout", type=float, default=None, help="Kill the script after N seconds")
 @click.pass_context
-def run(ctx, script_path, args):
+def run(ctx, script_path, args, timeout):
     """Run a script with optional arguments."""
-    try:
-        import subprocess
+    import shlex
+    import subprocess
 
+    try:
         cmd = [script_path]
         if args:
-            cmd.extend(args.split())
-        result = subprocess.run(cmd, capture_output=True, text=True)
+            cmd.extend(shlex.split(args))
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         output(
             {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode},
             ctx.obj.get("output_format", "table"),
             title=f"Script: {script_path}",
         )
+        if result.returncode != 0:
+            # SystemExit (not ctx.exit): click's Exit is a RuntimeError and
+            # would be re-caught by the handler below.
+            raise SystemExit(result.returncode if 0 < result.returncode < 256 else 1)
+    except subprocess.TimeoutExpired:
+        abort(ctx, f"Script timed out after {timeout}s: {script_path}")
     except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error running script: {e}", from_exception=e)
 
