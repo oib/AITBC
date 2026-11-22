@@ -10,7 +10,7 @@ from aitbc.config.hub import normalize_hub_base
 
 from ...config import _resolve_market_api_key, get_config
 from ...utils import error, info, output, success
-from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -102,7 +102,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
         # reachable, check it is running", which is a wrong diagnosis of a service that
         # answered. The route started returning 404 for an unknown service in V23-81; before
         # that it answered 200 and wrote a rating nothing would ever read.
-        if "404" in str(e):
+        if http_response_status(e) == 404:
             error(f"No such service: {service_id}")
         else:
             error(f"Market service not reachable: {e}")
@@ -150,7 +150,7 @@ def ratings(ctx, service_id: str, limit: int, offset: int, market_url: str):
         # Same wrapping as `rate` above. This one previously printed "No ratings found for
         # this service" for a service that does not exist, because the route answered 200
         # with zeros; since V23-81 it answers 404 and the two cases can be told apart.
-        if "404" in str(e):
+        if http_response_status(e) == 404:
             error(f"No such service: {service_id}")
         else:
             error(f"Market service not reachable: {e}")

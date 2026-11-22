@@ -137,7 +137,7 @@ def test_start_404_aborts(runner):
     result = _invoke(
         runner,
         ["start", "--wallet-name", "wallet-1"],
-        post_exc=_network_error("POST request failed: 404"),
+        post_exc=_network_error("POST request failed: 404", 404),
     )
     assert result.exit_code != 0
     assert "endpoint not found" in result.output

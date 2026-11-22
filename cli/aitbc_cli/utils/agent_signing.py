@@ -55,6 +55,7 @@ from aitbc.crypto.agent_envelope import (
 from aitbc.crypto.signature_recovery import canonical_address
 
 from .error_handling import abort
+from .http_client import http_response_status
 from .wallet_loader import load_wallet_for_payment
 from .wallet_secret import wallet_password_options
 
@@ -264,7 +265,7 @@ def check_registry_binding(client, agent_id: str, address: str, private_key: str
         data = client.get(f"/v1/agents/{agent_id}", headers=headers)
     except Exception as e:  # noqa: BLE001 - lookup failure must not block advisory-mode traffic
         logger.debug("agent registry lookup failed for %s: %s", agent_id, type(e).__name__)
-        if "404" in str(e):
+        if http_response_status(e) == 404:
             return (
                 f"Agent '{agent_id}' is not registered with the coordinator — register it first with "
                 f"`aitbc agent-comm register --agent-id {agent_id} --wallet ...`, or send without --wallet "
@@ -338,7 +339,7 @@ def find_agent_by_identity(client, address: str, *, strict: bool = False) -> str
         if strict:
             auth_hint = (
                 " — /v1/agents/discover requires an authenticated principal; run `aitbc auth login` or pass --api-key"
-                if "401" in str(e) or "403" in str(e) or "authentication required" in str(e)
+                if http_response_status(e) in (401, 403) or "authentication required" in str(e)
                 else ""
             )
             abort(

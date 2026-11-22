@@ -45,8 +45,26 @@ def _stub(monkeypatch, error: Exception):
     monkeypatch.setattr(ratings_module, "AITBCHTTPClient", _Client(error))
 
 
-NOT_FOUND = NetworkError("GET request failed: 404 Client Error: Not Found for url: http://localhost:8102/x")
+def _http_error(status_code: int) -> NetworkError:
+    """NetworkError shaped like the real client's wrap of a requests.HTTPError.
+
+    The status classifier walks the cause chain for ``.response.status_code``;
+    a bare message string carries no response and must NOT classify (#2478).
+    """
+    err = NetworkError(f"GET request failed: {status_code} Client Error")
+    cause = Exception(f"{status_code} Error")
+    cause.response = type("R", (), {"status_code": status_code})()
+    err.__cause__ = cause
+    return err
+
+
+NOT_FOUND = _http_error(404)
 UNREACHABLE = NetworkError("GET request failed: HTTPConnectionPool(host='localhost', port=8102): refused")
+# #2478 regression: transport failure text containing status digits but no
+# response object must not be classified as a 404.
+UNREACHABLE_WITH_DIGITS = NetworkError(
+    "GET request failed: HTTPConnectionPool(host='localhost', port=8404): refused (tx 0x404abc)"
+)
 
 
 def test_ratings_reports_a_missing_service_as_missing(runner, monkeypatch):
@@ -63,6 +81,15 @@ def test_ratings_still_reports_an_unreachable_service_as_unreachable(runner, mon
     assert result.exit_code != 0
     assert "Market service not reachable" in result.output
     assert "Ensure market-service is reachable" in result.output
+
+
+def test_ratings_unreachable_with_status_digits_is_not_a_404(runner, monkeypatch):
+    """#2478: ':8404'/'404' inside a connection error is not an HTTP 404."""
+    _stub(monkeypatch, UNREACHABLE_WITH_DIGITS)
+    result = runner.invoke(market, ["ratings", "--service-id", "no-such-service"], obj={})
+    assert result.exit_code != 0
+    assert "No such service" not in result.output
+    assert "Market service not reachable" in result.output
 
 
 def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):

@@ -18,7 +18,7 @@ from ...utils.error_handling import CLIError, abort
 from ...utils.fee_guard import ALLOW_HIGH_FEE_OPTION as _ALLOW_HIGH_FEE_OPTION
 from ...utils.fee_guard import MAX_TX_FEE_AIT, validate_tx_fee
 from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
-from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import (
@@ -686,7 +686,7 @@ def _fetch_chain_balance(address: str) -> str | None:
     try:
         account_data = AITBCHTTPClient(base_url=rpc_url, timeout=10).get(f"/rpc/account/{canonical}")
     except NetworkError as e:
-        if "404" in str(e) or "Not Found" in str(e):
+        if http_response_status(e) == 404:
             return format_ait(0)
         logger.debug("chain balance lookup failed for %s: %s", canonical, e)
         return None
@@ -765,7 +765,7 @@ def balance(ctx, name: str | None):
         # An unfunded wallet will have no on-chain account yet; treat that as a
         # zero balance instead of an error, but say so — the same 404 shows for
         # an account the follower has not synced yet.
-        if "404" in str(e) or "Not Found" in str(e):
+        if http_response_status(e) == 404:
             account_data = {"balance": 0, "nonce": 0}
             account_found = False
             _info(f"account not found on chain {chain_id} (unfunded or not yet synced)")
