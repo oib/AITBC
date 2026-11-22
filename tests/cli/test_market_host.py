@@ -290,12 +290,14 @@ class TestCoordinatorHostEscrow:
         assert "/v1/payments" in paths
         assert "/v1/jobs/coord-job-1/payment" in paths
 
-    def test_ambiguous_payment_post_without_row_aborts(self):
+    def test_ambiguous_payment_post_without_row_aborts(self, monkeypatch):
         """#2340 r5: when reconciliation finds no payment row the submit is a
         genuine failure — abort with the do-not-rerun warning."""
         import click
 
         from aitbc.exceptions import NetworkError
+
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_DELAY", 0)
 
         client = self._FakeClient(
             {"/v1/jobs": {"job_id": "coord-job-1"}},
@@ -439,3 +441,83 @@ class TestProviderPin:
         with patch.object(host_module, "_market_client", return_value=_Client()):
             assert host_module._register_ipfs_rental_token(job, "j", "QmX", 1, "api") is None
         assert called == []
+
+
+class TestReconcileHostPaymentPending:
+    """#2476: pending means the escrow seal is still in flight — reconcile
+    keeps polling until a terminal status or the seal-horizon budget ends."""
+
+    class _SeqClient:
+        def __init__(self, views):
+            self._views = iter(views)
+            self.gets = 0
+
+        def get(self, path, **kw):
+            self.gets += 1
+            value = next(self._views)
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+    def test_pending_pending_escrowed_polls_to_terminal(self, monkeypatch):
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_DELAY", 0)
+        client = self._SeqClient(
+            [
+                {"payment_id": "pay-1", "status": "pending"},
+                {"payment_id": "pay-1", "status": "pending"},
+                {"payment_id": "pay-1", "status": "escrowed"},
+            ]
+        )
+        view = host_module._reconcile_host_payment(client, "coord-job-1")
+        assert view is not None and view["status"] == "escrowed"
+        assert client.gets == 3
+
+    def test_pending_forever_returns_last_pending_view(self, monkeypatch):
+        """Budget exhausted while pending -> last view returned so the caller
+        can name the payment id; only 'no row at all' yields None."""
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_ATTEMPTS", 3)
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_DELAY", 0)
+        pending = {"payment_id": "pay-1", "status": "pending"}
+        client = self._SeqClient([dict(pending) for _ in range(3)])
+        view = host_module._reconcile_host_payment(client, "coord-job-1")
+        assert view == pending
+        assert client.gets == 3
+
+    def test_no_row_still_returns_none(self, monkeypatch):
+        from aitbc.exceptions import NetworkError
+
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_ATTEMPTS", 2)
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_DELAY", 0)
+        client = self._SeqClient([NetworkError("404")] * 2)
+        assert host_module._reconcile_host_payment(client, "coord-job-1") is None
+
+    def test_still_pending_aborts_with_payment_id_and_recovery(self, monkeypatch):
+        """End-to-end: a payment that never leaves pending aborts with the
+        payment id + recovery commands, not a bare do-not-rerun."""
+        import click
+
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_ATTEMPTS", 2)
+        monkeypatch.setattr(host_module, "_HOST_PAYMENT_RECONCILE_DELAY", 0)
+        from aitbc.exceptions import NetworkError
+
+        host = TestCoordinatorHostEscrow()
+        client = host._FakeClient(
+            {"/v1/jobs": {"job_id": "coord-job-1"}},
+            get_responses={
+                "/v1/jobs/coord-job-1/payment": {"payment_id": "pay-9", "status": "pending"}
+            },
+            post_errors={"/v1/payments": NetworkError("Read timed out")},
+        )
+        errors: list[str] = []
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            for p in host._patches(client).values():
+                stack.enter_context(p)
+            stack.enter_context(
+                patch.object(host_module, "error", lambda m, **kw: errors.append(m))
+            )
+            with pytest.raises(click.Abort):
+                host_module._create_coordinator_host_escrow(None, **host._escrow_kwargs())
+        assert errors and "still pending" in errors[0] and "pay-9" in errors[0]
+        assert "refund" in errors[0]

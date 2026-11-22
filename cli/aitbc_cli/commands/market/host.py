@@ -74,9 +74,12 @@ _MARKET_HOST_ERRORS = (
 # failed refund never masks the primary job error (#2340).
 _HOST_REFUND_ERRORS = _MARKET_HOST_ERRORS + (click.ClickException,)
 
-# After an ambiguous /v1/payments submit, poll the payment row this many
-# times (4s apart) before declaring the submit failed (#2340 r5).
-_HOST_PAYMENT_RECONCILE_ATTEMPTS = 3
+# After an ambiguous /v1/payments submit, poll the payment row until it
+# leaves "pending" or the seal-horizon budget ends (#2340 r5, #2476).
+# create_payment commits the pending row BEFORE the escrow network window,
+# and live seals take ~2.5 min — the budget must cover the coordinator's
+# seal wait (~180s on hub) plus margin, not a few seconds.
+_HOST_PAYMENT_RECONCILE_ATTEMPTS = 60
 _HOST_PAYMENT_RECONCILE_DELAY = 4.0
 
 
@@ -84,20 +87,25 @@ def _reconcile_host_payment(client: AITBCHTTPClient, coord_job_id: str) -> dict[
     """Return the JobPaymentView for ``coord_job_id`` if one exists, else None.
 
     Used only after an ambiguous ``POST /v1/payments`` (timeout/reset): the
-    server may have committed the row anyway. Any non-404 answer — including
-    a non-escrowed status — is returned so the caller's status check decides;
-    only "no row visible" yields None.
+    server may have committed the row anyway. ``pending`` means the escrow
+    seal is still in flight, so polling continues until a terminal status
+    (``escrowed``/``confirmed``/``failed``/…) or the budget ends; the last
+    view seen is returned so the caller can name the payment id. Only "no
+    row visible at all" yields None.
     """
+    last_view: dict[str, Any] | None = None
     for attempt in range(_HOST_PAYMENT_RECONCILE_ATTEMPTS):
         try:
             view = client.get(f"/v1/jobs/{coord_job_id}/payment")
         except _MARKET_HOST_ERRORS:
             view = None
         if isinstance(view, dict) and view.get("payment_id") and view.get("status"):
-            return view
+            last_view = view
+            if view.get("status") != "pending":
+                return view
         if attempt + 1 < _HOST_PAYMENT_RECONCILE_ATTEMPTS:
             time.sleep(_HOST_PAYMENT_RECONCILE_DELAY)
-    return None
+    return last_view
 
 
 def _resolve_ipfs_api(offer: dict[str, Any]) -> str:
@@ -360,9 +368,14 @@ def _coordinator_payment_client(ctx: click.Context) -> AITBCHTTPClient | None:
     auth_kwargs = _client_auth_kwargs(ctx)
     if not auth_kwargs:
         return None
+    # #2476: same seal-horizon timeout as ai submit's escrow client (#2426) —
+    # POST /v1/payments holds the request while the coordinator seals the
+    # lock, and live seals take ~2.5 min, far beyond the old 30s timeout.
+    from ..ai import _AI_PAYMENT_POST_TIMEOUT
+
     return AITBCHTTPClient(
         base_url=_coordinator_base_url(ctx),
-        timeout=30,
+        timeout=_AI_PAYMENT_POST_TIMEOUT,
         **auth_kwargs,
         enable_circuit_breaker=False,
     )
@@ -501,11 +514,22 @@ def _create_coordinator_host_escrow(
         )
     status = payment.get("status") if isinstance(payment, dict) else None
     if status != "escrowed":
-        error(
-            f"Coordinator escrow for job {coord_job_id} did not reach escrowed state "
-            f"(status={status!r}: {payment}). The payment row exists server-side — "
-            "StuckEscrowSweeper covers it; do NOT rerun market host."
-        )
+        if status == "pending":
+            # #2476: the row exists and the seal may still land — name the
+            # payment and the recovery paths instead of a flat do-not-rerun.
+            error(
+                f"Coordinator escrow for job {coord_job_id} is still pending "
+                f"(payment {payment.get('payment_id')}) after the reconcile window — "
+                "the lock may still seal. Do NOT rerun market host; check "
+                f"`aitbc ai jobs --job-id {coord_job_id}` once it escrows, or refund "
+                f"via `aitbc ai refund --job-id {coord_job_id}`."
+            )
+        else:
+            error(
+                f"Coordinator escrow for job {coord_job_id} did not reach escrowed state "
+                f"(status={status!r}: {payment}). The payment row exists server-side — "
+                "StuckEscrowSweeper covers it; do NOT rerun market host."
+            )
         raise click.Abort()
     info(f"Coordinator escrow secured: job {coord_job_id} payment {payment.get('payment_id')}")
     return {
