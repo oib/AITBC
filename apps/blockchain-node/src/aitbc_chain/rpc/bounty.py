@@ -266,6 +266,39 @@ def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> 
         )
 
 
+def _deploy_existing_bounty(
+    session: Any,
+    chain_id: str,
+    existing: BountyContract,
+    creator: str,
+    amount: int,
+    deadline_height: int | None,
+    payload: dict[str, Any],
+    signature: Any,
+) -> dict[str, Any]:
+    """Idempotent branch for an existing bounty_id (#2637/#2641).
+
+    Idempotent only when the stored record IS this request — a replay
+    naming another creator, amount or deadline is a 409, not silent
+    success. A matching retry heals a lost BOUNTY_LOCK instead of
+    reporting success over an unfunded bounty.
+    """
+    if existing.creator_address != creator or existing.reward_amount != amount or existing.deadline_height != deadline_height:
+        raise HTTPException(status_code=409, detail=f"Bounty {existing.bounty_id} already exists with different terms")
+    healed = _heal_missing_lock(session, chain_id, existing, payload, signature)
+    result: dict[str, Any] = {
+        "success": True,
+        "idempotent": True,
+        "bounty_id": existing.bounty_id,
+        "remaining_amount": existing.remaining_amount,
+        "status": existing.status,
+        "deadline_height": existing.deadline_height,
+    }
+    if healed:
+        result["transaction_hash"] = healed
+    return result
+
+
 @rate_limit(rate=20, per=60)
 def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
@@ -283,22 +316,10 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
         if not protocol_transfers_active(session, chain_id):
             raise_for_unarmed("Bounty (create)")
         existing = _get_bounty(session, chain_id, str(bounty_id))
-        if existing:
-            # #2637: a prior deploy may have committed the row and lost the
-            # lock to a refused queue — re-queue it instead of reporting
-            # idempotent success over an unfunded bounty.
-            healed = _heal_missing_lock(session, chain_id, existing, payload, body.get("signature"))
-            result = {
-                "success": True,
-                "idempotent": True,
-                "bounty_id": existing.bounty_id,
-                "remaining_amount": existing.remaining_amount,
-                "status": existing.status,
-                "deadline_height": existing.deadline_height,
-            }
-            if healed:
-                result["transaction_hash"] = healed
-            return result
+        if existing is not None:
+            return _deploy_existing_bounty(
+                session, chain_id, existing, creator, amount, deadline_height, payload, body.get("signature")
+            )
         account = _account(session, chain_id, creator)
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
@@ -380,6 +401,15 @@ def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
             )
         ).first()
         if existing:
+            # #2639: submission_id is unique per chain — idempotent only
+            # when the stored row IS this request. The same id pointed at
+            # another bounty (or another submitter) must not answer
+            # success while recording nothing.
+            if existing.bounty_id != bounty_id or existing.submitter_address != submitter:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Submission {submission_id} already exists for a different bounty or submitter",
+                )
             return {"success": True, "idempotent": True, "submission_id": existing.submission_id}
         record = BountySubmissionRecord(
             chain_id=chain_id,
@@ -428,6 +458,13 @@ def _verify_bounty_locked(
         if healed:
             early["transaction_hash"], early["healed_amount"] = healed
         return early, 0, None, None
+    if bounty.status == "disputed":
+        # #2640: a dispute freezes the bounty — verify must not pay out
+        # (or reject) while the outcome is contested.
+        raise HTTPException(
+            status_code=409,
+            detail=f"Bounty {bounty_id} is disputed — payout is frozen until the dispute is resolved",
+        )
     submission = session.exec(
         select(BountySubmissionRecord).where(
             BountySubmissionRecord.chain_id == chain_id,
@@ -515,6 +552,12 @@ def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> di
             raise HTTPException(status_code=404, detail=f"Bounty {bounty_id} not found")
         if bounty.status == "completed":
             raise HTTPException(status_code=400, detail="Cannot dispute a paid bounty")
+        if bounty.status == "expired":
+            # The refund already left the escrow — a dispute label now
+            # would freeze a bounty whose money already moved.
+            raise HTTPException(status_code=400, detail="Cannot dispute an expired bounty")
+        if bounty.status == "disputed":
+            return {"success": True, "idempotent": True, "bounty_id": bounty_id, "status": bounty.status}
         bounty.status = "disputed"
         bounty.updated_at = datetime.now(UTC)
         if submission_id:
@@ -580,6 +623,13 @@ def _expire_bounty_locked(
         return early, 0, None, None
     if bounty.status == "completed":
         raise HTTPException(status_code=400, detail="Bounty already completed")
+    if bounty.status == "disputed":
+        # #2640: a dispute freezes the bounty — expire must not refund
+        # while the outcome is contested.
+        raise HTTPException(
+            status_code=409,
+            detail=f"Bounty {bounty_id} is disputed — refund is frozen until the dispute is resolved",
+        )
     _require_deadline_reached(session, chain_id, bounty)
     refund = bounty.remaining_amount
     if payload.get("resolve_only"):

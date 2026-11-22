@@ -275,17 +275,29 @@ def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]
         session.refresh(stake)
         stake_id = stake.id
 
-    tx_hash = queue_protocol_transfer(
-        sender=address,
-        recipient=stake_escrow_address(),
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_LOCK",
-        payload={"stake_id": str(stake_id), "lock_days": lock_days},
-        # Carry the verified wallet signature into the block record so the
-        # lock's authorization is provable on-chain, not just on this node.
-        auth={"signer": address, "message": sign_data, "signature": signature},
-    )
+    try:
+        tx_hash = queue_protocol_transfer(
+            sender=address,
+            recipient=stake_escrow_address(),
+            amount=amount,
+            chain_id=chain_id,
+            tx_type="STAKE_LOCK",
+            payload={"stake_id": str(stake_id), "lock_days": lock_days},
+            # Carry the verified wallet signature into the block record so the
+            # lock's authorization is provable on-chain, not just on this node.
+            auth={"signer": address, "message": sign_data, "signature": signature},
+        )
+    except Exception:  # noqa: BLE001 - any queue refusal must not strand the row
+        # #2630: the Stake row is already committed — remove it so a refused
+        # queue cannot leave an active stake (voting power) backed by no
+        # STAKE_LOCK. The retry stakes cleanly instead of hitting an
+        # orphaned row.
+        with session_scope() as cleanup:
+            orphan = cleanup.get(Stake, stake_id)
+            if orphan is not None:
+                cleanup.delete(orphan)
+                cleanup.commit()
+        raise
     _logger.info("Stake lock queued: %s staking %s on %s (tx %s)", address, amount, chain_id, tx_hash)
     return {
         "success": True,
