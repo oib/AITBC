@@ -40,34 +40,28 @@ def list_chains_command(ctx):
         import asyncio
 
         from aitbc_cli.core.config import load_multichain_config
-        from aitbc_cli.core.node_client import NodeClient
+        from aitbc_cli.core.node_client import collect_hosted_chains
 
         config = load_multichain_config()
-        all_chains = []
 
-        async def get_all_chains():
-            tasks = []
-            for nid, node_config in config.nodes.items():
+        # #2563: per-node failures are collected (not echoed to stdout);
+        # unreachable nodes are reported on stderr and named in JSON output.
+        all_chains, failures, answered = asyncio.run(collect_hosted_chains(config.nodes))
+        unreachable = [nid for nid, _ in failures]
+        for nid, err in failures:
+            click.echo(f"Error getting chains from node {nid}: {err}", err=True)
 
-                async def get_chains_for_node(nid, nconfig):
-                    try:
-                        async with NodeClient(nconfig) as client:
-                            chains = await client.get_hosted_chains()
-                            return [(nid, chain) for chain in chains]
-                    except Exception as e:  # noqa: BLE001 - NodeClient raises bare Exception; parity with `node chains`
-                        click.echo(f"Error getting chains from node {nid}: {e}")
-                        return []
-
-                tasks.append(get_chains_for_node(nid, node_config))
-
-            results = await asyncio.gather(*tasks)
-            for result in results:
-                all_chains.extend(result)
-
-        asyncio.run(get_all_chains())
+        fmt = ctx.obj.get("output", "table")
 
         if not all_chains:
-            output("No chains found on any node", ctx.obj.get("output", "table"))
+            if fmt == "json":
+                output({"chains": [], "unreachable_nodes": unreachable}, fmt)
+            else:
+                output("No chains found on any node", fmt)
+            if failures and answered == 0:
+                # Every queried node failed — an outage, not an empty list.
+                # SystemExit (not Abort) so the outer except doesn't re-wrap.
+                raise SystemExit(1)
             return
 
         chains_data = [
@@ -81,7 +75,10 @@ def list_chains_command(ctx):
             for nid, chain in all_chains
         ]
 
-        output(chains_data, ctx.obj.get("output", "table"), title="Active Chains")
+        if fmt == "json":
+            output({"chains": chains_data, "unreachable_nodes": unreachable}, fmt, title="Active Chains")
+        else:
+            output(chains_data, fmt, title="Active Chains")
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")

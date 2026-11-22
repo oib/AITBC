@@ -678,3 +678,39 @@ async def probe_nodes(nodes: dict[str, NodeConfig], timeout: float = 3.0) -> dic
     """Probe every configured node concurrently; ``{node_id: reachable}``."""
     results = await asyncio.gather(*(probe_node(nc, timeout) for nc in nodes.values()))
     return {nid: ok for (nid, _nc), ok in zip(nodes.items(), results, strict=True)}
+
+
+async def collect_hosted_chains(
+    nodes: dict[str, NodeConfig], node_id: str | None = None
+) -> tuple[list[tuple[str, ChainInfo]], list[tuple[str, str]], int]:
+    """Query ``get_hosted_chains`` on every selected node concurrently.
+
+    Returns ``(chains, failures, answered)``: ``chains`` is
+    ``[(node_id, chain), …]`` in config order, ``failures`` is
+    ``[(node_id, error), …]`` for nodes that raised, and ``answered``
+    counts nodes that responded — an empty chain list still answers.
+    Per-node errors are collected, not echoed, so callers decide where
+    they surface (#2563).
+    """
+    chains: list[tuple[str, ChainInfo]] = []
+    failures: list[tuple[str, str]] = []
+    answered = 0
+
+    async def _one(nid: str, nconfig: NodeConfig) -> tuple[str, list[ChainInfo], str | None]:
+        try:
+            async with NodeClient(nconfig) as client:
+                hosted = await client.get_hosted_chains()
+            return nid, hosted, None
+        except Exception as e:  # noqa: BLE001 - NodeClient raises bare Exception; collect per-node
+            return nid, [], str(e)
+
+    results = await asyncio.gather(
+        *(_one(nid, nconfig) for nid, nconfig in nodes.items() if node_id is None or nid == node_id)
+    )
+    for nid, hosted, err in results:
+        if err is None:
+            chains.extend((nid, chain) for chain in hosted)
+            answered += 1
+        else:
+            failures.append((nid, err))
+    return chains, failures, answered
