@@ -144,16 +144,42 @@ class SettlementReconciler:
 
     @staticmethod
     async def _recorded_hash_state(client: httpx.AsyncClient, rpc: str, tx_hash: str) -> bool | None:
-        """True when the recorded hash resolves to a sealed tx, False on a
-        definitive 404, None when the answer is unverifiable."""
+        """True when the recorded hash resolves to a *sealed* tx, False on a
+        definitive non-sealed answer (404 or an apply-rejected row), None when
+        unverifiable.
+
+        #2516: ``GET /rpc/transaction/{hash}`` answers 200 for more than a
+        sealed transaction — an apply-rejected row (``status="rejected"``,
+        ``block_height=None``) and a mempool ``state="pending"`` view both
+        return 200. Only ``status="confirmed"`` with a non-null
+        ``block_height`` proves the envelope took effect; a ``rejected``
+        body is a definitive miss (the adopt/critical branch must run), and
+        anything else — pending views, unreadable bodies, unknown statuses —
+        stays unverifiable so the row is retried, never stamped.
+        """
         try:
             resp = await client.get(f"{rpc}/rpc/transaction/{tx_hash}")
         except httpx.HTTPError:
             return None
-        if resp.status_code == 200:
-            return True
         if resp.status_code == 404:
             return False
+        if resp.status_code != 200:
+            return None
+        try:
+            body = resp.json()
+        except ValueError:
+            return None
+        if not isinstance(body, dict) or body.get("state") == "pending":
+            return None
+        if body.get("status") == "rejected":
+            return False
+        # A hash that sealed as some other transaction type is not the
+        # recorded release either — definitive miss, let the audit adopt.
+        tx_type = body.get("type")
+        if tx_type is not None and tx_type != "ESCROW_RELEASE":
+            return False
+        if body.get("status") == "confirmed" and body.get("block_height") is not None:
+            return True
         return None
 
     @staticmethod
