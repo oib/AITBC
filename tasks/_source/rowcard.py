@@ -66,6 +66,9 @@ def scoped(names, scope):
 # Operator, 4 Nov 2026: owner/A|B|C labels were removed from the open issues and must not come back through
 # sync push. The register keeps the owner field and the row card still shows it; only the A/B/C label is dropped.
 # owner/operator and owner/D (5 Nov 2026) are pushed for filter lanes.
+# Update (22 Nov 2026 label-taxonomy rebuild, #2667): owner/A..E, owner/player and owner/operator are live
+# exclusive labels again — lanes and the Director set them directly on workable rows. This flag only gates
+# the frozen register sync's expected-labels push; it does not describe whether the labels exist.
 PUSH_OWNER_LABELS = False
 PUSH_OWNER_LABEL_OWNERS = frozenset({"operator", "D"})
 
