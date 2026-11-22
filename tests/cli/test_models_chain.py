@@ -131,7 +131,7 @@ class TestChainParameters:
 
         assert params.max_block_size == 1048576
         assert params.max_gas_per_block == 10000000
-        assert params.min_gas_price == 1000000000
+        assert params.min_gas_price == 0
 
 
 class TestChainLimits:
@@ -183,3 +183,39 @@ class TestGenesisConfig:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestEconomicDefaultsAreAitUnits:
+    """AUDIT-CHAIN-MODEL-WEI-1 (#2596): defaults must be AIT base units, not
+    Ethereum wei — 1e18/2e18 read as ~28/56 billion AIT."""
+
+    def test_min_stake_is_100_ait_in_base_units(self):
+        from aitbc.utils.units import ait_to_units
+        from aitbc_cli.models.chain import ConsensusAlgorithm, ConsensusConfig
+        from decimal import Decimal
+
+        cfg = ConsensusConfig(algorithm=ConsensusAlgorithm.POS)
+        assert cfg.min_stake == ait_to_units(Decimal("100"))
+        assert cfg.min_stake == 3_600_000_000
+
+    def test_block_reward_is_1_ait_in_base_units(self):
+        from aitbc.utils.units import ait_to_units
+        from aitbc_cli.models.chain import ChainParameters
+        from decimal import Decimal
+
+        params = ChainParameters()
+        assert params.block_reward == str(ait_to_units(Decimal("1")))
+        assert params.block_reward == "36000000"
+
+    def test_gas_prices_have_no_wei_defaults(self):
+        from aitbc_cli.models.chain import ChainParameters, ChainType, ConsensusAlgorithm, ConsensusConfig, GenesisConfig
+
+        assert ChainParameters().min_gas_price == 0
+        cfg = GenesisConfig(
+            chain_type=ChainType.MAIN,
+            purpose="test",
+            name="T",
+            consensus=ConsensusConfig(algorithm=ConsensusAlgorithm.POS),
+        )
+        assert cfg.gas_price == 0
+        assert cfg.parameters.min_gas_price == 0
