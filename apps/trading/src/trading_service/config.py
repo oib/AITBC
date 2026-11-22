@@ -92,6 +92,9 @@ class Settings(ServiceSettings):
     offer_search_index_enabled: bool = Field(default=False)
     offer_search_index_backend: str = Field(default="meilisearch")
     offer_search_index_url: str = Field(default="http://localhost:7700")
+    # #2481: bound the in-memory fallback map. Entries also self-expire at
+    # offer_cache_ttl_seconds (the OfferCache lifetime they mirror).
+    offer_search_index_max_entries: int = Field(default=10000)
 
 
 @lru_cache(maxsize=1)
