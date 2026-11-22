@@ -34,19 +34,68 @@ from aitbc_mcp_server import (
 SCRATCH_WRITE_MAX_BYTES = 1024 * 1024
 SCRATCH_READ_MAX_BYTES = 256 * 1024
 
+# #2498: the lexical check in ``_scratch_path`` is not sufficient — a symlink
+# inside /var/tmp pointing outside would let read/write/delete/list escape the
+# root (the tool runs as root on the node). Every remote snippet therefore
+# opens with a realpath guard: resolve the target, require it to stay beneath
+# the resolved scratch root, and exit 3 otherwise. ``r`` is the resolved path
+# the body then operates on, so in-root symlinks still work.
+_PY_GUARD = (
+    "import os,sys\n"
+    f"root=os.path.realpath({SCRATCH_ROOT!r})\n"
+    "r=os.path.realpath(sys.argv[1])\n"
+    "if not (r==root or r.startswith(root+'/')):\n"
+    "    sys.stderr.write('scratch path escapes '+root+': '+sys.argv[1]+' -> '+r+'\\n')\n"
+    "    sys.exit(3)\n"
+)
+
 _PY_WRITE = (
-    "import base64,sys,pathlib;"
-    "p=pathlib.Path(sys.argv[1]);"
-    "p.parent.mkdir(parents=True,exist_ok=True);"
-    "d=base64.b64decode(sys.argv[2]);"
-    "p.write_bytes(d);"
-    "print(len(d))"
+    _PY_GUARD
+    + "import base64,pathlib\n"
+    + "p=pathlib.Path(r)\n"
+    + "p.parent.mkdir(parents=True,exist_ok=True)\n"
+    + "d=base64.b64decode(sys.argv[2])\n"
+    + "p.write_bytes(d)\n"
+    + "print(len(d))\n"
 )
 _PY_READ = (
-    "import base64,sys,pathlib;"
-    "d=pathlib.Path(sys.argv[1]).read_bytes();"
-    "sys.stdout.write(str(len(d))+'\\n');"
-    "sys.stdout.write(base64.b64encode(d[:" + str(SCRATCH_READ_MAX_BYTES) + "]).decode())"
+    _PY_GUARD
+    + "import base64,pathlib\n"
+    + "d=pathlib.Path(r).read_bytes()\n"
+    + "sys.stdout.write(str(len(d))+'\\n')\n"
+    + "sys.stdout.write(base64.b64encode(d[:"
+    + str(SCRATCH_READ_MAX_BYTES)
+    + "]).decode())\n"
+)
+# delete/list run as python too: a leading ``python3 -c '<guard>' && rm``
+# prefix cannot be expressed in the single-invocation commands the local
+# execvp branch of ``_run_remote`` accepts.
+# delete is different: os.remove never follows a final-component symlink, so
+# the escape vector is a symlinked *parent* directory. Guard the parent's
+# realpath and unlink the literal operand — deleting ``/var/tmp/link`` where
+# link -> /var/tmp/real must remove the link, not ``real``.
+_PY_DELETE = (
+    "import os,sys\n"
+    f"root=os.path.realpath({SCRATCH_ROOT!r})\n"
+    "parent=os.path.realpath(os.path.dirname(sys.argv[1]))\n"
+    "if not (parent==root or parent.startswith(root+'/')):\n"
+    "    sys.stderr.write('scratch path escapes '+root+': '+sys.argv[1]+' -> '+parent+'\\n')\n"
+    "    sys.exit(3)\n"
+    "try:\n"
+    "    os.remove(sys.argv[1])\n"
+    "except FileNotFoundError:\n"
+    "    pass\n"
+)
+_PY_LIST = (
+    _PY_GUARD
+    + "import os,sys\n"
+    + "if os.path.isdir(r):\n"
+    + "    names=sorted(os.listdir(r))\n"
+    + "    if names: print('\\n'.join(names))\n"
+    + "elif os.path.lexists(r):\n"
+    + "    print(sys.argv[1])\n"
+    + "else:\n"
+    + "    sys.exit(2)\n"
 )
 
 
@@ -172,9 +221,9 @@ def aitbc_scratch_file(
     elif action == "read":
         command = f"python3 -c {shlex.quote(_PY_READ)} {qpath}"
     elif action == "delete":
-        command = f"rm -f -- {qpath}"
+        command = f"python3 -c {shlex.quote(_PY_DELETE)} {qpath}"
     else:  # list
-        command = f"ls -1A -- {qpath}"
+        command = f"python3 -c {shlex.quote(_PY_LIST)} {qpath}"
 
     result = _run_remote(target, command, timeout)
     if action == "read":
