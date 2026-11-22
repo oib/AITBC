@@ -25,6 +25,7 @@ from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
 from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, post_signed_resolved, resolve_rpc_url
+from ..utils.tx_history import scan_transactions_for_payload_id
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -223,7 +224,7 @@ def claim(ctx, stake_id, memo, **kw):
 @click.option("--stake-id", "stake_id", required=True, help="Stake identifier to look up on-chain")
 @click.option("--chain-id", "chain_id", default=None, help="Chain ID to query (defaults to the node's)")
 @click.option("--rpc-url", "rpc_url", default=None, help="Blockchain RPC URL (overrides config)")
-@click.option("--limit", "limit", default=200, type=int, help="Max transactions scanned per type")
+@click.option("--limit", "limit", default=5000, type=int, help="Max transactions scanned per type")
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as JSON")
 @click.pass_context
 def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
@@ -231,14 +232,23 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
     rpc = resolve_rpc_url(ctx, rpc_url)
     client = AITBCHTTPClient(base_url=rpc, timeout=15)
     found: dict[str, Any] = {}
+    truncated = False
     for tx_type in ("STAKE_LOCK", "STAKE_RELEASE"):
-        params = {"transaction_type": tx_type, "chain_id": chain_id, "limit": limit}
         try:
-            rows: Any = client.get_json("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
+            # #2507: page with before_id until the id's rows are found or the
+            # scan budget/history ends — a single newest-N window read
+            # empty for ids older than the window.
+            matches, hit_cap = scan_transactions_for_payload_id(
+                client,
+                transaction_type=tx_type,
+                payload_key="agent_stake_id",
+                payload_id=stake_id,
+                chain_id=chain_id,
+                limit=limit,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
-        txs: list[dict[str, Any]] = rows if isinstance(rows, list) else []
-        matches = [tx for tx in txs if str((tx.get("payload") or {}).get("agent_stake_id")) == stake_id]
+        truncated = truncated or hit_cap
         for tx in matches:
             # #2456: top-ups seal as STAKE_LOCK too — distinguish them by
             # the additional_amount marker the node puts in the payload.
@@ -249,7 +259,9 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
         if matches:
             found[tx_type] = matches
     output(
-        {"stake_id": stake_id, "transactions": found},
+        # #2507: `truncated` marks a scan that hit its budget — an empty
+        # transactions map then means "not seen in the window", not "absent".
+        {"stake_id": stake_id, "truncated": truncated, "transactions": found},
         "json" if as_json else resolve_output_format(ctx),
         title=f"Agent stake {stake_id}",
     )

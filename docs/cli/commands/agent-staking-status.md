@@ -17,7 +17,7 @@ aitbc agent-staking status [OPTIONS]
 | `--stake-id` | text | — | yes | Stake identifier to look up on-chain |
 | `--chain-id` | text | — | no | Chain ID to query (defaults to the node's) |
 | `--rpc-url` | text | — | no | Blockchain RPC URL (overrides config) |
-| `--limit` | integer | `200` | no | Max transactions scanned per type |
+| `--limit` | integer | `5000` | no | Max transactions scanned per type |
 | `--json` | flag | `false` | no | Emit the result as JSON |
 
 ## Examples
