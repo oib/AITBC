@@ -44,6 +44,11 @@ def start(ctx):
     result = _event_bridge_status()
     result["action"] = "start"
     result["service"] = _SERVICE_NAME
+    # #2557: 'Bridge Started' + exit 0 while the service never came up is a
+    # lie — fail with the HTTP/systemd reason when it isn't active.
+    if result.get("bridge_status") != "active":
+        abort(ctx, f"Bridge service did not come up: {result.get('status', 'unknown')}")
+        return
     output(result, ctx.obj.get("output_format", "table"), title="Bridge Started")
 
 
