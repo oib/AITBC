@@ -19,6 +19,7 @@ from ..mempool import get_mempool
 from ..models import Account, AgentIdentity, Block, GovernanceProposal, GovernanceVote, Stake
 from ..protocol_escrow import (
     confirmed_lock_txs,
+    protocol_transfer_pending,
     protocol_transfers_active,
     queue_protocol_transfer,
     stake_escrow_address,
@@ -153,7 +154,12 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
     if _to_ait_address(stake.address) != address:
         raise HTTPException(status_code=403, detail="Not authorized to unstake")
     if stake.status != "active":
-        raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
+        # #2629: a stake marked withdrawn before its release queued (the
+        # pre-fix order) is retryable while no STAKE_RELEASE for it is
+        # sealed or pending — the row flip used to strand it forever.
+        retryable = stake.status == "withdrawn" and not _stake_release_in_flight(session, chain_id, stake_id)
+        if not retryable:
+            raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
     now = datetime.now(UTC)
     locked_until = stake.locked_until
     if locked_until and locked_until.tzinfo is None:
@@ -180,6 +186,13 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
     # locked_until has expired but block-height maturity has not.
     _assert_v4_maturity(session, chain_id, lock_txs)
     return stake, lock_tx_hashes
+
+
+def _stake_release_in_flight(session: Session, chain_id: str, stake_id: Any) -> bool:
+    """True when a STAKE_RELEASE for this stake is sealed or pending (#2629)."""
+    if confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "stake_id", stake_id):
+        return True
+    return protocol_transfer_pending(session, chain_id, "STAKE_RELEASE", "stake_id", stake_id)
 
 
 def _assert_v4_maturity(session: Session, chain_id: str, lock_txs: list[Any]) -> None:
@@ -298,21 +311,24 @@ def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict[str, 
             raise HTTPException(status_code=400, detail=f"Stale nonce: expected {account.nonce}, got {nonce}")
         stake, lock_tx_hashes = _withdrawable_stake(session, chain_id, address, stake_id)
         amount = stake.amount
+        # #2629: queue BEFORE marking withdrawn — a refused queue must
+        # leave the row active so the retry re-runs the release instead of
+        # hitting "Stake is not active: withdrawn" forever.
+        tx_hash = queue_protocol_transfer(
+            sender=stake_escrow_address(),
+            recipient=address,
+            amount=amount,
+            chain_id=chain_id,
+            tx_type="STAKE_RELEASE",
+            payload={"stake_id": str(stake_id), "lock_tx_hashes": lock_tx_hashes},
+            # The keyless escrow cannot sign; the user's verified unstake
+            # signature is embedded as the release's authorization evidence.
+            auth={"signer": address, "message": sign_data, "signature": signature},
+        )
         stake.status = "withdrawn"
         session.add(stake)
         session.commit()
 
-    tx_hash = queue_protocol_transfer(
-        sender=stake_escrow_address(),
-        recipient=address,
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_RELEASE",
-        payload={"stake_id": str(stake_id), "lock_tx_hashes": lock_tx_hashes},
-        # The keyless escrow cannot sign; the user's verified unstake
-        # signature is embedded as the release's authorization evidence.
-        auth={"signer": address, "message": sign_data, "signature": signature},
-    )
     _logger.info("Stake release queued: %s recovering %s from stake %s (tx %s)", address, amount, stake_id, tx_hash)
     return {
         "success": True,
