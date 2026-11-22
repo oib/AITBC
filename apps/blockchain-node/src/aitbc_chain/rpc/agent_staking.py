@@ -99,6 +99,38 @@ def _resync_stake_to_unbonding(session: Session, chain_id: str, record: AgentSta
     session.commit()
 
 
+def _resync_stake_to_completed(session: Session, chain_id: str, record: AgentStakeRecord) -> None:
+    """#2645: a sealed STAKE_RELEASE outranks a row stranded in ``unbonding``.
+
+    The pre-#2628 ordering could seal the release while the row never
+    flipped; the canonical guard then answers idempotent forever while the
+    node-local row keeps reporting a stale status to anything reading it
+    directly. Repair in place — there is no ``completed_at`` column, so
+    ``updated_at`` carries the heal timestamp.
+    """
+    record.status = "completed"
+    record.updated_at = datetime.now(UTC)
+    session.add(record)
+    session.commit()
+
+
+_STAKE_STATUS_ORDER = {"active": 0, "unbonding": 1, "completed": 2}
+
+
+def _heal_row_to_canonical(session: Session, chain_id: str, record: AgentStakeRecord, canonical: str) -> None:
+    """#2645: repair a local row that is strictly behind sealed history.
+
+    Only forward heals — a row ahead of the sealed markers (release queued
+    but not yet sealed) must never be resynced backwards (#2360).
+    """
+    if _STAKE_STATUS_ORDER.get(canonical, -1) <= _STAKE_STATUS_ORDER.get(record.status, -1):
+        return
+    if canonical == "unbonding":
+        _resync_stake_to_unbonding(session, chain_id, record)
+    elif canonical == "completed":
+        _resync_stake_to_completed(session, chain_id, record)
+
+
 def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any] | None:
     """#748: a stale local row must not mutate under a newer sealed status.
 
@@ -110,7 +142,11 @@ def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str
     status, source = _canonical_status(session, chain_id, stake_id)
     if source != "chain":
         return None
-    if status == {"unbond": "unbonding", "complete": "completed"}.get(action):
+    expected = {"unbond": "unbonding", "complete": "completed"}.get(action)
+    if status is not None and status == expected:
+        record = _get_stake(session, chain_id, stake_id)
+        if record is not None:
+            _heal_row_to_canonical(session, chain_id, record, status)
         return {"success": True, "idempotent": True, "stake_id": stake_id, "status": status, "source": source}
     # A sealed marker that is the action's required predecessor is not a
     # conflict when the local row agrees — complete after a sealed
