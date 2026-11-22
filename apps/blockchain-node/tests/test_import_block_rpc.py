@@ -101,6 +101,15 @@ async def test_import_valid_signed_block(isolated_engine, mock_request):
 
 
 @pytest.mark.asyncio
+async def test_import_missing_hash_is_400(isolated_engine, mock_request):
+    """A body without 'hash' must answer 400, not KeyError -> 500 (Refs #2653)."""
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_blocks.import_block(mock_request, {"chain_id": "chain-a", "height": 1})
+    assert exc_info.value.status_code == 400
+    assert "hash" in exc_info.value.detail.lower()
+
+
+@pytest.mark.asyncio
 async def test_import_unsigned_block_rejected(isolated_engine, mock_request):
     """Bogus proposer with no signature must be rejected (fail closed)."""
     genesis_hash = _insert_genesis(isolated_engine)
