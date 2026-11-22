@@ -37,7 +37,9 @@ def load_island_credentials() -> dict[str, Any]:
         )
 
     file_stat = credentials_path.stat()
-    if file_stat.st_mode & 0o777 > 0o600:
+    # #2567: bit test, not a numeric compare — 0o444/0o477 are numerically
+    # below 0o600 yet still group/world-readable.
+    if file_stat.st_mode & 0o077:
         raise PermissionError(f"Island credentials file {CREDENTIALS_PATH} has overly permissive mode; set it to 0o600")
     # Root (euid 0) is the operator login on shop nodes; the credentials file is
     # owned by the `aitbc` service user at mode 0600. Refusing that pair made

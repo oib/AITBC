@@ -60,6 +60,28 @@ def test_load_island_credentials_file_not_found():
     ic_module.CREDENTIALS_PATH = original_path
 
 
+@pytest.mark.parametrize("mode", [0o444, 0o477, 0o640, 0o604, 0o646, 0o404, 0o466])
+def test_load_island_credentials_rejects_group_world_readable(mock_credentials_file, mode):
+    """#2567: group/world-readable modes must be refused — the old numeric
+    ``mode > 0o600`` compare let 0o444/0o477 through."""
+    import aitbc_cli.utils.island_credentials as ic_module
+
+    os.chmod(ic_module.CREDENTIALS_PATH, mode)
+    with pytest.raises(PermissionError, match="permissive"):
+        load_island_credentials()
+
+
+@pytest.mark.parametrize("mode", [0o600, 0o400])
+def test_load_island_credentials_accepts_owner_only_modes(mock_credentials_file, mode):
+    """#2567: owner-only modes pass — 0o400 is numerically below 0o600 yet
+    exposes nothing to group/other."""
+    import aitbc_cli.utils.island_credentials as ic_module
+
+    os.chmod(ic_module.CREDENTIALS_PATH, mode)
+    creds = load_island_credentials()
+    assert creds["island_id"] == "test-island-id-12345"
+
+
 def test_validate_credentials_invalid_file(tmp_path):
     """Test validating credentials when file doesn't exist"""
     import aitbc_cli.utils.island_credentials as ic_module
