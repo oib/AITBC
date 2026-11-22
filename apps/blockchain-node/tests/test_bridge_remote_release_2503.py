@@ -313,6 +313,55 @@ def test_remote_verdict_reads_real_route(hub, island_engine):
     assert verdict == "clear"
 
 
+def _island_row(engine, tid: str, *, status: str = "locked") -> None:
+    """A copy row on the island whose status lags a sealed release (#2509)."""
+    with Session(engine) as s:
+        s.add(
+            CrossChainTransfer(
+                transfer_id=tid,
+                source_chain=HUB,
+                target_chain=ISLAND,
+                sender="0xsender",
+                recipient="0xrecipient",
+                amount=5,
+                status=status,
+            )
+        )
+        s.commit()
+
+
+def test_release_route_stale_row_still_reads_sealed_release(island_client, island_engine):
+    """#2509: a locked/pending copy row must not hide a sealed BRIDGE_RELEASE —
+    the row's status is reported for information but released stays True."""
+    _island_row(island_engine, "t-stale", status="locked")
+    _seal_release(island_engine, "t-stale")
+
+    resp = island_client.get(f"/rpc/bridge/release/t-stale?chain_id={ISLAND}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["released"] is True
+    assert body["status"] == "locked"
+    assert body["target_tx_hash"] == RELEASE_HASH
+
+
+def test_remote_verdict_stale_row_is_released(hub, island_engine):
+    """Auditor repro flipped: island holds a locked row plus the sealed
+    release; the hub's confirmed row must verdict 'released' and the refund
+    guard must refuse — not read the stale row as 'clear'."""
+    rec, eng = hub
+    _island_row(island_engine, "t-stale-row")
+    _seal_release(island_engine, "t-stale-row")
+    _hub_pending_row(eng, "t-stale-row", status="confirmed", age=timedelta(hours=3))
+
+    verdict, row = rec._remote_release_verdict(ISLAND, "t-stale-row")
+    assert verdict == "released"
+    assert row is not None and row["target_tx_hash"] == RELEASE_HASH
+
+    released, tx_hash, _ = rec._refund_release_evidence(None, _hub_record(eng, "t-stale-row"), "t-stale-row")
+    assert released is True
+    assert tx_hash == RELEASE_HASH
+
+
 def test_unpatched_peer_404_stays_unreachable_not_clear(hub, island_client, monkeypatch):
     """A peer without the release route answers the route-level 404 — the
     consumer must keep the fail-closed ``unreachable`` verdict, never read
