@@ -80,10 +80,6 @@ def aitbc_ai_accept(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_cancel(
     job_id: Annotated[str, Field(description="Job ID")],
-    wallet: Annotated[str | None, Field(description="Wallet name (optional)")] = None,
-    password_file: Annotated[
-        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ] = None,
     refund: Annotated[bool | None, Field(description="Also refund the escrowed payment after cancel")] = None,
     reason: Annotated[str | None, Field(description="Reason for refund")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
@@ -98,14 +94,7 @@ def aitbc_ai_cancel(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"refund": "refund"},
-        values={
-            "job_id": "job-id",
-            "wallet": "wallet",
-            "password_file": "password-file",
-            "reason": "reason",
-            "coordinator_url": "coordinator-url",
-            "format": "format",
-        },
+        values={"job_id": "job-id", "reason": "reason", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
