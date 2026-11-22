@@ -362,6 +362,31 @@ def test_remote_verdict_stale_row_is_released(hub, island_engine):
     assert tx_hash == RELEASE_HASH
 
 
+def test_release_route_store_not_ready_is_503(island_client, island_bridge, monkeypatch):
+    """#2510: a peer that cannot read the chain store must not answer a
+    definitive released:false — 503 keeps the caller's verdict 'unreachable'."""
+    monkeypatch.setattr(island_bridge, "_chain_db_ready", lambda chain_id: False)
+
+    resp = island_client.get(f"/rpc/bridge/release/t-nostore?chain_id={ISLAND}")
+    assert resp.status_code == 503
+
+
+def test_peer_store_not_ready_stays_unreachable(hub, island_client, island_bridge, island_engine, monkeypatch):
+    """Auditor repro flipped: the island holds a sealed release but its store
+    probe is not ready — the hub must read 'unreachable' and the confirmed-row
+    refund guard must fail closed, exactly as against an unpatched peer."""
+    rec, eng = hub
+    _seal_release(island_engine, "t-nostore")
+    _hub_pending_row(eng, "t-nostore", status="confirmed", age=timedelta(hours=3))
+    monkeypatch.setattr(island_bridge, "_chain_db_ready", lambda chain_id: False)
+
+    verdict, _ = rec._remote_release_verdict(ISLAND, "t-nostore")
+    assert verdict == "unreachable"
+
+    with pytest.raises(ValueError, match="unreachable"):
+        rec._refund_release_evidence(None, _hub_record(eng, "t-nostore"), "t-nostore")
+
+
 def test_unpatched_peer_404_stays_unreachable_not_clear(hub, island_client, monkeypatch):
     """A peer without the release route answers the route-level 404 — the
     consumer must keep the fail-closed ``unreachable`` verdict, never read
