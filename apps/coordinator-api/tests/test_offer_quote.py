@@ -348,13 +348,26 @@ def _software_offer_tx(
 
 
 def _serve_with_chain(monkeypatch, chain_rows, chain_status: int = 200):
-    """Market catalogue answers 404 for everything; the chain RPC serves ``chain_rows``."""
+    """Market catalogue answers 404 for everything; the chain RPC serves ``chain_rows``.
+
+    Emulates the real ``/rpc/transactions`` semantics the fallback relies on:
+    newest-first by ``transaction_id``, ``limit`` clamped to 500, and
+    ``before_id`` cursor paging (#2477).
+    """
+    from urllib.parse import parse_qs, urlparse
 
     async def fake_get(url: str) -> httpx.Response:
         if url.startswith(offer_quote.CHAIN_RPC_URL):
             if chain_status != 200:
                 return httpx.Response(chain_status, json={"error": "boom"})
-            return httpx.Response(200, json=chain_rows)
+            query = parse_qs(urlparse(url).query)
+            limit = min(int(query.get("limit", ["500"])[0]), 500)
+            before = query.get("before_id", [None])[0]
+            rows = [r for r in chain_rows if isinstance(r, dict)]
+            if before is not None:
+                rows = [r for r in rows if isinstance(r.get("transaction_id"), int) and r["transaction_id"] < int(before)]
+            rows = sorted(rows, key=lambda r: r.get("transaction_id") or 0, reverse=True)[:limit]
+            return httpx.Response(200, json=rows)
         return httpx.Response(404, json={"error": "Offer not found"})
 
     monkeypatch.setattr(offer_quote, "_get", fake_get)
@@ -426,3 +439,77 @@ async def test_the_catalogue_still_wins_when_it_answers(monkeypatch):
 
     assert quote.provider_address == SELLER
     assert seen == ["/v1/market/offer/ollama-llama3.2-3b"]
+
+
+# --------------------------------------------------------------------------
+# chain fallback trust boundary (#2477): the payload is consensus-unvalidated,
+# so provider_address must bind to the signer, duplicates resolve
+# deterministically, and the scan pages past the 500-tx window.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_chain_offer_naming_a_foreign_provider_is_not_matched(monkeypatch):
+    """payload.provider_address is not bound by consensus — a tx signed by A
+    that advertises B as payee must not quote a job to B."""
+    offer_id = "sw_offer_foreign_provider"
+    tx = _software_offer_tx(offer_id, tx_id=8, provider_address=OUTSIDER)
+    _serve_with_chain(monkeypatch, [tx])
+
+    with pytest.raises(OfferUnavailable, match="does not name a single listing"):
+        await resolve_offer(offer_id, Decimal("1"))
+
+
+@pytest.mark.asyncio
+async def test_a_chain_offer_without_provider_address_pays_the_sender(monkeypatch):
+    """No claimed payee -> the signer is the payee, same as before."""
+    offer_id = "sw_offer_no_provider"
+    tx = _software_offer_tx(offer_id, tx_id=8, provider_address=None)
+    _serve_with_chain(monkeypatch, [tx])
+
+    quote = await resolve_offer(offer_id, Decimal("1"))
+    assert quote.provider_address == SELLER
+
+
+@pytest.mark.asyncio
+async def test_a_squatted_offer_id_resolves_to_the_earliest_listing(monkeypatch):
+    """offer_id is seller-chosen free text: a stranger's later tx reusing it
+    can neither deny the sale nor re-price it — earliest confirmed wins."""
+    offer_id = "sw_offer_squatted"
+    legit = _software_offer_tx(offer_id, tx_id=8, price=0.02)
+    squatter = _software_offer_tx(offer_id, tx_id=9, sender=OUTSIDER, provider_address=OUTSIDER, price=0.0001)
+    _serve_with_chain(monkeypatch, [squatter, legit])
+
+    quote = await resolve_offer(offer_id, Decimal("1"))
+    assert quote.provider_address == SELLER
+    assert quote.unit_price == Decimal("0.02")
+
+
+@pytest.mark.asyncio
+async def test_an_offer_beyond_the_first_page_still_resolves(monkeypatch):
+    """500 newer GPU_MARKET txs must not push a chain-only offer out of the
+    window — the fallback pages with before_id until it finds the listing."""
+    offer_id = "sw_offer_deep"
+    legit = _software_offer_tx(offer_id, tx_id=8)
+    noise = [
+        _software_offer_tx(f"sw_offer_noise_{i}", tx_id=100 + i, service_type="ffmpeg", model=f"m{i}") for i in range(500)
+    ]
+    _serve_with_chain(monkeypatch, [legit] + noise)
+
+    quote = await resolve_offer(offer_id, Decimal("1"))
+    assert quote.offer_id == offer_id
+
+
+@pytest.mark.asyncio
+async def test_plugin_id_matches_from_several_sellers_stay_unresolvable(monkeypatch):
+    """plugin_id is shared by design — the deterministic rule applies only to
+    offer_id; a plugin_id spanning sellers still refuses rather than guesses."""
+    rows = [_software_offer_tx(f"sw_offer_a{i}", tx_id=10 + i, service_type="ffmpeg", model="h264") for i in range(2)] + [
+        _software_offer_tx(
+            "sw_offer_b", tx_id=20, service_type="ffmpeg", model="h264", sender=OUTSIDER, provider_address=OUTSIDER
+        )
+    ]
+    _serve_with_chain(monkeypatch, rows)
+
+    with pytest.raises(OfferUnavailable):
+        await resolve_offer("ffmpeg-h264", Decimal("1"))

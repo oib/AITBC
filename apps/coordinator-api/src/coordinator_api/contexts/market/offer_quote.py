@@ -180,41 +180,143 @@ def _chain_withdrawn_listing_ids(txs: list[dict[str, Any]]) -> set[str]:
     return withdrawn
 
 
-async def _fetch_offer_from_chain(identifier: str) -> dict[str, Any] | None:
-    """Resolve ``identifier`` against confirmed GPU_MARKET software offers.
+# The chain fallback scans newest-first; one page is the RPC's hard clamp.
+_CHAIN_OFFER_PAGE_LIMIT = 500
+# The fallback is a last resort on a submission-blocking path, so the scan is
+# bounded: 10 pages reaches 5,000 GPU_MARKET rows deep (#2477 — a flat 500-tx
+# window let noise push a chain-only offer out of reach entirely).
+_CHAIN_OFFER_MAX_PAGES = 10
 
-    Returns None when nothing — or more than one distinct listing — matches;
-    the caller treats both as unresolvable, same as the catalogue's 404/500.
+
+async def _chain_offer_page(url: str, *, first: bool) -> list[Any] | None:
+    """One page of GPU_MARKET rows, or None when the first page is unreadable.
+
+    ``first`` marks the opening page: a non-200 or malformed answer there
+    means the scan cannot run at all and the caller treats the offer as
+    unresolvable. The same failure mid-scan is :class:`OfferLookupFailed` —
+    a partial scan cannot be trusted to contain every listing.
     """
-    url = f"{CHAIN_RPC_URL}/rpc/transactions"
     try:
-        response = await _get(f"{url}?transaction_type=GPU_MARKET&limit=500")
+        response = await _get(url)
     except httpx.HTTPError as exc:
         raise OfferLookupFailed(f"the chain RPC at {CHAIN_RPC_URL} could not be reached") from exc
     if response.status_code != httpx.codes.OK:
-        if response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR:
-            logger.warning("Chain offer lookup returned %s; treating %r as unresolvable", response.status_code, identifier)
-        return None
+        if first:
+            if response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR:
+                logger.warning("Chain offer lookup returned %s; treating the scan as empty", response.status_code)
+            return None
+        raise OfferLookupFailed(f"the chain RPC returned {response.status_code} mid-scan at {url}")
     try:
         rows = response.json()
     except ValueError as exc:
         raise OfferLookupFailed(f"the chain RPC returned an unreadable answer for {url}") from exc
-    txs = rows.get("transactions", []) if isinstance(rows, dict) else rows
-    if not isinstance(txs, list):
+    page_rows = rows.get("transactions", []) if isinstance(rows, dict) else rows
+    if not isinstance(page_rows, list):
+        if first:
+            return None
+        raise OfferLookupFailed(f"the chain RPC returned an unreadable answer for {url}")
+    return page_rows
+
+
+async def _fetch_chain_gpu_market_txs() -> list[dict[str, Any]] | None:
+    """Page GPU_MARKET rows newest-first via the ``before_id`` cursor.
+
+    Returns None only when the first page cannot be read at all (the caller
+    treats that as unresolvable, same as a catalogue 404).
+    """
+    txs: list[dict[str, Any]] = []
+    before_id: int | None = None
+    exhausted = False
+    for page in range(_CHAIN_OFFER_MAX_PAGES):
+        params = f"transaction_type=GPU_MARKET&limit={_CHAIN_OFFER_PAGE_LIMIT}"
+        if before_id is not None:
+            params += f"&before_id={before_id}"
+        page_rows = await _chain_offer_page(f"{CHAIN_RPC_URL}/rpc/transactions?{params}", first=page == 0)
+        if page_rows is None:
+            return None
+        txs.extend(tx for tx in page_rows if isinstance(tx, dict))
+        if len(page_rows) < _CHAIN_OFFER_PAGE_LIMIT:
+            exhausted = True
+            break
+        ids = [i for tx in page_rows if isinstance(tx, dict) and isinstance(i := tx.get("transaction_id"), int)]
+        if not ids:
+            exhausted = True
+            break
+        before_id = min(ids)
+    if not exhausted:
+        logger.warning(
+            "Chain offer scan hit the %s-page cap without exhausting GPU_MARKET history; older listings are unseen",
+            _CHAIN_OFFER_MAX_PAGES,
+        )
+    return txs
+
+
+def _chain_offer_candidates(
+    confirmed: list[dict[str, Any]], withdrawn: set[str], identifier: str
+) -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]]]:
+    """Split confirmed-tx matches into ``(tx_id, offer)`` pairs by the field
+    that matched — ``offer_id`` (seller-chosen, resolvable) vs ``plugin_id``
+    (shared by design, ambiguous across sellers)."""
+    offer_id_matches: list[tuple[int, dict[str, Any]]] = []
+    plugin_matches: list[tuple[int, dict[str, Any]]] = []
+    for tx in confirmed:
+        matched = _chain_offer_match(tx, withdrawn, identifier)
+        if matched is None:
+            continue
+        offer, matched_on = matched
+        tx_id = tx.get("transaction_id")
+        pair = (tx_id if isinstance(tx_id, int) else 0, offer)
+        (offer_id_matches if matched_on == "offer_id" else plugin_matches).append(pair)
+    return offer_id_matches, plugin_matches
+
+
+async def _fetch_offer_from_chain(identifier: str) -> dict[str, Any] | None:
+    """Resolve ``identifier`` against confirmed GPU_MARKET software offers.
+
+    ``offer_id`` matches resolve deterministically — the earliest confirmed
+    listing wins, so a squatter's later tx reusing the id can neither deny
+    the sale nor re-price it (#2477). ``plugin_id`` is shared by design, so
+    it resolves only when exactly one listing matches; several sellers (or
+    several listings) stay unresolvable rather than guessed.
+    """
+    txs = await _fetch_chain_gpu_market_txs()
+    if txs is None:
         return None
 
-    confirmed = [tx for tx in txs if isinstance(tx, dict) and tx.get("status") == "confirmed"]
+    confirmed = [tx for tx in txs if tx.get("status") == "confirmed"]
     withdrawn = _chain_withdrawn_listing_ids(confirmed)
-    matches = [offer for tx in confirmed if (offer := _chain_offer_match(tx, withdrawn, identifier)) is not None]
-    if len(matches) != 1:
-        if len(matches) > 1:
-            logger.warning("Chain offer lookup for %r matched %s listings; treating as unresolvable", identifier, len(matches))
-        return None
-    return matches[0]
+    offer_id_matches, plugin_matches = _chain_offer_candidates(confirmed, withdrawn, identifier)
+
+    if offer_id_matches:
+        offer_id_matches.sort(key=lambda m: m[0])
+        if len(offer_id_matches) > 1:
+            logger.info(
+                "Chain offer lookup for %r: %s listings share the offer_id; using the earliest",
+                identifier,
+                len(offer_id_matches),
+            )
+        return offer_id_matches[0][1]
+    if len(plugin_matches) == 1:
+        return plugin_matches[0][1]
+    if plugin_matches:
+        logger.warning(
+            "Chain offer lookup for %r matched %s plugin_id listings; treating as unresolvable",
+            identifier,
+            len(plugin_matches),
+        )
+    return None
 
 
-def _chain_offer_match(tx: dict[str, Any], withdrawn: set[str], identifier: str) -> dict[str, Any] | None:
-    """The catalogue-shaped offer one confirmed tx advertises, or None."""
+def _chain_offer_match(tx: dict[str, Any], withdrawn: set[str], identifier: str) -> tuple[dict[str, Any], str] | None:
+    """The catalogue-shaped offer one confirmed tx advertises, plus which
+    identifier field matched (``offer_id`` or ``plugin_id``) — or None.
+
+    Consensus applies GPU_MARKET payloads without validating them, so the
+    payload's ``provider_address`` is not bound to the signer (#2477): a tx
+    that names a payee other than its sender is not an offer this seller
+    made, and matching it would quote a job to an address that never
+    published it.
+    """
     tx_id = tx.get("transaction_id")
     if tx_id is None or f"tx_{tx_id}" in withdrawn:
         return None
@@ -226,7 +328,15 @@ def _chain_offer_match(tx: dict[str, Any], withdrawn: set[str], identifier: str)
     service_type = str(payload.get("service_type") or "")
     model = str(payload.get("model") or "")
     plugin_id = f"{service_type}-{model.replace(':', '-')}" if service_type and model else ""
-    if payload.get("offer_id") != identifier and plugin_id != identifier:
+    if payload.get("offer_id") == identifier:
+        matched_on = "offer_id"
+    elif plugin_id == identifier:
+        matched_on = "plugin_id"
+    else:
+        return None
+    sender = str(tx.get("sender") or "")
+    claimed = payload.get("provider_address")
+    if claimed and (not sender or canonical_address(str(claimed)) != canonical_address(sender)):
         return None
     return {
         "offer_id": str(payload.get("offer_id") or ""),
@@ -235,10 +345,10 @@ def _chain_offer_match(tx: dict[str, Any], withdrawn: set[str], identifier: str)
         "model": model,
         "price": payload.get("price"),
         "price_unit": payload.get("price_unit") or "",
-        "provider_address": str(payload.get("provider_address") or tx.get("sender") or ""),
+        "provider_address": str(claimed or sender or ""),
         "status": payload.get("status"),
         "endpoint": payload.get("endpoint") or "",
-    }
+    }, matched_on
 
 
 async def resolve_offer(offer_id: str, quantity: Decimal) -> OfferQuote:
