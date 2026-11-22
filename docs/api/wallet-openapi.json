@@ -533,7 +533,7 @@
           "exchange"
         ],
         "summary": "List Deposits",
-        "description": "List ETH deposits.\n\nQuery parameters:\n- status: Filter by status (pending, verified, completed, rejected)\n- limit: Maximum number of results (default: 50)\n- offset: Pagination offset (default: 0)",
+        "description": "List ETH deposits.\n\nQuery parameters:\n- status: Filter by status (pending, verified, completed, exchange_prepay, rejected, failed)\n- limit: Maximum number of results (default: 50)\n- offset: Pagination offset (default: 0)",
         "operationId": "list_deposits_v1_exchange_deposits_get",
         "parameters": [
           {

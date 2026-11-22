@@ -15,11 +15,12 @@ from fastapi import HTTPException, Request
 from aitbc.rate_limiting import rate_limit
 
 from .bridge_db import (
+    _ETH_DEPOSIT_STATUSES,
     _money_str,
     get_all_deposits,
     get_deposit_by_tx_hash,
     get_deposits_by_recipient,
-    get_pending_deposits,
+    get_deposits_by_status,
 )
 from .bridge_routes_common import bridge_router
 
@@ -28,10 +29,15 @@ from .bridge_routes_common import bridge_router
 def bridge_list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List bridge deposits."""
     limit = max(0, min(limit, 500))
-    if status == "pending":
-        deposits = get_pending_deposits(limit=limit, offset=offset)
-    else:
+    if status is not None and status not in _ETH_DEPOSIT_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown deposit status: {status!r} (valid: {', '.join(sorted(_ETH_DEPOSIT_STATUSES))})",
+        )
+    if status is None:
         deposits = get_all_deposits(limit=limit, offset=offset)
+    else:
+        deposits = get_deposits_by_status(status, limit=limit, offset=offset)
     return {
         "deposits": _normalize_deposits(deposits),
         "count": len(deposits),
