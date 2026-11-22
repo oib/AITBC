@@ -13,19 +13,21 @@ deployments already render the registry directly — appending it again would
 duplicate every series).
 
 Both processes import ``aitbc_chain.metrics`` and register the same names,
-so a naive append exposes shared series twice — duplicate samples AND
+so a naive append exposes shared families twice — duplicate samples AND
 duplicate ``# TYPE`` lines, which strict parsers reject and Prometheus
 counts as dropped duplicates (#2488). ``with_node_snapshot`` therefore
-drops every snapshot series (sample, TYPE and HELP lines) whose name the
-RPC render already carries; node-only names pass through untouched. The
-RPC process's own value wins for shared names — the node process is also
-scraped directly on its own port, so no data is lost.
+merges by *series*, not by name (#2504): every snapshot sample is tagged
+``process="node"`` so the node process's value survives next to the RPC
+process's own same-named series, and the snapshot's ``# TYPE``/``# HELP``
+lines for families the RPC render already declares are dropped — one
+declaration per family, no duplicate samples.
 """
 
 from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from pathlib import Path
 
@@ -97,12 +99,32 @@ def _exposition_names(rendered: bytes) -> set[str]:
     return names
 
 
-def _drop_known_series(node_metrics: str, known: set[str]) -> str:
-    """Snapshot text minus every series ``known`` already exposes.
+def _tag_node_sample(line: str) -> str:
+    """Add ``process="node"`` to a sample's label set.
 
-    Drops matching sample lines and the ``# TYPE``/``# HELP`` lines that
-    would otherwise duplicate them; comments and node-only families pass
-    through unchanged.
+    The snapshot is the *node* process's registry; tagging every sample
+    keeps it a distinct series from the RPC process's same-named one
+    instead of colliding with it (#2504). A sample already carrying a
+    ``process`` label is left alone.
+    """
+    stripped = line.strip()
+    if re.search(r'[{,]process="', stripped):
+        return line
+    head, sep, tail = stripped.partition("{")
+    if sep:
+        return f'{head}{{process="node",{tail}'
+    name, _, rest = stripped.partition(" ")
+    return f'{name}{{process="node"}} {rest}'
+
+
+def _merge_node_snapshot(node_metrics: str, known: set[str]) -> str:
+    """Snapshot text safe to append to the RPC render.
+
+    ``# TYPE``/``# HELP`` lines for families ``known`` already declares are
+    dropped (one declaration per family); every sample is tagged
+    ``process="node"`` so shared names keep BOTH processes' values as
+    distinct series — dedup by series, not by name (#2504). Node-only
+    families pass through with their declarations intact.
     """
     kept: list[str] = []
     for line in node_metrics.splitlines():
@@ -115,9 +137,7 @@ def _drop_known_series(node_metrics: str, known: set[str]) -> str:
                 continue
             kept.append(line)
             continue
-        if stripped.split("{", 1)[0].split()[0] in known:
-            continue
-        kept.append(line)
+        kept.append(_tag_node_sample(line))
     return "\n".join(kept) + ("\n" if kept else "")
 
 
@@ -128,7 +148,7 @@ def with_node_snapshot(rendered: bytes) -> bytes:
     node_metrics = read_snapshot()
     if not node_metrics.strip():
         return rendered
-    filtered = _drop_known_series(node_metrics, _exposition_names(rendered))
+    filtered = _merge_node_snapshot(node_metrics, _exposition_names(rendered))
     if not filtered.strip():
         return rendered
     return rendered + b"\n# node-process registry (snapshot)\n" + filtered.encode()
