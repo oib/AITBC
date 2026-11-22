@@ -163,7 +163,13 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc market escrow status` | `/rpc/escrow/{job_id}` | `get_escrow` (escrow_routes.py) | —
 | `aitbc market exchange mint-ait` | `/rpc/accounts/` | `list_accounts_route` (core.py) | —
 | `aitbc market exchange mint-ait` | `/rpc/accounts/{genesis_wallet_address}` | `get_account_alias_route` (core.py) | —
+| `aitbc market exchange mint-ait` | `/rpc/mempool` | `get_mempool_api_route` (core.py) | —
+| `aitbc market exchange mint-ait` | `/rpc/mempool{mempool_query}` | — | —
+| `aitbc market exchange mint-ait` | `/rpc/transaction/` | `submit_transaction_route` (core.py) | —
+| `aitbc market exchange mint-ait` | `/rpc/transaction/{tx_hash}{query}` | `get_transaction_route` (core.py) | —
 | `aitbc market exchange mint-ait` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
+| `aitbc market exchange mint-ait` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
+| `aitbc market exchange mint-ait` | `/rpc/transactions{query}` | — | —
 | `aitbc market hermes` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
 | `aitbc market list` | `/rpc/mempool` | `get_mempool_api_route` (core.py) | —
 | `aitbc market list` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
