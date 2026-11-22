@@ -306,15 +306,22 @@ def _build_import_objects(
     return new_blocks, new_accounts, new_transactions
 
 
+def _resolve_import_chain_id(import_data: dict[str, Any]) -> str:
+    """The chain an import payload targets: top-level ``chain_id``, else the
+    first block's, else the node's configured chain."""
+    chain_id = import_data.get("chain_id")
+    blocks = import_data.get("blocks") or []
+    if not chain_id and blocks:
+        chain_id = blocks[0].get("chain_id")
+    return get_chain_id(chain_id)
+
+
 def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
     """Validated, atomic chain import. Caller is responsible for admin auth."""
-    chain_id = import_data.get("chain_id")
+    chain_id = _resolve_import_chain_id(import_data)
     blocks = import_data.get("blocks", [])
     accounts = import_data.get("accounts", [])
     transactions = import_data.get("transactions", [])
-    if not chain_id and blocks:
-        chain_id = blocks[0].get("chain_id")
-    chain_id = get_chain_id(chain_id)
     unique_blocks = _dedupe_import_blocks(blocks, chain_id)
     if not unique_blocks:
         raise HTTPException(status_code=400, detail="No blocks to import")
@@ -508,7 +515,17 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
             )
         # force_sync already verified admin auth above; call the import
         # directly rather than re-authing the (unsigned) peer payload.
-        import_result = _import_chain_data(peer_chain_data["export_data"])
+        # The import is destructive, so it takes the same serializer
+        # import_chain holds: the per-process lock plus the cross-worker
+        # advisory on the target chain (AUDIT-BN-FORCE-SYNC-NO-IMPORT-SERIALIZER-1).
+        export_data = peer_chain_data["export_data"]
+        async with _import_lock:
+            _import_advisory = None
+            try:
+                _import_advisory = import_advisory_acquire(_resolve_import_chain_id(export_data))
+                import_result = _import_chain_data(export_data)
+            finally:
+                import_advisory_release(_import_advisory)
         return {
             "success": True,
             "synced_from": peer_url,
