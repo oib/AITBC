@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -12,6 +13,14 @@ import click
 from aitbc_agent_core.plugins import PluginManager
 
 from ..utils import output, success
+from ..utils.error_handling import abort
+
+_PLUGIN_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _py_str(value: str) -> str:
+    """Return ``value`` as a Python string literal (JSON escaping is valid Python)."""
+    return json.dumps(value)
 
 
 def _default_roles() -> dict[str, str]:
@@ -49,6 +58,8 @@ def plugin():
 @click.pass_context
 def create_plugin(ctx, plugin_type: str, name: str, output_dir: str):
     """Create a brand plugin skeleton that PluginManager can load."""
+    if not _PLUGIN_NAME_RE.fullmatch(name):
+        abort(ctx, f"Invalid plugin name {name!r}: use only letters, digits, '-' and '_'")
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -59,13 +70,13 @@ def create_plugin(ctx, plugin_type: str, name: str, output_dir: str):
 from aitbc_agent_core.branding import BrandSettings
 
 brand = BrandSettings(
-    name="{name.title()}",
-    token_symbol="{name.upper()[:4]}",
-    token_name="{name.title()} Token",
-    network_name="{name.title()} Network",
-    dao_name="{name.title()} DAO",
-    wallet_name="{name.title()} Wallet",
-    explorer_name="{name.title()} Explorer",
+    name={_py_str(name.title())},
+    token_symbol={_py_str(name.upper()[:4])},
+    token_name={_py_str(name.title() + " Token")},
+    network_name={_py_str(name.title() + " Network")},
+    dao_name={_py_str(name.title() + " DAO")},
+    wallet_name={_py_str(name.title() + " Wallet")},
+    explorer_name={_py_str(name.title() + " Explorer")},
 )
 
 roles = {{
