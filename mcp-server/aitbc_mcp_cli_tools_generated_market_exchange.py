@@ -253,8 +253,11 @@ def aitbc_market_exchange_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_exchange_withdraw_eth(
-    amount: Annotated[str, Field(description="Amount of AIT.")],
-    address: Annotated[str, Field(description="Blockchain address to fund.")],
+    amount: Annotated[str | None, Field(description="Amount of AIT.")] = None,
+    address: Annotated[str | None, Field(description="Blockchain address to fund.")] = None,
+    tx_hash: Annotated[
+        str | None, Field(description="Re-check a previously broadcast withdrawal hash instead of sending a new one")
+    ] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
     market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
     password_file: Annotated[
@@ -270,7 +273,7 @@ def aitbc_market_exchange_withdraw_eth(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"amount": "amount", "address": "address"},
+        values={"amount": "amount", "address": "address", "tx_hash": "tx-hash"},
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
