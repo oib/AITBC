@@ -111,17 +111,25 @@ def _seed_stake(engine, *, status: str = "active", amount: int = AMOUNT, matured
         session.commit()
 
 
-def _seed_lock_tx(engine, *, value: int, payload: dict[str, Any], height: int = 1) -> None:
+def _seed_lock_tx(
+    engine,
+    *,
+    value: int,
+    payload: dict[str, Any],
+    height: int = 1,
+    tx_type: str = "STAKE_LOCK",
+    tx_hash: str | None = None,
+) -> None:
     with Session(engine) as session:
         session.add(
             Transaction(
                 chain_id=CHAIN,
-                tx_hash="0x" + keccak(json.dumps(payload, sort_keys=True).encode()).hex()[:64],
+                tx_hash=tx_hash or "0x" + keccak(json.dumps(payload, sort_keys=True).encode()).hex()[:64],
                 block_height=height,
                 sender=_to_ait_address(USER),
                 recipient=agent_staking.stake_escrow_address(),
                 value=value,
-                type="STAKE_LOCK",
+                type=tx_type,
                 payload=payload,
             )
         )
@@ -230,6 +238,81 @@ async def test_complete_pending_release_answers_success_without_duplicate(engine
     assert result["status"] == "unbonding"
     assert _stake_row(engine).status == "unbonding"
     assert not [q for q in queued if q["tx_type"] == "STAKE_RELEASE"]
+
+
+@pytest.mark.asyncio
+async def test_complete_sealed_release_heals_row_without_duplicate(engine, armed):
+    """#2645: the pre-#2628 ordering could seal the STAKE_RELEASE while the
+    row stayed `unbonding` — `complete` must answer idempotent from sealed
+    history, heal the stranded row, and never queue a second release."""
+    _seed_stake(engine, status="unbonding")
+    _seed_lock_tx(engine, value=AMOUNT, payload={"agent_stake_id": SID, "lock_days": 30})
+    _seed_lock_tx(
+        engine,
+        value=AMOUNT,
+        payload={"agent_stake_id": SID},
+        tx_type="STAKE_RELEASE",
+        tx_hash="0x" + "ef" * 32,
+    )
+    queued = armed
+    queued.clear()
+
+    result = agent_staking.complete_agent_stake(Mock(), SID, _complete_body())
+
+    assert result["success"] is True
+    assert result["idempotent"] is True
+    assert result["status"] == "completed"
+    assert result["source"] == "chain"
+    assert _stake_row(engine).status == "completed"
+    assert not [q for q in queued if q["tx_type"] == "STAKE_RELEASE"]
+
+
+@pytest.mark.asyncio
+async def test_complete_sealed_release_heals_even_before_lock_expiry(engine, armed):
+    """The money already moved — a sealed release heals the row regardless
+    of the local lock-expiry clock."""
+    _seed_stake(engine, status="unbonding", matured=False)
+    _seed_lock_tx(engine, value=AMOUNT, payload={"agent_stake_id": SID, "lock_days": 30})
+    _seed_lock_tx(
+        engine,
+        value=AMOUNT,
+        payload={"agent_stake_id": SID},
+        tx_type="STAKE_RELEASE",
+        tx_hash="0x" + "12" * 32,
+    )
+    queued = armed
+    queued.clear()
+
+    result = agent_staking.complete_agent_stake(Mock(), SID, _complete_body())
+
+    assert result["success"] is True
+    assert result["status"] == "completed"
+    assert _stake_row(engine).status == "completed"
+    assert not [q for q in queued if q["tx_type"] == "STAKE_RELEASE"]
+
+
+@pytest.mark.asyncio
+async def test_unbond_sealed_marker_heals_stale_active_row(engine, armed):
+    """#2645 sibling: a sealed STAKE_UNBOND with a local row still `active`
+    heals forward to `unbonding` on the idempotent answer — never backwards."""
+    _seed_stake(engine, status="active")
+    _seed_lock_tx(
+        engine,
+        value=AMOUNT,
+        payload={"agent_stake_id": SID},
+        tx_type="STAKE_UNBOND",
+        tx_hash="0x" + "34" * 32,
+    )
+    queued = armed
+    queued.clear()
+
+    result = agent_staking.unbond_agent_stake(Mock(), SID, _unbond_body())
+
+    assert result["success"] is True
+    assert result["idempotent"] is True
+    assert result["status"] == "unbonding"
+    assert _stake_row(engine).status == "unbonding"
+    assert not [q for q in queued if q["tx_type"] == "STAKE_UNBOND"]
 
 
 # --- unbond_agent_stake ---------------------------------------------------
