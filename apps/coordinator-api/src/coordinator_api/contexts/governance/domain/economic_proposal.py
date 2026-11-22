@@ -80,3 +80,27 @@ class EconomicParameterProposal(SQLModel, table=True):
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class EconomicProposalVote(SQLModel, table=True):
+    """One vote per voter per economic proposal (#2494).
+
+    The tallies on ``EconomicParameterProposal`` are snapshots: each row
+    records the voter's effective power at cast time, and delegation
+    changes only *future* voting power (``effective_voting_power`` already
+    parks a delegator's own stake at the delegatee), so a vote cast before
+    delegating is not re-weighted. The unique constraint is the
+    one-vote-per-voter guard the tallies alone could not express.
+    """
+
+    __tablename__ = "economic_proposal_vote"
+    __table_args__ = (sa.UniqueConstraint("proposal_id", "voter_id", name="uq_economic_proposal_vote"),)
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    proposal_id: str = Field(sa_column=sa.Column("proposal_id", sa.String(length=32), nullable=False, index=True))
+    voter_id: str = Field(sa_column=sa.Column("voter_id", sa.String(length=255), nullable=False, index=True))
+    vote: str = Field(sa_column=sa.Column("vote", sa.String(length=10), nullable=False))
+    voting_power: float = Field(
+        default=0.0, sa_column=sa.Column("voting_power", sa.Float(), nullable=False, server_default=sa.text("'0.0'"))
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
