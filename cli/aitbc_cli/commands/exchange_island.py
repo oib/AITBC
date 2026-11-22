@@ -96,8 +96,13 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
     funded wallet could erase anyone's order from the book. A cancel whose
     sender cannot be established, or that matches no same-sender order,
     is ignored entirely (the cancel row is still dropped).
+
+    #2511: every cancel row for an order_id is kept — checking only the
+    newest let a later foreign cancel shadow the owner's earlier valid
+    one and resurrect the order. An order is cancelled when ANY of its
+    cancels carries the order row's sender.
     """
-    cancels: dict[str, dict[str, Any]] = {}
+    cancels: dict[str, list[dict[str, Any]]] = {}
     originals: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         payload = row.get("payload") or row
@@ -105,17 +110,17 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
             continue
         oid = payload.get("order_id", "")
         if payload.get("action") == "cancel":
-            cancels.setdefault(oid, row)
+            cancels.setdefault(oid, []).append(row)
         elif oid:
             originals.setdefault(oid, []).append(row)
     cancelled_ids: set[str] = set()
-    for oid, cancel_row in cancels.items():
-        cancel_sender = _row_sender(cancel_row)
-        if not cancel_sender:
+    for oid, cancel_rows in cancels.items():
+        cancel_senders = {_row_sender(c) for c in cancel_rows} - {""}
+        if not cancel_senders:
             continue
         for orig_row in originals.get(oid, []):
-            orig_payload = orig_row.get("payload") or orig_row
-            if cancel_sender == _row_sender(orig_row):
+            if _row_sender(orig_row) in cancel_senders:
+                orig_payload = orig_row.get("payload") or orig_row
                 orig_payload["status"] = "cancelled"
                 cancelled_ids.add(oid)
     kept = [
