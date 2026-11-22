@@ -444,11 +444,18 @@ def _admission_protocol_auth_gate(session: Any, chain_id: str, tx_data: dict[str
     # admitted again — envelope nonce/fee changes mint a new tx hash, so
     # hash dedup alone cannot see the replay.
     if not _protocol_auth_nonce_present(message):
-        from ..protocol_escrow import protocol_auth_signature_sealed, tx_auth_signature
+        from ..protocol_escrow import (
+            protocol_auth_identity_pending,
+            protocol_auth_identity_sealed,
+            tx_auth_identity,
+        )
 
-        signature = tx_auth_signature(tx_data)
-        if signature is not None and protocol_auth_signature_sealed(session, chain_id, signature):
-            raise ValueError("payload.auth signature already used by a sealed transaction")
+        identity = tx_auth_identity(tx_data)
+        if identity is not None and (
+            protocol_auth_identity_sealed(session, chain_id, identity)
+            or protocol_auth_identity_pending(session, chain_id, identity)
+        ):
+            raise ValueError("payload.auth authorization already used")
         return
     signer = _to_ait_address(str(auth.get("signer")))
     account = session.get(Account, (chain_id, signer))
