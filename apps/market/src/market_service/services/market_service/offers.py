@@ -29,6 +29,7 @@ from .shared import (
     _replay_after_integrity_conflict,
     _resolve_bid_price,
     _validate_booking_numbers,
+    _validated_capacity,
     bid_ttl_seconds,
     coerce_offer_expires_at,
     max_page_size,
@@ -38,6 +39,33 @@ from .shared import (
 
 
 logger = get_logger(__name__)
+
+
+def _validate_offer_fields(offer_data: dict[str, Any]) -> None:
+    """Normalize and bound caller-supplied offer fields in place (#2616).
+
+    ``status`` is a plain string on the model and the request body is
+    splatted straight into it, so until now a caller could create an offer
+    in any state they could spell -- including one no part of this service
+    understands, which then made every later transition on that offer fail.
+    That is how the deployed database came to hold an offer whose status is
+    "open" (V23-83). Validating here is what makes "every stored status
+    parses" true rather than aspirational. Money columns are Numeric — a
+    literal NaN/Infinity in the dict body would persist Decimal('NaN') and
+    poison every later aggregate/booking that reads it. ``capacity`` was
+    the one unbounded numeric left — a negative or absurd count poisoned
+    every capacity aggregate.
+    """
+    if "status" in offer_data:
+        to_offer_status(offer_data["status"])
+    if "expires_at" in offer_data:
+        # #1554: normalize to naive UTC before the model sees it.
+        offer_data["expires_at"] = coerce_offer_expires_at(offer_data["expires_at"])
+    for price_field in ("price", "price_per_hour"):
+        if offer_data.get(price_field) is not None:
+            offer_data[price_field] = _money_decimal(offer_data[price_field], price_field)
+    if offer_data.get("capacity") is not None:
+        offer_data["capacity"] = _validated_capacity(offer_data["capacity"])
 
 
 class _OffersMixin(_OffersSoftwareMixin):
@@ -241,23 +269,7 @@ class _OffersMixin(_OffersSoftwareMixin):
             if "wallet" in offer_data and "provider" not in offer_data:
                 offer_data["provider"] = offer_data["wallet"]
                 logger.info("Mapped wallet '%s' to provider", offer_data["wallet"])
-            # `status` is a plain string on the model and this method splats the request body
-            # straight into it, so until now a caller could create an offer in any state they
-            # could spell -- including one no part of this service understands, which then
-            # made every later transition on that offer fail. That is how the deployed
-            # database came to hold an offer whose status is "open" (V23-83). Validating here
-            # is what makes "every stored status parses" true rather than aspirational.
-            if "status" in offer_data:
-                to_offer_status(offer_data["status"])
-            if "expires_at" in offer_data:
-                # #1554: normalize to naive UTC before the model sees it.
-                offer_data["expires_at"] = coerce_offer_expires_at(offer_data["expires_at"])
-            # Money columns are Numeric — a literal NaN/Infinity in the dict
-            # body would persist Decimal('NaN') and poison every later
-            # aggregate/booking that reads it.
-            for price_field in ("price", "price_per_hour"):
-                if offer_data.get(price_field) is not None:
-                    offer_data[price_field] = _money_decimal(offer_data[price_field], price_field)
+            _validate_offer_fields(offer_data)
             existing: MarketOffer | None = await _get_by_caller_id(self.session, MarketOffer, offer_data)
             if existing is not None:
                 return existing

@@ -119,6 +119,27 @@ def _finite_decimal(value: Any, field: str) -> Decimal:
     return parsed
 
 
+# Capacity is a count of allocatable units (vCPU-equivalents / slots), not
+# money — but an unbounded caller-supplied magnitude still poisons every
+# aggregate that sums it (#2616). Generous bound: no real listing nears it.
+MAX_OFFER_CAPACITY = 1_000_000
+
+
+def _validated_capacity(value: Any) -> int:
+    """``capacity`` must be a non-negative integral count within bounds."""
+    if isinstance(value, bool):
+        raise ValueError("capacity must be a non-negative integer")
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError("capacity must be a whole number")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("capacity must be a non-negative integer") from None
+    if parsed < 0 or parsed > MAX_OFFER_CAPACITY:
+        raise ValueError(f"capacity must be between 0 and {MAX_OFFER_CAPACITY}")
+    return parsed
+
+
 def _money_decimal(value: Any, field: str) -> Decimal:
     """Finite + bounded money field: ``0 <= value <= MAX_PAYMENT_AMOUNT``.
 
@@ -200,6 +221,17 @@ def bid_ttl_seconds() -> int:
 def offer_reservation_ttl_seconds() -> int:
     """Reserved/booked offer hold lifetime before release (#1554)."""
     return _env_ttl_seconds("MARKET_OFFER_RESERVATION_TTL_SECONDS", 24 * 3600)
+
+
+def match_reservation_ttl_seconds() -> int:
+    """Match-reservation hold lifetime (#2612).
+
+    A match only proves a buyer signed the request — no deposit or pending
+    bid is required yet — so its hold on the offer is deliberately shorter
+    than a booked reservation. ``MARKET_MATCH_RESERVATION_TTL_SECONDS``
+    overrides; default 1 hour.
+    """
+    return _env_ttl_seconds("MARKET_MATCH_RESERVATION_TTL_SECONDS", 3600)
 
 
 def _pin_sample_limit() -> int:

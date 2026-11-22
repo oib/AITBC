@@ -83,6 +83,24 @@ def _is_operator(request: Request) -> bool:
     return bool(presented) and hmac.compare_digest(str(presented), str(expected))
 
 
+def _has_operator_credential(request: Request) -> bool:
+    """True only when the caller presented the operator-tier key itself.
+
+    Unlike ``_is_operator`` — which treats fully-disabled auth as operator
+    for the mutating gates — read-side redaction asks "did an operator
+    credential arrive": with auth off at the settings level the service is
+    open anyway (full rows), but a disabled-authenticator test harness or a
+    missing/wrong key must still get the public view (#2606).
+    """
+    if not settings.auth_enabled:
+        return True
+    expected = _market_operator_key_auth.expected_key
+    if not expected or expected == _market_user_key_auth.expected_key:
+        return False
+    presented = request.headers.get("X-Api-Key")
+    return bool(presented) and hmac.compare_digest(str(presented), str(expected))
+
+
 def _is_market_admin(request: Request) -> bool:
     """True when the caller carries either service key (or auth is disabled).
 

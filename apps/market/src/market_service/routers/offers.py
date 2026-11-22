@@ -15,13 +15,22 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import OfferStatus
+from aitbc.market.job_request_signature import verify_jobs_request_signature
+from aitbc.market.offer_registration import offer_body_hash
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.json_utils import to_jsonable
 
 from ..config import settings
 from ..deps import get_market_service, get_matching_service, require_market_api_key
 from ..domain.offer_status import try_to_offer_status
-from ..gates import _canonical_or_none, _party_or_operator_gate, _party_signature_precheck
+from ..gates import (
+    _canonical_or_none,
+    _is_operator,
+    _party_or_operator_gate,
+    _party_signature_precheck,
+)
 from ..operations import (
     _OPS_ERRORS,
     _begin_operation,
@@ -29,7 +38,11 @@ from ..operations import (
     _get_operations_ledger,
     _reject_operation,
 )
-from ..services.market_service import MAX_PAYMENT_AMOUNT, MarketService
+from ..services.market_service import (
+    MAX_PAYMENT_AMOUNT,
+    MarketService,
+    match_reservation_ttl_seconds,
+)
 from ..services.matching_service import MatchingService
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
@@ -225,12 +238,24 @@ async def complete_bid(
 
 
 class MatchRequest(BaseModel):
-    """Request model for market matching (v0.6.6)."""
+    """Request model for market matching (v0.6.6).
+
+    #2612: non-operator callers must name a ``buyer_address`` and sign the
+    request (``signer_address``/``issued_at``/``signature`` over the
+    jobs-request message for route ``/v1/market/match`` with the binding
+    below) — an anonymous user-tier call used to reserve the best offer
+    for the full reservation TTL with no buyer identity at all. ``chain_id``
+    doubles as the signature's chain field and the offer-chain filter.
+    """
 
     requirements: dict[str, Any] = Field(default_factory=dict)
     max_price: Decimal | None = None
     preferred_region: str | None = None
     chain_id: str | None = None
+    buyer_address: str | None = None
+    signer_address: str | None = None
+    issued_at: int | None = None
+    signature: str | None = None
 
     @field_validator("max_price")
     @classmethod
@@ -243,6 +268,53 @@ class MatchRequest(BaseModel):
         if not v.is_finite() or v < 0 or v > MAX_PAYMENT_AMOUNT:
             raise ValueError(f"max_price must be a finite amount between 0 and {MAX_PAYMENT_AMOUNT}")
         return v
+
+
+def _match_signature_binding(request: MatchRequest, buyer: str) -> dict[str, Any]:
+    """Canonical binding a buyer signs for ``POST /v1/market/match`` (#2612).
+
+    Covers the buyer identity plus every match input, so a captured
+    signature cannot be re-aimed at different requirements or another
+    buyer within its clock window.
+    """
+    return {
+        "buyer_address": buyer,
+        "requirements": request.requirements,
+        "max_price": str(request.max_price) if request.max_price is not None else None,
+        "preferred_region": request.preferred_region,
+        "chain_id": request.chain_id,
+    }
+
+
+def _match_buyer_gate(http_request: Request, request: MatchRequest) -> JSONResponse | None:
+    """#2612: a match reserves real offer inventory — bind it to a buyer.
+
+    The operator credential bypasses; everyone else needs ``buyer_address``
+    plus a fresh signature recovering to that address. Returns a ready
+    error response, or None when the request may proceed.
+    """
+    if _is_operator(http_request):
+        return None
+    buyer = _canonical_or_none(request.buyer_address)
+    if buyer is None:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "match requires buyer_address and a buyer wallet signature (or the operator credential)"},
+        )
+    error, signer = verify_jobs_request_signature(
+        signer_address=request.signer_address,
+        chain_id=request.chain_id,
+        issued_at=request.issued_at,
+        route="/v1/market/match",
+        signature=request.signature,
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding=_match_signature_binding(request, buyer),
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or "invalid match signature"})
+    if canonical_address(signer) != buyer:
+        return JSONResponse(status_code=403, content={"error": "match signature does not match buyer_address"})
+    return None
 
 
 @router.post("/v1/market/match", dependencies=[Depends(require_market_api_key)])
@@ -266,6 +338,9 @@ async def match_request(
     )
     if early is not None:
         return early
+    buyer_gate = _match_buyer_gate(http_request, request)
+    if buyer_gate is not None:
+        return await _reject_operation(key, attempt, buyer_gate)
     try:
         logger.info("POST /v1/market/match called (chain_id=%s)", request.chain_id)
         match = await svc.match_and_assign(
@@ -273,6 +348,8 @@ async def match_request(
             max_price=request.max_price,
             preferred_region=request.preferred_region,
             chain_id=request.chain_id,
+            buyer_address=_canonical_or_none(request.buyer_address),
+            reservation_ttl_seconds=match_reservation_ttl_seconds(),
         )
         result = {"status": "success", "match": match}
         if key:
@@ -282,6 +359,56 @@ async def match_request(
         logger.error("Error in POST /v1/market/match: %s: %s", type(e).__name__, str(e))
         await _fail_operation(key, attempt, type(e).__name__)
         raise
+
+
+async def _offer_create_gate(request: Request, offer_data: dict[str, Any], svc: MarketService) -> JSONResponse | None:
+    """#2611: a hardware offer names the provider that will be paid — prove it.
+
+    Non-operator callers sign the jobs-request message for route
+    ``/v1/market/offers`` with a binding covering the offer id, the claimed
+    provider and ``offer_body_hash`` of the request body, and the recovered
+    signer must equal that provider. A caller-supplied ``id`` that already
+    exists replays only for the row's own provider (or the operator) —
+    previously any key holder got the other provider's whole row back.
+    Returns a ready error response, or None when the request may proceed.
+    """
+    if _is_operator(request):
+        return None
+    provider = _canonical_or_none(offer_data.get("provider"))
+    if provider is None:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "offer creation requires a provider address and a provider wallet signature"},
+        )
+    offer_id = offer_data.get("id")
+    binding = {
+        "offer_id": str(offer_id or ""),
+        "provider": provider,
+        "offer_hash": offer_body_hash(offer_data),
+    }
+    error, signer = verify_jobs_request_signature(
+        signer_address=offer_data.get("signer_address"),
+        chain_id=offer_data.get("chain_id"),
+        issued_at=offer_data.get("issued_at"),
+        route="/v1/market/offers",
+        signature=offer_data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding=binding,
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or "invalid offer signature"})
+    if canonical_address(signer) != provider:
+        return JSONResponse(status_code=403, content={"error": "offer signature does not match provider"})
+    if offer_id:
+        existing = await svc.get_offer(str(offer_id))
+        if existing is not None:
+            existing_provider = _canonical_or_none(getattr(existing, "provider", None))
+            if existing_provider != provider:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": f"offer {offer_id} belongs to provider {existing_provider}"},
+                )
+    return None
 
 
 @router.post("/v1/market/offers", dependencies=[Depends(require_market_api_key)])
@@ -300,6 +427,13 @@ async def create_offer(
                 offer_data["provider"] = offer_data["metadata"]["provider"]
             else:
                 offer_data["provider"] = "default-provider"
+        offer_gate = await _offer_create_gate(request, offer_data, svc)
+        if offer_gate is not None:
+            return offer_gate
+        # Ephemeral proof fields are not offer columns (chain_id stays — it
+        # is a real MarketOffer field and doubles as the signature chain).
+        for ephemeral in ("signer_address", "issued_at", "signature"):
+            offer_data.pop(ephemeral, None)
         # Re-executing a crashed create would mint a second offer id, so this
         # op is non-adoptable: an expired lease goes ``uncertain`` for operator
         # resolution instead of risking a duplicate.

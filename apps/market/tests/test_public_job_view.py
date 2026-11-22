@@ -335,10 +335,20 @@ def test_access_credential_gets_owner_record(client: TestClient) -> None:
     assert wrong.status_code == 403
 
 
-def test_admin_key_gets_full_rows(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    job = _seed_ipfs_job()
+def test_user_key_gets_public_rows_not_full(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2606: the user-tier key is distributed — it no longer counts as
+    'market admin' on the job reads; rows stay redacted."""
+    _seed_ipfs_job()
     monkeypatch.setattr(settings, "api_key", "test-admin-key")
     response = client.get("/v1/market/jobs", headers={"X-Api-Key": "test-admin-key"})
+    assert response.status_code == 200
+    for job in response.json():
+        assert "payload" not in job
+
+
+def test_operator_key_gets_full_rows(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    response = client.get("/v1/market/jobs", headers={"X-Api-Key": "test-operator-key"})
     assert response.status_code == 200
     rows = [row for row in response.json() if row["job_id"] == job["job_id"]]
     assert rows and "payload" in rows[0]

@@ -68,6 +68,7 @@ def _auth_disabled_for_tests(request):
         "test_market_auth_missing",
         "test_access_secret_hashing",
         "test_market_operator_tier_1893",
+        "test_market_authz_audit_26xx",
     }:
         yield
         return

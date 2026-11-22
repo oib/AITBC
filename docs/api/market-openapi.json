@@ -291,6 +291,21 @@
               }
             }
           },
+          "403": {
+            "description": "offer creation requires a provider address and a provider wallet signature / offer signature does not match provider / offer {offer_id} belongs to provider {existing_provider}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "409": {
             "description": "Conflict",
             "content": {
@@ -590,6 +605,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "match requires buyer_address and a buyer wallet signature (or the operator credential) / match signature does not match buyer_address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -2531,7 +2561,7 @@
       },
       "post": {
         "summary": "Register Plugin",
-        "description": "Register a new plugin",
+        "description": "Register a new plugin.\n\n#2613: non-operator callers sign the request (jobs-request proof over\n``/v1/market/plugins``); the recovered signer becomes ``author`` and the\nrow always lands ``pending`` \u2014 approval, reputation counters and author\nidentity are not caller-writable. The operator credential keeps full\ncontrol including ``status``.",
         "operationId": "register_plugin_v1_market_plugins_post",
         "requestBody": {
           "required": true,
@@ -2562,6 +2592,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "status must be one of {sorted(_PLUGIN_STATUSES)}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "{action} requires a party signature or the operator credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -3564,7 +3624,7 @@
     "/v1/market/ratings/mark-synced": {
       "post": {
         "summary": "Mark Ratings Synced",
-        "description": "Mark ratings as synced to remote nodes",
+        "description": "Mark ratings as synced to remote nodes.\n\n#2614: same tier as ``ratings/sync`` (#2519) \u2014 the user-tier key is\ndistributed to CLI users, so it must not be able to stop arbitrary\nratings from syncing.",
         "operationId": "mark_ratings_synced_v1_market_ratings_mark_synced_post",
         "requestBody": {
           "content": {
@@ -3607,7 +3667,7 @@
     "/v1/transactions": {
       "post": {
         "summary": "Submit Transaction",
-        "description": "Submit market transaction",
+        "description": "Submit market transaction.\n\n#2616: the offer path goes through ``MarketService.create_offer`` \u2014 the\nsame status/money/expires_at validation and caller-id replay the\n``/v1/market/offers`` route gets \u2014 instead of splatting the body into\nthe model unchecked.",
         "operationId": "submit_transaction_v1_transactions_post",
         "requestBody": {
           "required": true,
@@ -3786,7 +3846,7 @@
     "/v1/market/parameters/apply": {
       "post": {
         "summary": "Apply Market Parameter",
-        "description": "Apply a governance-approved parameter change to the market service (v0.7.4 \u00a7B4).\n\nValidates that the parameter is known and the old_value matches the\ncurrent config, then applies the new value to the running settings.",
+        "description": "Apply a governance-approved parameter change to the market service (v0.7.4 \u00a7B4).\n\n#2605: this rewrites live service config (``default_chain_id``,\n``agent_coordinator_url``) \u2014 the distributed user-tier key must not\nreach it. Operator tier only; the governance executor carries\n``MARKET_OPERATOR_API_KEY`` for this call.\n\nValidates that the parameter is known and the old_value matches the\ncurrent config, then applies the new value to the running settings.",
         "operationId": "apply_market_parameter_v1_market_parameters_apply_post",
         "requestBody": {
           "content": {
@@ -4176,11 +4236,55 @@
               }
             ],
             "title": "Chain Id"
+          },
+          "buyer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Address"
+          },
+          "signer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer Address"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
           }
         },
         "type": "object",
         "title": "MatchRequest",
-        "description": "Request model for market matching (v0.6.6)."
+        "description": "Request model for market matching (v0.6.6).\n\n#2612: non-operator callers must name a ``buyer_address`` and sign the\nrequest (``signer_address``/``issued_at``/``signature`` over the\njobs-request message for route ``/v1/market/match`` with the binding\nbelow) \u2014 an anonymous user-tier call used to reserve the best offer\nfor the full reservation TTL with no buyer identity at all. ``chain_id``\ndoubles as the signature's chain field and the offer-chain filter."
       },
       "ParameterChangeRequest": {
         "properties": {

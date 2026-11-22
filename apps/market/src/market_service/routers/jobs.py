@@ -16,7 +16,13 @@ from fastapi.responses import JSONResponse
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 
-from ..deps import _is_market_admin, _is_operator, get_market_service, require_market_api_key, require_market_operator_key
+from ..deps import (
+    _has_operator_credential,
+    _is_operator,
+    get_market_service,
+    require_market_api_key,
+    require_market_operator_key,
+)
 from ..gates import (
     _alias_claim_signature_gate,
     _billing_access_gate,
@@ -51,6 +57,14 @@ async def create_market_job(
             return gate_error
         result = await svc.create_market_job(job_data)
         logger.info("POST /v1/market/jobs created job: %s", result.get("job_id"))
+        # #2606: an idempotent replay returns the stored row — but the
+        # "same buyer" check compares self-asserted body fields, so the
+        # replay is not proof of party. Non-operator callers get the public
+        # view, same as the read routes.
+        if result.get("deduplicated") and not _has_operator_credential(request):
+            view = public_job_view(result)
+            view["deduplicated"] = True
+            return view
         return result
     except ValueError as e:
         logger.info("Rejecting market job creation: %s", e)
@@ -127,7 +141,10 @@ async def list_market_jobs(
             limit=limit,
             offset=offset,
         )
-        if _is_market_admin(request):
+        # #2606: the user-tier key is distributed — it must not count as
+        # "market admin" here. Full rows go to the operator credential,
+        # signed parties, or the job's access credential only.
+        if _has_operator_credential(request):
             return jobs
         return [public_job_view(job) for job in jobs]
     except Exception as e:
@@ -178,7 +195,9 @@ async def get_market_job(
         result = await svc.get_market_job(job_id)
         if not result:
             return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-        if _is_market_admin(request):
+        # #2606: operator tier only — the distributed user key falls through
+        # to the access-credential / party-signature / public-view paths.
+        if _has_operator_credential(request):
             return result
         auth_attempted = False
         if x_access_key or x_access_secret:
