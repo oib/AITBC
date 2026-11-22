@@ -20,7 +20,13 @@ from chain_client import (
     scoped_where,
 )
 from .common import like_pattern
-from validation import check_page_offset, check_tx_keyset_cursor, clamp_page_limit, validate_tx_hash
+from validation import (
+    check_page_offset,
+    check_tx_keyset_cursor,
+    clamp_page_limit,
+    validate_chain_id,
+    validate_tx_hash,
+)
 
 logger = get_logger(__name__)
 
@@ -32,6 +38,10 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
     """API endpoint for transaction by hash"""
     if not validate_tx_hash(hash):
         raise HTTPException(status_code=400, detail="Invalid transaction hash")
+    # #2487: an explicit chain_id is joined into a filesystem path by
+    # chain_db_path_for — refuse anything that is not a bare chain name.
+    if chain_id is not None and not validate_chain_id(chain_id):
+        raise HTTPException(status_code=400, detail="Invalid chain_id")
     # Strip 0x prefix for comparison
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
@@ -49,7 +59,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
                 # tx_hash index. The legacy case-insensitive scan stays as a
                 # fallback for any non-canonical row (PI-EX-001). Both reads
                 # are chain-scoped: the fallback chain.db is multi-chain (#1620).
-                scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
+                scope_sql, scope_params = await chain_scope(conn, "transaction", cid, strict=chain_id is not None)
                 bare_hash = clean_hash.lower()
                 where, params = scoped_where("tx_hash IN (?, ?)", scope_sql, [f"0x{bare_hash}", bare_hash], scope_params)
                 await cursor.execute(

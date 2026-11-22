@@ -935,7 +935,7 @@
             }
           },
           "400": {
-            "description": "Invalid transaction hash",
+            "description": "Invalid transaction hash / Invalid chain_id",
             "content": {
               "application/json": {
                 "schema": {
