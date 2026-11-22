@@ -5,6 +5,7 @@ REST API endpoints for bridge operations.
 
 import logging
 import os
+import re
 import sqlite3
 import time
 from datetime import timedelta
@@ -25,7 +26,7 @@ from aitbc.utils.chain_id import ChainIdNotConfigured, resolve_chain_id
 from aitbc.utils.validation import validate_address_strict
 
 # Forward-compatible import used in "/v1/bridge/status"
-from fastapi import Depends, HTTPException, Request
+from fastapi import Body, Depends, HTTPException, Request
 
 import httpx
 
@@ -64,6 +65,7 @@ from .bridge_db import (
     get_withdrawal_by_ait_tx_hash,
     insert_sell_quote,
     update_deposit_status,
+    update_deposit_tx_hash,
 )
 from .bridge_monitor import (
     is_bridge_polling_enabled,
@@ -179,9 +181,14 @@ def verify_deposit(
 def complete_deposit(
     deposit_id: str,
     _admin: Annotated[None, Depends(require_admin_api_key)],
+    body: Annotated[dict[str, Any] | None, Body()] = None,
 ) -> dict[str, Any]:
     """
     Mark a deposit as completed after AIT minting (admin operation).
+
+    An optional ``{"tx_hash": "0x…"}`` body records the AIT transfer hash on
+    the row (#2550) — the CLI has always sent it and the endpoint used to
+    drop it, leaving ``ait_tx_hash`` NULL forever.
     """
     deposit = get_deposit_by_id(deposit_id)
     if not deposit:
@@ -192,6 +199,16 @@ def complete_deposit(
 
     if deposit["status"] != "verified":
         raise HTTPException(status_code=400, detail="Deposit must be verified first")
+
+    tx_hash = (body or {}).get("tx_hash")
+    if tx_hash is not None:
+        tx_hash = str(tx_hash).strip()
+        if not re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash):
+            raise HTTPException(status_code=400, detail="tx_hash must be a 0x-prefixed 32-byte hex hash")
+        # Record the hash while the row is still 'verified': a crash between
+        # this write and the status flip below leaves a resumable verified
+        # row that already names its payment.
+        update_deposit_tx_hash(deposit["id"], tx_hash, expected_statuses={"verified"})
 
     success = update_deposit_status(deposit["id"], "completed", expected_statuses={"verified"})
 
