@@ -73,7 +73,10 @@ def _route_get(state, path):
     u = urlparse(path)
     q = parse_qs(u.query)
     if "/internal-transactions" in u.path:
-        return {"items": state["internal"], "next_page_params": None}
+        if state.get("internal_paged") and "cursor" not in q:
+            return {"items": state["internal"][:1], "next_page_params": {"cursor": "i2"}}
+        items = state["internal"][1:] if state.get("internal_paged") else state["internal"]
+        return {"items": items, "next_page_params": None}
     if "/transactions" not in u.path:
         return None
     direction = q.get("filter", ["to"])[0]
@@ -107,6 +110,8 @@ def make_state(**kw):
         "txs_from": [],
         "internal": [],
         "paged": False,
+        "internal_paged": False,
+        "paths": [],
     }
     state.update(kw)
     return state
@@ -130,6 +135,7 @@ def stub():
             self.wfile.write(body)
 
         def do_GET(self):
+            state["paths"].append(self.path)
             obj = _route_get(state, self.path)
             if obj is None:
                 self.send_response(404)
@@ -245,3 +251,19 @@ def test_label_resolution(stub):
     r = invoke(stub, "--no-log", "--address", "bridge")
     assert r.exit_code == 0, r.output
     assert "bridge" in r.output
+
+
+def test_internal_transfers_second_page_uses_question_mark(stub):
+    """#2532: internal-transactions has no '?filter=' — the next-page request
+    must open the query with '?' or the explorer 404s/aborts."""
+    base, st = stub
+    st["internal_paged"] = True
+    st["internal"] = [
+        _internal("0xccc", OTHER, ADDR, 5 * 10**17),
+        _internal("0xddd", ADDR, OTHER, 2 * 10**17),
+    ]
+    r = invoke(stub, "--no-log", "--address", ADDR)
+    assert r.exit_code == 0, r.output
+    internal_pages = [p for p in st["paths"] if "internal-transactions" in p]
+    assert len(internal_pages) == 2
+    assert "?" in internal_pages[1] and "&cursor=" not in internal_pages[1].split("?")[0]

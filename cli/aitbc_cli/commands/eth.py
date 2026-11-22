@@ -126,7 +126,10 @@ def fetch_transfers(explorer_url: str, path: str) -> list[dict]:
     items: list[dict] = []
     qs: str | None = ""
     for _ in range(MAX_PAGES):
-        page, qs = _explorer_page(explorer_url, path, "&" + qs if qs else "")
+        # #2532: paths without a query string (e.g. internal-transactions)
+        # need '?' before the first page params — '&' would corrupt the path.
+        sep = "&" if ("?" in path or not qs) else "?"
+        page, qs = _explorer_page(explorer_url, path, sep + qs if qs else "")
         items += page
         if not qs:
             return items
