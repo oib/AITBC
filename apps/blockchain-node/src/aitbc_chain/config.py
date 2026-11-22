@@ -316,6 +316,10 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     bridge_reconcile_dry_run: bool = True
     bridge_reconcile_grace_seconds: int = 600
     bridge_reconcile_unsealed_horizon_seconds: int = 7200
+    # #2469: when the target chain's store is not local, the confirm_time
+    # backfill may ask the producing chain's rpc (CHAIN_SYNC_SOURCES) for
+    # the sealed-release outcome instead of leaving confirm_time NULL.
+    bridge_reconcile_remote_evidence_enabled: bool = True
     # #1298 I3b domain separation: at or above this height, block-proposal
     # and block-attestation signatures use domain-separated preimages
     # (aitbc-consensus-v1:block_proposal / :block_attestation) so a signature

@@ -295,3 +295,180 @@ def test_completed_null_confirm_time_backfilled(env):
         assert record.status == "completed"  # never rewritten
         assert record.confirm_time is not None
         assert record.confirm_time.replace(tzinfo=None) == sealed_at
+
+
+def _completed_null_row(engines, tid="t20", target=DST):
+    with Session(engines[SRC]) as s:
+        s.add(
+            CrossChainTransfer(
+                transfer_id=tid,
+                source_chain=SRC,
+                target_chain=target,
+                sender="0xa",
+                recipient="0xb",
+                amount=1,
+                status="completed",
+                source_tx_hash=tid,
+                lock_time=OLD,
+                confirm_time=None,
+            )
+        )
+        s.commit()
+
+
+def test_remote_evidence_backfills_when_target_store_absent(env, monkeypatch):
+    """#2469: hub holds only the source store — the backfill must fall back to
+    the producing chain's rpc instead of leaving confirm_time NULL forever."""
+    rec, eng = env
+    eng.pop(DST)  # this node has no island store — the hub shape
+    _completed_null_row(eng)
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
+    remote_at = datetime(2026, 11, 21, 22, 0, 0, tzinfo=UTC)
+    rec._fetch_remote_transfer = lambda base, tid: {
+        "status": "completed",
+        "target_tx_hash": "rel20",
+        "confirm_time": remote_at.isoformat(),
+    }
+    assert rec._reconcile_stale_pending(SRC) == 1
+    with Session(eng[SRC]) as s:
+        record = s.get(CrossChainTransfer, "t20")
+        assert record.status == "completed"
+        assert record.confirm_time is not None
+        assert record.confirm_time.replace(tzinfo=None) == remote_at.replace(tzinfo=None)
+        assert record.target_tx_hash == "rel20"
+
+
+def test_remote_evidence_ignored_when_disabled(env, monkeypatch):
+    rec, eng = env
+    eng.pop(DST)
+    _completed_null_row(eng)
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
+    monkeypatch.setattr(settings, "bridge_reconcile_remote_evidence_enabled", False)
+    calls = []
+    rec._fetch_remote_transfer = lambda base, tid: calls.append(tid) or {}
+    assert rec._reconcile_stale_pending(SRC) == 0
+    assert calls == []
+    with Session(eng[SRC]) as s:
+        assert s.get(CrossChainTransfer, "t20").confirm_time is None
+
+
+def test_remote_evidence_requires_confirmed_status_and_time(env, monkeypatch):
+    """A remote row that is still pending — or lacks confirm_time — is not
+    release evidence; the local row stays NULL."""
+    rec, eng = env
+    eng.pop(DST)
+    _completed_null_row(eng, tid="t21")
+    _completed_null_row(eng, tid="t22")
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
+
+    def fake_fetch(base, tid):
+        if tid == "t21":
+            return {"status": "pending", "confirm_time": "2026-11-21T22:00:00+00:00"}
+        return {"status": "completed", "confirm_time": None}
+
+    rec._fetch_remote_transfer = fake_fetch
+    assert rec._reconcile_stale_pending(SRC) == 0
+    with Session(eng[SRC]) as s:
+        assert s.get(CrossChainTransfer, "t21").confirm_time is None
+        assert s.get(CrossChainTransfer, "t22").confirm_time is None
+
+
+def test_remote_evidence_unreachable_keeps_null(env, monkeypatch):
+    rec, eng = env
+    eng.pop(DST)
+    _completed_null_row(eng)
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
+    rec._fetch_remote_transfer = lambda base, tid: None
+    assert rec._reconcile_stale_pending(SRC) == 0
+    with Session(eng[SRC]) as s:
+        assert s.get(CrossChainTransfer, "t20").confirm_time is None
+
+
+def test_remote_evidence_no_sync_source_configured(env):
+    """Without a CHAIN_SYNC_SOURCES entry for the target chain there is no
+    remote URL — the pass must not dial anything."""
+    rec, eng = env
+    eng.pop(DST)
+    _completed_null_row(eng)
+    calls = []
+    rec._fetch_remote_transfer = lambda base, tid: calls.append(tid) or {}
+    assert rec._reconcile_stale_pending(SRC) == 0
+    assert calls == []
+
+
+def test_fetch_remote_transfer_flat_and_nested_envelopes(monkeypatch):
+    import httpx
+
+    class _Resp:
+        def __init__(self, payload, status=200):
+            self._payload = payload
+            self.status_code = status
+
+        def json(self):
+            return self._payload
+
+    class _Client:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url):
+            self.url = url
+            return _Resp(
+                {
+                    "success": True,
+                    "status": "completed",
+                    "target_tx_hash": "0xrel",
+                    "confirm_time": "2026-11-21T22:00:00+00:00",
+                }
+            )
+
+    monkeypatch.setattr(httpx, "Client", _Client)
+    row = BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1")
+    assert row is not None
+    assert row["status"] == "completed"
+    assert row["target_tx_hash"] == "0xrel"
+
+
+def test_fetch_remote_transfer_non_200_and_errors(monkeypatch):
+    import httpx
+
+    class _Resp:
+        status_code = 404
+
+        def json(self):
+            return {}
+
+    class _Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url):
+            return _Resp()
+
+    monkeypatch.setattr(httpx, "Client", _Client)
+    assert BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1") is None
+
+    class _Boom:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            raise OSError("unreachable")
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(httpx, "Client", _Boom)
+    assert BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1") is None

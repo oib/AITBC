@@ -16,6 +16,7 @@ Rules, first match wins (default: leave ``pending``):
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -36,6 +37,21 @@ def _aware(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _parse_iso8601(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return _aware(datetime.fromisoformat(value.replace("Z", "+00:00")))
+    except ValueError:
+        return None
+
+
+def _remote_api_headers() -> dict[str, str]:
+    """X-API-Key for peer rpc calls — same credential pair as the ledger client."""
+    key = os.environ.get("BRIDGE_LEDGER_API_KEY") or os.environ.get("BLOCKCHAIN_RPC_API_KEY")
+    return {"X-API-Key": key} if key else {}
 
 
 class BridgeTransferReconcileMixin(BridgeBase):
@@ -180,24 +196,83 @@ class BridgeTransferReconcileMixin(BridgeBase):
 
     def _backfill_release_evidence(
         self, rows: Sequence[CrossChainTransfer], deadline: float | None
-    ) -> dict[str, tuple[str, datetime | None]]:
-        """transfer_id -> (tx_hash, created_at) of sealed BRIDGE_RELEASE rows."""
+    ) -> dict[str, tuple[str | None, datetime | None]]:
+        """transfer_id -> (tx_hash, confirm_time) of sealed BRIDGE_RELEASE evidence."""
         by_target: dict[str, set[str]] = {}
         for r in rows:
             by_target.setdefault(r.target_chain, set()).add(r.transfer_id)
-        evidence: dict[str, tuple[str, datetime | None]] = {}
+        evidence: dict[str, tuple[str | None, datetime | None]] = {}
         for target, ids in by_target.items():
             if deadline is not None and time.monotonic() >= deadline:
                 break
             if self._chain_db_ready(target):
-                evidence.update(self._sealed_transfer_index(target, "BRIDGE_RELEASE", ids))
+                for tid, hit in self._sealed_transfer_index(target, "BRIDGE_RELEASE", ids).items():
+                    evidence[tid] = hit
+            else:
+                # #2469: no local store for the target chain — the producing
+                # chain's rpc serves the same outcome remotely.
+                evidence.update(self._remote_release_evidence(target, ids, deadline))
         return evidence
+
+    def _remote_release_evidence(
+        self, target: str, wanted: set[str], deadline: float | None
+    ) -> dict[str, tuple[str | None, datetime | None]]:
+        """#2469: confirm evidence from the target chain's own bridge API.
+
+        A node that holds no local store for ``target`` cannot read the
+        sealed BRIDGE_RELEASE — but the producing chain's rpc answers
+        ``GET /rpc/bridge/transfer/{id}`` with the same outcome (status,
+        target_tx_hash, confirm_time). The base URL comes from the per-chain
+        ``CHAIN_SYNC_SOURCES`` mapping only — the default peer fallback is
+        not consulted, since it serves this node's own chain, not ``target``.
+        No mapping, an unreachable peer, or a non-confirmed row all yield no
+        evidence; the local row keeps its honest NULL.
+        """
+        if not bool(getattr(settings, "bridge_reconcile_remote_evidence_enabled", True)):
+            return {}
+        from aitbc.sync import SyncSourceResolver
+
+        sources = SyncSourceResolver(getattr(settings, "chain_sync_sources", "") or "")
+        base = sources.get_all_sources().get(target)
+        if not base:
+            return {}
+        evidence: dict[str, tuple[str | None, datetime | None]] = {}
+        for tid in sorted(wanted):
+            if deadline is not None and time.monotonic() >= deadline:
+                break
+            row = self._fetch_remote_transfer(base, tid)
+            if row is None:
+                continue
+            status = str(row.get("status") or "")
+            confirm_time = _parse_iso8601(row.get("confirm_time"))
+            tx_hash = row.get("target_tx_hash")
+            if status in ("confirmed", "completed") and confirm_time is not None:
+                evidence[tid] = (tx_hash if isinstance(tx_hash, str) else None, confirm_time)
+        return evidence
+
+    @staticmethod
+    def _fetch_remote_transfer(base_url: str, transfer_id: str) -> dict[str, Any] | None:
+        """GET ``{base}/rpc/bridge/transfer/{id}``; None on any failure."""
+        import httpx
+
+        try:
+            with httpx.Client(timeout=5.0, headers=_remote_api_headers()) as client:
+                resp = client.get(f"{base_url}/rpc/bridge/transfer/{transfer_id}")
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+        except Exception:  # noqa: BLE001 - remote evidence is strictly best-effort
+            return None
+        if not isinstance(data, dict):
+            return None
+        nested = data.get("transfer")
+        return nested if isinstance(nested, dict) else data
 
     def _backfill_one(
         self,
         session: Any,
         record: CrossChainTransfer,
-        evidence: dict[str, tuple[str, datetime | None]],
+        evidence: dict[str, tuple[str | None, datetime | None]],
         dry_run: bool,
         chain_id: str,
     ) -> bool:
@@ -216,7 +291,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
             return False
         if sealed_at is not None:
             record.confirm_time = _aware(sealed_at)
-        if not record.target_tx_hash:
+        if tx_hash and not record.target_tx_hash:
             record.target_tx_hash = tx_hash
         session.add(record)
         return True
