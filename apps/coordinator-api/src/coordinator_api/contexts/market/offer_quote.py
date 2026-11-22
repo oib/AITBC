@@ -251,22 +251,90 @@ async def _fetch_chain_gpu_market_txs() -> list[dict[str, Any]] | None:
     return txs
 
 
+def _chain_offer_detail(tx: dict[str, Any], identifier: str) -> dict[str, Any] | None:
+    """One confirmed tx's offer plus its match facts, or None when the tx is
+    not a usable listing for ``identifier``.
+
+    Consensus applies GPU_MARKET payloads without validating them, so the
+    payload's ``provider_address`` is not bound to the signer (#2477): a tx
+    that names a payee other than its sender is not an offer this seller
+    made, and matching it would quote a job to an address that never
+    published it. The withdrawn check deliberately lives in the caller —
+    #2517 needs withdrawn listings to decide ``offer_id`` ownership.
+    """
+    tx_id = tx.get("transaction_id")
+    if tx_id is None:
+        return None
+    payload = _tx_payload(tx)
+    if payload.get("action") != "software_offer":
+        return None
+    if str(payload.get("status", "")).lower() not in SELLABLE_STATUSES:
+        return None
+    service_type = str(payload.get("service_type") or "")
+    model = str(payload.get("model") or "")
+    plugin_id = f"{service_type}-{model.replace(':', '-')}" if service_type and model else ""
+    offer_id_hit = payload.get("offer_id") == identifier
+    plugin_hit = plugin_id == identifier
+    if not (offer_id_hit or plugin_hit):
+        return None
+    sender = str(tx.get("sender") or "")
+    claimed = payload.get("provider_address")
+    if claimed and (not sender or canonical_address(str(claimed)) != canonical_address(sender)):
+        return None
+    offer = {
+        "offer_id": str(payload.get("offer_id") or ""),
+        "plugin_id": plugin_id,
+        "service_type": service_type,
+        "model": model,
+        "price": payload.get("price"),
+        "price_unit": payload.get("price_unit") or "",
+        "provider_address": str(claimed or sender or ""),
+        "status": payload.get("status"),
+        "endpoint": payload.get("endpoint") or "",
+    }
+    return {
+        "tx_id": tx_id,
+        "sort_id": tx_id if isinstance(tx_id, int) else 0,
+        "listing_id": f"tx_{tx_id}",
+        "offer": offer,
+        "offer_id_hit": offer_id_hit,
+        "plugin_hit": plugin_hit and not offer_id_hit,
+        "sender": canonical_address(sender),
+    }
+
+
 def _chain_offer_candidates(
     confirmed: list[dict[str, Any]], withdrawn: set[str], identifier: str
 ) -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]]]:
     """Split confirmed-tx matches into ``(tx_id, offer)`` pairs by the field
     that matched — ``offer_id`` (seller-chosen, resolvable) vs ``plugin_id``
-    (shared by design, ambiguous across sellers)."""
-    offer_id_matches: list[tuple[int, dict[str, Any]]] = []
+    (shared by design, ambiguous across sellers).
+
+    #2517: ``offer_id`` ownership is decided from *all* confirmed listings,
+    withdrawn or not — the earliest-ever listing's sender owns the id. A
+    later listing of that id by a different sender is ignored entirely, so
+    a stranger cannot claim a cancelled id, and the id stays unresolvable
+    while its owner has it withdrawn; only the owner's own re-listing
+    resolves.
+    """
+    offer_id_hits: list[dict[str, Any]] = []
     plugin_matches: list[tuple[int, dict[str, Any]]] = []
     for tx in confirmed:
-        matched = _chain_offer_match(tx, withdrawn, identifier)
-        if matched is None:
+        detail = _chain_offer_detail(tx, identifier)
+        if detail is None:
             continue
-        offer, matched_on = matched
-        tx_id = tx.get("transaction_id")
-        pair = (tx_id if isinstance(tx_id, int) else 0, offer)
-        (offer_id_matches if matched_on == "offer_id" else plugin_matches).append(pair)
+        if detail["offer_id_hit"]:
+            offer_id_hits.append(detail)
+        elif detail["plugin_hit"] and detail["listing_id"] not in withdrawn:
+            plugin_matches.append((detail["sort_id"], detail["offer"]))
+    offer_id_matches: list[tuple[int, dict[str, Any]]] = []
+    if offer_id_hits:
+        owner = min(offer_id_hits, key=lambda d: d["sort_id"])["sender"]
+        live = sorted(
+            (d for d in offer_id_hits if d["sender"] == owner and d["listing_id"] not in withdrawn),
+            key=lambda d: d["sort_id"],
+        )
+        offer_id_matches = [(d["sort_id"], d["offer"]) for d in live]
     return offer_id_matches, plugin_matches
 
 
@@ -305,50 +373,6 @@ async def _fetch_offer_from_chain(identifier: str) -> dict[str, Any] | None:
             len(plugin_matches),
         )
     return None
-
-
-def _chain_offer_match(tx: dict[str, Any], withdrawn: set[str], identifier: str) -> tuple[dict[str, Any], str] | None:
-    """The catalogue-shaped offer one confirmed tx advertises, plus which
-    identifier field matched (``offer_id`` or ``plugin_id``) — or None.
-
-    Consensus applies GPU_MARKET payloads without validating them, so the
-    payload's ``provider_address`` is not bound to the signer (#2477): a tx
-    that names a payee other than its sender is not an offer this seller
-    made, and matching it would quote a job to an address that never
-    published it.
-    """
-    tx_id = tx.get("transaction_id")
-    if tx_id is None or f"tx_{tx_id}" in withdrawn:
-        return None
-    payload = _tx_payload(tx)
-    if payload.get("action") != "software_offer":
-        return None
-    if str(payload.get("status", "")).lower() not in SELLABLE_STATUSES:
-        return None
-    service_type = str(payload.get("service_type") or "")
-    model = str(payload.get("model") or "")
-    plugin_id = f"{service_type}-{model.replace(':', '-')}" if service_type and model else ""
-    if payload.get("offer_id") == identifier:
-        matched_on = "offer_id"
-    elif plugin_id == identifier:
-        matched_on = "plugin_id"
-    else:
-        return None
-    sender = str(tx.get("sender") or "")
-    claimed = payload.get("provider_address")
-    if claimed and (not sender or canonical_address(str(claimed)) != canonical_address(sender)):
-        return None
-    return {
-        "offer_id": str(payload.get("offer_id") or ""),
-        "plugin_id": plugin_id,
-        "service_type": service_type,
-        "model": model,
-        "price": payload.get("price"),
-        "price_unit": payload.get("price_unit") or "",
-        "provider_address": str(claimed or sender or ""),
-        "status": payload.get("status"),
-        "endpoint": payload.get("endpoint") or "",
-    }, matched_on
 
 
 async def resolve_offer(offer_id: str, quantity: Decimal) -> OfferQuote:

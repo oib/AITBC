@@ -486,6 +486,37 @@ async def test_a_squatted_offer_id_resolves_to_the_earliest_listing(monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_a_cancelled_offer_id_cannot_be_claimed_by_a_stranger(monkeypatch):
+    """#2517: ownership is decided from ALL confirmed listings, withdrawn or
+    not — the seller's cancelled tx_6 still owns the id, so the stranger's
+    later tx_8 relist is ignored and the id stays unresolvable."""
+    offer_id = "sw_offer_cancelled"
+    listed = _software_offer_tx(offer_id, tx_id=6)
+    cancelled = _chain_tx(7, {"action": "cancel", "order_id": "tx_6"})
+    stranger = _software_offer_tx(offer_id, tx_id=8, sender=OUTSIDER, provider_address=OUTSIDER, price=0.0001)
+    _serve_with_chain(monkeypatch, [listed, cancelled, stranger])
+
+    with pytest.raises(OfferUnavailable, match="does not name a single listing"):
+        await resolve_offer(offer_id, Decimal("1"))
+
+
+@pytest.mark.asyncio
+async def test_the_owner_can_relist_a_cancelled_offer_id(monkeypatch):
+    """#2517: only the owner's own re-listing resolves — seller cancels tx_6,
+    a stranger squats tx_8, the seller relists tx_9; tx_9 must win."""
+    offer_id = "sw_offer_relisted"
+    listed = _software_offer_tx(offer_id, tx_id=6, price=0.02)
+    cancelled = _chain_tx(7, {"action": "cancel", "order_id": "tx_6"})
+    stranger = _software_offer_tx(offer_id, tx_id=8, sender=OUTSIDER, provider_address=OUTSIDER, price=0.0001)
+    relisted = _software_offer_tx(offer_id, tx_id=9, price=0.03)
+    _serve_with_chain(monkeypatch, [listed, cancelled, stranger, relisted])
+
+    quote = await resolve_offer(offer_id, Decimal("1"))
+    assert quote.provider_address == SELLER
+    assert quote.unit_price == Decimal("0.03")
+
+
+@pytest.mark.asyncio
 async def test_an_offer_beyond_the_first_page_still_resolves(monkeypatch):
     """500 newer GPU_MARKET txs must not push a chain-only offer out of the
     window — the fallback pages with before_id until it finds the listing."""
