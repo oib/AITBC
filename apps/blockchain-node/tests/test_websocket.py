@@ -654,3 +654,46 @@ async def test_subscribe_ws_issued_key_bound_to_node_reaches_lease_check(
     finally:
         websocket_module._subscribe_ip_connections.pop(ip, None)
         websocket_module._active_subscribers.pop(("node-1", "chain-a"), None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_handshake",
+    [
+        {"node_id": ["node-1"], "chain_id": "chain-a"},
+        {"node_id": {"id": "node-1"}, "chain_id": "chain-a"},
+        {"node_id": "node-1", "chain_id": ["chain-a"]},
+        {"node_id": "node-1", "chain_id": {"id": "chain-a"}},
+        {"node_id": "", "chain_id": "chain-a"},
+        {"node_id": None, "chain_id": "chain-a"},
+    ],
+)
+async def test_subscribe_ws_rejects_non_string_ids_without_teardown_typeerror(
+    monkeypatch: pytest.MonkeyPatch, bad_handshake: dict
+) -> None:
+    """AUDIT-BN-SUBSCRIBE-WS-UNHASHABLE-FINALLY-1: node_id/chain_id are bound
+    before auth and the finally looks them up in _active_subscribers — an
+    unhashable or empty value must be rejected at the handshake, never
+    reach the teardown dict lookup."""
+    lease_calls = {"n": 0}
+
+    async def _expiry(node_id, chain_id=None) -> float:
+        lease_calls["n"] += 1
+        return time.time() + 3600
+
+    monkeypatch.setattr(websocket_module.lease_tracker, "get_lease_expiry", _expiry)
+    ip = "198.51.100.50"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(ip, handshake=bad_handshake)
+    try:
+        # Must return cleanly — before the fix the finally raised TypeError.
+        await websocket_module.subscription_websocket(ws)
+        assert ws.accepted is True
+        assert 1008 in ws.closed
+        assert any("string" in str(m.get("error", "")) or "required" in str(m.get("error", "")) for m in ws.sent)
+        # Rejected before any auth/lease work.
+        assert lease_calls["n"] == 0
+        assert len(websocket_module._active_subscribers) == 0
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+        websocket_module._active_subscribers.clear()

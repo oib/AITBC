@@ -1064,13 +1064,24 @@ async def _subscribe_handshake(websocket: WebSocket) -> _SubscribeHandshake:
         await _gossip_ws_send_json(websocket, {"error": "Subscription message must be a JSON object"})
         await _gossip_ws_close(websocket, code=1008)
         return result
-    result.node_id = data.get("node_id")
-    result.chain_id = data.get("chain_id", settings.chain_id)
-    result.transport = data.get("transport", "websocket")
-    if not result.node_id:
-        await _gossip_ws_send_json(websocket, {"error": "node_id is required"})
+    # node_id/chain_id feed dict keys in the handler's finally
+    # (_active_subscribers lookup) — an unhashable JSON value (list,
+    # dict) would raise TypeError during teardown for every rejected
+    # connection. Type-check before binding them to the result
+    # (AUDIT-BN-SUBSCRIBE-WS-UNHASHABLE-FINALLY-1).
+    node_id = data.get("node_id")
+    chain_id = data.get("chain_id", settings.chain_id)
+    if not isinstance(node_id, str) or not node_id:
+        await _gossip_ws_send_json(websocket, {"error": "node_id must be a non-empty string"})
         await _gossip_ws_close(websocket, code=1008)
         return result
+    if not isinstance(chain_id, str) or not chain_id:
+        await _gossip_ws_send_json(websocket, {"error": "chain_id must be a non-empty string"})
+        await _gossip_ws_close(websocket, code=1008)
+        return result
+    result.node_id = node_id
+    result.chain_id = chain_id
+    result.transport = data.get("transport", "websocket")
     if not await _subscribe_authorize(websocket, result.node_id, result.chain_id, data):
         return result
     result.accepted = True
