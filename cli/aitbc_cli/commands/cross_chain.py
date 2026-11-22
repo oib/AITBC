@@ -15,6 +15,7 @@ settlement.
 """
 
 import json
+import math
 import secrets
 import time
 from decimal import Decimal
@@ -243,6 +244,34 @@ def _emit_pair_rate(ctx, rates_data, rates, from_chain, to_chain, from_token, to
         output({"from_chain": from_chain, "to_chain": to_chain, "rate": pair_rate, "note": pair_note}, fmt)
 
 
+def _quote_rate_for_pair(client: AITBCHTTPClient, from_chain: str, to_chain: str, from_token: str, to_token: str) -> float:
+    """Server-configured swap rate for the pair; parity for same-asset (#2597)."""
+    rates_data = client.get("/rpc/cross-chain/rates", params={"from_chain": from_chain, "to_chain": to_chain})
+    rates = rates_data.get("rates", {})
+    pair_key = f"{from_chain}::{to_chain}"
+    if pair_key in rates:
+        return float(rates[pair_key])
+    if from_token == to_token:
+        return 1.0
+    raise CLIError(f"No swap rate configured for {from_token}@{from_chain} -> {to_token}@{to_chain}")
+
+
+def _derive_min_amount_units(
+    client: AITBCHTTPClient,
+    *,
+    from_chain: str,
+    to_chain: str,
+    from_token: str,
+    to_token: str,
+    amount_units: int,
+    slippage: float,
+) -> int:
+    """Receive-floor in target units: quote * (1 - slippage), floored (#2597)."""
+    rate = _quote_rate_for_pair(client, from_chain, to_chain, from_token, to_token)
+    expected = Decimal(amount_units) * Decimal(str(rate))
+    return int(expected * (Decimal(1) - Decimal(str(slippage))))
+
+
 @cross_chain.command(
     epilog="""Examples:
 
@@ -256,7 +285,12 @@ def _emit_pair_rate(ctx, rates_data, rates, from_chain, to_chain, from_token, to
 @click.option("--to-token", required=True, help="Target token symbol")
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to swap (AIT)")
 @click.option("--min-amount", type=DECIMAL, help="Minimum amount to receive on target chain (AIT)")
-@click.option("--slippage", type=float, default=0.01, help="Slippage tolerance (0-0.1)")
+@click.option(
+    "--slippage",
+    type=click.FloatRange(0.0, 0.1),
+    default=0.01,
+    help="Slippage tolerance as a fraction (0-0.1); enforced as a minimum received amount derived from the server quote unless --min-amount is given",
+)
 @click.option("--recipient", help="Recipient address on the target chain (defaults to the sender)")
 @click.option("--wallet", "wallet", default=None, help="Wallet name or file path for signing")
 @wallet_password_options
@@ -293,13 +327,37 @@ def swap(
         abort(ctx, "Source and target chains must be different")
     if amount <= 0:
         abort(ctx, "Amount must be greater than 0")
+    # FloatRange misses NaN (all comparisons False) — check finiteness too.
+    if not math.isfinite(slippage) or not 0.0 <= slippage <= 0.1:
+        abort(ctx, "Slippage tolerance must be a finite fraction in [0, 0.1]")
 
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
     address, private_key = _load_signing_wallet(ctx, wallet, password, password_file, password_stdin)
     recipient = recipient or address
 
     amount_units = ait_to_units(amount)
-    min_amount_units = ait_to_units(min_amount) if min_amount is not None else 0
+    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+    if min_amount is not None:
+        min_amount_units = ait_to_units(min_amount)
+    else:
+        # #2597: --slippage was signed and stored but never enforced —
+        # derive the receive-floor from the server quote so the guard
+        # the help text promises is real.
+        try:
+            min_amount_units = _derive_min_amount_units(
+                http_client,
+                from_chain=from_chain,
+                to_chain=to_chain,
+                from_token=from_token,
+                to_token=to_token,
+                amount_units=amount_units,
+                slippage=slippage,
+            )
+        except CLIError as e:
+            # bare CLIError from the helpers carries no printed message — surface it
+            abort(ctx, str(e), from_exception=e)
+        except _OPS_ERRORS as e:
+            abort(ctx, f"Quote lookup failed: {e}", from_exception=e)
 
     # SEC-REPLAY-2: issued_at + nonce inside the signed dict make a captured
     # body single-use (server-side replay guard, always on for new-form bodies).
@@ -322,7 +380,6 @@ def swap(
     swap_id = None
     waited: dict[str, Any] | None = None
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         swap_result = http_client.post("/rpc/swap", json=swap_data)
         success("Cross-chain swap locked on the source chain")
         output(
@@ -419,7 +476,7 @@ def status(ctx, swap_id: str, rpc_url: str | None, wait: bool, timeout: int):
 )
 @click.option("--user-address", help="Filter by user address")
 @click.option("--status", help="Filter by status")
-@click.option("--limit", type=int, default=10, help="Number of swaps to show")
+@click.option("--limit", type=click.IntRange(min=1), default=10, help="Number of swaps to show")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
 def swaps(ctx, user_address: str | None, status: str | None, limit: int, rpc_url: str | None):

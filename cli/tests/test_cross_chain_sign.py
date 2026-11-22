@@ -31,6 +31,8 @@ def _addr(priv: str) -> str:
 
 def _posted():
     client = mock.Mock()
+    # #2597: swap now GETs /rpc/cross-chain/rates to derive min_amount.
+    client.get = mock.Mock(return_value={"rates": {"chain-a::chain-b": 1.0}})
     client.post = mock.Mock(return_value={"success": True, "swap_id": "swap_x", "transfer_id": "0xT"})
     return client
 

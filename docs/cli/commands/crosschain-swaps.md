@@ -16,7 +16,7 @@ aitbc crosschain swaps [OPTIONS]
 |---|---|---|---|---|
 | `--user-address` | text | — | no | Filter by user address |
 | `--status` | text | — | no | Filter by status |
-| `--limit` | integer | `10` | no | Number of swaps to show |
+| `--limit` | integer range | `10` | no | Number of swaps to show |
 | `--rpc-url` | text | — | no | Blockchain RPC URL |
 
 ## Examples

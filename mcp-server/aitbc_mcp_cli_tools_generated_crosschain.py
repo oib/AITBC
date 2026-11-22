@@ -217,7 +217,12 @@ def aitbc_crosschain_swap(
     to_token: Annotated[str, Field(description="Target token symbol")],
     amount: Annotated[str, Field(description="Amount to swap (AIT)")],
     min_amount: Annotated[str | None, Field(description="Minimum amount to receive on target chain (AIT)")] = None,
-    slippage: Annotated[float | None, Field(description="Slippage tolerance (0-0.1)")] = None,
+    slippage: Annotated[
+        float | None,
+        Field(
+            description="Slippage tolerance as a fraction (0-0.1); enforced as a minimum received amount derived from the server quote unless --min-amount is given"
+        ),
+    ] = None,
     recipient: Annotated[
         str | None, Field(description="Recipient address on the target chain (defaults to the sender)")
     ] = None,
