@@ -250,3 +250,26 @@ def test_market_listings_rate_limited(monkeypatch):
         for _ in range(31):
             rpc_market.market_listings(req)
     assert exc.value.status_code == 429
+
+
+def test_market_listings_limit_applies_to_in_memory_store(monkeypatch):
+    """#2655: the clamp used to bound only the SQL query — every in-memory
+    listing was appended after it, so limit=1 could return thousands."""
+    from aitbc_chain.rpc import market as rpc_market
+
+    monkeypatch.setattr(rpc_market, "metrics_registry", type("M", (), {"increment": staticmethod(lambda *a, **k: None)})())
+    monkeypatch.setattr(rpc_market, "_chain_db_path", lambda: Path("/nonexistent/chain.db"))
+    monkeypatch.setattr(
+        rpc_market,
+        "_market_listings",
+        [{"listing_id": f"listing_{i:03d}", "created_at": f"2026-01-0{i}T00:00:00+00:00"} for i in range(1, 4)],
+    )
+
+    out = rpc_market.market_listings(_request(), limit=1)
+    assert out["total"] == 1
+    assert len(out["listings"]) == 1
+    # newest first across the merged sources
+    assert out["listings"][0]["listing_id"] == "listing_003"
+
+    out = rpc_market.market_listings(_request(), limit=2)
+    assert [x["listing_id"] for x in out["listings"]] == ["listing_003", "listing_002"]

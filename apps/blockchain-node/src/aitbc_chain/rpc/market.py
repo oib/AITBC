@@ -199,8 +199,12 @@ def market_listings(request: Request, limit: int = 100) -> dict[str, Any]:
                 }
                 listings.append(listing)
 
-        # Merge on-chain listings with in-memory listings
+        # Merge on-chain and in-memory listings, newest first, then apply the
+        # clamp to the combined result — the SQL LIMIT alone never bounded the
+        # response once every in-memory listing was appended after it (#2655).
         listings.extend(_market_listings)
+        listings.sort(key=lambda listing: _listing_created_key(listing.get("created_at")), reverse=True)
+        listings = listings[:limit]
 
         return {"listings": listings, "total": len(listings), "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
@@ -247,6 +251,22 @@ def _seller_listing_count(seller_address: str) -> int:
     key controls every casing of its address)."""
     seller = seller_address.lower()
     return sum(1 for listing in _market_listings if str(listing.get("seller_address", "")).lower() == seller)
+
+
+def _listing_created_key(value: Any) -> float:
+    """Orderable timestamp for a listing's ``created_at`` across the mixed
+    shapes the two sources produce (ISO strings, sqlite timestamps, numbers)."""
+    if isinstance(value, datetime):
+        return value.timestamp()
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.timestamp()
 
 
 @router.post("/market/create", summary="Create market listing", tags=["market"])
