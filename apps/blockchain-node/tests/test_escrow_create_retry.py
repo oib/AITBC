@@ -245,6 +245,96 @@ async def test_create_refusal_increments_settlement_refused_counter(patched, eng
 
 
 @pytest.mark.asyncio
+async def test_second_create_without_lock_preserves_pending_lock_escrow(patched, engine, monkeypatch):
+    """AUDIT-BN-ESCROW-CREATE-DROPS-FUNDED-PENDING-LOCK-1: a funded escrow whose
+    ESCROW_LOCK is still pending (unsealed, mempool-held) is not residue.
+
+    The lock probe is stubbed to None, modelling a lock still in the pool. A
+    second create carrying no lock material must be refused *before* the
+    stale-state drop runs, and the row + in-memory contract must survive.
+    """
+    mgr = patched
+    submit = AsyncMock(return_value="0xlockhash")
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+
+    result = await escrow_routes.create_escrow(_lock_body())
+    assert result["success"] is True
+
+    body = {k: v for k, v in _lock_body().items() if k != "lock_tx"}
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(body)
+    assert exc_info.value.status_code == 400
+    assert "lock" in str(exc_info.value.detail)
+
+    with Session(engine) as session:
+        row = session.get(Escrow, JOB_ID)
+        assert row is not None
+        assert row.status == "locked"
+        assert row.lock_tx_hash == "0xlockhash"
+    contract = next(c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID)
+    assert contract.state is EscrowState.FUNDED
+    assert contract.lock_tx_hash == "0xlockhash"
+    assert submit.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pending_probe", [{"0xlockhash"}, None])
+async def test_second_create_with_lock_keeps_pending_lock_escrow(patched, engine, monkeypatch, pending_probe):
+    """Even carrying lock material, a second create must not drop or resubmit
+    over a funded escrow whose recorded lock is still pending — or whose
+    mempool probe could not be answered (``None`` fails closed)."""
+    mgr = patched
+    submit = AsyncMock(side_effect=["0xlockhash", "0xlockhash2"])
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    pending = AsyncMock(return_value=pending_probe)
+    monkeypatch.setattr(escrow_routes, "_pending_lock_tx_hashes", pending)
+
+    result = await escrow_routes.create_escrow(_lock_body())
+    assert result["success"] is True
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(_lock_body())
+    assert exc_info.value.status_code == 400
+    assert submit.await_count == 1  # no second ESCROW_LOCK was broadcast
+
+    with Session(engine) as session:
+        row = session.get(Escrow, JOB_ID)
+        assert row is not None
+        assert row.status == "locked"
+        assert row.lock_tx_hash == "0xlockhash"
+    contract = next(c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID)
+    assert contract.state is EscrowState.FUNDED
+    assert contract.lock_tx_hash == "0xlockhash"
+
+
+@pytest.mark.asyncio
+async def test_create_replaces_state_when_recorded_lock_is_dead(patched, engine, monkeypatch):
+    """A recorded lock hash absent from the mempool — with no lock sealed for
+    the job — is provably dead, so the stale drop still runs and the retry
+    re-locks cleanly."""
+    mgr = patched
+    submit = AsyncMock(side_effect=["0xlockhash", "0xlockhash2"])
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    monkeypatch.setattr(escrow_routes, "_pending_lock_tx_hashes", AsyncMock(return_value=set()))
+
+    await escrow_routes.create_escrow(_lock_body())
+    result = await escrow_routes.create_escrow(_lock_body())
+
+    assert result["success"] is True
+    assert result["lock_tx_hash"] == "0xlockhash2"
+    assert submit.await_count == 2
+    with Session(engine) as session:
+        row = session.get(Escrow, JOB_ID)
+        assert row is not None
+        assert row.status == "locked"
+        assert row.lock_tx_hash == "0xlockhash2"
+    contracts = [c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID]
+    assert len(contracts) == 1
+    assert contracts[0].state is EscrowState.FUNDED
+    assert contracts[0].lock_tx_hash == "0xlockhash2"
+
+
+@pytest.mark.asyncio
 async def test_mismatched_settlement_address_refuses_create(patched, monkeypatch):
     """Key present but disagreeing with ESCROW_RELEASE_ADDRESS is unkeyed for
     settlement purposes — same refusal, still before any submission."""

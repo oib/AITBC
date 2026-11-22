@@ -207,6 +207,38 @@ async def _verify_funding_lock(tx_hash: str, *, job_id: str, buyer: str, amount_
     )
 
 
+async def _pending_lock_tx_hashes() -> set[str] | None:
+    """Hashes of transactions still held in the hub mempool; ``None`` when the
+    probe could not be answered completely.
+
+    Same view ``_verify_funding_lock`` funds against — the mempool the lock
+    was submitted to. ``None`` means "unknown", never "absent": callers must
+    keep the state they cannot prove dead. A truncated answer (count at the
+    limit) is a failure too, since the unseen tail could hold the hash being
+    judged.
+    """
+    from ..mempool import compute_tx_hash
+
+    try:
+        r = await _er.SharedHttpClient.get(
+            f"{_er._HUB_RPC_URL}/mempool?chain_id={_er._chain_id()}&limit={_er._FUNDING_LOCK_MEMPOOL_LIMIT}",
+            timeout=5.0,
+        )
+        if r.status_code != 200:
+            return None
+        body = r.json() or {}
+        count = body.get("count")
+        if isinstance(count, int) and count >= _er._FUNDING_LOCK_MEMPOOL_LIMIT:
+            return None
+        txs = body.get("transactions")
+        if not isinstance(txs, list):
+            return None
+        return {compute_tx_hash(tx) for tx in txs if isinstance(tx, dict)}
+    except _er._HTTP_PROBE_ERRORS as e:
+        _er._logger.warning("pending-lock mempool probe failed: %s", e)
+        return None
+
+
 async def _refuse_v2_lock(job_id: str) -> None:
     """Refuse route settlement for a lock sealed before the v3 custody height.
 
