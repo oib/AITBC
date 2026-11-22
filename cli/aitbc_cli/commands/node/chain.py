@@ -4,36 +4,33 @@ Multi-chain management commands for parallel chains.
 
 import click
 
-from aitbc_cli.utils import error, output, success
+from aitbc_cli.utils import error, output
 
 
 def start_chain_command(ctx, chain_id, chain_type):
-    """Start a new parallel chain instance"""
-    try:
-        chain_info = {
-            "Chain ID": chain_id,
-            "Chain Type": chain_type,
-            "Status": "Starting",
-            "RPC Port": "auto-allocated",
-            "P2P Port": "auto-allocated",
-        }
+    """Start a new parallel chain instance.
 
-        output(chain_info, ctx.obj.get("output", "table"), title=f"Starting Chain: {chain_id}")
-        success(f"Chain {chain_id} started successfully")
-
-    except Exception as e:
-        error(f"Error starting chain: {str(e)}")
-        raise click.Abort() from e
+    #2534: there is no node-side chain lifecycle endpoint — the previous
+    stub printed "started successfully" without touching any node. Fail
+    clearly until a real implementation lands.
+    """
+    error(
+        f"node chain start is not implemented: no node endpoint exists to start chain {chain_id!r} "
+        "(parallel-chain lifecycle is not supported by any deployed node)"
+    )
+    raise click.Abort()
 
 
 def stop_chain_command(ctx, chain_id):
-    """Stop a parallel chain instance"""
-    try:
-        success(f"Chain {chain_id} stopped successfully")
+    """Stop a parallel chain instance.
 
-    except Exception as e:
-        error(f"Error stopping chain: {str(e)}")
-        raise click.Abort() from e
+    #2534: same stub class as start — no node endpoint exists; fail clearly.
+    """
+    error(
+        f"node chain stop is not implemented: no node endpoint exists to stop chain {chain_id!r} "
+        "(parallel-chain lifecycle is not supported by any deployed node)"
+    )
+    raise click.Abort()
 
 
 def list_chains_command(ctx):
