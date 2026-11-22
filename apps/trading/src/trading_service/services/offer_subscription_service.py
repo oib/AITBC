@@ -439,6 +439,31 @@ class OfferSubscriptionService:
         self._last_event_at[key] = ts
         return False
 
+    def _search_index(self) -> Any | None:
+        """Resolve the process OfferSearchService singleton lazily (#2470)."""
+        try:
+            from ..state import get_search_service
+
+            return get_search_service()
+        except Exception:  # noqa: BLE001 - indexing must never break event handling
+            return None
+
+    def _index_offer_for_search(self, offer: Any) -> None:
+        index = self._search_index()
+        if index is not None:
+            try:
+                index.index_offer(offer)
+            except Exception:  # noqa: BLE001 - search indexing is best-effort
+                logger.debug("Search indexing skipped for offer %s", getattr(offer, "offer_id", "?"))
+
+    def _unindex_offer_for_search(self, offer_id: str, chain_id: str) -> None:
+        index = self._search_index()
+        if index is not None:
+            try:
+                index.delete_offer(offer_id, chain_id)
+            except Exception:  # noqa: BLE001 - search indexing is best-effort
+                logger.debug("Search unindex skipped for offer %s", offer_id)
+
     async def _handle_event(self, event: OfferEvent) -> None:
         """Process an offer event: update cache, notify subscribers."""
         if settings.offer_event_stale_guard_enabled and self._is_stale_event(event):
@@ -452,9 +477,11 @@ class OfferSubscriptionService:
 
         if event.event_type == OfferEventType.DELETED.value:
             self._cache.delete_offer(event.offer_id, event.chain_id)
+            self._unindex_offer_for_search(event.offer_id, event.chain_id)
             logger.debug("Deleted offer %s from cache (chain %s)", event.offer_id, event.chain_id)
         elif event.offer is not None:
             self._cache.set_offer(event.offer, ttl=settings.offer_cache_ttl_seconds)
+            self._index_offer_for_search(event.offer)
             logger.debug("Updated offer %s in cache (chain %s, event=%s)", event.offer_id, event.chain_id, event.event_type)
 
         if self._on_event is not None:

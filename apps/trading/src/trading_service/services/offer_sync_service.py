@@ -134,6 +134,38 @@ class OfferSyncService:
         locks[chain_id] = lock
         return lock
 
+    def _search_index(self) -> Any | None:
+        """Resolve the process OfferSearchService singleton lazily (#2470).
+
+        Sync instances are built per request and cannot hold the search
+        service at construction without a circular import through
+        ``trading_service.state``; resolving at call time covers every
+        construction site uniformly. Returns None outside the app context —
+        indexing is then skipped, never fatal to the sync itself.
+        """
+        try:
+            from ..state import get_search_service
+
+            return get_search_service()
+        except Exception:  # noqa: BLE001 - indexing must never break a sync
+            return None
+
+    def _index_offer_for_search(self, offer: SyncedOffer) -> None:
+        index = self._search_index()
+        if index is not None:
+            try:
+                index.index_offer(offer)
+            except Exception:  # noqa: BLE001 - search indexing is best-effort
+                logger.debug("Search indexing skipped for offer %s", offer.offer_id)
+
+    def _unindex_offer_for_search(self, offer_id: str, chain_id: str) -> None:
+        index = self._search_index()
+        if index is not None:
+            try:
+                index.delete_offer(offer_id, chain_id)
+            except Exception:  # noqa: BLE001 - search indexing is best-effort
+                logger.debug("Search unindex skipped for offer %s", offer_id)
+
     @property
     def cache(self) -> OfferCache:
         """The underlying OfferCache instance."""
@@ -203,6 +235,7 @@ class OfferSyncService:
                     sync_confidence=1.0,
                 )
                 self._cache.set_offer(synced, ttl=settings.offer_cache_ttl_seconds)
+                self._index_offer_for_search(synced)
                 synced_count += 1
 
             # Deletion reconciliation (#1567): an offer the chain no longer
@@ -218,6 +251,7 @@ class OfferSyncService:
                 for cached in self._cache.list_offers_by_chain(chain_id):
                     if cached.offer_id not in seen_ids:
                         self._cache.delete_offer(cached.offer_id, chain_id)
+                        self._unindex_offer_for_search(cached.offer_id, chain_id)
                         deleted_count += 1
 
             # Update sync metadata
