@@ -1768,3 +1768,35 @@ class TestHelpInvocationBypass:
             )
         )
         assert result.get("error") == "Confirmation required"
+
+    def test_help_as_option_value_does_not_skip_confirm(self):
+        """#2493: ``--prompt=--help`` renders as an option VALUE — Click runs
+        the command, so the confirm gate must still fire."""
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="ai",
+                subcommand="submit",
+                options={"prompt": "--help"},
+                host="node0",
+                dry_run=False,
+                confirm=False,
+            )
+        )
+        assert result.get("error") == "Confirmation required"
+
+    def test_help_option_key_still_skips_confirm(self):
+        """#2493: a bare ``--help`` option key emits a real help token —
+        Click exits before the command body, so no confirm is needed."""
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(
+                mcp_server.run_aitbc_cli(
+                    group="ai",
+                    subcommand="submit",
+                    options={"help": None},
+                    host="node0",
+                    dry_run=False,
+                    confirm=False,
+                )
+            )
+        assert "error" not in result
+        assert "--help" in str(result["command"])

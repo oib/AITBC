@@ -175,11 +175,12 @@ def run_aitbc_cli(
     # line there.
     read_only = _is_aitbc_subcommand_read_only(subcommand, group, args)
     option_mutation = _options_suggest_mutation(options, group_options)
-    # #2453: ``--help``/``-h`` exits inside Click before any command body
-    # runs, so a help request on a mutating leaf (e.g. ``ai submit --help``)
-    # must not trip the confirm gate — the destructive classification is
-    # about the leaf, not the invocation.
-    help_requested = _is_help_invocation(args, options)
+    # #2453/#2493: a standalone ``--help``/``-h`` token exits inside Click
+    # before any command body runs, so a help request on a mutating leaf
+    # (e.g. ``ai submit --help``) must not trip the confirm gate. Only a
+    # structural help token counts — an option *value* of ``--help``
+    # renders ``--key=--help`` and the command still executes.
+    help_requested = _is_help_invocation(args, options, group_options)
 
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -455,16 +456,25 @@ def list_wallet_transactions(
 
 def _is_help_invocation(
     args: list[str] | None,
-    options: dict[str, Any] | None,
+    *option_maps: dict[str, Any] | None,
 ) -> bool:
-    """True when the invocation asks Click for help text only (#2453)."""
-    tokens: list[str] = [str(a) for a in (args or [])]
-    for value in (options or {}).values():
-        if isinstance(value, list):
-            tokens.extend(str(v) for v in value)
-        elif value is not None:
-            tokens.append(str(value))
-    return any(t in ("-h", "--help") for t in tokens)
+    """True only when the invocation makes Click print help and exit before
+    any command body runs (#2453, tightened #2493).
+
+    Click's help option is eager: a standalone ``-h``/``--help`` token in
+    ``args`` (appended verbatim) or a bare ``--help`` emitted by an option
+    key named ``help`` triggers it. Option *values* render as
+    ``--key=value`` — a value of ``--help`` is just data (e.g.
+    ``--prompt=--help`` still submits the prompt), so values must never
+    count or a mutating call would skip the confirm gate while executing.
+    """
+    if any(str(a) in ("-h", "--help") for a in (args or [])):
+        return True
+    for mapping in option_maps:
+        for key, value in (mapping or {}).items():
+            if key == "help" and value in (None, ""):
+                return True
+    return False
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
