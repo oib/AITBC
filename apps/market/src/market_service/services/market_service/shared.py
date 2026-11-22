@@ -26,7 +26,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import OfferStatus
 
-from ...domain.market import IpfsRentalToken, MarketOffer, SoftwareService
+from ...domain.market import IpfsRentalToken, MarketJob, MarketOffer, SoftwareService
 from ...domain.offer_status import try_to_offer_status
 
 
@@ -657,6 +657,14 @@ async def active_rental_token_covers(session: Any, job_id: str) -> bool:
     is active the job sweeper must not expire-refund the job's payment —
     the token rail owns the settlement. Shared by MarketJobSweeper and the
     lazy access-token expiry so both apply the same coverage rule.
+
+    #2491: an active token row alone is not coverage — anyone holding the
+    market API key could register one against a victim ``rental_id`` and
+    suppress the buyer's refund while the token rail released the escrow.
+    Coverage now also requires the job's provider-signed pin proof
+    (``payload.provider_confirmed``, written only by the #1922 attestation
+    gate), so the refund exemption depends on verified delivery, not on the
+    mere existence of a token.
     """
     stmt = (
         select(col(IpfsRentalToken.access_key))
@@ -669,4 +677,7 @@ async def active_rental_token_covers(session: Any, job_id: str) -> bool:
         )
         .limit(1)
     )
-    return (await session.execute(stmt)).scalar_one_or_none() is not None
+    if (await session.execute(stmt)).scalar_one_or_none() is None:
+        return False
+    job = await session.get(MarketJob, job_id)
+    return bool(job is not None and (job.payload or {}).get("provider_confirmed"))

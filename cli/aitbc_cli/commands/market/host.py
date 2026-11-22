@@ -1136,6 +1136,8 @@ def _register_ipfs_rental_token(
     cid: str,
     size: int | None,
     ipfs_api: str,
+    wallet_address: str,
+    private_key: str,
 ) -> dict[str, Any] | None:
     """Register the IpfsRentalToken that puts the escrow on the rental rail.
 
@@ -1143,9 +1145,23 @@ def _register_ipfs_rental_token(
     refunds a flagged/undelivered rental); without it the market job's
     expiry would refund the buyer even after delivery. Settlement fields
     are service-owned — the market derives ``expires_at`` from the job.
+
+    #2491: a token bound to a market job must be registered by that job's
+    provider — the market verifies a wallet signature over the
+    rental-token route and the job-authoritative binding, so the provider
+    key signs here with the same jobs-request proof as pin-confirm.
     """
     payload = job.get("payload") or {}
     constraints = job.get("constraints") or {}
+    chain_id = get_chain_id()
+    issued_at = int(time.time())
+    binding = {
+        "rental_id": job_id,
+        "cid": str(payload.get("cid") or ""),
+        "buyer_address": str(job.get("buyer_address") or ""),
+        "provider_address": str(job.get("provider_address") or ""),
+    }
+    message = jobs_request_message(wallet_address, chain_id, issued_at, "/v1/market/ipfs/rental-token", binding=binding)
     token_data = {
         "access_key": payload.get("access_key"),
         "access_secret": payload.get("access_secret"),
@@ -1159,6 +1175,10 @@ def _register_ipfs_rental_token(
         "disk_quota_mb": constraints.get("disk_quota_mb"),
         "size": size,
         "pinned": True,
+        "signer_address": wallet_address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(message, private_key),
     }
     if not token_data["access_key"] or not token_data["access_secret"]:
         warning("Job payload carries no access_key/access_secret — rental token not registered")
@@ -1261,7 +1281,7 @@ def provider_pin(
     success(f"Pinned {cid} on {ipfs_api}")
 
     size = _provider_pin_size(ipfs_api, cid, job.get("payload") or {})
-    token_result = _register_ipfs_rental_token(job, job_id, cid, size, ipfs_api)
+    token_result = _register_ipfs_rental_token(job, job_id, cid, size, ipfs_api, wallet_address, private_key)
 
     try:
         result = _provider_pin_attestation(ctx, job_id, cid, size, wallet_address, private_key)
