@@ -152,3 +152,54 @@ async def test_sync_survives_index_failure():
     svc = _sync_service_with_index(_BoomIndex())  # type: ignore[arg-type]
     result = await svc.sync_chain("bc-2")
     assert result["synced"] == 2
+
+
+# --- #2481: entries expire with the cache TTL and the map is bounded ---
+
+
+def test_memory_entries_expire_with_cache_ttl():
+    """A chain-deleted offer stops being refreshed in the OfferCache and
+    must stop being searchable once the TTL lapses — not live forever."""
+
+    svc = OfferSearchService(enabled=False)
+    svc.index_offer(_offer("gpu-1", chain_id="bc-2"))
+    # Age the entry past the TTL by rewinding its stamp.
+    key = "bc-2:gpu-1"
+    svc._indexed_at[key] = svc._indexed_at[key] - 301.0  # noqa: SLF001
+    assert svc.search() == []
+    assert key not in svc._in_memory_offers  # noqa: SLF001
+    # Fresh entries are unaffected.
+    svc.index_offer(_offer("gpu-2", chain_id="bc-2"))
+    assert [o.offer_id for o in svc.search()] == ["gpu-2"]
+
+
+def test_expiry_respects_configured_ttl(monkeypatch):
+    from trading_service.config import settings
+
+    svc = OfferSearchService(enabled=False)
+    svc.index_offer(_offer("gpu-1", chain_id="bc-2"))
+    key = "bc-2:gpu-1"
+    monkeypatch.setattr(settings, "offer_cache_ttl_seconds", 10)
+    svc._indexed_at[key] = svc._indexed_at[key] - 11.0  # noqa: SLF001
+    assert svc.search() == []
+
+
+def test_index_cap_evicts_oldest(monkeypatch):
+    from trading_service.config import settings
+
+    monkeypatch.setattr(settings, "offer_search_index_max_entries", 3)
+    svc = OfferSearchService(enabled=False)
+    for i in range(3):
+        svc.index_offer(_offer(f"gpu-{i}", chain_id="bc-2"))
+    # Age gpu-0 so it is the eviction candidate.
+    svc._indexed_at["bc-2:gpu-0"] = svc._indexed_at["bc-2:gpu-0"] - 100.0  # noqa: SLF001
+    svc.index_offer(_offer("gpu-3", chain_id="bc-2"))
+    ids = {o.offer_id for o in svc.search()}
+    assert ids == {"gpu-1", "gpu-2", "gpu-3"}
+
+
+def test_delete_offer_clears_index_timestamp():
+    svc = OfferSearchService(enabled=False)
+    svc.index_offer(_offer("gpu-1", chain_id="bc-2"))
+    svc.delete_offer("gpu-1", "bc-2")
+    assert "bc-2:gpu-1" not in svc._indexed_at  # noqa: SLF001

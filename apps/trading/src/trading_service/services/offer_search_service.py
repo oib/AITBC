@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -68,6 +69,11 @@ class OfferSearchService:
         # offers per chain, so two chains can legitimately carry the same
         # offer_id — a bare-offer_id dict silently kept only the last one.
         self._in_memory_offers: dict[str, SyncedOffer] = {}
+        # #2481: monotonic index time per key. Entries self-expire at the
+        # OfferCache TTL — a chain-deleted offer stops being refreshed in
+        # the cache and must stop being searchable here too, instead of
+        # living in this map forever.
+        self._indexed_at: dict[str, float] = {}
 
         if self._enabled:
             self._init_backend()
@@ -104,6 +110,30 @@ class OfferSearchService:
     def _memory_key(offer: SyncedOffer) -> str:
         return f"{offer.chain_id}:{offer.offer_id}"
 
+    @staticmethod
+    def _index_ttl_seconds() -> float:
+        return max(float(getattr(settings, "offer_cache_ttl_seconds", 300)), 1.0)
+
+    @staticmethod
+    def _index_cap() -> int:
+        return max(int(getattr(settings, "offer_search_index_max_entries", 10000)), 1)
+
+    def _expire_stale(self) -> None:
+        """Drop memory entries older than the OfferCache TTL (#2481)."""
+        cutoff = time.monotonic() - self._index_ttl_seconds()
+        stale = [k for k, ts in self._indexed_at.items() if ts < cutoff]
+        for key in stale:
+            self._in_memory_offers.pop(key, None)
+            self._indexed_at.pop(key, None)
+
+    def _enforce_cap(self) -> None:
+        """Bound the map: evict the oldest-indexed entries past the cap."""
+        cap = self._index_cap()
+        while len(self._in_memory_offers) > cap:
+            oldest = min(self._indexed_at, key=self._indexed_at.get)  # type: ignore[arg-type]
+            self._in_memory_offers.pop(oldest, None)
+            self._indexed_at.pop(oldest, None)
+
     def index_offer(self, offer: SyncedOffer) -> None:
         """Add or update an offer in the search index."""
         if self._enabled and self._client is not None:
@@ -112,8 +142,12 @@ class OfferSearchService:
             except _OPS_ERRORS as e:
                 logger.warning("Search index error for offer %s: %s", offer.offer_id, e)
                 self._in_memory_offers[self._memory_key(offer)] = offer
+                self._indexed_at[self._memory_key(offer)] = time.monotonic()
+                self._enforce_cap()
         else:
             self._in_memory_offers[self._memory_key(offer)] = offer
+            self._indexed_at[self._memory_key(offer)] = time.monotonic()
+            self._enforce_cap()
 
     def delete_offer(self, offer_id: str, chain_id: str | None = None) -> None:
         """Remove an offer from the search index.
@@ -129,9 +163,11 @@ class OfferSearchService:
                 logger.warning("Search delete error for offer %s: %s", offer_id, e)
         if chain_id is not None:
             self._in_memory_offers.pop(f"{chain_id}:{offer_id}", None)
+            self._indexed_at.pop(f"{chain_id}:{offer_id}", None)
         else:
             for key in [k for k in self._in_memory_offers if k.endswith(f":{offer_id}")]:
                 del self._in_memory_offers[key]
+                self._indexed_at.pop(key, None)
 
     def reindex_from_cache(self, cache: Any) -> int:
         """Backfill the in-memory index from an OfferCache (#2470).
@@ -144,6 +180,7 @@ class OfferSearchService:
         """
         indexed = 0
         seen_keys: set[str] = set()
+        self._expire_stale()
         try:
             known = list(cache._get_known_chains())  # noqa: SLF001
         except _OPS_ERRORS:
@@ -157,6 +194,7 @@ class OfferSearchService:
             for key in [k for k in self._in_memory_offers if k.startswith(f"{cid}:")]:
                 if key.split(":", 1)[1] not in cached_ids:
                     del self._in_memory_offers[key]
+                    self._indexed_at.pop(key, None)
             for offer in offers:
                 self.index_offer(offer)
                 seen_keys.add(self._memory_key(offer))
@@ -209,6 +247,7 @@ class OfferSearchService:
         limit: int,
     ) -> list[SyncedOffer]:
         """Fallback in-memory search with basic text matching."""
+        self._expire_stale()
         offers = list(self._in_memory_offers.values())
         if chain_id:
             offers = [o for o in offers if o.chain_id == chain_id]
@@ -234,4 +273,5 @@ class OfferSearchService:
     def close(self) -> None:
         """Clean up resources."""
         self._in_memory_offers.clear()
+        self._indexed_at.clear()
         self._client = None
