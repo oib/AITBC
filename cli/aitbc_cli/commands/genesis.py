@@ -15,6 +15,7 @@ import click
 import httpx
 
 from ..utils import error, genesis_reset, output, success, warning
+from ..utils.error_handling import abort
 from ..utils.wallet_secret import resolve_new_wallet_password, wallet_password_options
 
 # Expected failure surface for the genesis handlers below: filesystem/JSON,
@@ -453,20 +454,16 @@ def _validate_synced_genesis(ctx, genesis_data: Any, chain_id: str) -> bool:
     matching chain id, a genesis hash, and a non-empty allocations list.
     Anything less is a placeholder and is refused (#2542)."""
     if not isinstance(genesis_data, dict):
-        error("Hub did not return a genesis document (not a JSON object)")
-        return False
+        abort(ctx, "Hub did not return a genesis document (not a JSON object)")
     doc_chain = genesis_data.get("chain_id")
     if doc_chain != chain_id:
-        error(f"Genesis document chain_id {doc_chain!r} does not match requested chain {chain_id!r}")
-        return False
+        abort(ctx, f"Genesis document chain_id {doc_chain!r} does not match requested chain {chain_id!r}")
     genesis_hash = genesis_data.get("genesis_hash") or (genesis_data.get("block") or {}).get("hash")
     if not genesis_hash:
-        error("Genesis document carries no genesis hash (genesis_hash or block.hash)")
-        return False
+        abort(ctx, "Genesis document carries no genesis hash (genesis_hash or block.hash)")
     allocations = genesis_data.get("allocations")
     if not isinstance(allocations, list) or not allocations:
-        error("Genesis document has no allocations — refusing to write a placeholder")
-        return False
+        abort(ctx, "Genesis document has no allocations — refusing to write a placeholder")
     return True
 
 
