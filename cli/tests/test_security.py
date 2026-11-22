@@ -180,3 +180,59 @@ def test_chmod_result_skips_plain_outside_path(tmp_path):
     assert action == "skipped"
     assert detail == "outside aitbc data dirs"
     assert stat.S_IMODE(outside.stat().st_mode) == 0o644
+
+
+def _service_wallet_dir(home, mode=0o750):
+    d = home / ".aitbc" / "svc-wallets"
+    d.mkdir(parents=True, exist_ok=True)
+    os.chmod(d, mode)
+    return d
+
+
+class TestServiceWalletsDirPolicy:
+    """#2433: /var/lib/aitbc/wallets must stay group-traversable — the blanket
+    0700 dir rule is what re-broke node2 after the incident remediation."""
+
+    def _dir_row(self, data, target):
+        rows = [c for c in data["checks"] if c["check"] == "aitbc_dir_perms" and c["target"] == str(target)]
+        assert rows, f"no dir-perms row for {target}: {data['checks']}"
+        return rows[0]
+
+    def test_750_group_traverse_is_compliant(self, isolated_home, monkeypatch):
+        d = _service_wallet_dir(isolated_home, 0o750)
+        monkeypatch.setattr(security_mod, "_SERVICE_WALLET_DIRS", (d,))
+        data = _json(_run(["audit"]))
+        row = self._dir_row(data, d)
+        assert row["passed"] is True
+        assert "group-traverse" in row["expected"]
+
+    def test_700_locks_out_group_and_is_flagged(self, isolated_home, monkeypatch):
+        """The incident mode: no group-x → finding, and patch repairs to 0750."""
+        d = _service_wallet_dir(isolated_home, 0o700)
+        monkeypatch.setattr(security_mod, "_SERVICE_WALLET_DIRS", (d,))
+        data = _json(_run(["audit"]))
+        row = self._dir_row(data, d)
+        assert row["passed"] is False
+        assert row["actual"] == "0700"
+
+        patched = _json(_run(["patch"]))
+        prows = [r for r in patched["results"] if r["target"] == str(d)]
+        assert prows and prows[0]["action"] == "applied", prows
+        assert prows[0]["after"] == "0750"
+        assert stat.S_IMODE(d.stat().st_mode) == 0o750
+
+    def test_755_other_access_still_flagged(self, isolated_home, monkeypatch):
+        d = _service_wallet_dir(isolated_home, 0o755)
+        monkeypatch.setattr(security_mod, "_SERVICE_WALLET_DIRS", (d,))
+        data = _json(_run(["audit"]))
+        assert self._dir_row(data, d)["passed"] is False
+
+    def test_user_wallet_dir_keeps_0700_rule(self, isolated_home):
+        """~/.aitbc/wallets is private to the CLI user — group bits stay a finding."""
+        d = isolated_home / ".aitbc" / "wallets"
+        d.mkdir(parents=True, exist_ok=True)
+        os.chmod(d, 0o750)
+        data = _json(_run(["audit"]))
+        row = self._dir_row(data, d)
+        assert row["passed"] is False
+        assert "group-traverse" not in row["expected"]

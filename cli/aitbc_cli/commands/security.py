@@ -38,6 +38,16 @@ _DIR_MODE = 0o0700
 # than the nominal mode (a 0400 wallet file is fine).
 _FORBIDDEN_BITS = 0o077
 
+# ``/var/lib/aitbc/wallets`` is shared infrastructure, not a private dir:
+# setup.sh prescribes ``chmod 750`` + ``chown aitbc-wallet:aitbc-services``
+# so service users in group ``aitbc-services`` (the miner runs as ``aitbc``,
+# a member) can traverse it.  Applying the blanket 0700 rule there is what
+# re-broke node2 after the #2433 incident remediation — for this directory
+# the contract is group-traverse REQUIRED and other-access forbidden.
+_SERVICE_WALLET_DIR_MODE = 0o0750
+_SERVICE_WALLET_DIR_FORBIDDEN = 0o007
+_SERVICE_WALLET_DIR_REQUIRE_GX = True
+
 _SEVERITY_DEDUCTION = {"critical": 40, "high": 15, "medium": 8, "low": 4}
 
 
@@ -58,13 +68,32 @@ def _wallet_dirs() -> list[Path]:
     return dirs
 
 
-def _dir_targets() -> list[Path]:
-    """aitbc directories that must not grant group/other access."""
+def _dir_policies() -> list[tuple[Path, str, int, bool, int]]:
+    """(path, expected, forbidden_bits, require_group_x, patch_mode) per dir.
+
+    aitbc directories must not grant group/other access — except the service
+    wallets dir, which must stay group-traversable for aitbc-services members.
+    """
     dirs = [_aitbc_home(), _aitbc_home() / "wallets", _aitbc_home() / "audit"]
+    policies: list[tuple[Path, str, int, bool, int]] = [
+        (d, f"{_DIR_MODE:04o}", _FORBIDDEN_BITS, False, _DIR_MODE) for d in dirs
+    ]
     for candidate in _wallet_dirs():
-        if candidate not in dirs:
-            dirs.append(candidate)
-    return dirs
+        if candidate in dirs:
+            continue
+        if candidate in _SERVICE_WALLET_DIRS:
+            policies.append(
+                (
+                    candidate,
+                    f"{_SERVICE_WALLET_DIR_MODE:04o} (group-traverse required)",
+                    _SERVICE_WALLET_DIR_FORBIDDEN,
+                    _SERVICE_WALLET_DIR_REQUIRE_GX,
+                    _SERVICE_WALLET_DIR_MODE,
+                )
+            )
+        else:
+            policies.append((candidate, f"{_DIR_MODE:04o}", _FORBIDDEN_BITS, False, _DIR_MODE))
+    return policies
 
 
 def _file_targets() -> list[tuple[Path, str, str]]:
@@ -96,11 +125,20 @@ def _mode_of(path: Path) -> int | None:
         return None
 
 
-def _perm_row(path: Path, check: str, severity: str, expected: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+def _perm_row(
+    path: Path,
+    check: str,
+    severity: str,
+    expected: str,
+    forbidden: int = _FORBIDDEN_BITS,
+    require_group_x: bool = False,
+    patch_mode: int | None = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Evaluate one permission target.
 
     Returns ``(check_row, finding_or_None)``.  Missing paths return
-    ``(None, None)`` — absence is not a failure.
+    ``(None, None)`` — absence is not a failure.  ``require_group_x`` marks
+    directories that must stay group-traversable (the service wallets dir).
     """
     if not path.exists() and not path.is_symlink():
         return None, None
@@ -122,7 +160,7 @@ def _perm_row(path: Path, check: str, severity: str, expected: str) -> tuple[dic
         }
         return check_row, finding
     actual = f"{mode:04o}"
-    passed = not (mode & _FORBIDDEN_BITS)
+    passed = not (mode & forbidden) and (not require_group_x or bool(mode & 0o010))
     check_row = {
         "check": check,
         "target": str(path),
@@ -139,6 +177,8 @@ def _perm_row(path: Path, check: str, severity: str, expected: str) -> tuple[dic
             "actual": actual,
             "severity": severity,
         }
+        if patch_mode is not None:
+            finding["patch_mode"] = patch_mode
     return check_row, finding
 
 
@@ -210,9 +250,18 @@ def _evaluate() -> dict[str, Any]:
         if finding is not None:
             findings.append(finding)
 
-    # 3. Directory permissions (0700 or stricter).
-    for path in _dir_targets():
-        row, finding = _perm_row(path, "aitbc_dir_perms", "medium", f"{_DIR_MODE:04o}")
+    # 3. Directory permissions (0700 or stricter; the service wallets dir
+    # keeps group-traverse per the setup.sh contract, #2433).
+    for path, expected, forbidden, require_gx, patch_mode in _dir_policies():
+        row, finding = _perm_row(
+            path,
+            "aitbc_dir_perms",
+            "medium",
+            expected,
+            forbidden=forbidden,
+            require_group_x=require_gx,
+            patch_mode=patch_mode,
+        )
         if row is not None:
             checks.append(row)
         if finding is not None:
@@ -267,15 +316,22 @@ def _recommendations(findings: list[dict[str, Any]], integrity_ok: bool) -> list
         target = str(finding["target"])
         if finding["check"] == "audit_log_integrity":
             continue
-        mode = _FILE_MODE if "file_perms" in str(finding["check"]) else _DIR_MODE
-        text = f"chmod {mode:o} {target}"
+        patch_mode = finding.get("patch_mode")
+        if patch_mode is None:
+            patch_mode = _FILE_MODE if "file_perms" in str(finding["check"]) else _DIR_MODE
+        text = f"chmod {patch_mode:o} {target}"
         if text not in seen:
             seen.add(text)
             recommendations.append(text)
     return recommendations
 
 
-def _chmod_result(path: Path, mode: int) -> tuple[str, str, str, str]:
+def _chmod_result(
+    path: Path,
+    mode: int,
+    forbidden: int = _FORBIDDEN_BITS,
+    require_group_x: bool = False,
+) -> tuple[str, str, str, str]:
     """chmod *path* if it resolves inside the patch roots.
 
     Returns ``(action, before, after, detail)`` where action is
@@ -296,9 +352,10 @@ def _chmod_result(path: Path, mode: int) -> tuple[str, str, str, str]:
         return "failed", before, before, str(e)
     after_mode = _mode_of(path)
     after = f"{after_mode:04o}" if after_mode is not None else "unreadable"
-    if after_mode is not None and not (after_mode & _FORBIDDEN_BITS):
+    compliant = after_mode is not None and not (after_mode & forbidden) and (not require_group_x or bool(after_mode & 0o010))
+    if compliant:
         return "applied", before, after, ""
-    return "failed", before, after, "chmod did not clear group/other bits"
+    return "failed", before, after, "chmod did not reach the required mode"
 
 
 @click.group(
@@ -381,7 +438,9 @@ def patch(ctx):
     """Apply safe permission fixes under the aitbc data directories.
 
     chmod 0600 on wallet/credential/audit files and chmod 0700 on aitbc
-    directories that grant group/other access.  Missing targets are
+    directories that grant group/other access — except the shared service
+    wallets dir (``/var/lib/aitbc/wallets``), which is repaired to 0750 so
+    aitbc-services members keep traverse access (#2433).  Missing targets are
     skipped, chmod failures are reported per-target (never fatal), and
     nothing outside ``~/.aitbc`` / ``/var/lib/aitbc`` is modified.
     """
@@ -423,7 +482,7 @@ def patch(ctx):
                 {"check": check, "target": str(path), "action": action, "detail": detail, "before": before, "after": after}
             )
 
-        for path in _dir_targets():
+        for path, _expected, forbidden, require_gx, patch_mode in _dir_policies():
             check = "aitbc_dir_perms"
             if not path.exists() and not path.is_symlink():
                 results.append(
@@ -439,7 +498,8 @@ def patch(ctx):
                 counts["skipped"] += 1
                 continue
             mode = _mode_of(path)
-            if mode is not None and not (mode & _FORBIDDEN_BITS):
+            compliant = mode is not None and not (mode & forbidden) and (not require_gx or bool(mode & 0o010))
+            if compliant:
                 results.append(
                     {
                         "check": check,
@@ -452,7 +512,7 @@ def patch(ctx):
                 )
                 counts["skipped"] += 1
                 continue
-            action, before, after, detail = _chmod_result(path, _DIR_MODE)
+            action, before, after, detail = _chmod_result(path, patch_mode, forbidden=forbidden, require_group_x=require_gx)
             counts[action] += 1
             results.append(
                 {"check": check, "target": str(path), "action": action, "detail": detail, "before": before, "after": after}
