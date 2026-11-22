@@ -794,6 +794,18 @@ def _run_remote(host: str, command: str, timeout: int = 60, stdin_text: str | No
                     "stderr": f"command not found: {e.filename}",
                 }
             )
+        except OSError as e:
+            # #2505: E2BIG and friends must surface as an error envelope,
+            # not propagate out of the tool.
+            return _result_status(
+                {
+                    **context,
+                    "command": command,
+                    "returncode": -1,
+                    "stdout": "",
+                    "stderr": f"failed to execute command: {e}",
+                }
+            )
 
     cmd = ["ssh"] + _ssh_opts(host) + [context["target"], "--", command]
     try:
@@ -817,6 +829,16 @@ def _run_remote(host: str, command: str, timeout: int = 60, stdin_text: str | No
                 "returncode": -1,
                 "stdout": "",
                 "stderr": "ssh not found on MCP host",
+            }
+        )
+    except OSError as e:
+        return _result_status(
+            {
+                **context,
+                "command": command,
+                "returncode": -1,
+                "stdout": "",
+                "stderr": f"failed to execute command: {e}",
             }
         )
 
