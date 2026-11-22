@@ -236,12 +236,14 @@ def list(ctx, format: str):
 @workflow.command(
     epilog="""Examples:
 
-  aitbc workflow status --workflow-name gpu-market"""
+  aitbc workflow status --execution-id exec-123
+
+  # the execution id is printed by `aitbc workflow run`"""
 )
-@click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
+@click.option("--execution-id", "execution_id", required=True, help="The execution ID printed by `workflow run`.")
 @click.pass_context
-def status(ctx, workflow_name: str):
-    """Get the execution status of a workflow by name (admin-only)."""
+def status(ctx, execution_id: str):
+    """Get the status of a workflow execution by its execution ID (admin-only)."""
     try:
         import httpx
 
@@ -250,18 +252,18 @@ def status(ctx, workflow_name: str):
         headers = _coordinator_headers(config_obj, ctx)
 
         response = httpx.get(
-            f"{coordinator_url}/v1/agents/executions/{workflow_name}/status",
+            f"{coordinator_url}/v1/agents/executions/{execution_id}/status",
             headers=headers,
         )
 
         if response.status_code == 403:
-            _abort_403(f"workflow status {workflow_name}", response.text)
+            _abort_403(f"workflow status {execution_id}", response.text)
         if response.status_code != 200:
             abort(None, f"Failed to get execution status: {response.text}")
 
         result = response.json()
 
-        success(f"Get status for execution {workflow_name}")
+        success(f"Get status for execution {execution_id}")
         click.echo(f"Status: {result.get('status', 'Unknown')}")
         click.echo(f"Workflow ID: {result.get('workflow_id', 'Unknown')}")
         click.echo(f"Current step: {result.get('current_step', 0)}/{result.get('total_steps', 0)}")
@@ -279,12 +281,17 @@ def status(ctx, workflow_name: str):
 @workflow.command(
     epilog="""Examples:
 
-  aitbc workflow stop --workflow-name exec-123"""
+  aitbc workflow stop --workflow-name gpu-market --execution-id exec-123"""
 )
-@click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
+@click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name (id) the execution belongs to.")
+@click.option("--execution-id", "execution_id", required=True, help="The execution ID printed by `workflow run`.")
 @click.pass_context
-def stop(ctx, workflow_name: str):
-    """Stop a running workflow by its execution ID (admin-only)."""
+def stop(ctx, workflow_name: str, execution_id: str):
+    """Stop a running workflow execution (admin-only).
+
+    The cancel route needs both ids: ``workflow_name`` selects the
+    workflow in the path and ``execution_id`` the execution to cancel.
+    """
     try:
         import httpx
 
@@ -295,15 +302,15 @@ def stop(ctx, workflow_name: str):
         response = httpx.post(
             f"{coordinator_url}/v1/agents/workflows/{workflow_name}/cancel",
             headers=headers,
-            params={"execution_id": workflow_name},
+            params={"execution_id": execution_id},
         )
 
         if response.status_code == 403:
-            _abort_403(f"workflow stop {workflow_name}", response.text)
+            _abort_403(f"workflow stop {execution_id}", response.text)
         if response.status_code != 200:
             abort(None, f"Failed to cancel workflow: {response.text}")
 
-        success(f"Cancel workflow {workflow_name}")
+        success(f"Cancel execution {execution_id} of workflow {workflow_name}")
         click.echo("Status: Cancelled")
 
     except ExpiredAdminToken as e:

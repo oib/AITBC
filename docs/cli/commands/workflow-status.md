@@ -2,7 +2,7 @@
 
 # `aitbc workflow status`
 
-Get the execution status of a workflow by name (admin-only).
+Get the status of a workflow execution by its execution ID (admin-only).
 
 ## Usage
 
@@ -14,10 +14,10 @@ aitbc workflow status [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--workflow-name` | text | — | yes | The Workflow name. |
+| `--execution-id` | text | — | yes | The execution ID printed by `workflow run`. |
 
 ## Examples
 
 ```bash
-aitbc workflow status --workflow-name <workflow_name>
+aitbc workflow status --execution-id <execution_id>
 ```
