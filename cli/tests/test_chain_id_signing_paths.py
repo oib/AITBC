@@ -17,7 +17,7 @@ from click.testing import CliRunner
 from aitbc_cli.utils.error_handling import CLIError
 
 ACCOUNT = "0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f"
-PROVIDER = "0x17B9ED0c7b8b0d0B30Fa3d4BbE2F6a0Abb679d"
+PROVIDER = "0x17B9ED0c7b8b0d0B30Fa3d4BbE2F6a0Abb679d1f"
 NODE_WALLET = "0x9dAd8eE274d92F6d02Df0a5F51cf80d9990E70DA"
 
 
