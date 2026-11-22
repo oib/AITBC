@@ -1786,3 +1786,33 @@ def test_release_row_update_caps_released_amount_at_locked():
     )
     assert record.released_amount == locked_units
     assert record.release_tx_hash == "0xrel"
+
+
+def test_release_reinvest_reports_zero_while_auto_stake_retired():
+    """#2663: _auto_stake is retired at v9 and returns None unconditionally, but
+    _release_reinvest still reported the computed reinvest_amount — callers
+    recorded the reinvestment as 'scheduled' for a stake that never happens."""
+    from decimal import Decimal as _D
+
+    from aitbc_chain.rpc import escrow_routes  # noqa: F401 - wires the release facade first
+    from aitbc_chain.rpc import escrow_routes_release
+
+    stake_id, amount = escrow_routes_release._release_reinvest({"auto_reinvest_pct": "10"}, "0xprovider", _D("5"), "job-2663")
+    assert stake_id is None
+    assert amount == _D("0")
+
+
+def test_release_reinvest_reports_amount_only_with_stake_id():
+    """#2663: if auto-stake ever returns a real stake id again, the reported
+    amount must still be the computed share of the release."""
+    from decimal import Decimal as _D
+    from unittest.mock import patch
+
+    from aitbc_chain.rpc import escrow_routes, escrow_routes_release
+
+    with patch.object(escrow_routes, "_auto_stake", return_value="stake-2663"):
+        stake_id, amount = escrow_routes_release._release_reinvest(
+            {"auto_reinvest_pct": "10"}, "0xprovider", _D("5"), "job-2663"
+        )
+    assert stake_id == "stake-2663"
+    assert amount == _D("0.50000000")
