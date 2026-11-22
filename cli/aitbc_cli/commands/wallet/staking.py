@@ -176,7 +176,8 @@ def _get_next_tx_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str
     from ...utils.nonce import pending_nonce_floor
 
     sealed = _get_account_nonce(http_client, address, chain_id)
-    return pending_nonce_floor(http_client, address, sealed, chain_id)
+    floor = pending_nonce_floor(http_client, address, sealed, chain_id)
+    return floor if floor is not None else sealed
 
 
 def _sign_transaction(wallet_data: dict[str, Any], tx: dict[str, Any]) -> str:

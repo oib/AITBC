@@ -53,11 +53,13 @@ def test_pending_nonce_floor_ignores_stale_and_foreign_nonces():
     assert pending_nonce_floor(client, ADDR, 5) == 5
 
 
-def test_pending_nonce_floor_probe_failure_degrades_to_sealed():
+def test_pending_nonce_floor_probe_failure_reports_none():
+    """#2479: probe failure is now distinguishable from a readable empty
+    mempool — None, not sealed, so offset callers can tell them apart."""
     from aitbc.exceptions import NetworkError
 
     client = _StubClient(mempool_exc=NetworkError("down"))
-    assert pending_nonce_floor(client, ADDR, 5) == 5
+    assert pending_nonce_floor(client, ADDR, 5) is None
 
 
 def test_pending_nonce_floor_malformed_mempool_degrades():

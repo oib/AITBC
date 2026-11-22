@@ -269,18 +269,27 @@ def _resolve_next_nonce(rpc_url: str, sender_address: str, chain_id: str, nonce_
     transactions sit in the mempool, so signing it again collides on the
     occupied (sender, nonce) slot. ``pending_nonce_floor`` advances past
     the sender's pending slots — which already counts this batch's earlier
-    entries, so ``nonce_offset`` applies only when the floor could not
-    advance (probe failure or nothing pending): the legacy sealed+offset
-    fallback.
+    entries — so when the probe succeeds its answer IS the next nonce and
+    ``nonce_offset`` must not be added again (#2479: a mid-batch seal leaves
+    the mempool readable-but-empty while the sealed nonce has already
+    advanced, and sealed+offset then skips nonces into an unsealable gap).
+    The offset applies only when the probe itself failed and nothing better
+    is known.
     """
     from ..utils.nonce import pending_nonce_floor
 
     sealed = _resolve_nonce(rpc_url, sender_address)
     client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
     floor = pending_nonce_floor(client, sender_address, sealed, chain_id)
-    if floor > sealed:
-        return floor
-    return sealed + nonce_offset
+    if floor is None:
+        warning(
+            f"Pending-nonce probe failed for {sender_address}; falling back to "
+            f"sealed nonce {sealed} + offset {nonce_offset} — the nonce is unverified "
+            "and a mid-batch seal can gap it. Check `aitbc transactions pending` if a "
+            "later send stalls."
+        )
+        return sealed + nonce_offset
+    return floor
 
 
 # secp256k1 group order — a private key must be a scalar in (0, n).

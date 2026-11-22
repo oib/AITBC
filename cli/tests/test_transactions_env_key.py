@@ -282,8 +282,20 @@ def test_key_env_accepts_0x_prefix(runner, monkeypatch):
     assert _FakeHTTP.posted[0]["from"] == _derived_address()
 
 
-def test_env_key_impl_shares_nonce_offset(runner, rpc_mocks):
-    """--nonce-offset applies to env-key sends exactly like wallet sends."""
+def test_env_key_impl_shares_nonce_offset(runner, rpc_mocks, monkeypatch):
+    """--nonce-offset applies to env-key sends exactly like wallet sends —
+    as the probe-failure fallback (#2479: a readable mempool makes the
+    floor itself the next nonce, so the offset must not double it)."""
+    from aitbc.exceptions import NetworkError
+
+    orig_get = _FakeHTTP.get
+
+    def _get(self, endpoint, **kw):
+        if endpoint.startswith("/rpc/mempool"):
+            raise NetworkError("mempool unreachable")
+        return orig_get(self, endpoint, **kw)
+
+    monkeypatch.setattr(_FakeHTTP, "get", _get)
     result = _invoke(runner, "--yes", "--nonce-offset", "3")
     assert result.exit_code == 0, result.output
     assert _FakeHTTP.posted[0]["nonce"] == 8

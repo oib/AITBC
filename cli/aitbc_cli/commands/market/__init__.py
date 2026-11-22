@@ -334,7 +334,7 @@ def get_next_nonce(wallet_address: str | None = None) -> int:
             floor = pending_nonce_floor(client, wallet_address, sealed, chain_id)
         except Exception:  # noqa: BLE001 - probe containment: any failure tries the next base, then the sealed nonce
             continue
-        if floor > sealed:
+        if floor is not None and floor > sealed:
             return floor
     return sealed
 
