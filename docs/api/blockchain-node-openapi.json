@@ -25460,7 +25460,7 @@
             }
           },
           "429": {
-            "description": "market listing capacity reached",
+            "description": "market listing capacity reached / seller listing capacity reached",
             "content": {
               "application/json": {
                 "schema": {
@@ -27104,10 +27104,12 @@
         "properties": {
           "seller_address": {
             "type": "string",
+            "maxLength": 128,
             "title": "Seller Address"
           },
           "item_type": {
             "type": "string",
+            "maxLength": 64,
             "title": "Item Type"
           },
           "price": {
@@ -27116,12 +27118,14 @@
           },
           "description": {
             "type": "string",
+            "maxLength": 4000,
             "title": "Description"
           },
           "gpu_name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128
               },
               {
                 "type": "null"
@@ -27132,7 +27136,8 @@
           "gpu_device": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128
               },
               {
                 "type": "null"
@@ -27143,7 +27148,8 @@
           "gpu_uuid": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128
               },
               {
                 "type": "null"
@@ -27154,7 +27160,8 @@
           "gpu_model": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128
               },
               {
                 "type": "null"
@@ -27176,7 +27183,8 @@
           "compute_capability": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 32
               },
               {
                 "type": "null"
@@ -27187,7 +27195,8 @@
           "signature": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 512
               },
               {
                 "type": "null"

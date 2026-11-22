@@ -9,11 +9,13 @@ signature from the seller.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 from eth_keys import keys
 from eth_utils import keccak
 from fastapi import HTTPException, Request
+from pydantic import ValidationError
 
 from aitbc_chain.rpc import market as market_mod
 from aitbc_chain.rpc.market import (
@@ -21,6 +23,8 @@ from aitbc_chain.rpc.market import (
     MarketDeleteRequest,
     market_create,
     market_delete_listing,
+    market_get_listing,
+    market_listings,
 )
 
 
@@ -151,3 +155,46 @@ async def test_seller_signed_delete_removes_listing():
     result = await market_delete_listing(lid, _req(), MarketDeleteRequest(signature=sig))
     assert result["status"] == "deleted"
     assert market_mod._market_listings == []
+
+
+@pytest.mark.asyncio
+async def test_per_seller_cap_refuses_further_listings(monkeypatch):
+    """AUDIT-BN-MARKET-LISTING-STORE-UNBOUNDED-1: one keypair cannot exhaust
+    the shared store — the per-seller cap 429s it while other sellers pass."""
+    seller = keys.PrivateKey(b"\x01" * 32)
+    monkeypatch.setattr(market_mod, "_MARKET_LISTINGS_PER_SELLER_MAX", 3)
+    for _ in range(3):
+        r = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
+        assert r["status"] == "created"
+
+    with pytest.raises(HTTPException) as exc:
+        await market_create(MarketCreateRequest(**_create_body(seller)), _req())
+    assert exc.value.status_code == 429
+
+    other = keys.PrivateKey(b"\x04" * 32)
+    r = await market_create(MarketCreateRequest(**_create_body(other)), _req())
+    assert r["status"] == "created"
+
+
+def test_oversized_field_fails_validation():
+    """String fields are length-bounded at the model, so a listing cannot be
+    as large as the request-body limit allows."""
+    seller = keys.PrivateKey(b"\x01" * 32)
+    with pytest.raises(ValidationError):
+        _create_body(seller, description="x" * 4001)
+
+
+@pytest.mark.asyncio
+async def test_expired_listing_is_evicted_on_read():
+    """Listings older than the TTL are dropped from the store and reads."""
+    seller = keys.PrivateKey(b"\x01" * 32)
+    r = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
+    lid = r["listing_id"]
+    market_mod._market_listings[0]["created_ts"] = datetime.now(UTC).timestamp() - market_mod._MARKET_LISTING_TTL_SECONDS - 1
+
+    out = market_listings(_req())
+    assert [x["listing_id"] for x in out["listings"]] == []
+    assert market_mod._market_listings == []
+    with pytest.raises(HTTPException) as exc:
+        market_get_listing(lid)
+    assert exc.value.status_code == 404
