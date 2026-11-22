@@ -15,15 +15,19 @@ aitbc exchange register [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--name` | text | — | yes | Exchange name (e.g., Binance, Coinbase, Kraken) |
-| `--api-key` | text | — | yes | Exchange API key |
-| `--secret-key` | text | — | no | Exchange API secret key |
+| `--api-key` | text | — | no | Exchange API key (deprecated on argv: prefer --api-key-file/--api-key-stdin) |
+| `--api-key-file` | file | — | no | File containing the API key (mode 0600) |
+| `--api-key-stdin` | flag | `false` | no | Read the API key from one line of stdin |
+| `--secret-key` | text | — | no | Exchange API secret key (deprecated on argv: prefer --secret-key-file/--secret-key-stdin) |
+| `--secret-key-file` | file | — | no | File containing the secret key (mode 0600) |
+| `--secret-key-stdin` | flag | `false` | no | Read the secret key from one line of stdin |
 | `--sandbox` | flag | `false` | no | Use sandbox/testnet environment |
 | `--description` | text | — | no | Exchange description |
 
 ## Examples
 
 ```bash
-aitbc exchange register --name <name> --api-key <api_key>
+aitbc exchange register --name <name>
 ```
 
 ## Related
