@@ -32,6 +32,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | *(unattributed — cli/aitbc_cli/utils/gpu_onchain.py)* | `/rpc/transaction` | — | —
 | *(unattributed — cli/aitbc_cli/utils/nonce.py)* | `/rpc/account/` | — | —
 | *(unattributed — cli/aitbc_cli/utils/nonce.py)* | `/rpc/account/{sender_address}{query}` | — | —
+| *(unattributed — cli/aitbc_cli/utils/tx_history.py)* | `/rpc/pending` | — | —
 | *(unattributed — cli/aitbc_cli/utils/tx_history.py)* | `/rpc/transactions` | — | —
 | `aitbc account get` | `/rpc/account/` | — | —
 | `aitbc account get` | `/rpc/account/{canonical}` | `get_account_route` (core.py) | —

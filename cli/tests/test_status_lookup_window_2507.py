@@ -37,6 +37,8 @@ class _StreamClient:
         self.calls = []
 
     def get_json(self, path, params=None, **kwargs):
+        if path == "/rpc/pending":
+            return []
         assert path == "/rpc/transactions"
         params = params or {}
         self.calls.append(dict(params))

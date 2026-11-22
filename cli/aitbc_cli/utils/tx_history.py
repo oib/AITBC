@@ -74,3 +74,48 @@ def scan_transactions_for_payload_id(
             # Last page was full — older rows may exist; say so.
             return matches, True
     return matches, True
+
+
+def pending_tx_type(row: dict[str, Any]) -> str | None:
+    """Resolve a mempool row's applied type (mirrors ``_resolved_tx_type``)."""
+    tx_type = row.get("type") or "TRANSFER"
+    if not isinstance(tx_type, str):
+        tx_type = "TRANSFER"
+    if tx_type == "TRANSFER":
+        payload = row.get("payload")
+        inner = payload.get("type") if isinstance(payload, dict) else None
+        if isinstance(inner, str):
+            return inner
+    return tx_type
+
+
+def pending_protocol_matches(
+    client: AITBCHTTPClient,
+    *,
+    tx_types: tuple[str, ...],
+    payload_key: str,
+    payload_id: str,
+    chain_id: str | None = None,
+    limit: int = SCAN_PAGE_SIZE,
+) -> list[dict[str, Any]]:
+    """Mempool rows of ``tx_types`` whose ``payload[payload_key]`` matches ``payload_id`` (#2457).
+
+    ``bounty status``/``agent-staking status`` scan sealed history only, so a
+    submitted-but-unsealed protocol transfer read as absent. ``/rpc/pending``
+    already evicts sealed rows server-side, so anything returned here is
+    genuinely still pooled. Best-effort by contract of the callers: this
+    raises whatever the GET raises — callers decide whether a pending-lookup
+    failure may fail the whole status read.
+    """
+    params: dict[str, Any] = {"limit": limit}
+    if chain_id:
+        params["chain_id"] = chain_id
+    rows = _rows_of(client.get_json("/rpc/pending", params=params))
+    wanted = set(tx_types)
+    return [
+        row
+        for row in rows
+        if pending_tx_type(row) in wanted
+        and isinstance(row.get("payload"), dict)
+        and str(row["payload"].get(payload_key)) == payload_id
+    ]

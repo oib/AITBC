@@ -25,7 +25,7 @@ from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
 from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, post_signed_resolved, resolve_rpc_url
-from ..utils.tx_history import scan_transactions_for_payload_id
+from ..utils.tx_history import pending_protocol_matches, pending_tx_type, scan_transactions_for_payload_id
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -258,10 +258,37 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
                 tx["kind"] = "topup" if (tx.get("payload") or {}).get("additional_amount") is not None else "lock"
         if matches:
             found[tx_type] = matches
+    # #2457: a queued-but-unsealed STAKE_* transfer is invisible to the
+    # sealed scan above — surface it from the mempool so `state` can say
+    # pending|sealed instead of reading as absent until the next block.
+    pending: dict[str, list[dict[str, Any]]] = {}
+    pending_error = False
+    try:
+        for row in pending_protocol_matches(
+            client,
+            tx_types=("STAKE_LOCK", "STAKE_RELEASE"),
+            payload_key="agent_stake_id",
+            payload_id=stake_id,
+            chain_id=chain_id,
+        ):
+            rtype = str(pending_tx_type(row))
+            entry = dict(row)
+            entry["kind"] = "release" if rtype == "STAKE_RELEASE" else "lock"
+            pending.setdefault(rtype, []).append(entry)
+    except _OPS_ERRORS:
+        pending_error = True
+    state = "sealed" if found else ("pending" if pending else None)
     output(
         # #2507: `truncated` marks a scan that hit its budget — an empty
         # transactions map then means "not seen in the window", not "absent".
-        {"stake_id": stake_id, "truncated": truncated, "transactions": found},
+        {
+            "stake_id": stake_id,
+            "truncated": truncated,
+            "state": state,
+            "pending_lookup_failed": pending_error,
+            "transactions": found,
+            "pending_transactions": pending,
+        },
         "json" if as_json else resolve_output_format(ctx),
         title=f"Agent stake {stake_id}",
     )

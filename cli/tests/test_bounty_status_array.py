@@ -19,6 +19,8 @@ class _ArrayClient:
         pass
 
     def get_json(self, path, params=None):
+        if path == "/rpc/pending":
+            return []
         assert path == "/rpc/transactions"
         tx_type = (params or {}).get("transaction_type")
         rows = [
