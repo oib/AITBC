@@ -102,6 +102,42 @@ def _emit_wallet_path_note(ctx: click.Context) -> None:
         info(f"Using wallet file: {path}")
 
 
+def _backup_wallet_file(wallet_path: Path) -> Path:
+    """Byte-copy the wallet to ``<name>.bak`` mode 0600 before any rewrite.
+
+    The legacy re-encryption path replaces the only copy of a plaintext key
+    (#2559) — the backup is written owner-only with no umask window.
+    """
+    bak_path = wallet_path.with_name(f"{wallet_path.name}.bak")
+    data = wallet_path.read_bytes()
+    fd = os.open(bak_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        os.fchmod(fd, 0o600)
+        f.write(data)
+    return bak_path
+
+
+def _atomic_write_wallet_0600(wallet_path: Path, wallet_data: dict[str, Any]) -> None:
+    """``write_json_0600`` to a sibling temp file, then ``os.replace``.
+
+    The wallet is never observed half-written: a crash mid-write leaves the
+    original (or the .bak) intact (#2559).
+    """
+    from contextlib import suppress
+
+    from ...utils.wallet_loader import write_json_0600
+
+    tmp_path = wallet_path.with_name(f"{wallet_path.name}.tmp")
+    try:
+        write_json_0600(tmp_path, wallet_data)
+        os.replace(tmp_path, wallet_path)
+    except OSError as e:
+        with suppress(OSError):
+            tmp_path.unlink(missing_ok=True)
+        error(f"Failed to re-save wallet with encryption: {e}")
+        raise click.Abort() from e
+
+
 def _load_wallet(
     wallet_path: Path,
     wallet_name: str,
@@ -128,25 +164,32 @@ def _load_wallet(
         priv = wallet_data["private_key"]
         if isinstance(priv, str):
             # Legacy no-op "encryption": key was stored as plaintext with encrypted=True.
-            # Re-encrypt with a real password and save back to disk before returning.
-            if password is None:
-                password = resolve_wallet_password(
-                    wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
-                )
-            wallet_data["private_key"] = encrypt_value(priv, password)
+            # This is a NEW-password path (#2559): the new-wallet resolver asks
+            # twice on a TTY, the blob is decrypt-verified, a .bak copy is kept,
+            # and the file is replaced atomically — a mistyped prompt must never
+            # strand the only copy of the key.
             if is_service_wallet_path(wallet_path):
                 # A service-managed wallet file must never receive a CLI
                 # write (CLI-6c ASK answer) — decrypt in memory, leave the
-                # on-disk legacy form untouched.
+                # on-disk legacy form untouched. No password needed at all.
                 warning(f"Not re-encrypting service wallet file in place: {wallet_path}")
             else:
-                try:
-                    from ...utils.wallet_loader import write_json_0600
+                from ...utils.wallet_secret import resolve_new_wallet_password
 
-                    write_json_0600(wallet_path, wallet_data)
-                except OSError as e:
-                    error(f"Failed to re-save wallet with encryption: {e}")
-                    raise click.Abort() from e
+                if password is None:
+                    password = resolve_new_wallet_password(
+                        wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+                    )
+                encrypted_priv = encrypt_value(priv, password)
+                try:
+                    if decrypt_value(encrypted_priv, password) != priv:
+                        raise ValueError("re-encryption round-trip mismatch")
+                except (ValueError, KeyError, TypeError, AttributeError):
+                    error("Re-encryption self-check failed; wallet file left untouched")
+                    raise click.Abort() from None
+                wallet_data["private_key"] = encrypted_priv
+                _backup_wallet_file(wallet_path)
+                _atomic_write_wallet_0600(wallet_path, wallet_data)
                 click.echo("Re-encrypted legacy wallet with PBKDF2+Fernet.")
             wallet_data["private_key"] = priv  # return plaintext for in-memory use
         else:
