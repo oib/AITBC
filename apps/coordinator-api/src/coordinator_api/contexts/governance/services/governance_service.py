@@ -58,6 +58,69 @@ class GovernanceService:
         self._session_factory.refresh(profile)
         return profile
 
+    def _delegation_frozen(self) -> bool:
+        """#2495: True while any governance, grant, or economic vote is open.
+
+        Votes snapshot ``effective_voting_power`` at cast time, so moving
+        stake mid-vote lets the same underlying stake be re-counted by a
+        fresh profile on the same contest. Delegation (including
+        re-delegation) is therefore refused until no votable contest has an
+        open window. Profiles, tallies, and already-cast votes are
+        untouched — the freeze only blocks the move.
+        """
+        from ..domain.economic_proposal import EconomicParameterProposal, EconomicProposalStatus
+        from ..domain.grant import GrantProposal, GrantStatus
+        from ..domain.governance import Proposal as DomainProposal, ProposalStatus
+        from sqlmodel import col, select as sm_select
+
+        now = _utc_now()
+
+        def _window_open(ends: datetime | None) -> bool:
+            if ends is None:
+                return True
+            if ends.tzinfo is not None:
+                ends = ends.replace(tzinfo=None)
+            return ends > now
+
+        gov_open = self._session_factory.execute(
+            sm_select(DomainProposal.proposal_id).where(
+                DomainProposal.status == ProposalStatus.ACTIVE,
+                DomainProposal.voting_ends > now,
+            )
+        ).first()
+        if gov_open is not None:
+            return True
+        grant_open = (
+            self._session_factory.execute(
+                sm_select(GrantProposal).where(
+                    col(GrantProposal.status).in_(
+                        [
+                            GrantStatus.VOTING,
+                            GrantStatus.SUBMITTED,
+                            GrantStatus.UNDER_REVIEW,
+                            GrantStatus.ACTIVE,
+                        ]
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if any(_window_open(g.voting_ends) for g in grant_open):
+            return True
+        econ_open = (
+            self._session_factory.execute(
+                sm_select(EconomicParameterProposal).where(
+                    col(EconomicParameterProposal.status).in_(
+                        [EconomicProposalStatus.SUBMITTED, EconomicProposalStatus.ACTIVE]
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return any(_window_open(p.voting_ends) for p in econ_open)
+
     def delegate_votes(self, delegator_id: str, delegatee_id: str) -> Any:
         """Delegate voting power from delegator to delegatee."""
         from ..domain.governance import GovernanceProfile
@@ -80,6 +143,12 @@ class GovernanceService:
         power = delegator.voting_power or 0.0
         previous_delegate_to = delegator.delegate_to
         if previous_delegate_to != delegatee_id:
+            # #2495: delegation moves stake between profiles; while any vote
+            # is open that lets one stake be counted once per sock-puppet
+            # profile (vote, delegate, the delegatee votes again). Freeze
+            # delegation until every open vote closes.
+            if self._delegation_frozen():
+                raise ValueError("delegation is locked while a governance, grant, or economic vote is open")
             if previous_delegate_to:
                 previous = (
                     self._session_factory.execute(
