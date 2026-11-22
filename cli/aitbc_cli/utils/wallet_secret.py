@@ -179,8 +179,13 @@ def _env_password(wallet_name: str | None, legacy_env_names: tuple[str, ...], ct
 
     per_name = _env_password_name(wallet_name)
     for var in (per_name, ENV_PASSWORD, *legacy_env_names):
-        if var and var in os.environ:
-            return os.environ[var]
+        if not var:
+            continue
+        value = os.environ.get(var)
+        if value:
+            return value
+        # Set-but-empty is a misconfiguration, not a password — treat it as
+        # unset and keep looking rather than signing with "" (#2570).
     return None
 
 

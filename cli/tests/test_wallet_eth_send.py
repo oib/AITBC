@@ -42,6 +42,7 @@ BASE_RPC = {
     "eth_gasPrice": hex(2_000_000_000),
     "eth_estimateGas": hex(21_000),
     "eth_getBalance": hex(10**18),
+    "eth_getCode": "0x",
 }
 
 
@@ -513,9 +514,19 @@ class TestContractRecipient:
         assert "to_is_contract" in result.output
 
     def test_empty_code_is_not_a_contract(self, wallet_file, rpc_fn, broadcast_sink):
-        for empty in ("0x", "0x0", ""):
+        for empty in ("0x", "0x0"):
             rpc_fn({**BASE_RPC, "eth_getCode": empty})
             broadcast_sink.clear()
             result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
             assert result.exit_code == 0, f"{empty!r}: {result.output}"
             assert len(broadcast_sink) == 1
+
+    @pytest.mark.parametrize("bad", [None, "", "not-hex", 123])
+    def test_non_hex_getcode_refuses(self, bad, wallet_file, rpc_fn, broadcast_sink):
+        """A null/non-hex eth_getCode answer is not 'no code' — the command
+        refuses rather than treating the recipient as an EOA (#2560)."""
+        rpc_fn({**BASE_RPC, "eth_getCode": bad})
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
+        assert result.exit_code != 0
+        assert "eth_getCode" in result.output
+        assert broadcast_sink == []

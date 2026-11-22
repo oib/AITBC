@@ -209,7 +209,12 @@ def eth_send(
     )
     balance_wei = hex_to_int(ctx, rpc_call(ctx, rpc_url, "eth_getBalance", [from_address, "latest"]), "balance")
     to_code = rpc_call(ctx, rpc_url, "eth_getCode", [to, "latest"])
-    to_is_contract = isinstance(to_code, str) and to_code not in ("0x", "0x0", "")
+    if not isinstance(to_code, str) or not to_code.startswith("0x"):
+        # A null/non-hex answer is not "no code" — it means the RPC gave
+        # us nothing to judge the recipient by; refuse rather than guess
+        # that the address is an EOA (#2560).
+        abort(ctx, f"eth_getCode returned a non-hex-string answer for {to}: {to_code!r}")
+    to_is_contract = to_code not in ("0x", "0x0", "")
     fee_wei = gas_limit * gas_price_wei
 
     tx_view = {

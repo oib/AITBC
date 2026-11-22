@@ -241,8 +241,7 @@ def _load_signing_key(ctx, wallet_name: str | None, wallet_path: Path | None, pa
 @click.option("--wallet-name", help="Name of the wallet to use")
 @click.option("--wallet-path", help="Direct path to wallet file (overrides --wallet-name)")
 @click.option(
-    "--use-daemon",
-    is_flag=True,
+    "--use-daemon/--no-daemon",
     default=True,
     help="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet",
 )

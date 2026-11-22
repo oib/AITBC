@@ -40,8 +40,9 @@ def aitbc_wallet_list(
     options: dict[str, Any] = {}
     group_options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"use_daemon": "use-daemon"},
+        flags={},
         values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+        dual_flags={"use_daemon": ("use-daemon", "no-daemon")},
     )
     args = None
     return _aitbc_cli_read_tool(

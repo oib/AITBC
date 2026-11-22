@@ -10,13 +10,21 @@ import json
 
 import click
 import pytest
+from eth_account import Account
 
 from aitbc_cli.commands.market import get_market_wallet
 from aitbc_cli.utils.error_handling import CLIError
 from aitbc_cli.utils.wallet_loader import find_wallet_by_address
 
-ADDR = "0x1234567890aBcdef1234567890aBcDef12345678"
+# Wallet fixtures must pair each address with the key that derives it —
+# load_wallet_for_payment refuses a file whose address does not match its
+# private key (#2598).
+_KEY_ACCOUNT = Account.from_key("0x" + "33" * 32)
+ADDR = _KEY_ACCOUNT.address
 KEY = "0x" + "33" * 32
+_OTHER_ACCOUNT = Account.create()
+OTHER_ADDR = _OTHER_ACCOUNT.address
+OTHER_KEY = _OTHER_ACCOUNT.key.hex()
 
 
 def _ctx() -> click.Context:
@@ -53,7 +61,7 @@ def test_find_wallet_by_address_metadata_shape(wallet_dir):
 
 
 def test_find_wallet_by_address_no_match(wallet_dir):
-    _write_wallet(wallet_dir, "other", "0x" + "ab" * 20)
+    _write_wallet(wallet_dir, "other", OTHER_ADDR, key=OTHER_KEY)
     assert find_wallet_by_address(ADDR) is None
 
 
@@ -80,7 +88,7 @@ def test_get_market_wallet_signing_loads_shop_key(wallet_dir, monkeypatch):
     monkeypatch.setenv("SHOP_WALLET_ADDRESS", ADDR)
     _write_wallet(wallet_dir, "miner", ADDR)
     # A default wallet that also exists must not win over the shop address.
-    _write_wallet(wallet_dir, "default", "0x" + "cd" * 20)
+    _write_wallet(wallet_dir, "default", OTHER_ADDR, key=OTHER_KEY)
     address, key, name = get_market_wallet(_ctx(), require_private_key=True)
     assert address.lower() == ADDR.lower()
     assert key == KEY
@@ -90,7 +98,7 @@ def test_get_market_wallet_signing_loads_shop_key(wallet_dir, monkeypatch):
 def test_get_market_wallet_signing_fails_when_shop_file_missing(wallet_dir, monkeypatch):
     """A signing caller must not silently sign as a different wallet."""
     monkeypatch.setenv("SHOP_WALLET_ADDRESS", ADDR)
-    _write_wallet(wallet_dir, "default", "0x" + "cd" * 20)
+    _write_wallet(wallet_dir, "default", OTHER_ADDR, key=OTHER_KEY)
     with pytest.raises(CLIError, match="SHOP_WALLET_ADDRESS"):
         get_market_wallet(_ctx(), require_private_key=True)
 
@@ -98,11 +106,10 @@ def test_get_market_wallet_signing_fails_when_shop_file_missing(wallet_dir, monk
 def test_get_market_wallet_explicit_wallet_beats_env(wallet_dir, monkeypatch):
     """--wallet always wins over the SHOP_WALLET_ADDRESS shortcut."""
     monkeypatch.setenv("SHOP_WALLET_ADDRESS", ADDR)
-    other_addr = "0x" + "cd" * 20
-    _write_wallet(wallet_dir, "named", other_addr)
+    _write_wallet(wallet_dir, "named", OTHER_ADDR, key=OTHER_KEY)
     ctx = _ctx()
     ctx.obj["market_wallet"] = "named"
     monkeypatch.setenv("AITBC_WALLET_DIR", str(wallet_dir))
     address, key, name = get_market_wallet(ctx)
-    assert address.lower() == other_addr.lower()
+    assert address.lower() == OTHER_ADDR.lower()
     assert name == "named"
