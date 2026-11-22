@@ -149,3 +149,43 @@ class TestSlashAppealEmptyBond:
             headers=_headers(),
         )
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# #2497 — one open appeal per bond/slash event
+# ---------------------------------------------------------------------------
+
+
+class TestSlashAppealDedup:
+    """Repeat filings for the same bond/slash event must not stack rows."""
+
+    def _appeal(self, client, **overrides):
+        payload = {"bond_id": "bond-123", "reason": "x"}
+        payload.update(overrides)
+        return client.post("/v1/governance/slash-appeals", json=payload, headers=_headers())
+
+    def test_duplicate_open_appeal_is_409(self, client, db_session):
+        _seed_bond(db_session, "provider-1", "bond-123")
+        assert self._appeal(client).status_code == 201
+        repeat = self._appeal(client)
+        assert repeat.status_code == 409
+
+    def test_same_bond_different_slash_event_is_allowed(self, client, db_session):
+        _seed_bond(db_session, "provider-1", "bond-123")
+        assert self._appeal(client, slash_event_id="ev-1").status_code == 201
+        assert self._appeal(client, slash_event_id="ev-2").status_code == 201
+
+    def test_terminal_appeal_does_not_block_refile(self, client, db_session):
+        from coordinator_api.contexts.governance.domain.slash_appeal import SlashAppeal, SlashAppealStatus
+
+        _seed_bond(db_session, "provider-1", "bond-123")
+        db_session.add(
+            SlashAppeal(
+                bond_id="bond-123",
+                provider_id="provider-1",
+                slash_event_id="ev-1",
+                status=SlashAppealStatus.REJECTED.value,
+            )
+        )
+        db_session.commit()
+        assert self._appeal(client, slash_event_id="ev-1").status_code == 201

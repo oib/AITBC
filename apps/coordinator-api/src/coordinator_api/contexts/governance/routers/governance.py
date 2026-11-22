@@ -16,7 +16,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType
-from ..domain.slash_appeal import SlashAppeal
+from ..domain.slash_appeal import SlashAppeal, SlashAppealStatus
 from ....storage import get_session
 from ....auth import AdminDep, AuthDep
 from ...infrastructure.domain.user import Wallet
@@ -306,7 +306,7 @@ def submit_slash_appeal(
     # required non-empty (schema), the lookup is a single row keyed on it,
     # a supplied provider_id must match the bond's owner, and only that
     # provider (or an admin) may file — the route used to be anonymous.
-    from sqlmodel import select as sm_select
+    from sqlmodel import col, select as sm_select
 
     from ...market.domain.provider_bond import ProviderBond
     from ...market.routers.bonds import _require_provider_access
@@ -321,6 +321,25 @@ def submit_slash_appeal(
             detail="no bond matches the appeal's provider_id/bond_id",
         )
     _require_provider_access(session, user, bond.provider_id)
+    # #2497: one open appeal per bond/slash event — repeats used to stack
+    # unbounded rows (60/min) that a reviewer workflow cannot action.
+    # Terminal appeals (accepted/rejected) do not block a fresh filing.
+    open_appeal = (
+        session.execute(
+            sm_select(SlashAppeal).where(
+                SlashAppeal.bond_id == appeal_request.bond_id,
+                SlashAppeal.slash_event_id == appeal_request.slash_event_id,
+                col(SlashAppeal.status).in_([SlashAppealStatus.SUBMITTED.value, SlashAppealStatus.UNDER_REVIEW.value]),
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if open_appeal is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="an open appeal already exists for this bond/slash event",
+        )
     try:
         appeal = SlashAppeal(
             bond_id=appeal_request.bond_id,
