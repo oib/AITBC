@@ -18,7 +18,7 @@ from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
 
 from ...config import settings
-from ...domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, SoftwareService
+from ...domain.market import Bid, IpfsRentalToken, MarketJob, MarketJobPayment, MarketOffer, SoftwareService
 from ...domain.offer_status import to_offer_status
 
 
@@ -280,13 +280,29 @@ class _JobsMixin(_CoreMixin):
 
         from sqlalchemy import select
 
-        from ...domain.market import IpfsRentalToken
-
         try:
             # #2491: the signature fields are not token columns — capture them
             # before the writable allowlist strips them.
             sig = {k: data.get(k) for k in ("signer_address", "chain_id", "issued_at", "signature")}
             access_key, data = self._normalize_ipfs_token_data(data)
+
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
+            result = await self.session.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if existing:
+                # #2514: an update is authorized against the STORED token's
+                # job — the request's ``rental_id`` is a claim, not
+                # authority, and a differing one is refused outright.
+                await self._authorize_ipfs_token_update(existing, data, sig)
+                for k, v in data.items():
+                    if k in {"access_key", "rental_id"} or v is None:
+                        continue
+                    setattr(existing, k, v)
+                existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                await self.session.commit()
+                await self.session.refresh(existing)
+                logger.info("Updated IPFS rental token: %s", access_key)
+                return self._ipfs_token_to_dict(existing)
 
             # #2348: derive the settlement clock from the market job. The
             # writable allowlist strips ``expires_at`` (service-owned), but
@@ -300,20 +316,6 @@ class _JobsMixin(_CoreMixin):
             rental_id = data.get("rental_id")
             if rental_id:
                 await self._apply_job_bound_token_rules(str(rental_id), data, sig)
-
-            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
-            result = await self.session.execute(stmt)
-            existing = result.scalar_one_or_none()
-            if existing:
-                for k, v in data.items():
-                    if k in {"access_key", "rental_id"} or v is None:
-                        continue
-                    setattr(existing, k, v)
-                existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                await self.session.commit()
-                await self.session.refresh(existing)
-                logger.info("Updated IPFS rental token: %s", access_key)
-                return self._ipfs_token_to_dict(existing)
             token = IpfsRentalToken(**data)
             if not token.created_at:
                 token.created_at = datetime.now(UTC).replace(tzinfo=None)
@@ -329,6 +331,42 @@ class _JobsMixin(_CoreMixin):
         except Exception as e:
             logger.error("Error in register_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
             raise
+
+    async def _authorize_ipfs_token_update(self, existing: IpfsRentalToken, data: dict[str, Any], sig: dict[str, Any]) -> None:
+        """#2514: authorize an upsert against the stored token, not the request.
+
+        Before this gate the provider signature was only checked when the
+        *request* carried ``rental_id`` — an update that omitted it (or
+        named a different job the caller controls) skipped verification
+        entirely and rewrote ``access_secret``/``cid``/parties on a
+        provider-signed token while the stored ``rental_id`` kept the
+        escrow binding. Now:
+
+        - a request ``rental_id`` that differs from the stored one is
+          refused (``rental_id`` is immutable on update anyway — the
+          upsert loop skips it — so a mismatch is always a confused or
+          hostile claim);
+        - when the stored ``rental_id`` resolves to a market job, every
+          update needs that job provider's signature and the job-bound
+          fields (parties, CID, settlement clock) are re-derived from the
+          stored job, exactly like registration;
+        - standalone tokens (no ``rental_id``) and legacy non-job rental
+          ids keep the unsigned update path — there is no provider job to
+          verify against.
+        """
+        stored = existing.rental_id
+        claimed = data.get("rental_id")
+        if claimed is not None and str(claimed) != str(stored or ""):
+            raise ValueError("rental_id does not match the registered token")
+        if not stored:
+            return
+        job = await self.session.get(MarketJob, str(stored))
+        if job is None:
+            return
+        if job.expires_at is not None:
+            data["expires_at"] = job.expires_at
+        await self._verify_ipfs_rental_token_signature(job, sig)
+        self._bind_ipfs_token_to_job(data, job)
 
     async def _apply_job_bound_token_rules(self, rental_id: str, data: dict[str, Any], sig: dict[str, Any]) -> None:
         """#2348/#2491: job-bound token rules — inherit the settlement clock,
@@ -452,8 +490,6 @@ class _JobsMixin(_CoreMixin):
         from datetime import UTC, datetime
 
         from sqlalchemy import select
-
-        from ...domain.market import IpfsRentalToken
 
         try:
             stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
