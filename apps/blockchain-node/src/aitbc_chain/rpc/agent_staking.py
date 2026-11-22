@@ -305,6 +305,7 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         raise HTTPException(status_code=400, detail=str(exc)) from None
     _signed_stake_id_matches(payload, stake_id)
     additional = require_int(payload, "additional_amount")
+    request_id = _topup_request_id(payload)
     user = payload.get("user_address")
     if not user:
         raise HTTPException(status_code=400, detail="user_address is required")
@@ -320,41 +321,71 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         guarded = _canonical_guard(session, chain_id, stake_id, "add")
         if guarded is not None:
             return guarded
+        early = _check_topup_request_id(session, chain_id, record, stake_id, request_id, additional)
+        if early is not None:
+            return early
         if record.status != "active":
             raise HTTPException(status_code=400, detail=f"Stake is not active: {record.status}")
         account = _account(session, chain_id, user)
         if account.balance < additional:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {additional}")
-        # As in create_agent_stake: the record grows here, the balance moves in
-        # a block. Each top-up queues its own STAKE_LOCK, and
-        # complete_agent_stake requires the confirmed locks to cover the whole
-        # principal before it releases anything.
-        # #2628: a top-up lock already queued or sealed for this exact
-        # (stake, additional_amount) means a previous attempt died after
-        # queueing — reconcile the record instead of queueing a second lock.
-        early = _reconcile_agent_topup(session, chain_id, record, additional, stake_id)
-        if early is not None:
-            return early
-        # #2628: queue BEFORE the amount commits — a refused queue leaves
-        # the record untouched so the retry re-runs cleanly.
-        tx_hash = queue_protocol_transfer(
-            sender=user,
-            recipient=stake_escrow_address(),
-            amount=additional,
-            chain_id=chain_id,
-            tx_type="STAKE_LOCK",
-            # additional_amount marks the lock as a top-up so status reads can
-            # tell it apart from the stake's original lock (#2456).
-            payload={"agent_stake_id": str(stake_id), "lock_days": record.lock_period, "additional_amount": additional},
-            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
+        return _apply_agent_topup(
+            session, chain_id, record, user, stake_id, additional, request_id, payload, body.get("signature")
         )
-        record.amount += additional
-        record.updated_at = datetime.now(UTC)
-        session.add(record)
-        session.commit()
-        session.refresh(record)
-        total_amount = record.amount
 
+
+def _apply_agent_topup(
+    session: Session,
+    chain_id: str,
+    record: AgentStakeRecord,
+    user: str,
+    stake_id: str,
+    additional: int,
+    request_id: str | None,
+    payload: dict[str, Any],
+    signature: Any,
+) -> dict[str, Any]:
+    """Queue the top-up lock, then grow the record — in that order (#2628).
+
+    A lock already queued or sealed for this exact top-up reconciles the
+    record instead of queueing a second lock; a ``request_id`` marks the
+    memo so a re-sent body is a one-shot replay (#2627).
+    """
+    early = _reconcile_agent_topup(session, chain_id, record, additional, stake_id, request_id)
+    if early is not None:
+        if request_id is not None:
+            session.add(_topup_request_memo(chain_id, stake_id, request_id, additional))
+            session.commit()
+        return early
+    # Queue BEFORE the amount commits — a refused queue leaves the record
+    # untouched so the retry re-runs cleanly.
+    lock_payload = {
+        "agent_stake_id": str(stake_id),
+        "lock_days": record.lock_period,
+        "additional_amount": additional,
+    }
+    if request_id is not None:
+        # The idempotency key rides in the lock payload so the reconcile
+        # above can tell this top-up from a same-amount one.
+        lock_payload["request_id"] = request_id
+    tx_hash = queue_protocol_transfer(
+        sender=user,
+        recipient=stake_escrow_address(),
+        amount=additional,
+        chain_id=chain_id,
+        tx_type="STAKE_LOCK",
+        # additional_amount marks the lock as a top-up so status reads can
+        # tell it apart from the stake's original lock (#2456).
+        payload=lock_payload,
+        auth={"signer": operator_address(), "message": payload, "signature": signature},
+    )
+    record.amount += additional
+    record.updated_at = datetime.now(UTC)
+    session.add(record)
+    if request_id is not None:
+        session.add(_topup_request_memo(chain_id, stake_id, request_id, additional))
+    session.commit()
+    session.refresh(record)
     return {
         "success": True,
         "stake_id": str(stake_id),
@@ -363,14 +394,79 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         # delta like every other amount field; the total is `new_total`.
         "amount": additional,
         "added_amount": additional,
-        "new_total": total_amount,
+        "new_total": record.amount,
         "transaction_hash": tx_hash,
         "message": "Stake top-up submitted to mempool; the balance moves when the transaction is included in a block",
     }
 
 
+def _topup_request_id(payload: dict[str, Any]) -> str | None:
+    """Optional client-chosen idempotency key for a top-up (#2627)."""
+    raw = payload.get("request_id") or payload.get("nonce")
+    if raw is None:
+        return None
+    rid = str(raw).strip()
+    return rid or None
+
+
+def _topup_request_memo(chain_id: str, stake_id: str, request_id: str, additional: int) -> AgentStakeMemo:
+    return AgentStakeMemo(
+        chain_id=chain_id,
+        kind="topup_request",
+        external_id=f"{stake_id}:{request_id}",
+        payload={"stake_id": str(stake_id), "request_id": request_id, "additional_amount": additional},
+    )
+
+
+def _check_topup_request_id(
+    session: Session,
+    chain_id: str,
+    record: AgentStakeRecord,
+    stake_id: str,
+    request_id: str | None,
+    additional: int,
+) -> dict[str, Any] | None:
+    """#2627: a signed request_id is a one-shot idempotency key.
+
+    Returns the idempotent-replay dict when the key was already consumed,
+    raises 409 when it is reused with a different amount, and returns None
+    to proceed.
+    """
+    if request_id is None:
+        return None
+    seen = session.exec(
+        select(AgentStakeMemo).where(
+            AgentStakeMemo.chain_id == chain_id,
+            AgentStakeMemo.kind == "topup_request",
+            AgentStakeMemo.external_id == f"{stake_id}:{request_id}",
+        )
+    ).first()
+    if seen is None:
+        return None
+    stored = int((seen.payload or {}).get("additional_amount") or 0)
+    if stored != additional:
+        raise HTTPException(status_code=409, detail="request_id already used for a different top-up amount")
+    return {
+        "success": True,
+        "idempotent": True,
+        "stake_id": str(stake_id),
+        "amount": additional,
+        "added_amount": additional,
+        "new_total": record.amount,
+        "transaction_hash": None,
+        "already_queued": True,
+        "request_id": request_id,
+        "message": "Stake top-up already applied for this request_id",
+    }
+
+
 def _reconcile_agent_topup(
-    session: Session, chain_id: str, record: AgentStakeRecord, additional: int, stake_id: str
+    session: Session,
+    chain_id: str,
+    record: AgentStakeRecord,
+    additional: int,
+    stake_id: str,
+    request_id: str | None = None,
 ) -> dict[str, Any] | None:
     """#2628: settle a top-up whose STAKE_LOCK is already queued or sealed.
 
@@ -383,14 +479,28 @@ def _reconcile_agent_topup(
     """
     lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id)
     accounted = sum(int(tx.value or 0) for tx in lock_txs)
-    match_sealed = any(str((tx.payload or {}).get("additional_amount", "")) == str(additional) for tx in lock_txs)
+
+    def _topup_lock_matches(tx: Any) -> bool:
+        p = tx.payload or {}
+        if str(p.get("additional_amount", "")) != str(additional):
+            return False
+        # #2627: a request_id-bearing lock is a different top-up than a
+        # legacy unsigned-id body of the same amount — never consolidate.
+        if request_id is None:
+            return p.get("request_id") in (None, "")
+        return str(p.get("request_id", "")) == request_id
+
+    match_sealed = any(_topup_lock_matches(tx) for tx in lock_txs)
     # A pending lock's value is not in ``accounted`` yet; a sealed one's is.
-    match_pending = protocol_transfer_pending(
-        session,
-        chain_id,
-        "STAKE_LOCK",
-        {"agent_stake_id": str(stake_id), "additional_amount": additional},
-    )
+    # ``request_id`` is always in the match: "" matches only entries that
+    # lack the key, so a legacy body never consolidates onto a
+    # request_id-bearing lock (and vice versa).
+    match = {
+        "agent_stake_id": str(stake_id),
+        "additional_amount": additional,
+        "request_id": request_id or "",
+    }
+    match_pending = protocol_transfer_pending(session, chain_id, "STAKE_LOCK", match)
     if match_pending:
         applied_state = accounted + additional
     elif match_sealed:
