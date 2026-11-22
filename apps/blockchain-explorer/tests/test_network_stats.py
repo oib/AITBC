@@ -42,7 +42,7 @@ def chain_db_fixture(tmp_path: Path, monkeypatch) -> Path:
         [(_CHAIN, "0xaaa", 36_000_000), (_CHAIN, "0xbbb", 72_000_000), (_FOREIGN, "0xccc", 360_000_000)],
     )
     conn.executemany(
-        "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES (?, ?, '0xs', '0xr', ?, ?, ?, 'confirmed')",
+        "INSERT INTO \"transaction\" (chain_id, tx_hash, block_height, sender, recipient, payload, value, type, status) VALUES (?, ?, 1, '0xs', '0xr', ?, ?, ?, 'confirmed')",
         [
             (_CHAIN, "0xt1", '{"offer_id": "sw_1"}', 0, "GPU_MARKET"),
             (_CHAIN, "0xt2", '{"offer_id": "sw_2"}', 0, "GPU_MARKET"),
@@ -114,7 +114,7 @@ def test_network_stats_db_path_oserror_is_503(monkeypatch):
 def test_network_stats_provider_fields(chain_db):
     conn = sqlite3.connect(chain_db)
     conn.execute(
-        "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES (?, '0xt6', '0xs', '0xr', '{\"offer_id\":\"sw_3\",\"provider_address\":\"0xprov\"}', 0, 'GPU_MARKET', 'confirmed')",
+        "INSERT INTO \"transaction\" (chain_id, tx_hash, block_height, sender, recipient, payload, value, type, status) VALUES (?, '0xt6', 1, '0xs', '0xr', '{\"offer_id\":\"sw_3\",\"provider_address\":\"0xprov\"}', 0, 'GPU_MARKET', 'confirmed')",
         (_CHAIN,),
     )
     conn.commit()
@@ -129,4 +129,36 @@ def test_top_addresses_volume_in_ait(chain_db):
     result = asyncio.run(analytics.api_top_addresses())
     assert len(result["addresses"]) == 1
     # 36e6 base units -> 1.0 AIT
+    assert result["addresses"][0]["volume"] == 1.0
+
+
+def test_network_stats_excludes_rejected_and_unsealed_rows(chain_db):
+    """#2496: apply-rejected rows (status='rejected', block_height NULL) are
+    not chain activity — no aggregate may count them as transactions,
+    senders, providers, offers or volume."""
+    conn = sqlite3.connect(chain_db)
+    conn.executemany(
+        "INSERT INTO \"transaction\" (chain_id, tx_hash, block_height, sender, recipient, payload, value, type, status) VALUES (?, ?, NULL, ?, '0xr', ?, ?, ?, ?)",
+        [
+            # Apply-rejected: never sealed — the #2496 defect class.
+            (_CHAIN, "0xrej1", "0xs", '{"offer_id": "rej_offer"}', 360_000_000, "GPU_MARKET", "rejected"),
+            (_CHAIN, "0xrej2", "0xghost", "{}", 360_000_000, "TRANSFER", "rejected"),
+            # Pending writeback (NULL height, non-confirmed status).
+            (_CHAIN, "0xpend1", "0xghost2", "{}", 36_000_000, "TRANSFER", "pending"),
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    stats = asyncio.run(analytics.api_network_stats())
+    # Baseline from the fixture: 5 confirmed chain txs, 1 AIT transfer volume,
+    # 3 anchored offers, 1 unique sender, 0 providers.
+    assert stats["total_transactions"] == 5
+    assert stats["unique_nodes"] == 1
+    assert stats["unique_providers"] == 0
+    assert stats["anchored_offers"] == 3
+    assert stats["transfer_volume_ait"] == 1.0
+
+    result = asyncio.run(analytics.api_top_addresses())
+    assert len(result["addresses"]) == 1
     assert result["addresses"][0]["volume"] == 1.0
