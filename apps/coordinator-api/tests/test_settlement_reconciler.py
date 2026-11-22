@@ -221,13 +221,100 @@ async def test_audit_adopts_the_sealed_release_hash_when_the_recorded_one_never_
 async def test_audit_counts_a_confirmed_recorded_hash_as_ok():
     payment = _payment(tx_hash="0xgood")
     reconciler = SettlementReconciler(session_factory=_audit_factory([payment]))
-    p1, p2, _ = _patch_rpc_and_client({"/rpc/transaction/0xgood": _FakeResp(200, {"tx_hash": "0xgood"})})
+    p1, p2, _ = _patch_rpc_and_client(
+        {
+            "/rpc/transaction/0xgood": _FakeResp(
+                200, {"tx_hash": "0xgood", "status": "confirmed", "block_height": 42, "type": "ESCROW_RELEASE"}
+            )
+        }
+    )
     with p1, p2:
         counts = await reconciler._audit_release_hashes()
 
     assert counts["hash_ok"] == 1
     assert counts["hash_readopted"] == 0
     assert payment.transaction_hash == "0xgood"
+
+
+@pytest.mark.asyncio
+async def test_audit_treats_apply_rejected_row_as_missing_and_readopts():
+    """#2516: a 200 with status=rejected/block_height=None is a persisted
+    apply-rejected envelope, not a sealed tx — the audit must run the
+    adopt branch and pick up the real sealed release hash."""
+    payment = _payment(tx_hash="0xrejected-hash")
+    reconciler = SettlementReconciler(session_factory=_audit_factory([payment]))
+    p1, p2, _ = _patch_rpc_and_client(
+        {
+            "/rpc/transaction/0xrejected-hash": _FakeResp(200, {"status": "rejected", "block_height": None}),
+            "/rpc/transactions": _FakeResp(
+                200,
+                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "job_id": "job-1"}],
+            ),
+        }
+    )
+    with p1, p2:
+        counts = await reconciler._audit_release_hashes()
+
+    assert counts["hash_readopted"] == 1
+    assert payment.transaction_hash == "0x88aedb3f"
+
+
+@pytest.mark.asyncio
+async def test_audit_apply_rejected_with_no_sealed_release_is_unbacked():
+    """#2516: rejected recorded hash + no sealed ESCROW_RELEASE anywhere →
+    hash_unbacked/critical, never stamped healthy."""
+    payment = _payment(tx_hash="0xrejected-hash")
+    reconciler = SettlementReconciler(session_factory=_audit_factory([payment]))
+    p1, p2, _ = _patch_rpc_and_client(
+        {
+            "/rpc/transaction/0xrejected-hash": _FakeResp(200, {"status": "rejected", "block_height": None}),
+            "/rpc/transactions": _FakeResp(200, []),
+        }
+    )
+    with p1, p2:
+        counts = await reconciler._audit_release_hashes()
+
+    assert counts["hash_unbacked"] == 1
+    assert payment.transaction_hash == "0xrejected-hash"
+
+
+@pytest.mark.asyncio
+async def test_audit_mempool_pending_view_is_unverifiable_not_ok():
+    """#2516: the #2457 pending view (state=pending, no status) must not
+    count as sealed — unverifiable, retried next pass, no stamp."""
+    payment = _payment(tx_hash="0xpending-hash")
+    reconciler = SettlementReconciler(session_factory=_audit_factory([payment]))
+    p1, p2, _ = _patch_rpc_and_client(
+        {"/rpc/transaction/0xpending-hash": _FakeResp(200, {"state": "pending", "tx_hash": "0xpending-hash"})}
+    )
+    with p1, p2:
+        counts = await reconciler._audit_release_hashes()
+
+    assert counts["hash_unreachable"] == 1
+    assert counts["hash_ok"] == 0
+    assert "release_hash_audit_at" not in (payment.meta_data or {})
+
+
+@pytest.mark.asyncio
+async def test_audit_sealed_wrong_type_is_a_miss_and_readopts():
+    """#2516: a hash that sealed as a different transaction type is not the
+    recorded release — definitive miss, the real release is adopted."""
+    payment = _payment(tx_hash="0xother-tx")
+    reconciler = SettlementReconciler(session_factory=_audit_factory([payment]))
+    p1, p2, _ = _patch_rpc_and_client(
+        {
+            "/rpc/transaction/0xother-tx": _FakeResp(200, {"status": "confirmed", "block_height": 7, "type": "TRANSFER"}),
+            "/rpc/transactions": _FakeResp(
+                200,
+                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "job_id": "job-1"}],
+            ),
+        }
+    )
+    with p1, p2:
+        counts = await reconciler._audit_release_hashes()
+
+    assert counts["hash_readopted"] == 1
+    assert payment.transaction_hash == "0x88aedb3f"
 
 
 @pytest.mark.asyncio
