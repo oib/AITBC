@@ -151,3 +151,63 @@ def test_foreign_cancel_on_flat_row_shape():
     rows, ids = _apply_cancels([order, foreign])
     assert ids == set()
     assert rows[0]["status"] == "open"
+
+
+# ------------------------------------------------------------------ #2511
+
+
+def _cancel_tx(sender, oid="exchange_buy_1"):
+    return {
+        "sender": sender,
+        "payload": {
+            "action": "cancel",
+            "order_id": oid,
+            "user_id": sender,
+            "status": "cancelled",
+        },
+    }
+
+
+def test_newer_foreign_cancel_does_not_shadow_own_cancel():
+    """#2511: rows arrive newest-first — a foreign cancel posted after the
+    owner's must not hide the owner's earlier valid cancel and resurrect
+    the order."""
+    import copy
+
+    rows = [
+        _cancel_tx("0xmallory"),  # newest: foreign, ignored
+        _cancel_tx("0xabc"),  # owner's own cancel
+        copy.deepcopy(BUY),
+    ]
+    out, ids = _apply_cancels(rows)
+    assert ids == {"exchange_buy_1"}
+    assert out[0]["payload"]["status"] == "cancelled"
+
+
+def test_newer_own_cancel_still_cancels_over_older_foreign():
+    """#2511 symmetric case: own cancel newest, foreign older — the order
+    is cancelled by the own row regardless of order."""
+    import copy
+
+    rows = [
+        _cancel_tx("0xabc"),
+        _cancel_tx("0xmallory"),
+        copy.deepcopy(BUY),
+    ]
+    out, ids = _apply_cancels(rows)
+    assert ids == {"exchange_buy_1"}
+    assert out[0]["payload"]["status"] == "cancelled"
+
+
+def test_only_foreign_cancels_leave_order_open():
+    """#2511: multiple foreign cancels and no own cancel — order survives."""
+    import copy
+
+    rows = [
+        _cancel_tx("0xmallory"),
+        _cancel_tx("0xeve"),
+        copy.deepcopy(BUY),
+    ]
+    out, ids = _apply_cancels(rows)
+    assert ids == set()
+    assert out[0]["payload"]["status"] == "open"
