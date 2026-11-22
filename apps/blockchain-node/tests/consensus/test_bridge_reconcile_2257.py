@@ -507,3 +507,67 @@ def test_stale_pending_remote_clear_status_stays_pending(env, monkeypatch):
     rec._fetch_remote_transfer = lambda base, tid: {"status": "pending"}
     assert rec._reconcile_stale_pending(SRC) == 0
     assert _status(eng, "t-clear") == "pending"
+
+
+def _completed_null_row_in(engines, store, tid, source, target):
+    """A completed row with NULL confirm_time living in ``store``'s db."""
+    with Session(engines[store]) as s:
+        s.add(
+            CrossChainTransfer(
+                transfer_id=tid,
+                source_chain=source,
+                target_chain=target,
+                sender="0xa",
+                recipient="0xb",
+                amount=1,
+                status="completed",
+                source_tx_hash=tid,
+                lock_time=OLD,
+                confirm_time=None,
+            )
+        )
+        s.commit()
+
+
+def test_reverse_direction_completed_row_backfilled(env):
+    """#2492: hub's bc-2 store holds island->bc-2 rows (local chain is the
+    TARGET). The backfill must scan them — the release evidence is the
+    local sealed index — even though source_chain != the pass chain."""
+    rec, eng = env
+    _completed_null_row_in(eng, SRC, "t30", source=DST, target=SRC)
+    sealed_at = datetime(2026, 11, 22, 1, 0, 0)
+    _tx(eng, SRC, "rel30", "BRIDGE_RELEASE", payload={"transfer_id": "t30"})
+    with Session(eng[SRC]) as s:
+        from sqlmodel import select as _sel
+
+        tx = s.exec(_sel(Transaction).where(Transaction.tx_hash == "rel30")).one()
+        tx.created_at = sealed_at
+        s.add(tx)
+        s.commit()
+    assert rec._reconcile_stale_pending(SRC) == 1
+    with Session(eng[SRC]) as s:
+        record = s.get(CrossChainTransfer, "t30")
+        assert record.status == "completed"
+        assert record.confirm_time is not None
+        assert record.confirm_time.replace(tzinfo=None) == sealed_at
+
+
+def test_reverse_direction_without_local_release_stays_null(env):
+    """A reverse-direction row whose release is not sealed locally must keep
+    its honest NULL — involvement widens the scan, not the evidence bar."""
+    rec, eng = env
+    _completed_null_row_in(eng, SRC, "t31", source=DST, target=SRC)
+    assert rec._reconcile_stale_pending(SRC) == 0
+    with Session(eng[SRC]) as s:
+        assert s.get(CrossChainTransfer, "t31").confirm_time is None
+
+
+def test_unrelated_chain_row_not_scanned(env):
+    """A row between two chains neither of which is the pass chain stays
+    untouched even when it sits in the local store."""
+    rec, eng = env
+    _completed_null_row_in(eng, SRC, "t32", source="chain-x", target="chain-y")
+    _tx(eng, SRC, "rel32", "BRIDGE_RELEASE", payload={"transfer_id": "t32"})
+    assert rec._reconcile_stale_pending(SRC) == 0
+    with Session(eng[SRC]) as s:
+        assert s.get(CrossChainTransfer, "t32").confirm_time is None
