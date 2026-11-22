@@ -348,6 +348,11 @@ def _label_targets(refs):
 def _label_delta(iss):
     """(row id, issue number, labels to add, labels to remove) or None when the card is absent or already matches."""
     names = {label["name"] for label in iss.get("labels") or []}
+    if "mark/scenario" in names:
+        # Scenario rows are label-exempt (operator, 23 Nov 2026): they carry
+        # no owner/* or state/* labels by design, so the card-driven
+        # reconciler must never re-add them.
+        return None
     card = rowcard.parse(iss.get("body") or "")
     if not card:
         return None
