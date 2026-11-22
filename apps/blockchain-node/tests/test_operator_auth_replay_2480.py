@@ -152,7 +152,7 @@ def test_admission_rejects_sealed_auth_signature_replay(door, session):
     original = _bounty_lock_tx(envelope_nonce=0)
     _seal_auth_row(session, original)
     replay = _bounty_lock_tx(envelope_nonce=9)  # different tx hash, same auth
-    with pytest.raises(ValueError, match="auth signature"):
+    with pytest.raises(ValueError, match="authorization"):
         door(replay)
 
 
@@ -207,7 +207,7 @@ def test_v29_apply_rejects_same_block_auth_replay(tmp_path):
         ok1, err1 = _apply(session, st, first, "0xfirst", 29)
         assert ok1, err1
         ok2, err2 = _apply(session, st, replay, "0xreplay", 29)
-        assert ok2 is False and "auth signature" in err2
+        assert ok2 is False and "authorization" in err2
 
 
 def test_v29_apply_rejects_sealed_auth_replay(tmp_path):
@@ -218,7 +218,7 @@ def test_v29_apply_rejects_sealed_auth_replay(tmp_path):
         _seed_accounts(session)
         _seal_auth_row(session, sealed_tx)
         ok, err = _apply(session, st, replay, "0xreplay", 29)
-        assert ok is False and "auth signature" in err
+        assert ok is False and "authorization" in err
 
 
 def test_v29_apply_rejects_missing_auth_nonce(tmp_path):

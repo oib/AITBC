@@ -322,11 +322,13 @@ def confirmed_lock_total(
 
 
 def tx_auth_signature(tx_data: dict[str, Any]) -> str | None:
-    """The ``payload.auth.signature`` one-shot identity of an envelope, if any (#2480).
+    """The ``payload.auth.signature`` of an envelope, if any.
 
-    Operator-signed protocol bodies sign business fields, not the envelope —
-    nonce/fee changes mint a fresh tx hash for the same authorization, so the
-    signature itself is the replay identity every dedup layer keys on.
+    Retained for diagnostics only — the one-shot burn no longer keys on
+    the raw signature string (#2485): hex re-encodings (case, ``0x``
+    prefix) verify identically but compare unequal, which let a copied
+    auth replay past the #2480 dedup. The burn identity is
+    ``tx_auth_identity``.
     """
     payload = tx_data.get("payload")
     if not isinstance(payload, dict):
@@ -338,21 +340,53 @@ def tx_auth_signature(tx_data: dict[str, Any]) -> str | None:
     return str(signature) if signature else None
 
 
-def _payload_auth_signature_expr(session: Any) -> Any | None:
-    """SQL expression for ``str(payload.auth.signature)`` (#2480).
+def tx_auth_identity(tx_data: dict[str, Any]) -> str | None:
+    """The one-shot identity of an operator authorization (#2480/#2485).
 
-    Same contract as ``_payload_text_expr`` but for the nested auth object —
-    every auth-bearing transfer stores ``payload.auth.signature``, including
-    envelopes sealed before the ``auth_nonce`` schema existed, so one lookup
-    covers the whole history.
+    ``"<signer-lower>:<auth_nonce>"`` — both fields live *inside* the
+    signed message, so a replayed ``payload.auth`` cannot alter them
+    without invalidating the signature, and signature re-encodings are
+    irrelevant because the signature itself is never the key. Returns
+    ``None`` for auths without ``auth_nonce`` (legacy/wallet shapes) —
+    those are refused at admission and at v29+ apply anyway, so they
+    have no admissible replay path to dedup.
+    """
+    payload = tx_data.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    auth = payload.get("auth")
+    if not isinstance(auth, dict):
+        return None
+    message = auth.get("message")
+    if not isinstance(message, dict):
+        return None
+    nonce = message.get("auth_nonce")
+    signer = auth.get("signer")
+    if not isinstance(nonce, str) or not nonce.strip() or not signer:
+        return None
+    return f"{str(signer).strip().lower()}:{nonce.strip()}"
+
+
+def _payload_auth_identity_expr(session: Any) -> Any | None:
+    """SQL expression for ``tx_auth_identity`` over a stored payload (#2485).
+
+    ``lower(signer) || ':' || auth_nonce`` mirrors the Python helper so a
+    sealed row can be found by authorization identity rather than the
+    re-encodable signature string. Both fields sit inside the signed
+    message/signer pair, so they are as tamper-evident as the signature
+    itself.
     """
     from sqlalchemy import literal_column
 
     dialect = session.get_bind().dialect.name
     if dialect == "sqlite":
-        return literal_column("""coalesce(CAST(json_extract(payload, '$.auth.signature') AS TEXT), '')""")
+        return literal_column(
+            """lower(coalesce(json_extract(payload, '$.auth.signer'), '')) || ':' || coalesce(json_extract(payload, '$.auth.message.auth_nonce'), '')"""
+        )
     if dialect == "postgresql":
-        return literal_column("""coalesce((payload -> 'auth' ->> 'signature'), '')""")
+        return literal_column(
+            """lower(coalesce(payload -> 'auth' ->> 'signer', '')) || ':' || coalesce(payload -> 'auth' -> 'message' ->> 'auth_nonce', '')"""
+        )
     return None
 
 
@@ -372,31 +406,82 @@ AUTH_PROTOCOL_TX_TYPES = (
 )
 
 
-def protocol_auth_signature_sealed(session: Any, chain_id: str, signature: str) -> bool:
-    """True when a sealed transaction already carries this auth signature (#2480).
+def _auth_identity_of_payload(payload: Any) -> str | None:
+    """``tx_auth_identity`` over a stored ``payload`` dict."""
+    if not isinstance(payload, dict):
+        return None
+    auth = payload.get("auth")
+    if not isinstance(auth, dict):
+        return None
+    message = auth.get("message")
+    if not isinstance(message, dict):
+        return None
+    nonce = message.get("auth_nonce")
+    signer = auth.get("signer")
+    if not isinstance(nonce, str) or not nonce.strip() or not signer:
+        return None
+    return f"{str(signer).strip().lower()}:{nonce.strip()}"
 
-    The signature is the one-shot identity of an operator authorization:
-    honest producers sign a unique ``auth_nonce`` per request, so a second
-    sighting of the same ``payload.auth.signature`` is always a replay —
-    whether it arrives at mempool admission or inside a proposed block.
+
+def protocol_auth_identity_sealed(session: Any, chain_id: str, identity: str) -> bool:
+    """True when a sealed transaction already carries this auth identity (#2485).
+
+    Keys on ``(signer, auth_nonce)`` — both inside the signed message —
+    so signature re-encodings cannot mint a fresh burn key, and honest
+    producers' unique per-request ``auth_nonce`` keeps legitimate repeats
+    admissible. Covers every auth-bearing row sealed since #2480 deployed
+    (all carry ``auth_nonce``); pre-#2480 rows have no admissible replay
+    path (admission and v29+ apply both refuse nonce-less operator auths).
     """
     from sqlmodel import col, select
 
     from .models import Transaction
 
-    if not signature:
+    if not identity or ":" not in identity:
         return False
     stmt = select(Transaction).where(
         Transaction.chain_id == chain_id,
         Transaction.block_height.is_not(None),  # type: ignore[union-attr]
         col(Transaction.type).in_(AUTH_PROTOCOL_TX_TYPES),
     )
-    expr = _payload_auth_signature_expr(session)
+    expr = _payload_auth_identity_expr(session)
     if expr is not None:
-        stmt = stmt.where(expr == str(signature))
+        stmt = stmt.where(expr == str(identity))
     for tx in session.exec(stmt).all():
-        auth = (tx.payload or {}).get("auth")
-        if isinstance(auth, dict) and str(auth.get("signature") or "") == str(signature):
+        if _auth_identity_of_payload(tx.payload) == str(identity):
+            return True
+    return False
+
+
+def protocol_auth_identity_pending(session: Any, chain_id: str, identity: str) -> bool:
+    """True when a mempool entry already carries this auth identity (#2485).
+
+    Closes the pending-copy race at admission: a second envelope reusing a
+    still-unsealed authorization is refused at the door instead of riding
+    the mempool beside the original until a proposer pairs them in one
+    block. First-come-first-served — the pending row is not burned, so if
+    it later drops the authorization is free again; the authoritative
+    one-shot burn stays with sealed rows (``protocol_auth_identity_sealed``)
+    and the v29 same-block set.
+    """
+    import json as _json
+
+    if not identity or ":" not in identity:
+        return False
+    try:
+        from sqlmodel import select
+
+        from .mempool_common import MempoolEntry
+
+        rows = session.exec(select(MempoolEntry.content).where(MempoolEntry.chain_id == chain_id)).all()
+    except Exception:  # noqa: BLE001 - mempool table absent (tests/minimal schemas): no pending copies exist
+        return False
+    for content in rows:
+        try:
+            tx = _json.loads(content) if isinstance(content, str) else content
+        except (TypeError, ValueError):
+            continue
+        if isinstance(tx, dict) and _auth_identity_of_payload(tx.get("payload")) == str(identity):
             return True
     return False
 

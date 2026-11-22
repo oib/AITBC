@@ -26,7 +26,7 @@ from ..cross_chain.bridge_tx_root import (
     tx_only_root_active,
 )
 from ..models import Account, Receipt, Transaction
-from ..protocol_escrow import protocol_auth_signature_sealed, tx_auth_signature
+from ..protocol_escrow import protocol_auth_identity_sealed, tx_auth_identity
 from ..rpc.utils import _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES, verify_request_signature
 from .agent_spend import agent_spend_verdict
 from .bridge_credit import (
@@ -92,7 +92,7 @@ def _operator_auth_message(ctx: _TxValidationCtx) -> dict[str, Any] | None:
 class _ValidationMixin(_ValidationGpuMixin):
     if TYPE_CHECKING:
         _processed_tx_hashes: set[str]
-        _processed_auth_sigs: set[str]
+        _processed_auth_ids: set[str]
         _block_bounty_out: dict[str, int]
         _block_bounty_subs: set[tuple[str, str]]
 
@@ -244,13 +244,13 @@ class _ValidationMixin(_ValidationGpuMixin):
         auth_nonce = message.get("auth_nonce")
         if not (isinstance(auth_nonce, str) and auth_nonce.strip()):
             return (False, "operator protocol auth missing auth_nonce")
-        signature = tx_auth_signature(ctx.tx_data)
-        if signature is None:
+        identity = tx_auth_identity(ctx.tx_data)
+        if identity is None:
             return None  # the payload-auth signature gate reports malformed auth
-        if signature in self._processed_auth_sigs:
-            return (False, "protocol auth signature already used (replay)")
-        if protocol_auth_signature_sealed(ctx.session, ctx.chain_id, signature):
-            return (False, "protocol auth signature already sealed (replay)")
+        if identity in self._processed_auth_ids:
+            return (False, "protocol auth authorization already used (replay)")
+        if protocol_auth_identity_sealed(ctx.session, ctx.chain_id, identity):
+            return (False, "protocol auth authorization already sealed (replay)")
         return None
 
     def _vt_bounty_invariants(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
