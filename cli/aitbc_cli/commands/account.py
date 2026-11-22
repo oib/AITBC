@@ -90,27 +90,75 @@ def get(ctx, address, rpc_url, chain_id):
 
   aitbc account list
 
+  aitbc account list --all
+
+  aitbc account list --limit 500 --cursor <next_cursor>
+
   aitbc account list --output json"""
 )
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.option("--chain-id", help="Chain ID for multichain operations")
+@click.option("--limit", type=int, default=100, help="Accounts per page (server caps at 500)")
+@click.option("--offset", type=int, default=0, help="Row offset on top of the cursor position")
+@click.option("--cursor", default=None, help="Keyset cursor from a previous page's next_cursor")
+@click.option(
+    "--all",
+    "fetch_all",
+    is_flag=True,
+    help="Page through every account via next_cursor instead of stopping at one page",
+)
 @click.pass_context
-def list(ctx, rpc_url, chain_id):
-    """List all known accounts from the blockchain RPC."""
+def list(ctx, rpc_url, chain_id, limit, offset, cursor, fetch_all):
+    """List known accounts from the blockchain RPC, one keyset page at a time."""
     try:
-        params = {}
+        base_params: dict = {}
         if chain_id:
-            params["chain_id"] = chain_id
+            base_params["chain_id"] = chain_id
 
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        accounts = http_client.get("/rpc/accounts", params=params)
+        accounts = http_client.get(
+            "/rpc/accounts",
+            params=(
+                {**base_params, "limit": limit, "offset": offset, "cursor": cursor}
+                if not fetch_all
+                else {**base_params, "limit": min(limit, 500)}
+            ),
+        )
+        pages = 1
+        if fetch_all:
+            # NB: bare ``list`` is this module's click command, not the builtin.
+            merged = accounts.get("accounts", [])
+            total_accounts = accounts.get("total_accounts")
+            while accounts.get("next_cursor"):
+                pages += 1
+                accounts = http_client.get(
+                    "/rpc/accounts",
+                    params={**base_params, "limit": min(limit, 500), "cursor": accounts["next_cursor"]},
+                )
+                merged += accounts.get("accounts", [])
+            accounts = {
+                "chain_id": accounts.get("chain_id"),
+                "accounts": merged,
+                "total": len(merged),
+                "total_accounts": total_accounts,
+                "limit": limit,
+                "pages": pages,
+                "next_cursor": None,
+            }
 
         fmt = ctx.obj.get("output_format", "table")
+        shown = accounts.get("accounts", [])
         if fmt not in ("json", "yaml"):
-            for account in accounts.get("accounts", []):
+            for account in shown:
                 if "balance" in account:
                     account["balance_units"] = account["balance"]
                     account["balance"] = format_ait(account["balance"])
+            total_accounts = accounts.get("total_accounts")
+            if total_accounts is not None and len(shown) < total_accounts:
+                click.echo(
+                    f"showing {len(shown)} of {total_accounts} accounts (use --all or --cursor <next_cursor> for more)",
+                    err=True,
+                )
 
         output(accounts, fmt, title="Accounts")
     except NetworkError as e:

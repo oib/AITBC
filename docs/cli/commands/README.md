@@ -9,7 +9,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 ## `account`
 
 - [`aitbc account get`](account-get.md) — Fetch on-chain information for a given account address, including balance and nonce.
-- [`aitbc account list`](account-list.md) — List all known accounts from the blockchain RPC.
+- [`aitbc account list`](account-list.md) — List known accounts from the blockchain RPC, one keyset page at a time.
 
 ## `agent`
 

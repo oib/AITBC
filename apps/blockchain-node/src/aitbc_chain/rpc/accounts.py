@@ -288,10 +288,14 @@ def list_accounts(
         rows = session.exec(stmt.order_by(Account.address).offset(offset).limit(limit + 1)).all()
         next_cursor = rows[limit - 1].address if len(rows) > limit else None
         accounts = rows[:limit]
+        # Grand total for paging UIs (#2556): `total` stays the page count for
+        # backward compatibility; `total_accounts` is the real table size.
+        total_accounts = session.exec(select(func.count()).select_from(Account).where(Account.chain_id == chain_id)).one()
         return {
             "chain_id": chain_id,
             "accounts": [{"address": acc.address, "balance": acc.balance, "nonce": acc.nonce} for acc in accounts],
             "total": len(accounts),
+            "total_accounts": total_accounts,
             "limit": limit,
             "offset": offset,
             "next_cursor": next_cursor,

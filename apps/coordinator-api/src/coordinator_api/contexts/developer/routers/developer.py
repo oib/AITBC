@@ -32,6 +32,23 @@ async def register_developer(
     service: Annotated[DeveloperService, Depends(get_service)],
 ) -> Developer:
     """Register a developer for the DAO grant program."""
+    from aitbc.crypto.developer_registry import (
+        developer_register_claim,
+        developer_register_timestamp_fresh,
+        verify_developer_register,
+    )
+
+    claim = developer_register_claim(
+        wallet_address=body.wallet_address,
+        name=body.name,
+        email=body.email,
+        github_handle=body.github_handle,
+        timestamp=body.timestamp,
+    )
+    if not developer_register_timestamp_fresh(body.timestamp):
+        raise HTTPException(status_code=400, detail="Registration timestamp is stale or in the future")
+    if not verify_developer_register(claim, body.signature, body.wallet_address):
+        raise HTTPException(status_code=401, detail="Wallet signature does not match wallet_address")
     try:
         return await run_in_threadpool(service.register, body)
     except ValueError as e:

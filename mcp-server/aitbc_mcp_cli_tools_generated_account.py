@@ -50,15 +50,21 @@ def aitbc_account_get(
 def aitbc_account_list(
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID for multichain operations")] = None,
+    limit: Annotated[int | None, Field(description="Accounts per page (server caps at 500)")] = None,
+    offset: Annotated[int | None, Field(description="Row offset on top of the cursor position")] = None,
+    cursor: Annotated[str | None, Field(description="Keyset cursor from a previous page's next_cursor")] = None,
+    fetch_all: Annotated[
+        bool | None, Field(description="Page through every account via next_cursor instead of stopping at one page")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all known accounts from the blockchain RPC."""
+    """List known accounts from the blockchain RPC, one keyset page at a time."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
-        values={"rpc_url": "rpc-url", "chain_id": "chain-id"},
+        flags={"fetch_all": "all"},
+        values={"rpc_url": "rpc-url", "chain_id": "chain-id", "limit": "limit", "offset": "offset", "cursor": "cursor"},
     )
     args = None
     return _aitbc_cli_read_tool(

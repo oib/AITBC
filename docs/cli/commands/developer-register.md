@@ -2,7 +2,7 @@
 
 # `aitbc developer register`
 
-Register a developer in the DAO grant registry with optional name, email, and GitHub handle.
+Register a developer in the DAO grant registry with optional name, email, and GitHub handle. The registry requires a wallet signature proving control of ``--wallet-address`` (#2566): pass ``--wallet`` (or set ``AITBC_DEFAULT_WALLET``) for the key that signs the claim.
 
 ## Usage
 
@@ -18,6 +18,10 @@ aitbc developer register [OPTIONS]
 | `--name` | text | — | no | Developer name |
 | `--email` | text | — | no | Developer email |
 | `--github-handle` | text | — | no | GitHub handle |
+| `--wallet` | text | — | no | Wallet that signs the registration proof (default: $AITBC_DEFAULT_WALLET); required |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

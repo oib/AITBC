@@ -52,6 +52,15 @@ def _is_unservable_sentinel(offer: dict[str, Any]) -> bool:
     return _sentinel_identity(offer.get("provider_address")) or _sentinel_identity(offer.get("node_id"))
 
 
+def _offer_matches_provider(offer: dict[str, Any], provider: str) -> bool:
+    """True when ``offer`` was published by ``provider`` (node id or wallet).
+
+    Same predicate the shop dashboard applied client-side (#2553): exact
+    ``node_id`` match, or the provider id appearing in ``provider_address``.
+    """
+    return str(offer.get("node_id") or "") == provider or provider in str(offer.get("provider_address") or "")
+
+
 class _OffersSoftwareMixin(_CoreMixin):
     _anchor_negatives: dict[tuple[str, str], float] = {}
 
@@ -73,7 +82,11 @@ class _OffersSoftwareMixin(_CoreMixin):
                 del cls._anchor_negatives[oldest]
 
     async def list_software_services(
-        self, service_type: str | None = None, status: str | None = None, chain_id: str | None = None
+        self,
+        service_type: str | None = None,
+        status: str | None = None,
+        chain_id: str | None = None,
+        provider: str | None = None,
     ) -> list[dict[str, Any]]:
         """List software services with optional filters - aggregates from blockchain and local database
 
@@ -129,6 +142,12 @@ class _OffersSoftwareMixin(_CoreMixin):
                     len(merged_offers) - len(servable_offers),
                 )
             merged_offers = servable_offers
+
+            # #2553: provider filter runs before the page cap and anchor
+            # resolution — a shop asking for its own offers must not lose them
+            # to unrelated rows filling the page first.
+            if provider:
+                merged_offers = [offer for offer in merged_offers if _offer_matches_provider(offer, provider)]
 
             local_rows = {s.plugin_id: s for s in local_services}
             await self._resolve_offer_anchors(merged_offers, chain_id, local_rows)

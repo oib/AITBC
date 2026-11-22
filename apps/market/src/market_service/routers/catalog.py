@@ -115,15 +115,24 @@ async def list_software_offers(
     svc: Annotated[MarketService, Depends(get_market_service)],
     service_type: str | None = None,
     status: str | None = None,
+    provider: str | None = None,
 ) -> Any:
     """List market offers (hardware+software bundles).
 
     Without ``status``, on-chain GPU registrations their registrant deactivated
-    are left out; pass ``status=deactivated`` to list them.
+    are left out; pass ``status=deactivated`` to list them. ``provider``
+    restricts the merged catalog to offers published by that node/miner id
+    (#2553) — applied before the page cap so a provider's own offers cannot be
+    pushed out by unrelated rows.
     """
     try:
-        logger.info("GET /v1/market/offer called with filters: service_type=%s, status=%s", service_type, status)
-        result = await svc.list_software_services(service_type=service_type, status=status)
+        logger.info(
+            "GET /v1/market/offer called with filters: service_type=%s, status=%s, provider=%s",
+            service_type,
+            status,
+            provider,
+        )
+        result = await svc.list_software_services(service_type=service_type, status=status, provider=provider)
         logger.info("GET /v1/market/offer returned %s offers", len(result))
         return {"offers": result, "total": len(result)}
     except Exception as e:

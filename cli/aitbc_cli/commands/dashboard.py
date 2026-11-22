@@ -149,6 +149,47 @@ def _client(ctx: click.Context, base_url: str | None = None, timeout: int = 10) 
 
 _AUTH_HINT_SHOWN = False
 
+#: Dashboard sections whose fetch failed during the current command run
+#: (#2552). Reset by each dashboard command; a section that could not be
+#: fetched must surface as unavailable, not as a silent zero/empty render.
+_SECTION_FAILURES: set[str] = set()
+
+
+def _reset_section_failures() -> None:
+    _SECTION_FAILURES.clear()
+
+
+def _note_section_failure(section: str | None) -> None:
+    if section:
+        _SECTION_FAILURES.add(section)
+
+
+def _finish_dashboard(
+    ctx: click.Context,
+    dashboard_data: dict[str, Any],
+    output_format: str,
+    title: str,
+    loaded_message: str | None,
+    attempted_sections: set[str],
+) -> None:
+    """Render the dashboard, then report degraded sections honestly (#2552).
+
+    Any failed section is named in ``summary.unavailable_sections`` and a
+    stderr banner; when every attempted section failed the command exits
+    non-zero instead of printing "loaded" over an empty dashboard.
+    """
+    failed = sorted(_SECTION_FAILURES)
+    if failed:
+        dashboard_data.setdefault("summary", {})["unavailable_sections"] = failed
+    output(dashboard_data, output_format, title=title)
+    if failed:
+        warning(f"Dashboard sections unavailable: {', '.join(failed)}")
+    if attempted_sections and attempted_sections <= _SECTION_FAILURES:
+        error("All dashboard sections failed — nothing could be loaded")
+        raise SystemExit(1)
+    if not failed and loaded_message:
+        success(loaded_message)
+
 
 def _warn_unauthorized_once(client: AITBCHTTPClient) -> None:
     """Surface the auth-login hint once per dashboard run on a coordinator 401 (#2138).
@@ -168,7 +209,12 @@ def _warn_unauthorized_once(client: AITBCHTTPClient) -> None:
         warning(LOGIN_HINT)
 
 
-def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> JSONResponse | None:
+def _safe_get(
+    client: AITBCHTTPClient,
+    path: str,
+    params: dict[str, Any] | None = None,
+    section: str | None = None,
+) -> JSONResponse | None:
     # Several dashboard endpoints return a bare array, so this takes the honest union
     # and every caller decides the shape -- see aitbc/network/json_types.py.
     try:
@@ -177,9 +223,11 @@ def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None 
         if is_unauthorized(e):
             _warn_unauthorized_once(client)
         logger.warning("Dashboard GET %s failed: %s", path, e)
+        _note_section_failure(section)
         return None
     except _OPS_ERRORS as e:
         logger.warning("Dashboard GET %s failed: %s", path, e)
+        _note_section_failure(section)
         return None
 
 
@@ -206,7 +254,12 @@ def _with_query(path: str, params: dict[str, Any] | None) -> str:
     return f"{path}{sep}{urlencode(params)}"
 
 
-def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> JSONResponse | None:
+def _safe_post_or_get(
+    client: AITBCHTTPClient,
+    path: str,
+    params: dict[str, Any] | None = None,
+    section: str | None = None,
+) -> JSONResponse | None:
     """POST ``path``, retrying as GET when the peer only allows GET (405).
 
     The coordinator-api registers the miner job/earnings reads as POST, but a
@@ -220,12 +273,14 @@ def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any]
             _warn_unauthorized_once(client)
         if _http_status(e) != 405:
             logger.warning("Dashboard POST %s failed: %s", path, e)
+            _note_section_failure(section)
             return None
         logger.debug("POST %s not allowed; retrying as GET", path)
     except _OPS_ERRORS as e:
         logger.warning("Dashboard POST %s failed: %s", path, e)
+        _note_section_failure(section)
         return None
-    return _safe_get(client, path, params=params)
+    return _safe_get(client, path, params=params, section=section)
 
 
 def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int | None, int, str]:
@@ -390,6 +445,7 @@ def _wallet_balance_rows(
             )
     except NetworkError as e:
         logger.warning("Wallet daemon unavailable: %s", e)
+        _note_section_failure("wallets")
     return wallet_balances
 
 
@@ -432,12 +488,12 @@ def _shop_miner_activity(
     miner_jobs: list[dict[str, Any]] = []
     miner_earnings: dict[str, Any] = {}
     if miner_id and has_miner_auth:
-        jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
+        jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit}, section="miner_activity")
         if isinstance(jobs_resp, list):
             miner_jobs = jobs_resp
         elif jobs_resp:
             miner_jobs = cast(list[dict[str, Any]], jobs_resp.get("jobs", jobs_resp.get("items", [])))
-        earnings_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/earnings")
+        earnings_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/earnings", section="miner_activity")
         if earnings_resp:
             miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}
 
@@ -450,12 +506,12 @@ def _shop_gpus(config, miner_id: str) -> list[dict[str, Any]]:
     gpus: list[dict[str, Any]] = []
     gpu_client = AITBCHTTPClient(base_url=config.gpu_service_url or "http://localhost:8101", timeout=10)
     if miner_id:
-        registered = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus")
+        registered = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus", section="gpus")
         if isinstance(registered, list):
             gpus.extend(g for g in registered if isinstance(g, dict))
     # /v1/gpu/discover returns the nvidia-smi spec of the first local GPU as a
     # flat dict ({} when none), not a {"gpus": [...]} wrapper.
-    discovered = _safe_get(gpu_client, "/v1/gpu/discover") or {}
+    discovered = _safe_get(gpu_client, "/v1/gpu/discover", section="gpus") or {}
     if isinstance(discovered, dict) and discovered.get("model"):
         known = {(g.get("model"), g.get("memory_gb")) for g in gpus}
         if (discovered.get("model"), discovered.get("memory_gb")) not in known:
@@ -473,11 +529,22 @@ def _shop_market_offers(ctx: click.Context, config, miner_id: str, limit: int) -
             timeout=10,
             headers=_auth_headers(ctx),
         )
-        offers_data = _safe_get(market_client, "/v1/market/offer", {"limit": limit}) or {}
-        offers = offers_data.get("offers", []) if isinstance(offers_data, dict) else []
         shop_id = miner_id or config.node_id or ""
+        offers_data = (
+            _safe_get(
+                market_client,
+                "/v1/market/offer",
+                {"limit": limit, "provider": shop_id} if shop_id else {"limit": limit},
+                section="market_offers",
+            )
+            or {}
+        )
+        offers = offers_data.get("offers", []) if isinstance(offers_data, dict) else []
         if shop_id:
+            # Keep the client-side filter too: coordinators/market builds that
+            # predate the provider param ignore it and return the full page.
             offers = [o for o in offers if o.get("node_id") == shop_id or shop_id in str(o.get("provider_address", ""))]
+        offers = offers[:limit]
         for offer in offers:
             offer_rows.append(
                 {
@@ -490,6 +557,7 @@ def _shop_market_offers(ctx: click.Context, config, miner_id: str, limit: int) -
             )
     except NetworkError as e:
         logger.warning("Market service unavailable: %s", e)
+        _note_section_failure("market_offers")
     return offer_rows
 
 
@@ -528,6 +596,8 @@ def _shop_sla_data(miner_id: str) -> dict[str, Any]:
             break
     except _OPS_ERRORS as e:
         logger.warning("SLA section unavailable: %s", e)
+    if sla_data.get("status") == "unavailable":
+        _note_section_failure("sla")
     return sla_data
 
 
@@ -610,12 +680,13 @@ def _shop_dashboard_data(
 @click.pass_context
 def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
     """Show the customer dashboard with jobs, payments, and wallet balances."""
+    _reset_section_failures()
     try:
         config = ctx.obj["config"]
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
         coord_client = _client(ctx, timeout=15)
 
-        jobs_data = _safe_get(coord_client, "/v1/jobs", {"limit": limit})
+        jobs_data = _safe_get(coord_client, "/v1/jobs", {"limit": limit}, section="jobs")
         if isinstance(jobs_data, list):
             jobs = jobs_data
         elif isinstance(jobs_data, dict):
@@ -638,11 +709,16 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
             "wallets": wallet_balances,
         }
 
-        output(dashboard_data, ctx.obj.get("output_format", "table"), title="Customer Dashboard")
-        if not jobs and not wallet_balances:
+        if not jobs and not wallet_balances and not _SECTION_FAILURES:
             info("No jobs or wallets found. Submit a job or create a wallet to populate the dashboard.")
-        else:
-            success("Customer dashboard loaded")
+        _finish_dashboard(
+            ctx,
+            dashboard_data,
+            ctx.obj.get("output_format", "table"),
+            "Customer Dashboard",
+            None if not jobs and not wallet_balances else "Customer dashboard loaded",
+            {"jobs", "wallets"},
+        )
     except click.Abort:
         raise
     except _OPS_ERRORS as e:
@@ -662,13 +738,14 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
 @click.pass_context
 def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
     """Show the shop dashboard with GPUs, offers, jobs, and earnings."""
+    _reset_section_failures()
     try:
         config = ctx.obj["config"]
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
         miner_id = _resolve_miner_id(miner_id, config)
 
         coord_client, miner_headers = _shop_coord_client(ctx, miner_id)
-        metrics = _safe_get(coord_client, "/v1/monitoring/metrics") or {}
+        metrics = _safe_get(coord_client, "/v1/monitoring/metrics", section="monitoring") or {}
         jobs_metrics, miners_metrics = _monitoring_sections(metrics)
 
         miner_jobs, miner_earnings = _shop_miner_activity(coord_client, miner_headers, miner_id, limit, blockchain_rpc_url)
@@ -689,8 +766,18 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
             miner_earnings=miner_earnings,
         )
 
-        output(dashboard_data, ctx.obj.get("output_format", "table"), title="Shop Dashboard")
-        success("Shop dashboard loaded")
+        has_miner_auth = bool(miner_headers and miner_headers.get("X-Api-Key"))
+        attempted = {"monitoring", "gpus", "market_offers", "sla", "wallets"}
+        if has_miner_auth:
+            attempted.add("miner_activity")
+        _finish_dashboard(
+            ctx,
+            dashboard_data,
+            ctx.obj.get("output_format", "table"),
+            "Shop Dashboard",
+            "Shop dashboard loaded",
+            attempted,
+        )
     except click.Abort:
         raise
     except _OPS_ERRORS as e:
