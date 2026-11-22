@@ -486,16 +486,18 @@ def protocol_auth_identity_pending(session: Any, chain_id: str, identity: str) -
     return False
 
 
-def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload_key: str, payload_value: Any) -> bool:
+def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload_match: dict[str, Any]) -> bool:
     """True when a mempool entry already carries this protocol transfer (#2629).
 
     Generic sibling of ``protocol_auth_identity_pending`` for callers that
     need "is this exact flow already queued" — e.g. a stake release retry
     deciding whether a ``withdrawn`` row still owes its STAKE_RELEASE.
+    ``payload_match`` maps payload keys to values; every pair must match
+    (``str()``-compared like ``confirmed_lock_txs``).
     """
     import json as _json
 
-    if not _PAYLOAD_KEY_RE.fullmatch(payload_key):
+    if not payload_match or any(not _PAYLOAD_KEY_RE.fullmatch(str(k)) for k in payload_match):
         return False
     try:
         from sqlmodel import select
@@ -512,7 +514,8 @@ def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload
             continue
         if not isinstance(tx, dict) or tx.get("type") != tx_type:
             continue
-        if str((tx.get("payload") or {}).get(payload_key, "")) == str(payload_value):
+        payload = tx.get("payload") or {}
+        if all(str(payload.get(k, "")) == str(v) for k, v in payload_match.items()):
             return True
     return False
 
