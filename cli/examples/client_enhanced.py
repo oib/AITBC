@@ -5,6 +5,7 @@ AITBC Client CLI Tool - Enhanced version with output formatting
 
 import argparse
 import json
+import os
 import sys
 from typing import Any
 
@@ -14,7 +15,7 @@ from tabulate import tabulate
 
 # Configuration
 DEFAULT_COORDINATOR = "http://localhost:8000"
-DEFAULT_API_KEY = "${CLIENT_API_KEY}"
+DEFAULT_API_KEY = os.environ.get("CLIENT_API_KEY")
 
 
 class OutputFormatter:
@@ -172,7 +173,7 @@ class AITBCClient:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AITBC Client CLI Tool")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
-    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
+    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key (or CLIENT_API_KEY env var)")
     parser.add_argument("--output", choices=["table", "json", "yaml"], default="table", help="Output format")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -239,7 +240,7 @@ def _cmd_submit(args: argparse.Namespace, client: AITBCClient) -> None:
             "status": "success",
             "job_id": job_id,
             "message": "Job submitted successfully",
-            "track_command": f"python3 cli/client_enhanced.py status {job_id}",
+            "track_command": f"python3 cli/examples/client_enhanced.py status {job_id}",
         }
         print(OutputFormatter.format(submit_result, args.output))
         sys.exit(0)
@@ -318,6 +319,9 @@ def main():
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    if not args.api_key:
+        parser.error("--api-key is required (or set the CLIENT_API_KEY environment variable)")
 
     # Create client
     client = AITBCClient(args.url, args.api_key)
