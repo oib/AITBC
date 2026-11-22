@@ -1294,9 +1294,10 @@ def query_transactions(
                 continue
             results.append(_tx_result_row(tx, block_map, finality_on, head_for_finality))
 
-        # Apply limit (results are newest-first, so this keeps the most recent rows)
-        if limit:
-            results = results[:limit]
+        # #2632: no Python-side slice — every filter is a SQL predicate and
+        # _transaction_query already clamped limit to [1, 500]. A second
+        # results[:limit] reinterpreted negatives as "all but last N" and
+        # emptied single-row results.
 
         _logger.debug(f"Returning {len(results)} transactions for chain {resolved_chain_id}")
 
