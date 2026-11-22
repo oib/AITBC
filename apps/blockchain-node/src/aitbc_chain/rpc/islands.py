@@ -75,11 +75,18 @@ class BridgeRequestResponse(BaseModel):
     message: str
 
 
+def _hub_advertised_host() -> str:
+    """Hostname remote nodes can resolve for this hub.
+
+    F-5d: prefer explicit operator overrides before socket.gethostname(),
+    which may return a hostname that is not resolvable from remote nodes.
+    """
+    return os.getenv("AITBC_HOSTNAME") or settings.hub_discovery_url or socket.gethostname()
+
+
 def _build_join_credentials(island_id: str, island_name: str, island_chain_id: str) -> dict[str, Any]:
     """Build the credentials block returned to a joining node."""
-    # F-5d: prefer explicit operator overrides before socket.gethostname(),
-    # which may return a hostname that is not resolvable from remote nodes.
-    hub_host = os.getenv("AITBC_HOSTNAME") or settings.hub_discovery_url or socket.gethostname()
+    hub_host = _hub_advertised_host()
     if hub_host == socket.gethostname():
         _logger.warning(
             "Join credentials using socket.gethostname() %s — set AITBC_HOSTNAME "
@@ -163,12 +170,18 @@ def _island_members(island_manager: Any, island_id: str) -> list[dict[str, Any]]
     members: list[dict[str, Any]] = []
     island = island_manager.get_island_info(island_id)
     if island is not None and island.is_hub:
+        # Deferred import: multi_chain_manager pulls in the consensus stack;
+        # keeping it out of module scope avoids an import cycle through the
+        # rpc router. base_ports_from_env is the same P2P_BIND_PORT read the
+        # manager itself uses (default 7070, the live relay bind).
+        from ..network.multi_chain_manager import base_ports_from_env
+
         members.append(
             {
                 "node_id": island_manager.local_node_id,
                 "is_hub": True,
-                "address": "127.0.0.1",
-                "port": 7070,
+                "address": _hub_advertised_host(),
+                "port": base_ports_from_env()[1],
             }
         )
     for peer_id in island_manager.island_peers.get(island_id, set()):
