@@ -28,7 +28,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WS = os.path.abspath(os.path.join(HERE, "..", ".."))  # /home/oib/windsurf/aitbc
 TASKS = os.path.join(HERE, "tasks.json")
 REPO = "/repos/oib/AITBC"
-LABEL_WEB, LABEL_NEEDS_VERIFY, LABEL_RIDER = 60, 72, 62  # 72 = state/needs-verify (legacy label 58 deleted)
+# 60 = mark/web, 62 = mark/rider; 72 = state/needs-verify (legacy label 58 deleted)
+LABEL_WEB, LABEL_NEEDS_VERIFY, LABEL_RIDER = 60, 72, 62
 
 
 def tea(path, method=None, data=None):
@@ -219,7 +220,7 @@ def do_rider(a):
 
 
 def do_riders(a):
-    items = tea("/issues?state=open&labels=rider&type=issues&limit=50")
+    items = tea("/issues?state=open&labels=mark/rider&type=issues&limit=50")
     for i in items:
         if a.area and a.area.lower() not in i["title"].lower():
             continue
@@ -257,7 +258,7 @@ def do_queue(a):
         r = rowof.get(i["number"], {})
         print(f"  #{i['number']} {r.get('id', '?')} waiting {_age(since)} | {i['title'][:70]}")
     time.sleep(pace)
-    rd = tea("/issues?state=open&labels=rider&type=issues&limit=50")
+    rd = tea("/issues?state=open&labels=mark/rider&type=issues&limit=50")
     print(f"== open riders ({len(rd)})")
     for i in rd:
         print(f"  #{i['number']} {i['title'][:90]}")

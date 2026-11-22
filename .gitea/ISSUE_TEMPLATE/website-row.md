@@ -2,7 +2,7 @@
 name: Website Row
 about: One registered website-board row — link and status only, evidence stays in the register
 title: "WEB-XXX-n: "
-labels: web
+labels: mark/web
 ---
 
 Row: WEB-XXX-n

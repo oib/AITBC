@@ -27,4 +27,4 @@ body: |
   low | normal | high
 
   ## Labels
-  bug | feature | refactor | infra | documentation
+  kind/bug | kind/feature | kind/refactor | kind/security | mark/* | area/*
