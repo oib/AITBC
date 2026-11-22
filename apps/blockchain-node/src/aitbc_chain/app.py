@@ -413,6 +413,92 @@ def _refresh_block_height_gauge(supported_chains: str) -> None:
         block_height.set(head)
 
 
+def _pending_sealed_twin_key(tx: dict[str, Any]) -> tuple[str, str, str, int, str] | None:
+    """Content key matching a pooled unsigned tx to its sealed twin.
+
+    Unsigned protocol writes pool under their admission hash; the proposer
+    rewrites the envelope at seal time (signature/value/tx_hash fields), so
+    the chain records a different tx_hash and hash-based reconcile never
+    matches (#2649). The sealed row keeps sender/type/recipient/value and
+    payload identical, so those fields identify the twin. Signed entries
+    are already hash-stable, and payload-less transfers are excluded — two
+    identical bare transfers must never evict each other.
+    """
+    import json
+
+    if tx.get("signature") or tx.get("sig"):
+        return None
+    payload = tx.get("payload")
+    if not isinstance(payload, dict) or not payload:
+        return None
+    sender = str(tx.get("from") or tx.get("sender") or "").lower()
+    if not sender:
+        return None
+    raw_value = tx.get("value") if tx.get("value") is not None else tx.get("amount")
+    try:
+        value = int(raw_value) if raw_value is not None else 0
+    except (TypeError, ValueError):
+        return None
+    return (
+        sender,
+        str(tx.get("type") or "TRANSFER"),
+        str(tx.get("to") or tx.get("recipient") or "").lower(),
+        value,
+        json.dumps(payload, sort_keys=True, separators=(",", ":")),
+    )
+
+
+def _sealed_tx_twin_key(row: Any) -> tuple[str, str, str, int, str]:
+    import json
+
+    payload = row.payload
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    return (
+        str(row.sender).lower(),
+        str(row.type),
+        str(row.recipient).lower(),
+        int(row.value or 0),
+        json.dumps(payload or {}, sort_keys=True, separators=(",", ":")),
+    )
+
+
+def _pending_sealed_twin_keys(mempool: Any, chain_id: str) -> dict[tuple[str, str, str, int, str], str]:
+    """Map sealed-twin content keys to pending tx_hashes for one chain."""
+    twin_keys: dict[tuple[str, str, str, int, str], str] = {}
+    for entry in mempool.list_transactions(chain_id):
+        key = _pending_sealed_twin_key(entry.content)
+        if key is not None:
+            twin_keys[key] = entry.tx_hash
+    return twin_keys
+
+
+def _sealed_twin_hashes(session: Any, chain_id: str, twin_keys: dict[tuple[str, str, str, int, str], str]) -> set[str]:
+    """Pending tx_hashes whose sealed twin is confirmed on ``chain_id``."""
+    from sqlmodel import func, select
+
+    from .base_models import Transaction
+
+    senders = sorted({key[0] for key in twin_keys})
+    rows = session.exec(
+        select(Transaction)
+        .where(
+            Transaction.chain_id == chain_id,
+            Transaction.status == "confirmed",
+            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+            func.lower(Transaction.sender).in_(senders),
+        )
+        .order_by(Transaction.id.desc())  # type: ignore[union-attr]
+        .limit(5000)
+    ).all()
+    found: set[str] = set()
+    for row in rows:
+        twin_hash = twin_keys.get(_sealed_tx_twin_key(row))
+        if twin_hash is not None:
+            found.add(twin_hash)
+    return found
+
+
 def _reconcile_sealed_mempool_entries() -> int:
     """#1300 S2: evict pooled rows the chain has already sealed.
 
@@ -436,6 +522,7 @@ def _reconcile_sealed_mempool_entries() -> int:
             pending = mempool.pending_tx_hashes(chain_id)
             if not pending:
                 continue
+            twin_keys = _pending_sealed_twin_keys(mempool, chain_id)
             sealed: set[str] = set()
             hashes = sorted(pending)
             with session_scope(chain_id) as session:
@@ -450,6 +537,8 @@ def _reconcile_sealed_mempool_entries() -> int:
                         )
                     ).all()
                     sealed.update(rows)
+                if twin_keys:
+                    sealed.update(_sealed_twin_hashes(session, chain_id, twin_keys))
             if sealed:
                 removed += mempool.reconcile_sealed(chain_id, sealed)
         except Exception as exc:  # noqa: BLE001 - per-chain isolation: one bad chain must not stall the sweep
