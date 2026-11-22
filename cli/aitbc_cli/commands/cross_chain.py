@@ -130,6 +130,21 @@ def _wait_for_terminal_status(client: AITBCHTTPClient, path: str, timeout_second
         time.sleep(5)
 
 
+def _require_wait_completed(ctx, waited: dict[str, Any] | None, label: str) -> None:
+    """#2554: ``--wait`` must not exit 0 unless the transfer reached ``completed``.
+
+    ``_wait_for_terminal_status`` returns the last payload on terminal state,
+    timeout, or poll error — only a ``completed`` status is success; failed,
+    refunded, still-pending (timeout) and missing payloads (poll broke before
+    the first response) all abort non-zero.
+    """
+    status = (waited or {}).get("status")
+    if status == "completed":
+        return
+    shown = status if status is not None else "no response (status poll failed)"
+    abort(ctx, f"{label} --wait ended without completion: final status {shown}")
+
+
 @click.group(
     epilog="""Examples:
 
@@ -295,6 +310,8 @@ def swap(
     swap_data = dict(sign_data)
     swap_data["signature"] = _sign_request(sign_data, private_key)
 
+    swap_id = None
+    waited: dict[str, Any] | None = None
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         swap_result = http_client.post("/rpc/swap", json=swap_data)
@@ -319,9 +336,13 @@ def swap(
         swap_id = swap_result.get("swap_id")
         success(f"Track swap with: aitbc crosschain status --swap-id {swap_id}")
         if wait and swap_id:
-            _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap")
+            waited = _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap")
     except _OPS_ERRORS as e:
         abort(ctx, f"Swap failed: {e}", from_exception=e)
+    if wait and swap_id:
+        # Outside the try: abort() raises CLIError, which _OPS_ERRORS would
+        # otherwise re-wrap as a generic swap failure.
+        _require_wait_completed(ctx, waited, "Swap")
 
 
 @cross_chain.command(
@@ -483,6 +504,8 @@ def bridge(
     bridge_data = dict(sign_data)
     bridge_data["signature"] = _sign_request(sign_data, private_key)
 
+    bridge_id = None
+    waited: dict[str, Any] | None = None
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         bridge_result = http_client.post("/rpc/cross-chain/bridge", json=bridge_data)
@@ -505,9 +528,13 @@ def bridge(
         bridge_id = bridge_result.get("bridge_id")
         success(f"Track bridge with: aitbc crosschain bridge-status --bridge-id {bridge_id}")
         if wait and bridge_id:
-            _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge")
+            waited = _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge")
     except _OPS_ERRORS as e:
         abort(ctx, f"Bridge failed: {e}", from_exception=e)
+    if wait and bridge_id:
+        # Outside the try: abort() raises CLIError, which _OPS_ERRORS would
+        # otherwise re-wrap as a generic bridge failure.
+        _require_wait_completed(ctx, waited, "Bridge")
 
 
 @cross_chain.command(
