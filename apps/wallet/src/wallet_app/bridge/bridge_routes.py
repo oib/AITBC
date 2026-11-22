@@ -50,6 +50,7 @@ _OPS_ERRORS = (
 )
 
 from .bridge_db import (
+    _ETH_DEPOSIT_STATUSES,
     _money_str,
     get_all_deposits,
     get_all_sell_locks,
@@ -57,7 +58,7 @@ from .bridge_db import (
     get_all_withdrawals,
     get_deposit_by_id,
     get_deposit_by_tx_hash,
-    get_pending_deposits,
+    get_deposits_by_status,
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_id,
     get_sell_lock_by_quote_id,
@@ -123,15 +124,20 @@ def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -
     List ETH deposits.
 
     Query parameters:
-    - status: Filter by status (pending, verified, completed, rejected)
+    - status: Filter by status (pending, verified, completed, exchange_prepay, rejected, failed)
     - limit: Maximum number of results (default: 50)
     - offset: Pagination offset (default: 0)
     """
     limit = max(0, min(limit, 500))
-    if status == "pending":
-        deposits = get_pending_deposits(limit=limit, offset=offset)
-    else:
+    if status is not None and status not in _ETH_DEPOSIT_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown deposit status: {status!r} (valid: {', '.join(sorted(_ETH_DEPOSIT_STATUSES))})",
+        )
+    if status is None:
         deposits = get_all_deposits(limit=limit, offset=offset)
+    else:
+        deposits = get_deposits_by_status(status, limit=limit, offset=offset)
 
     return {"deposits": deposits, "count": len(deposits)}
 
