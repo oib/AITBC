@@ -25,7 +25,7 @@ from ...payments.services.payments import PaymentService, _computation_is_correc
 from ....custom_types import JobState, job_state_filter_help, parse_job_state_filter
 from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
-from ..services.jobs import _MAX_INFLIGHT_JOBS_PER_CLIENT
+from ..services.jobs import _MAX_INFLIGHT_JOBS_PER_CLIENT, _gpu_compute_duration_error
 from ....storage import get_session
 
 
@@ -174,6 +174,16 @@ def _require_priced_gpu_compute(req: JobCreate) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="a gpu_compute job needs a positive finite payment_amount",
+        )
+    # #2490: the duration is buyer-controlled and drives claim/rental
+    # deadline math — refuse non-finite or above-cap values here so the
+    # job never exists; stored legacy rows are clamped in
+    # _payload_duration_seconds instead.
+    duration_error = _gpu_compute_duration_error(req.payload or {})
+    if duration_error is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=duration_error,
         )
 
 
