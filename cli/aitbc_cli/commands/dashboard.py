@@ -228,8 +228,12 @@ def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any]
     return _safe_get(client, path, params=params)
 
 
-def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int, int, str]:
-    """Return on-chain balance, nonce and chain_id for an address (any accepted spelling)."""
+def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int | None, int, str]:
+    """Return on-chain balance, nonce and chain_id for an address (any accepted spelling).
+
+    #2551: balance is None when the RPC lookup fails — a fabricated 0 read as
+    a real '0 AIT' balance when the wallet daemon was down too.
+    """
     try:
         canon = to_canonical(address)
         client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
@@ -237,7 +241,7 @@ def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int,
         return int(data.get("balance", 0)), int(data.get("nonce", 0)), data.get("chain_id", chain_id)
     except _OPS_ERRORS:
         logger.debug("Blockchain balance query failed for %s", address, exc_info=True)
-        return 0, 0, chain_id
+        return None, 0, chain_id
 
 
 def _live_wallet_balance(
@@ -261,7 +265,9 @@ def _live_wallet_balance(
     if balance in (None, "N/A", ""):
         fallback = True
     if fallback:
-        balance, _, _ = _blockchain_balance(blockchain_rpc_url, address, chain_id)
+        rpc_balance, _, _ = _blockchain_balance(blockchain_rpc_url, address, chain_id)
+        # #2551: both sources down -> 'N/A', not a fabricated zero.
+        balance = rpc_balance if rpc_balance is not None else "N/A"
     balance_ait = format_ait(balance) if not isinstance(balance, str) or balance not in ("N/A", "") else "N/A"
     return {"balance": balance, "balance_ait": balance_ait}
 
