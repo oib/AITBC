@@ -208,6 +208,31 @@ class TestRunStdin:
         assert run.call_args.kwargs.get("stdin") == sp.DEVNULL
         assert "input" not in run.call_args.kwargs
 
+    def test_local_oserror_returns_error_envelope(self):
+        """#2505: E2BIG and friends must not propagate out of the tool."""
+        server = _isolated_server()
+        run = mock.Mock(side_effect=OSError(7, "Argument list too long"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=True),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            result = server._run_remote("localhost", "aitbc wallet list")
+        assert result["returncode"] == -1
+        assert "Argument list too long" in result["stderr"]
+
+    def test_ssh_oserror_returns_error_envelope(self):
+        server = _isolated_server()
+        run = mock.Mock(side_effect=OSError(7, "Argument list too long"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=False),
+            mock.patch.object(server, "_ssh_opts", return_value=[]),
+            mock.patch.object(server, "_role_for_host", return_value="shop"),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            result = server._run_remote("node2", "aitbc wallet list")
+        assert result["returncode"] == -1
+        assert "Argument list too long" in result["stderr"]
+
 
 class TestScratchFileTool:
     def _fake_remote(self, captured):
@@ -222,9 +247,17 @@ class TestScratchFileTool:
             result = json.loads(mcp_server.aitbc_scratch_file(action="read", path=bad, host="node2"))
             assert "under" in result["error"] or "/var/tmp" in result["error"], bad
 
-    def test_write_uses_base64_single_command(self):
-        captured: list[str] = []
-        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
+    def test_write_payload_rides_stdin_not_argv(self):
+        """#2505: the base64 payload must reach the child on stdin — a single
+        argv string is capped at MAX_ARG_STRLEN (~128 KiB), so writes above
+        ~96 KiB raised OSError E2BIG."""
+        captured: list[tuple] = []
+
+        def fake(host, command, timeout=60, **kwargs):
+            captured.append((command, kwargs))
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", fake):
             result = json.loads(
                 mcp_server.aitbc_scratch_file(
                     action="write",
@@ -234,18 +267,49 @@ class TestScratchFileTool:
                 )
             )
         assert result["returncode"] == 0
-        cmd = captured[0]
+        cmd, kwargs = captured[0]
         # single python3 -c invocation: works via remote shell AND local execvp
         assert cmd.startswith("python3 -c ")
         assert "/var/tmp/s76/quote.json" in cmd
-        assert base64.b64encode(b'{"price": "1.5"}').decode() in cmd
+        # payload is NOT in argv — it travels on stdin_text
+        assert base64.b64encode(b'{"price": "1.5"}').decode() not in cmd
+        assert kwargs.get("stdin_text") == base64.b64encode(b'{"price": "1.5"}').decode()
         # content must not appear raw in the shell command
         assert '"price"' not in cmd
 
+    def test_write_large_payload_stays_off_argv(self):
+        """#2505 regression: a ~100 KiB write (b64 > MAX_ARG_STRLEN) must
+        still produce a small argv and carry the payload on stdin."""
+        payload = "x" * 100 * 1024
+        captured: list[tuple] = []
+
+        def fake(host, command, timeout=60, **kwargs):
+            captured.append((command, kwargs))
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", fake):
+            result = json.loads(
+                mcp_server.aitbc_scratch_file(
+                    action="write",
+                    path="/var/tmp/s76/big.txt",
+                    content=payload,
+                    host="node2",
+                )
+            )
+        assert result["returncode"] == 0
+        cmd, kwargs = captured[0]
+        assert len(cmd) < 4096  # argv stays tiny regardless of payload size
+        assert kwargs.get("stdin_text") == base64.b64encode(payload.encode()).decode()
+
     def test_write_content_base64_binary(self):
-        captured: list[str] = []
+        captured: list[tuple] = []
         payload = base64.b64encode(b"\x00\x01\x02binary").decode()
-        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
+
+        def fake(host, command, timeout=60, **kwargs):
+            captured.append((command, kwargs))
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", fake):
             result = json.loads(
                 mcp_server.aitbc_scratch_file(
                     action="write",
@@ -255,8 +319,10 @@ class TestScratchFileTool:
                 )
             )
         assert result["returncode"] == 0
-        # the command carries base64 of the decoded bytes (re-encoded)
-        assert base64.b64encode(b"\x00\x01\x02binary").decode() in captured[0]
+        cmd, kwargs = captured[0]
+        # the re-encoded bytes ride stdin, not the command line
+        assert base64.b64encode(b"\x00\x01\x02binary").decode() not in cmd
+        assert kwargs.get("stdin_text") == base64.b64encode(b"\x00\x01\x02binary").decode()
 
     def test_write_both_content_forms_refused(self):
         result = json.loads(

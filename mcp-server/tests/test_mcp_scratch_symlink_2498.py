@@ -24,9 +24,10 @@ import aitbc_mcp_server as mcp_server  # noqa: E402
 import aitbc_mcp_scratch_tools  # noqa: E402,F401  (registers aitbc_scratch_file)
 
 
-def _run_snippet(snippet: str, *args: str) -> subprocess.CompletedProcess:
+def _run_snippet(snippet: str, *args: str, stdin_text: str | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-c", snippet, *args],
+        input=stdin_text,
         capture_output=True,
         text=True,
         timeout=30,
@@ -59,7 +60,7 @@ class TestScratchSnippetRealpath:
         res = _run_snippet(
             aitbc_mcp_scratch_tools._PY_WRITE,
             str(target),
-            base64.b64encode(b"pwned").decode(),
+            stdin_text=base64.b64encode(b"pwned").decode(),
         )
         assert res.returncode == 3
         assert "escapes" in res.stderr
@@ -70,7 +71,7 @@ class TestScratchSnippetRealpath:
         res = _run_snippet(
             aitbc_mcp_scratch_tools._PY_WRITE,
             str(target),
-            base64.b64encode(b"fine").decode(),
+            stdin_text=base64.b64encode(b"fine").decode(),
         )
         assert res.returncode == 0
         assert target.read_bytes() == b"fine"

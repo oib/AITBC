@@ -49,12 +49,15 @@ _PY_GUARD = (
     "    sys.exit(3)\n"
 )
 
+# #2505: the payload rides stdin, not argv — a single argv string is capped
+# at MAX_ARG_STRLEN (~128 KiB), so base64 content above ~96 KiB raised
+# OSError E2BIG. stdin has no such limit and never lands in ``ps``.
 _PY_WRITE = (
     _PY_GUARD
     + "import base64,pathlib\n"
     + "p=pathlib.Path(r)\n"
     + "p.parent.mkdir(parents=True,exist_ok=True)\n"
-    + "d=base64.b64decode(sys.argv[2])\n"
+    + "d=base64.b64decode(sys.stdin.buffer.read())\n"
     + "p.write_bytes(d)\n"
     + "print(len(d))\n"
 )
@@ -109,23 +112,28 @@ def _scratch_path(path: str) -> str | None:
     return norm
 
 
-def _scratch_write_command(qpath: str, content: str | None, content_base64: str | None) -> tuple[str | None, str | None]:
-    """Build the write command; returns ``(command, error)``."""
+def _scratch_write_command(
+    qpath: str, content: str | None, content_base64: str | None
+) -> tuple[str | None, str | None, str | None]:
+    """Build the write command; returns ``(command, stdin_text, error)``.
+
+    The base64 payload goes to the child's stdin (#2505) — never argv.
+    """
     if content is not None and content_base64 is not None:
-        return None, "pass either content or content_base64, not both"
+        return None, None, "pass either content or content_base64, not both"
     if content_base64 is not None:
         try:
             data = base64.b64decode(content_base64, validate=True)
         except ValueError:
-            return None, "content_base64 is not valid base64"
+            return None, None, "content_base64 is not valid base64"
     elif content is not None:
         data = content.encode("utf-8")
     else:
-        return None, "content or content_base64 is required for action='write'"
+        return None, None, "content or content_base64 is required for action='write'"
     if len(data) > SCRATCH_WRITE_MAX_BYTES:
-        return None, f"content exceeds {SCRATCH_WRITE_MAX_BYTES} bytes"
+        return None, None, f"content exceeds {SCRATCH_WRITE_MAX_BYTES} bytes"
     b64 = base64.b64encode(data).decode("ascii")
-    return f"python3 -c {shlex.quote(_PY_WRITE)} {qpath} {shlex.quote(b64)}", None
+    return f"python3 -c {shlex.quote(_PY_WRITE)} {qpath}", b64, None
 
 
 def _scratch_read_result(result: dict) -> dict:
@@ -213,8 +221,9 @@ def aitbc_scratch_file(
     qpath = shlex.quote(norm)
 
     command: str
+    stdin_text: str | None = None
     if action == "write":
-        cmd, error = _scratch_write_command(qpath, content, content_base64)
+        cmd, stdin_text, error = _scratch_write_command(qpath, content, content_base64)
         if error or cmd is None:
             return _json({"error": error or "failed to build write command"})
         command = cmd
@@ -225,7 +234,7 @@ def aitbc_scratch_file(
     else:  # list
         command = f"python3 -c {shlex.quote(_PY_LIST)} {qpath}"
 
-    result = _run_remote(target, command, timeout)
+    result = _run_remote(target, command, timeout, stdin_text=stdin_text)
     if action == "read":
         result = _scratch_read_result(result)
     result["path"] = norm
