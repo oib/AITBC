@@ -488,7 +488,10 @@ async def _fetch_peer_chain_export(peer_url: str) -> dict[str, Any]:
     )
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail=f"Failed to fetch peer chain: {response.status_code}")
-    return cast(dict[str, Any], response.json())
+    try:
+        return cast(dict[str, Any], response.json())
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=f"Peer {peer_url} returned invalid JSON") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -508,7 +511,10 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         target_height = peer_data.get("target_height")
         await _validate_force_sync_peer_url(peer_url)
         peer_chain_data = await _fetch_peer_chain_export(cast(str, peer_url))
-        peer_blocks = peer_chain_data["export_data"]["blocks"]
+        export_data = peer_chain_data.get("export_data") if isinstance(peer_chain_data, dict) else None
+        if not isinstance(export_data, dict) or not isinstance(export_data.get("blocks"), list):
+            raise HTTPException(status_code=502, detail=f"Peer {peer_url} returned a malformed chain export")
+        peer_blocks = export_data["blocks"]
         if target_height and len(peer_blocks) < target_height:
             raise HTTPException(
                 status_code=400, detail=f"Peer only has {len(peer_blocks)} blocks, cannot sync to height {target_height}"
@@ -518,7 +524,6 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         # The import is destructive, so it takes the same serializer
         # import_chain holds: the per-process lock plus the cross-worker
         # advisory on the target chain (AUDIT-BN-FORCE-SYNC-NO-IMPORT-SERIALIZER-1).
-        export_data = peer_chain_data["export_data"]
         async with _import_lock:
             _import_advisory = None
             try:
