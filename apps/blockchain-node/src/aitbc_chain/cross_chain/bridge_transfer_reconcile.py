@@ -238,8 +238,9 @@ class BridgeTransferReconcileMixin(BridgeBase):
     def _remote_release_verdict(self, target: str, transfer_id: str) -> tuple[str, dict[str, Any] | None]:
         """Target chain's view of one transfer via its bridge API (#2486).
 
-        Returns ``("released", row)`` when the peer reports the transfer
-        confirmed/completed, ``("clear", row)`` for any other remote status,
+        Returns ``("released", row)`` when the peer's release-evidence route
+        reports ``released:true``, ``("clear", row)`` for a definitive
+        ``released:false``,
         ``("unreachable", None)`` when a mapping exists but the fetch failed,
         and ``("unconfigured", None)`` when no sync source is configured or
         remote evidence is disabled. The refund guard fails closed on
@@ -251,10 +252,10 @@ class BridgeTransferReconcileMixin(BridgeBase):
         base = self._remote_transfer_base(target)
         if not base:
             return "unconfigured", None
-        row = self._fetch_remote_transfer(base, transfer_id)
+        row = self._fetch_remote_release(base, target, transfer_id)
         if row is None:
             return "unreachable", None
-        if str(row.get("status") or "") in ("confirmed", "completed"):
+        if row.get("released") is True:
             return "released", row
         return "clear", row
 
@@ -265,10 +266,10 @@ class BridgeTransferReconcileMixin(BridgeBase):
 
         A node that holds no local store for ``target`` cannot read the
         sealed BRIDGE_RELEASE — but the producing chain's rpc answers
-        ``GET /rpc/bridge/transfer/{id}`` with the same outcome (status,
+        ``GET /rpc/bridge/release/{id}`` with the same outcome (released,
         target_tx_hash, confirm_time). No mapping, an unreachable peer, or a
-        non-confirmed row all yield no evidence; the local row keeps its
-        honest NULL.
+        ``released:false`` answer all yield no evidence; the local row keeps
+        its honest NULL.
         """
         if not bool(getattr(settings, "bridge_reconcile_remote_evidence_enabled", True)):
             return {}
@@ -279,24 +280,74 @@ class BridgeTransferReconcileMixin(BridgeBase):
         for tid in sorted(wanted):
             if deadline is not None and time.monotonic() >= deadline:
                 break
-            row = self._fetch_remote_transfer(base, tid)
-            if row is None:
+            row = self._fetch_remote_release(base, target, tid)
+            if row is None or row.get("released") is not True:
                 continue
-            status = str(row.get("status") or "")
             confirm_time = _parse_iso8601(row.get("confirm_time"))
             tx_hash = row.get("target_tx_hash")
-            if status in ("confirmed", "completed") and confirm_time is not None:
+            if confirm_time is not None:
                 evidence[tid] = (tx_hash if isinstance(tx_hash, str) else None, confirm_time)
         return evidence
 
+    def release_evidence(self, transfer_id: str, chain_id: str | None = None) -> dict[str, Any]:
+        """Authoritative release evidence for ``transfer_id`` (#2503).
+
+        A target chain can seal the ``BRIDGE_RELEASE`` credit without ever
+        holding a ``cross_chain_transfer`` row for a hub-originated transfer,
+        so the row lookup alone is not authoritative — the sealed index is
+        consulted as well. ``released`` is True only for a confirmed/completed
+        row or a sealed release; every other outcome is a definitive negative.
+        Read-only; never creates a store for ``chain_id``.
+        """
+        chain = chain_id or str(getattr(settings, "chain_id", "") or "")
+        evidence: dict[str, Any] = {
+            "transfer_id": transfer_id,
+            "released": False,
+            "status": None,
+            "target_tx_hash": None,
+            "confirm_time": None,
+        }
+        if not self._chain_db_ready(chain):
+            return evidence
+        with self._session_for(chain) as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+        if record is not None:
+            evidence["status"] = record.status
+            if record.status in ("confirmed", "completed"):
+                evidence["released"] = True
+                evidence["target_tx_hash"] = record.target_tx_hash
+                confirm_time = _aware(record.confirm_time)
+                evidence["confirm_time"] = confirm_time.isoformat() if confirm_time else None
+            return evidence
+        hit = self._sealed_transfer_index(chain, "BRIDGE_RELEASE", {transfer_id}).get(transfer_id)
+        if hit is not None:
+            tx_hash, sealed_at = hit
+            aware_sealed = _aware(sealed_at)
+            evidence.update(
+                released=True,
+                status="completed",
+                target_tx_hash=tx_hash,
+                confirm_time=aware_sealed.isoformat() if aware_sealed else None,
+            )
+        return evidence
+
     @staticmethod
-    def _fetch_remote_transfer(base_url: str, transfer_id: str) -> dict[str, Any] | None:
-        """GET ``{base}/rpc/bridge/transfer/{id}``; None on any failure."""
+    def _fetch_remote_release(base_url: str, target: str, transfer_id: str) -> dict[str, Any] | None:
+        """GET ``{base}/rpc/bridge/release/{id}?chain_id={target}``; None on any failure.
+
+        #2503: the release-evidence route answers 200 with a definitive
+        ``released`` flag either way. A non-200 — including the route-level
+        404 an unpatched peer returns for every id — stays ``unreachable``
+        so an old build can never be read as "no release".
+        """
         import httpx
 
         try:
             with httpx.Client(timeout=5.0, headers=_remote_api_headers()) as client:
-                resp = client.get(f"{base_url}/rpc/bridge/transfer/{transfer_id}")
+                resp = client.get(
+                    f"{base_url}/rpc/bridge/release/{transfer_id}",
+                    params={"chain_id": target},
+                )
             if resp.status_code != 200:
                 return None
             data = resp.json()
@@ -304,8 +355,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
             return None
         if not isinstance(data, dict):
             return None
-        nested = data.get("transfer")
-        return nested if isinstance(nested, dict) else data
+        return data
 
     def _backfill_one(
         self,

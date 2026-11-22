@@ -149,6 +149,7 @@ bridge_unlock: Callable[..., Any] | None = None
 get_block_header: Callable[..., Any] | None = None
 get_bridge_balance: Callable[..., Any] | None = None
 get_bridge_proof: Callable[..., Any] | None = None
+get_bridge_release: Callable[..., Any] | None = None
 get_bridge_transfer: Callable[..., Any] | None = None
 get_validator_set: Callable[..., Any] | None = None
 list_bridge_transfers: Callable[..., Any] | None = None
@@ -168,6 +169,7 @@ try:
         get_block_header,
         get_bridge_balance,
         get_bridge_proof,
+        get_bridge_release,
         get_bridge_transfer,
         get_validator_set,
         list_bridge_transfers,
@@ -208,6 +210,19 @@ def get_bridge_transfer_route(request: Request, transfer_id: str) -> dict[str, A
     if get_bridge_transfer is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     return get_bridge_transfer(request, transfer_id)  # type: ignore[no-any-return]
+
+
+@router.get("/release/{transfer_id}", summary="Get bridge release evidence for a transfer")
+@rate_limit(rate=100, per=60)
+def get_bridge_release_route(request: Request, transfer_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Authoritative release evidence — answers from the sealed BRIDGE_RELEASE
+    index as well as the transfer row, so store-less target chains can attest
+    releases for transfers they never recorded locally (#2503)."""
+    if get_bridge_release is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    if chain_id:
+        _validate_chain_id(chain_id)
+    return get_bridge_release(request, transfer_id, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/transfer/{transfer_id}/proof", summary="Build bridge transfer proof")

@@ -182,8 +182,13 @@ REMOTE_HASH = "0x" + "55" * 32
 REMOTE_CONFIRM = "2026-11-22T01:02:03+00:00"
 
 
-def _remote_row(status: str = "completed") -> dict:
-    return {"status": status, "target_tx_hash": REMOTE_HASH, "confirm_time": REMOTE_CONFIRM}
+def _remote_row(released: bool = True) -> dict:
+    return {
+        "released": released,
+        "status": "completed" if released else "pending",
+        "target_tx_hash": REMOTE_HASH if released else None,
+        "confirm_time": REMOTE_CONFIRM if released else None,
+    }
 
 
 def _storeless_with_source(monkeypatch, fetch):
@@ -191,7 +196,7 @@ def _storeless_with_source(monkeypatch, fetch):
     monkeypatch.setattr(settings, "chain_sync_sources", f"{TARGET}:https://island.example")
     return (
         patch.object(CrossChainBridge, "_chain_db_ready", return_value=False),
-        patch.object(CrossChainBridge, "_fetch_remote_transfer", side_effect=fetch),
+        patch.object(CrossChainBridge, "_fetch_remote_release", side_effect=fetch),
     )
 
 
@@ -202,7 +207,7 @@ def test_refund_refused_storeless_when_remote_reports_released(bridge, engine, m
     tid = _lock_transfer(bridge, engine, status="pending")
     _seal_release(engine, tid)
 
-    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: _remote_row())
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, target, tid: _remote_row())
     with p1, p2, pytest.raises(ValueError, match="already released"):
         bridge.refund_transfer(tid, SENDER)
 
@@ -219,7 +224,7 @@ def test_refund_confirmed_storeless_unreachable_peer_fails_closed(bridge, engine
     _seed(engine)
     tid = _lock_transfer(bridge, engine, status="confirmed", age_seconds=7200)
 
-    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: None)
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, target, tid: None)
     with p1, p2, pytest.raises(ValueError, match="unreachable"):
         bridge.refund_transfer(tid, SENDER)
 
@@ -232,7 +237,7 @@ def test_refund_pending_storeless_unreachable_peer_stays_time_gated(bridge, engi
     _seed(engine)
     tid = _lock_transfer(bridge, engine, status="pending")
 
-    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: None)
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, target, tid: None)
     with p1, p2:
         refunded = bridge.refund_transfer(tid, SENDER)
     assert refunded.status == BridgeStatus.refunded
@@ -243,7 +248,7 @@ def test_refund_storeless_remote_clear_status_allows_refund(bridge, engine, monk
     _seed(engine)
     tid = _lock_transfer(bridge, engine, status="pending")
 
-    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: _remote_row(status="pending"))
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, target, tid: _remote_row(released=False))
     with p1, p2:
         refunded = bridge.refund_transfer(tid, SENDER)
     assert refunded.status == BridgeStatus.refunded

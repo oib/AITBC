@@ -8950,6 +8950,88 @@
         }
       }
     },
+    "/rpc/bridge/release/{transfer_id}": {
+      "get": {
+        "tags": [
+          "rpc",
+          "bridge"
+        ],
+        "summary": "Get bridge release evidence for a transfer",
+        "description": "Authoritative release evidence \u2014 answers from the sealed BRIDGE_RELEASE\nindex as well as the transfer row, so store-less target chains can attest\nreleases for transfers they never recorded locally (#2503).",
+        "operationId": "get_bridge_release_route_rpc_bridge_release__transfer_id__get",
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Bridge Release Route Rpc Bridge Release  Transfer Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/bridge/transfer/{transfer_id}/proof": {
       "get": {
         "tags": [
@@ -21220,6 +21302,88 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/release/{transfer_id}": {
+      "get": {
+        "tags": [
+          "v1",
+          "bridge"
+        ],
+        "summary": "Get bridge release evidence for a transfer",
+        "description": "Authoritative release evidence \u2014 answers from the sealed BRIDGE_RELEASE\nindex as well as the transfer row, so store-less target chains can attest\nreleases for transfers they never recorded locally (#2503).",
+        "operationId": "get_bridge_release_route_v1_bridge_release__transfer_id__get",
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Bridge Release Route V1 Bridge Release  Transfer Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

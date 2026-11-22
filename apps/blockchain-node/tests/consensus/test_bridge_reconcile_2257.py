@@ -324,7 +324,8 @@ def test_remote_evidence_backfills_when_target_store_absent(env, monkeypatch):
     _completed_null_row(eng)
     monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
     remote_at = datetime(2026, 11, 21, 22, 0, 0, tzinfo=UTC)
-    rec._fetch_remote_transfer = lambda base, tid: {
+    rec._fetch_remote_release = lambda base, target, tid: {
+        "released": True,
         "status": "completed",
         "target_tx_hash": "rel20",
         "confirm_time": remote_at.isoformat(),
@@ -345,7 +346,7 @@ def test_remote_evidence_ignored_when_disabled(env, monkeypatch):
     monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
     monkeypatch.setattr(settings, "bridge_reconcile_remote_evidence_enabled", False)
     calls = []
-    rec._fetch_remote_transfer = lambda base, tid: calls.append(tid) or {}
+    rec._fetch_remote_release = lambda base, target, tid: calls.append(tid) or {}
     assert rec._reconcile_stale_pending(SRC) == 0
     assert calls == []
     with Session(eng[SRC]) as s:
@@ -361,12 +362,12 @@ def test_remote_evidence_requires_confirmed_status_and_time(env, monkeypatch):
     _completed_null_row(eng, tid="t22")
     monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
 
-    def fake_fetch(base, tid):
+    def fake_fetch(base, target, tid):
         if tid == "t21":
-            return {"status": "pending", "confirm_time": "2026-11-21T22:00:00+00:00"}
-        return {"status": "completed", "confirm_time": None}
+            return {"released": False, "status": "pending", "confirm_time": "2026-11-21T22:00:00+00:00"}
+        return {"released": True, "status": "completed", "confirm_time": None}
 
-    rec._fetch_remote_transfer = fake_fetch
+    rec._fetch_remote_release = fake_fetch
     assert rec._reconcile_stale_pending(SRC) == 0
     with Session(eng[SRC]) as s:
         assert s.get(CrossChainTransfer, "t21").confirm_time is None
@@ -378,7 +379,7 @@ def test_remote_evidence_unreachable_keeps_null(env, monkeypatch):
     eng.pop(DST)
     _completed_null_row(eng)
     monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
-    rec._fetch_remote_transfer = lambda base, tid: None
+    rec._fetch_remote_release = lambda base, target, tid: None
     assert rec._reconcile_stale_pending(SRC) == 0
     with Session(eng[SRC]) as s:
         assert s.get(CrossChainTransfer, "t20").confirm_time is None
@@ -391,12 +392,14 @@ def test_remote_evidence_no_sync_source_configured(env):
     eng.pop(DST)
     _completed_null_row(eng)
     calls = []
-    rec._fetch_remote_transfer = lambda base, tid: calls.append(tid) or {}
+    rec._fetch_remote_release = lambda base, target, tid: calls.append(tid) or {}
     assert rec._reconcile_stale_pending(SRC) == 0
     assert calls == []
 
 
-def test_fetch_remote_transfer_flat_and_nested_envelopes(monkeypatch):
+def test_fetch_remote_release_200_and_params(monkeypatch):
+    """#2503: the fetch hits the release-evidence route with the target chain
+    and returns the flat released/status payload."""
     import httpx
 
     class _Resp:
@@ -417,11 +420,13 @@ def test_fetch_remote_transfer_flat_and_nested_envelopes(monkeypatch):
         def __exit__(self, *args):
             return False
 
-        def get(self, url):
+        def get(self, url, params=None):
             self.url = url
+            self.params = params
             return _Resp(
                 {
                     "success": True,
+                    "released": True,
                     "status": "completed",
                     "target_tx_hash": "0xrel",
                     "confirm_time": "2026-11-21T22:00:00+00:00",
@@ -429,13 +434,15 @@ def test_fetch_remote_transfer_flat_and_nested_envelopes(monkeypatch):
             )
 
     monkeypatch.setattr(httpx, "Client", _Client)
-    row = BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1")
+    row = BridgeTransferReconcileMixin._fetch_remote_release("https://island.example", "bc-2", "t1")
     assert row is not None
-    assert row["status"] == "completed"
+    assert row["released"] is True
     assert row["target_tx_hash"] == "0xrel"
 
 
-def test_fetch_remote_transfer_non_200_and_errors(monkeypatch):
+def test_fetch_remote_release_non_200_and_errors(monkeypatch):
+    """#2503: any non-200 — including the route-level 404 an unpatched peer
+    returns — stays None (unreachable), never a definitive 'no release'."""
     import httpx
 
     class _Resp:
@@ -454,11 +461,11 @@ def test_fetch_remote_transfer_non_200_and_errors(monkeypatch):
         def __exit__(self, *args):
             return False
 
-        def get(self, url):
+        def get(self, url, params=None):
             return _Resp()
 
     monkeypatch.setattr(httpx, "Client", _Client)
-    assert BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1") is None
+    assert BridgeTransferReconcileMixin._fetch_remote_release("https://island.example", "bc-2", "t1") is None
 
     class _Boom:
         def __init__(self, **kwargs):
@@ -471,7 +478,7 @@ def test_fetch_remote_transfer_non_200_and_errors(monkeypatch):
             return False
 
     monkeypatch.setattr(httpx, "Client", _Boom)
-    assert BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1") is None
+    assert BridgeTransferReconcileMixin._fetch_remote_release("https://island.example", "bc-2", "t1") is None
 
 
 def test_stale_pending_reconciles_via_remote_evidence(env, monkeypatch):
@@ -483,8 +490,13 @@ def test_stale_pending_reconciles_via_remote_evidence(env, monkeypatch):
     _row(eng, "t-remote")
     monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
     remote_at = datetime(2026, 11, 22, 1, 2, 3, tzinfo=UTC)
-    rec._fetch_remote_transfer = lambda base, tid: (
-        {"status": "completed", "target_tx_hash": "rel-remote", "confirm_time": remote_at.isoformat()}
+    rec._fetch_remote_release = lambda base, target, tid: (
+        {
+            "released": True,
+            "status": "completed",
+            "target_tx_hash": "rel-remote",
+            "confirm_time": remote_at.isoformat(),
+        }
         if tid == "t-remote"
         else None
     )
@@ -504,7 +516,7 @@ def test_stale_pending_remote_clear_status_stays_pending(env, monkeypatch):
     # tx — only the remote "not released" answer keeps it pending.
     _row(eng, "t-clear", lock_time=datetime.now(UTC) - timedelta(hours=1))
     monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
-    rec._fetch_remote_transfer = lambda base, tid: {"status": "pending"}
+    rec._fetch_remote_release = lambda base, target, tid: {"released": False, "status": "pending"}
     assert rec._reconcile_stale_pending(SRC) == 0
     assert _status(eng, "t-clear") == "pending"
 
