@@ -9,6 +9,7 @@ Also hosts the shared base-URL and credential helpers the command modules
 use, so the ``coordinator_api_url`` conventions stay in one place (GAP-22).
 """
 
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -201,6 +202,23 @@ def http_response_status(exc: BaseException) -> int | None:
             return int(response.status_code)
         seen = seen.__cause__ or seen.__context__
     return None
+
+
+def server_answered_status(exc: BaseException) -> int | None:
+    """HTTP status the server returned inside ``exc``, or None on transport failure.
+
+    ``http_response_status`` recovers the code when the wrapped error chain
+    still carries the response object (4xx re-raise path). A 5xx that
+    exhausted retries surfaces only as ``RetryError`` — the response is
+    dropped and the last error survives solely as message text
+    ("500 Server Error: … for url: …"), so fall back to matching that
+    shape. Connection refused/DNS/timeout never match.
+    """
+    code = http_response_status(exc)
+    if code is not None:
+        return code
+    match = re.search(r"\b([45]\d{2}) (?:Client|Server) Error\b", str(exc))
+    return int(match.group(1)) if match else None
 
 
 def http_error_detail(exc: BaseException) -> str | None:

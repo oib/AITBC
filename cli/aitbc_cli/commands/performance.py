@@ -39,7 +39,7 @@ def benchmark(ctx, rpc_url):
     try:
         import time
 
-        from ..utils.http_client import AITBCHTTPClient, NetworkError
+        from ..utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, server_answered_status
 
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         samples = []
@@ -62,6 +62,11 @@ def benchmark(ctx, rpc_url):
         }
         output(result, ctx.obj.get("output_format", "table"), title="Performance Benchmark")
     except NetworkError as e:
+        code = server_answered_status(e)
+        if code is not None:
+            detail = http_error_detail(e)
+            suffix = f" — {detail}" if detail else ""
+            abort(ctx, f"RPC at {rpc_url} answered HTTP {code}{suffix}", from_exception=e)
         abort(ctx, f"RPC unreachable at {rpc_url}: {e}", from_exception=e)
     except (AITBCError, OSError, ArithmeticError, ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error running benchmark: {e}", from_exception=e)
