@@ -22,6 +22,7 @@ from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
 from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, post_signed_resolved, resolve_rpc_url
+from ..utils.tx_history import scan_transactions_for_payload_id
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -202,7 +203,7 @@ def expire(ctx, bounty_id, user_address, **kw):
 @click.option("--bounty-id", "bounty_id", required=True, help="Bounty identifier to look up on-chain")
 @click.option("--chain-id", "chain_id", default=None, help="Chain ID to query (defaults to the node's)")
 @click.option("--rpc-url", "rpc_url", default=None, help="Blockchain RPC URL (overrides config)")
-@click.option("--limit", "limit", default=200, type=int, help="Max transactions scanned per type")
+@click.option("--limit", "limit", default=5000, type=int, help="Max transactions scanned per type")
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as JSON")
 @click.pass_context
 def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
@@ -210,17 +211,23 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
     rpc = resolve_rpc_url(ctx, rpc_url)
     client = AITBCHTTPClient(base_url=rpc, timeout=15)
     found: dict[str, Any] = {}
+    truncated = False
     for tx_type in ("BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND"):
-        params = {"transaction_type": tx_type, "chain_id": chain_id, "limit": limit}
         try:
-            # /rpc/transactions answers a bare JSON array; get_json() accepts
-            # either shape and a {"transactions": [...]} envelope is tolerated
-            # so a peer returning one does not crash the lookup (#2241).
-            rows: Any = client.get_json("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
+            # #2507: page with before_id until the id's rows are found or the
+            # scan budget/history ends — a single newest-N window read
+            # found:false for ids older than the window.
+            matches, hit_cap = scan_transactions_for_payload_id(
+                client,
+                transaction_type=tx_type,
+                payload_key="bounty_id",
+                payload_id=bounty_id,
+                chain_id=chain_id,
+                limit=limit,
+            )
         except _OPS_ERRORS as e:
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
-        txs: list[dict[str, Any]] = (rows.get("transactions", []) if isinstance(rows, dict) else rows) or []
-        matches = [tx for tx in txs if str((tx.get("payload") or {}).get("bounty_id")) == bounty_id]
+        truncated = truncated or hit_cap
         if matches:
             found[tx_type] = matches
     # The BOUNTY_LOCK payload carries the deploy-time deadline_height when the
@@ -233,7 +240,15 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
     output(
         # #2451: `found` distinguishes "no BOUNTY_* rows for this id" from
         # a known bounty — an empty transactions map alone was ambiguous.
-        {"bounty_id": bounty_id, "found": bool(found), "deadline_height": deadline_height, "transactions": found},
+        # #2507: `truncated` marks a scan that hit its budget — found:false
+        # then means "not seen in the scanned window", not "absent".
+        {
+            "bounty_id": bounty_id,
+            "found": bool(found),
+            "truncated": truncated,
+            "deadline_height": deadline_height,
+            "transactions": found,
+        },
         "json" if as_json else resolve_output_format(ctx),
         title=f"Bounty {bounty_id}",
     )
