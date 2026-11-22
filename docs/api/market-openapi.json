@@ -3520,7 +3520,7 @@
     "/v1/market/ratings/sync": {
       "post": {
         "summary": "Sync Ratings",
-        "description": "Sync ratings from remote node",
+        "description": "Sync ratings from remote node.\n\n#2519: synced rows carry a caller-supplied ``reviewer_id`` with no\n# signature to check \u2014 the local ``/rate`` path's #2508 proof and #1584\n# job binding cannot be re-verified here, so inserts are restricted to\n# the operator credential. ``MARKET_API_KEY`` is distributed to users\n# and must not mint rating rows under arbitrary reviewer ids.",
         "operationId": "sync_ratings_v1_market_ratings_sync_post",
         "requestBody": {
           "content": {

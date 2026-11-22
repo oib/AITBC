@@ -219,3 +219,27 @@ class TestOperatorKeyDistinctness:
         with caplog.at_level(logging.WARNING, logger="market_service.config"):
             Settings()
         assert "MARKET_OPERATOR_API_KEY equals API_KEY" not in caplog.text
+
+
+class TestRatingsSyncOperatorOnly:
+    """#2519: synced rating rows carry a caller-supplied ``reviewer_id`` with
+    no signature to re-verify — the #2508 proof and #1584 job binding only
+    exist at local submit time. Inserts are restricted to the operator
+    credential; the distributed user key must not mint rating rows."""
+
+    async def test_sync_user_key_refused(self, tiered_keys) -> None:
+        from fastapi.testclient import TestClient
+        from market_service.main import app
+
+        with TestClient(app) as client:
+            r = client.post("/v1/market/ratings/sync", json=[], headers=_headers(USER_KEY))
+        assert r.status_code == 401, r.text
+
+    async def test_sync_operator_key_passes_gate(self, tiered_keys) -> None:
+        from fastapi.testclient import TestClient
+        from market_service.main import app
+
+        with TestClient(app) as client:
+            r = client.post("/v1/market/ratings/sync", json=[], headers=_headers(OP_KEY))
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "success"
