@@ -71,5 +71,41 @@ def payload_hash(payload: dict[str, Any]) -> bytes:
     return keccak(canonical_sign_payload(payload))
 
 
+def require_signed_transfer_values(payload: dict[str, Any], *, to: str, amount: int) -> None:
+    """Optional strict payee/amount binding for resolved-value transfers (#2472).
+
+    ``BOUNTY_PAYOUT``/``BOUNTY_REFUND``/agent ``STAKE_RELEASE`` resolve the
+    payee and amount server-side, so a signed body that omits them leaves
+    ``payload.auth`` unable to bind those legs — the envelope then stays
+    local-queue only (gossip drops it, #2457/#2472). When the caller signs
+    ``to``/``amount`` — values it can learn from a ``resolve_only`` probe —
+    the operator signature covers them and the transfer becomes
+    gossip-admissible. Both fields must appear together and equal the
+    server-resolved values; with neither present the legacy path proceeds
+    unchanged.
+    """
+    has_to = "to" in payload
+    has_amount = "amount" in payload
+    if not has_to and not has_amount:
+        return
+    if not has_to or not has_amount:
+        raise HTTPException(status_code=400, detail="signed 'to' and 'amount' must be provided together")
+    try:
+        signed_to = _to_ait_address(str(payload["to"]))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="signed 'to' must be a valid address") from None
+    if signed_to != _to_ait_address(str(to)):
+        raise HTTPException(status_code=400, detail="signed 'to' does not match the resolved payee")
+    try:
+        signed_amount = int(payload["amount"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="signed 'amount' must be an integer") from None
+    resolved = int(amount)
+    if signed_amount != resolved:
+        raise HTTPException(
+            status_code=400, detail=f"signed 'amount' {signed_amount} does not match resolved amount {resolved}"
+        )
+
+
 # keep unused import used by address equality
 _ = canonical_address

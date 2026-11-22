@@ -22,7 +22,12 @@ from ..protocol_escrow import (
     stake_escrow_address,
 )
 from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
-from .agent_economics_auth import operator_address, require_int, require_operator_signature
+from .agent_economics_auth import (
+    operator_address,
+    require_int,
+    require_operator_signature,
+    require_signed_transfer_values,
+)
 from .retired import raise_for_unarmed
 from .utils import _require_supported_chain, get_chain_id, validate_chain_id
 
@@ -481,6 +486,15 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
             return early
         _check_lock_maturity(session, chain_id, lock_txs)
         amount = record.amount
+        if payload.get("resolve_only"):
+            # Two-phase commit (#2472): re-sign with these resolved values
+            # so payload.auth binds payee and amount for gossip admission.
+            return {
+                "success": True,
+                "stake_id": str(stake_id),
+                "resolved": {"to": user, "amount": amount},
+            }
+        require_signed_transfer_values(payload, to=user, amount=amount)
         record.status = "completed"
         record.updated_at = datetime.now(UTC)
         session.add(record)

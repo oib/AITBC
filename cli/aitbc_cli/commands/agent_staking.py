@@ -24,7 +24,7 @@ from aitbc.exceptions import AITBCError
 from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
-from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, resolve_rpc_url
+from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, post_signed_resolved, resolve_rpc_url
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -149,7 +149,7 @@ def unbond(ctx, stake_id, user_address, **kw):
 def complete(ctx, stake_id, user_address, **kw):
     """Complete an unbonded agent stake (queues the STAKE_RELEASE payout)."""
     fields = {"stake_id": stake_id, "user_address": user_address}
-    post_signed(
+    post_signed_resolved(
         ctx,
         f"/rpc/agent-staking/stake/{stake_id}/complete",
         fields,

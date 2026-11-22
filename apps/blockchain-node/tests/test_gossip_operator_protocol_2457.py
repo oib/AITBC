@@ -189,8 +189,8 @@ def test_operator_claim_with_foreign_signature_dropped(monkeypatch):
     assert gossip_transaction_drop_reason(tx) == "invalid_protocol_auth"
 
 
-def test_bounty_payout_stays_local_only(monkeypatch):
-    """Payee/amount are resolved server-side after signing — not gossipable."""
+def test_bounty_payout_unbound_stays_local_only(monkeypatch):
+    """Without signed to/amount the payout cannot bind its legs — dropped."""
     _operator_env(monkeypatch)
     message = {"bounty_id": "b-1", "submission_id": "sub-1", "chain_id": CHAIN}
     tx: dict[str, Any] = {
@@ -203,10 +203,10 @@ def test_bounty_payout_stays_local_only(monkeypatch):
         "payload": {"bounty_id": "b-1", "submission_id": "sub-1", "auth": _auth(message)},
         "chain_id": CHAIN,
     }
-    assert gossip_transaction_drop_reason(tx) == "missing_signature"
+    assert gossip_transaction_drop_reason(tx) == "invalid_protocol_auth"
 
 
-def test_bounty_refund_stays_local_only(monkeypatch):
+def test_bounty_refund_unbound_stays_local_only(monkeypatch):
     _operator_env(monkeypatch)
     message = {"bounty_id": "b-1", "user_address": USER, "chain_id": CHAIN}
     tx: dict[str, Any] = {
@@ -219,10 +219,10 @@ def test_bounty_refund_stays_local_only(monkeypatch):
         "payload": {"bounty_id": "b-1", "auth": _auth(message)},
         "chain_id": CHAIN,
     }
-    assert gossip_transaction_drop_reason(tx) == "missing_signature"
+    assert gossip_transaction_drop_reason(tx) == "invalid_protocol_auth"
 
 
-def test_operator_stake_release_stays_local_only(monkeypatch):
+def test_operator_stake_release_unbound_stays_local_only(monkeypatch):
     """Agent STAKE_RELEASE amount is server-resolved — wallet-auth shape
     required, so an operator body (no nonce/timestamp) cannot ride gossip."""
     _operator_env(monkeypatch)

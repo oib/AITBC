@@ -107,16 +107,20 @@ PREREGISTERED_CREDIT_TX_TYPES = frozenset({"BRIDGE_RELEASE", "BRIDGE_REFUND"})
 _GOSSIP_PROTOCOL_TX_TYPES = frozenset({"STAKE_LOCK", "STAKE_RELEASE"})
 
 # Operator-signed protocol transfers a peer can re-verify end-to-end
-# (#2457): the signer is the fleet's ``AGENT_ECONOMICS_OPERATOR_ADDRESS``
-# and the signed RPC body binds the transfer's party, amount and ids, so
-# the same ``payload.auth`` evidence the serving node checked re-verifies
-# on every validator. Only types whose signed message fully binds the
-# envelope qualify — ``BOUNTY_PAYOUT``/``BOUNTY_REFUND`` and the agent
-# ``STAKE_RELEASE`` resolve payee and amount server-side *after* signing,
-# so a gossip copy could be re-pointed at a victim's balance and must stay
+# (#2457, extended #2472): the signer is the fleet's
+# ``AGENT_ECONOMICS_OPERATOR_ADDRESS`` and the signed RPC body binds the
+# transfer's party, amount and ids, so the same ``payload.auth`` evidence
+# the serving node checked re-verifies on every validator.
+# ``BOUNTY_PAYOUT``/``BOUNTY_REFUND`` and the agent ``STAKE_RELEASE``
+# resolve payee and amount server-side, so they qualify only when the
+# signed body carries the resolved ``to``/``amount`` pair — the RPC
+# verifies them against its own resolution before queueing, which makes
+# the embedded auth fully bound. Envelopes signed without them stay
 # local-queue only. ``STAKE_UNBOND`` is an escrow->escrow self-transfer
 # whose only consensus-visible content is the bound ``agent_stake_id``.
-_GOSSIP_OPERATOR_PROTOCOL_TX_TYPES = frozenset({"STAKE_LOCK", "BOUNTY_LOCK", "STAKE_UNBOND"})
+_GOSSIP_OPERATOR_PROTOCOL_TX_TYPES = frozenset(
+    {"STAKE_LOCK", "BOUNTY_LOCK", "STAKE_UNBOND", "BOUNTY_PAYOUT", "BOUNTY_REFUND", "STAKE_RELEASE"}
+)
 
 _GOSSIP_ADMISSIBLE_PROTOCOL_TX_TYPES = _GOSSIP_PROTOCOL_TX_TYPES | _GOSSIP_OPERATOR_PROTOCOL_TX_TYPES
 
@@ -207,24 +211,44 @@ def unsigned_protocol_transfer_admissible(tx_data: dict[str, Any]) -> bool:
         and _protocol_auth_parties_ok(tx_type, auth, tx_data)
     ):
         return True
-    return _operator_protocol_auth_ok(tx_type, auth, tx_data)
+    return _operator_protocol_auth_ok(tx_type, auth, message, tx_data)
 
 
-def _operator_protocol_auth_ok(tx_type: str, auth: dict[str, Any], tx_data: dict[str, Any]) -> bool:
-    """Operator-signed admissibility (#2457).
+def _operator_protocol_amount_bound(tx_type: str, message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """The resolved-value trio must carry a signed ``amount`` equal to the
+    transferred value (#2472) — ``_payload_auth_binds_transfer`` only checks
+    it when present, so gossip requires it outright. Types whose amount is
+    bound by construction (locks, the unbond self-marker) pass through."""
+    if tx_type not in ("BOUNTY_PAYOUT", "BOUNTY_REFUND", "STAKE_RELEASE"):
+        return True
+    amount = message.get("amount")
+    if amount is None:
+        return False
+    try:
+        return int(amount) == int(tx_data.get("value", tx_data.get("amount", 0)))
+    except (TypeError, ValueError):
+        return False
+
+
+def _operator_protocol_auth_ok(tx_type: str, auth: dict[str, Any], message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """Operator-signed admissibility (#2457, extended #2472).
 
     The wallet-auth path above requires a user signature over a fresh
     nonce+timestamp message; operator RPC bodies carry neither, so they
     fail it by construction. The operator variant instead requires the
     auth signer to be this host's configured
     ``AGENT_ECONOMICS_OPERATOR_ADDRESS`` — the same env every fleet
-    validator shares — plus the canonical escrow legs for the type, on
-    top of the signature + transfer binding already verified by the
-    caller. Merely *being* in ``_GOSSIP_OPERATOR_PROTOCOL_TX_TYPES`` is
-    not sufficient: the signed message must still bind this exact
-    envelope, which ``_payload_auth_binds_transfer`` just proved.
+    validator shares — plus the canonical escrow legs for the type and,
+    for the resolved-value trio, a signed ``amount`` equal to the
+    transferred value, on top of the signature + transfer binding already
+    verified by the caller. Merely *being* in
+    ``_GOSSIP_OPERATOR_PROTOCOL_TX_TYPES`` is not sufficient: the signed
+    message must still bind this exact envelope, which
+    ``_payload_auth_binds_transfer`` just proved.
     """
     if tx_type not in _GOSSIP_OPERATOR_PROTOCOL_TX_TYPES:
+        return False
+    if not _operator_protocol_amount_bound(tx_type, message, tx_data):
         return False
     try:
         from .agent_economics_auth import operator_address
@@ -255,6 +279,12 @@ def _operator_protocol_legs_ok(tx_type: str, tx_data: dict[str, Any]) -> bool:
             return recipient == stake_escrow_address()
         if tx_type == "STAKE_UNBOND":
             return sender == recipient == stake_escrow_address()
+        if tx_type in ("BOUNTY_PAYOUT", "BOUNTY_REFUND"):
+            # Payee leg is bound by the signed message; the escrow leg is
+            # the protocol constant checked here (#2472).
+            return sender == bounty_escrow_address()
+        if tx_type == "STAKE_RELEASE":
+            return sender == stake_escrow_address()
     except (TypeError, ValueError):
         return False
     return False

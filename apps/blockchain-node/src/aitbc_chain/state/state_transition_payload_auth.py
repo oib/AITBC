@@ -18,8 +18,9 @@ from ..models import Transaction
 
 # Address fields the staking RPCs put the authorized party under: consensus
 # staking signs {"address": ...}; agent staking is operator-signed with the
-# user under "user_address" (or "staker_address").
-_AUTH_ADDRESS_FIELDS = ("address", "user_address", "staker_address", "creator_address")
+# user under "user_address" (or "staker_address"); the #2472 resolved-value
+# schema adds "to" for the server-resolved payee on payout/refund/release.
+_AUTH_ADDRESS_FIELDS = ("address", "user_address", "staker_address", "creator_address", "to")
 
 
 def _payload_auth_named_addresses(message: dict[str, Any]) -> set[str]:
@@ -54,10 +55,13 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
       consensus-staking row id is assigned after signing) but must match
       when both sides carry it.
     - bounty: ``BOUNTY_LOCK`` binds the creator and ``reward_amount``;
-      ``BOUNTY_REFUND`` binds the refunded payee; ``BOUNTY_PAYOUT`` is
-      operator-signed and the payee is resolved server-side, so it binds
-      ``submission_id`` instead. ``bounty_id`` must match whenever the
-      signed message carries it.
+      ``BOUNTY_REFUND`` binds the refunded payee; ``BOUNTY_PAYOUT`` binds
+      ``submission_id`` plus — when the signed message names a payee —
+      the resolved winner. ``bounty_id`` must match whenever the signed
+      message carries it. The resolved-value trio (``BOUNTY_PAYOUT``,
+      ``BOUNTY_REFUND``, agent ``STAKE_RELEASE``) also binds ``amount``
+      whenever the message carries it (#2472); messages signed before the
+      bound-amount schema omit it and stay admissible on the local path.
     """
     role = _payload_auth_role(tx_type)
     if role is None:
@@ -65,11 +69,33 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
     party, expected_action = role
     if not _payload_auth_party_binds(party, message, tx_data):
         return False
+    if not _payload_auth_payout_payee_binds(tx_type, message, tx_data):
+        return False
     if not _payload_auth_chain_action_binds(message, tx_data, expected_action):
         return False
     if not _payload_auth_amount_binds(tx_type, message, tx_data):
         return False
     return _payload_auth_ids_binds(tx_type, message, tx_data.get("payload") or {})
+
+
+def _payload_auth_payout_payee_binds(tx_type: str, message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """BOUNTY_PAYOUT payee binding (#2472).
+
+    The payout's ``to`` is resolved server-side, so the role table leaves
+    the party unbound. When the signed message names any address — the
+    strict ``to``/``user_address`` schema — the resolved winner must be
+    among them; a message naming no address keeps the legacy behavior.
+    """
+    if tx_type != "BOUNTY_PAYOUT":
+        return True
+    named = _payload_auth_named_addresses(message)
+    if not named:
+        return True
+    try:
+        payee = _to_ait_address(str(tx_data.get("to") or ""))
+    except (TypeError, ValueError):
+        return False
+    return payee in named
 
 
 def _payload_auth_role(tx_type: str) -> tuple[str | None, str] | None:
@@ -111,11 +137,25 @@ def _payload_auth_chain_action_binds(message: dict[str, Any], tx_data: dict[str,
 
 
 def _payload_auth_amount_binds(tx_type: str, message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
-    """A lock's signed amount must equal the transferred value."""
+    """Signed amount must equal the transferred value.
+
+    Locks require the field outright. The resolved-value trio
+    (``BOUNTY_PAYOUT``/``BOUNTY_REFUND``/agent ``STAKE_RELEASE``) binds it
+    only when the message carries ``amount`` — envelopes signed before the
+    #2472 schema omit it and must still seal on the local path.
+    """
+    value = tx_data.get("value", tx_data.get("amount", 0))
+    if tx_type in ("BOUNTY_PAYOUT", "BOUNTY_REFUND", "STAKE_RELEASE"):
+        amount = message.get("amount")
+        if amount is None:
+            return True
+        try:
+            return int(amount) == int(value)
+        except (TypeError, ValueError):
+            return False
     if tx_type not in ("STAKE_LOCK", "BOUNTY_LOCK"):
         return True
     amount = message.get("amount", message.get("additional_amount", message.get("reward_amount")))
-    value = tx_data.get("value", tx_data.get("amount", 0))
     try:
         return amount is not None and int(amount) == int(value)
     except (TypeError, ValueError):
