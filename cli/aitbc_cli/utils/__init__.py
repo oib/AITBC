@@ -16,9 +16,8 @@ from .output import (
 )
 
 # Core helper modules (error_handling is safe once output symbols are exported)
-from . import address, blockchain, chain_id, escrow, island_credentials, wallet, wallet_loader
+from . import address, chain_id, escrow, island_credentials, wallet, wallet_loader
 from .address import is_canonical, to_canonical
-from .blockchain import get_blockchain_analytics, get_chain_info, get_network_status
 from .escrow import (
     build_escrow_lock_tx,
     create_signed_escrow_lock,
@@ -44,13 +43,9 @@ __all__ = [
     "decode_value",
     "setup_logging",
     "wallet",
-    "blockchain",
     "chain_id",
     "island_credentials",
     "decrypt_private_key",
-    "get_chain_info",
-    "get_network_status",
-    "get_blockchain_analytics",
     "to_canonical",
     "is_canonical",
     "load_wallet_for_payment",
