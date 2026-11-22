@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from sqlalchemy import update
+from sqlalchemy.exc import MultipleResultsFound
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
@@ -35,6 +36,7 @@ _PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at",
 from .shared import (
     MAX_JOB_TTL_SECONDS,
     MAX_PAYMENT_AMOUNT,
+    AmbiguousOfferIdError,
     _ACCESS_TOKEN_ACTIVE_STATES,
     _HEALTH_REFUSED,
     _MAX_JOB_DISPUTES,
@@ -205,7 +207,13 @@ class _JobsMixin(_CoreMixin):
         try:
             stmt = select(SoftwareService).where(SoftwareService.offer_id == offer_id)  # type: ignore[arg-type]
             result = await self.session.execute(stmt)
-            service = result.scalar_one_or_none()
+            try:
+                service = result.scalar_one_or_none()
+            except MultipleResultsFound as e:
+                # #2610: duplicate offer_id rows (pre-fix data or a bypassed
+                # registration) must not 500 every by-offer-id caller —
+                # surface a typed ambiguity the routes map to 409.
+                raise AmbiguousOfferIdError(f"offer_id {offer_id} matches multiple services") from e
             if not service:
                 return None
             return {

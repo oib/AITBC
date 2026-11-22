@@ -1287,3 +1287,127 @@ async def test_unregister_offer_refuses_a_row_with_no_provider_on_record():
     with pytest.raises(PermissionError, match="no provider on record"):
         await _service_unregister(plugin_id, _signed_unregister(plugin_id))
     assert await _row_exists(plugin_id)
+
+
+# --- #2610: offer_id uniqueness ---
+
+
+@pytest.mark.asyncio
+async def test_register_rejects_an_offer_id_another_plugin_holds():
+    """#2610: a second plugin_id cannot claim an offer_id another service row
+    already holds — the duplicate row broke every offer_id lookup with
+    MultipleResultsFound (billing signer, ratings, offer-by-id)."""
+    from market_service.services.market_service import OfferIdConflictError
+
+    await _service_register("dup-offer-a", offer_id="dup-offer-shared")
+    with pytest.raises(OfferIdConflictError):
+        await _service_register("dup-offer-b", private_key=_OTHER_KEY, offer_id="dup-offer-shared")
+    assert not await _row_exists("dup-offer-b")
+
+
+@pytest.mark.asyncio
+async def test_register_rejects_same_provider_second_plugin_on_one_offer_id():
+    """One row per offer_id regardless of provider — two plugin_ids of the
+    same wallet still break scalar_one_or_none lookups."""
+    from market_service.services.market_service import OfferIdConflictError
+
+    await _service_register("dup-sameprov-a", offer_id="dup-sameprov-offer")
+    with pytest.raises(OfferIdConflictError):
+        await _service_register("dup-sameprov-b", offer_id="dup-sameprov-offer")
+    assert not await _row_exists("dup-sameprov-b")
+
+
+@pytest.mark.asyncio
+async def test_register_update_keeping_its_own_offer_id_still_works():
+    """The row's own plugin_id is exempt: re-registering with the same
+    offer_id is a legitimate update, not a conflict."""
+    await _service_register("dup-update", offer_id="dup-update-offer", endpoint="https://a.example/one")
+    result = await _service_register("dup-update", offer_id="dup-update-offer", endpoint="https://a.example/two")
+    assert result["plugin_id"] == "dup-update"
+
+
+@pytest.mark.asyncio
+async def test_register_update_rejects_an_offer_id_held_by_another_plugin():
+    """An update that tries to move onto another row's offer_id is refused
+    the same as a fresh claim."""
+    from market_service.services.market_service import OfferIdConflictError
+
+    await _service_register("dup-move-a", offer_id="dup-move-offer")
+    await _service_register("dup-move-b")
+    with pytest.raises(OfferIdConflictError):
+        await _service_register("dup-move-b", offer_id="dup-move-offer")
+
+
+def test_register_offer_route_maps_offer_id_conflict_to_409(client):
+    """The public route surfaces the conflict as 409, not a 500."""
+    _register(client, "dup-route-a", offer_id="dup-route-offer")
+
+    response = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(
+            plugin_id="dup-route-b",
+            service_type="inference",
+            model="m",
+            private_key=_OTHER_KEY,
+            offer_id="dup-route-offer",
+        ),
+    )
+
+    assert response.status_code == 409
+
+
+async def _seed_duplicate_offer_rows(offer_id: str) -> None:
+    """Two SoftwareService rows claiming one offer_id — the pre-fix state
+    (or a bypassed registration) the routes must survive."""
+    import uuid
+
+    from market_service.domain.market import SoftwareService
+    from market_service.storage import get_session_context
+
+    suffix = uuid.uuid4().hex[:8]
+    async with get_session_context() as session:
+        session.add(SoftwareService(plugin_id=f"{offer_id}-a-{suffix}", service_type="ipfs", offer_id=offer_id))
+        session.add(SoftwareService(plugin_id=f"{offer_id}-b-{suffix}", service_type="ipfs", offer_id=offer_id))
+        await session.commit()
+
+
+def test_offer_by_id_route_answers_409_for_duplicate_offer_rows(client):
+    """#2610: legacy duplicate rows must not 500 the by-id read."""
+    import asyncio
+    import uuid
+
+    offer_id = f"dup-legacy-{uuid.uuid4().hex[:8]}"
+    asyncio.run(_seed_duplicate_offer_rows(offer_id))
+
+    response = client.get(f"/v1/market/offer-by-id/{offer_id}")
+
+    assert response.status_code == 409
+
+
+def test_ratings_route_answers_409_for_duplicate_offer_rows(client):
+    """#2610: the ratings list resolves the service by offer_id too."""
+    import asyncio
+    import uuid
+
+    offer_id = f"dup-legacy-ratings-{uuid.uuid4().hex[:8]}"
+    asyncio.run(_seed_duplicate_offer_rows(offer_id))
+
+    response = client.get(f"/v1/market/offer/{offer_id}/ratings", params={"limit": 10, "offset": 0})
+
+    assert response.status_code == 409
+
+
+def test_rate_route_answers_409_for_duplicate_offer_rows(client):
+    """#2610: rating by offer_id hits the same ambiguous lookup."""
+    import asyncio
+    import uuid
+
+    offer_id = f"dup-legacy-rate-{uuid.uuid4().hex[:8]}"
+    asyncio.run(_seed_duplicate_offer_rows(offer_id))
+
+    response = client.post(
+        f"/v1/market/offer/{offer_id}/rate",
+        json=_rating_body(offer_id, 4.0, "fine"),
+    )
+
+    assert response.status_code == 409

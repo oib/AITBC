@@ -8,6 +8,8 @@ The monolithic ``market_service.py`` was split into domain mixins
 from .service import MarketService
 from .shared import (
     MAX_JOB_TTL_SECONDS,
+    AmbiguousOfferIdError,
+    OfferIdConflictError,
     MAX_PAYMENT_AMOUNT,
     PUBLIC_JOB_FIELDS,
     PUBLIC_PAYMENT_FIELDS,
@@ -53,6 +55,8 @@ from .shared import (
 
 __all__ = [
     "MAX_JOB_TTL_SECONDS",
+    "AmbiguousOfferIdError",
+    "OfferIdConflictError",
     "MAX_PAYMENT_AMOUNT",
     "MarketService",
     "PUBLIC_JOB_FIELDS",

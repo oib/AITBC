@@ -18,7 +18,7 @@ from aitbc.market.job_request_signature import verify_jobs_request_signature
 from aitbc.utils.chain_id import resolve_chain_id
 
 from .config import settings
-from .services.market_service import MarketService, _secret_matches
+from .services.market_service import AmbiguousOfferIdError, MarketService, _secret_matches
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
 # "market_service.main".
@@ -306,11 +306,17 @@ async def _pin_attestation_expected_provider(svc: MarketService, job: dict[str, 
     rule as the billing gate, #2365)."""
     expected = ""
     if job.get("offer_id"):
-        service = await svc.get_service_by_offer_id(str(job["offer_id"]))
+        try:
+            service = await svc.get_service_by_offer_id(str(job["offer_id"]))
+        except AmbiguousOfferIdError:
+            service = None
         if service:
             expected = str(service.get("provider_address") or "")
     if not expected and job.get("plugin_id"):
-        service = await svc.get_software_service(str(job["plugin_id"]))
+        try:
+            service = await svc.get_software_service(str(job["plugin_id"]))
+        except AmbiguousOfferIdError:
+            service = None
         if service:
             expected = str(service.get("provider_address") or "")
     return expected
@@ -431,7 +437,12 @@ async def _billing_attestation_gate(
     )
     if error or not signer:
         return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
-    service = await svc.get_service_by_offer_id(str(job.get("offer_id") or ""))
+    try:
+        service = await svc.get_service_by_offer_id(str(job.get("offer_id") or ""))
+    except AmbiguousOfferIdError:
+        # #2610: duplicate offer_id rows — refuse rather than 500; the
+        # operator resolves the duplicate registrations.
+        return JSONResponse(status_code=409, content={"error": "offer_id is ambiguous — multiple services claim it"})
     expected = str((service or {}).get("provider_address") or "")
     if not expected:
         return JSONResponse(status_code=403, content={"error": "billing provider identity unresolvable for this job"})
