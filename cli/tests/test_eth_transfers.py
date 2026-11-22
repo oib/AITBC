@@ -212,7 +212,10 @@ def test_nonce_mismatch_warns_and_exits(stub, tmp_path):
     assert r.exit_code == 1
     assert "nonce" in r.output.lower()
     assert "1 outgoing transactions but RPC nonce is 7" in r.output
-    assert len(open(log).read().strip().splitlines()) == 1  # consistent rows still logged
+    # #2592: a nonce-mismatched wallet's rows are excluded — nothing is
+    # written to the log for it (the wallet is the only target here).
+    assert "rows excluded" in r.output
+    assert not (tmp_path / "t.jsonl").exists() or not open(log).read().strip()
 
 
 def test_non_sepolia_refused(stub, tmp_path):

@@ -18,7 +18,6 @@ import click
 
 from ..utils import error, info, warning
 from ..utils.evm_rpc import display_rpc_url, mask_rpc_url
-from ..utils.error_handling import abort
 
 SEPOLIA_CHAIN_ID = 11155111
 DEFAULT_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com"
@@ -328,7 +327,9 @@ def _wallet_report(label: str, addr: str, explorer_url: str, rpc_url: str) -> tu
         nonce = int(str(_rpc(rpc_url, "eth_getTransactionCount", [addr, "latest"])), 16)
         balance = int(str(_rpc(rpc_url, "eth_getBalance", [addr, "latest"])), 16)
     except ExplorerError as e:
-        abort(None, f"{label}: {e}")
+        # #2592: one wallet's explorer failure must not abort the batch —
+        # report it and let the caller mark rc=1 and continue.
+        error(f"{label}: {e}")
         return None
     rows = normalize_address_txs(label, addr, list(raw.values())) + normalize_internal_txs(label, addr, internal)
     return rows, nonce, balance
@@ -474,8 +475,12 @@ def transfers(
         # history; --since only narrows which rows get listed/logged.
         out_count = sum(1 for r in rows if r["direction"] in ("out", "self") and not r["internal"])
         if out_count != nonce:
-            warning(f"{label}: explorer shows {out_count} outgoing transactions but RPC nonce is {nonce}")
+            # #2592: a nonce-mismatched wallet's explorer rows are
+            # untrustworthy — exclude them from the log and summaries;
+            # the closing message only claims consistent rows were written.
+            warning(f"{label}: explorer shows {out_count} outgoing transactions but RPC nonce is {nonce} — rows excluded")
             rc = 1
+            continue
         listed = _apply_since(rows, *since_filter) if since_filter else rows
         fresh = [r for r in listed if row_key(r) not in seen]
         new_rows += fresh
