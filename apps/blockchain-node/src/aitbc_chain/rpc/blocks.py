@@ -363,7 +363,7 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
             _import_advisory = import_advisory_acquire(chain_id)
             # #1290: init_db is synchronous sqlite DDL — keep it off the loop.
             await run_in_threadpool(init_db, chain_id)
-            block_hash = block_data["hash"]
+            block_hash = block_data.get("hash")
             if not isinstance(block_hash, str) or not re.fullmatch("0x[0-9a-fA-F]{64}", block_hash):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block hash format")
             try:
