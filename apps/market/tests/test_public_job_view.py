@@ -97,9 +97,24 @@ def _seed_ipfs_job(private_key: str = _TEST_PRIVATE_KEY, **overrides: Any) -> di
     fields.update(overrides)
 
     # #1564: create_market_job rejects unknown offer_ids — register the offer.
+    # #2617: the service row carries the provider address — the pin-confirm
+    # gate resolves the expected signer from it, never from the job row.
+    # Upsert by offer_id: the module shares one DB, so repeated seeds would
+    # otherwise leave duplicate offer_id rows and get_service_by_offer_id's
+    # scalar_one_or_none would 500.
     async def _seed_offer() -> None:
+        from sqlmodel import select
+
         async with get_session_context() as session:
-            session.add(SoftwareService(service_type="ipfs", offer_id=str(fields["offer_id"])))
+            offer_id = str(fields["offer_id"])
+            row = (
+                (await session.execute(select(SoftwareService).where(SoftwareService.offer_id == offer_id))).scalars().first()
+            )
+            if row is None:
+                session.add(SoftwareService(service_type="ipfs", offer_id=offer_id, provider_address=_address(private_key)))
+            else:
+                row.provider_address = _address(private_key)
+                session.add(row)
             await session.commit()
 
     asyncio.run(_seed_offer())
@@ -448,6 +463,36 @@ def test_pin_confirm_wrong_provider_is_403(client: TestClient) -> None:
         "size": 2048,
         "provider_confirmed": True,
         **_signed_params(_address(_OTHER_PRIVATE_KEY), route, private_key=_OTHER_PRIVATE_KEY, binding=binding),
+    }
+    response = client.post(route, json=body)
+    assert response.status_code == 403
+
+
+def test_pin_confirm_signer_must_be_offer_provider_not_job_provider(client: TestClient) -> None:
+    """#2617: ``provider_address`` is caller-writable at job creation, so the
+    attestation must verify against the offer's SoftwareService provider —
+    a buyer naming its own wallet as job provider cannot self-attest."""
+    from sqlmodel import select
+
+    job = _seed_ipfs_job(client_ref=f"ref-pin-offerprov-{time.time_ns()}")
+
+    # Flip the service's registered provider to the other wallet: the job
+    # row still claims _TEST_PRIVATE_KEY's address — exactly the
+    # caller-writable field the fix stops trusting.
+    async def _flip() -> None:
+        async with get_session_context() as session:
+            row = (await session.execute(select(SoftwareService).where(SoftwareService.offer_id == "offer-sec4"))).scalar_one()
+            row.provider_address = _address(_OTHER_PRIVATE_KEY)
+            session.add(row)
+            await session.commit()
+
+    asyncio.run(_flip())
+    route = f"/v1/market/jobs/{job['job_id']}/pin-confirm"
+    binding = {"cid": "QmSec4", "size": 2048}
+    body = {
+        "size": 2048,
+        "provider_confirmed": True,
+        **_signed_params(_address(_TEST_PRIVATE_KEY), route, binding=binding),
     }
     response = client.post(route, json=body)
     assert response.status_code == 403

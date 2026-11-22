@@ -668,14 +668,27 @@ def _rating_body(service_id: str, rating: float = 4.0, comment: str = "fine", **
     }
 
 
-async def _seed_completed_job(service_key: str, buyer: str, state: str = "RELEASED") -> None:
-    """A local rating now requires a completed job/bid for the service (#1584)."""
+async def _seed_completed_job(service_key: str, buyer: str, state: str = "RELEASED", provider: str | None = None) -> None:
+    """A local rating now requires a completed job/bid for the service (#1584).
+
+    #2617: the job must also name the service's provider — the registered
+    # service's provider is the _TEST_PRIVATE_KEY address, so the default
+    # seed carries it (``provider=None`` derives it)."""
+    from aitbc.crypto.crypto import derive_ethereum_address
     from market_service.domain.market import MarketJob
     from market_service.storage import get_session_context
 
+    if provider is None:
+        provider = derive_ethereum_address(_TEST_PRIVATE_KEY)
     async with get_session_context() as session:
         session.add(
-            MarketJob(id=f"job-rate-{service_key}-{buyer[-4:]}", plugin_id=service_key, buyer_address=buyer, state=state)
+            MarketJob(
+                id=f"job-rate-{service_key}-{buyer[-4:]}",
+                plugin_id=service_key,
+                buyer_address=buyer,
+                provider_address=provider,
+                state=state,
+            )
         )
         await session.commit()
 
@@ -782,6 +795,81 @@ def test_rate_rejects_duplicate_reviewer(client, registered_service):
     # and refused by the one-rating-per-reviewer rule instead.
     assert client.post(f"/v1/market/offer/{registered_service}/rate", json=body).status_code == 200
     assert client.post(f"/v1/market/offer/{registered_service}/rate", json=body).status_code == 400
+
+
+def test_rate_rejects_completed_job_with_foreign_provider(client, registered_service):
+    """#2617: a RELEASED job whose provider_address is a sockpuppet wallet —
+    not the service's registered provider — must not prove a rating.
+    ``provider_address`` is caller-writable at job creation, so the binding
+    compares it against the offer's SoftwareService provider."""
+    import asyncio
+
+    reviewer_key = "0x" + "99" * 32
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    reviewer = derive_ethereum_address(reviewer_key)
+    sockpuppet = derive_ethereum_address("0x" + "88" * 32)
+    asyncio.run(_seed_completed_job(registered_service, reviewer, provider=sockpuppet))
+    body = {
+        "rating": 1.0,
+        "reviewer_id": reviewer,
+        "comment": "sockpuppet",
+        **_rating_signature_fields(registered_service, 1.0, "sockpuppet", key=reviewer_key, reviewer=reviewer),
+    }
+    response = client.post(f"/v1/market/offer/{registered_service}/rate", json=body)
+    assert response.status_code == 400
+
+
+def test_rate_rejects_completed_job_for_sibling_offer(client):
+    """#2617: with a live offer_id on the service, a completed job naming a
+    DIFFERENT offer — even settled by the right provider — is a different
+    service's interaction and must not rate this one."""
+    import asyncio
+
+    from aitbc.crypto.crypto import derive_ethereum_address
+    from market_service.domain.market import MarketJob, SoftwareService
+    from market_service.storage import get_session_context
+
+    plugin_id = "v26-17-offer-bound"
+    created = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(plugin_id=plugin_id, service_type="inference", model="m"),
+    )
+    assert created.status_code == 200
+
+    async def _seed() -> None:
+        async with get_session_context() as session:
+            row = await session.get(SoftwareService, plugin_id)
+            assert row is not None
+            row.offer_id = "offer-live-2617"
+            session.add(row)
+            await session.commit()
+        reviewer_key = "0x" + "aa" * 32
+        reviewer = derive_ethereum_address(reviewer_key)
+        async with get_session_context() as session:
+            session.add(
+                MarketJob(
+                    id="job-rate-sibling-2617",
+                    plugin_id=plugin_id,
+                    offer_id="offer-other-2617",
+                    buyer_address=reviewer,
+                    provider_address=derive_ethereum_address(_TEST_PRIVATE_KEY),
+                    state="RELEASED",
+                )
+            )
+            await session.commit()
+
+    asyncio.run(_seed())
+    reviewer_key = "0x" + "aa" * 32
+    reviewer = derive_ethereum_address(reviewer_key)
+    body = {
+        "rating": 1.0,
+        "reviewer_id": reviewer,
+        "comment": "sibling",
+        **_rating_signature_fields(plugin_id, 1.0, "sibling", key=reviewer_key, reviewer=reviewer),
+    }
+    response = client.post(f"/v1/market/offer/{plugin_id}/rate", json=body)
+    assert response.status_code == 400
 
 
 def test_get_ratings_default_paging(client):
