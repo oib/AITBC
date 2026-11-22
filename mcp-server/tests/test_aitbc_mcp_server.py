@@ -1498,7 +1498,9 @@ class TestGenericCliEnvCwd:
                 )
             )
         assert result["returncode"] == 0
-        assert captured[0].startswith("HOME=/var/tmp/mcp-scratch ")
+        # #2498: scratch-path env values get a realpath pre-flight prefix first
+        assert "realpath" in captured[0]
+        assert "&& HOME=/var/tmp/mcp-scratch " in captured[0]
         assert "aitbc" in captured[0] and "wallet list" in captured[0]
 
     def test_env_and_cwd_render_as_posix_prefix(self):
@@ -1514,7 +1516,7 @@ class TestGenericCliEnvCwd:
                 )
             )
         assert result["returncode"] == 0
-        assert captured[0].startswith("cd /var/tmp/sc && HOME=/var/tmp/sc AITBC_WALLET_DIR=/var/tmp/sc/wallets ")
+        assert "&& cd /var/tmp/sc && HOME=/var/tmp/sc AITBC_WALLET_DIR=/var/tmp/sc/wallets " in captured[0]
 
     def test_env_prefix_shown_in_dry_run(self):
         result = json.loads(

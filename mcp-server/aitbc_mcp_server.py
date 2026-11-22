@@ -391,6 +391,63 @@ def _is_scratch_path(value: str) -> bool:
     return norm == SCRATCH_ROOT or norm.startswith(SCRATCH_ROOT + "/")
 
 
+def _realpath_within(root_real: str, path_real: str) -> bool:
+    return path_real == root_real or path_real.startswith(root_real + "/")
+
+
+def _env_path_values(env: dict[str, str] | None) -> list[str]:
+    """``env`` values that claim to be scratch paths.
+
+    Only values lexically beneath ``SCRATCH_ROOT`` need the realpath check —
+    tool-injected env like ``AITBC_WALLET_DIR=/var/lib/aitbc/wallets`` is
+    trusted and legitimately lives outside the root, while scalar names carry
+    plain strings and the secret-file vars are pinned to ``/etc/aitbc``.
+    """
+    return [
+        value
+        for name, value in (env or {}).items()
+        if name not in CLI_ENV_SCALAR_NAMES
+        and name not in CLI_ENV_SECRET_FILE_VARS
+        and isinstance(value, str)
+        and _is_scratch_path(value)
+    ]
+
+
+# #2498: ``_is_scratch_path`` is lexical — a symlink under /var/tmp pointing
+# outside would let a remote ``cd``/env path escape the root. Remote commands
+# therefore open with a realpath pre-flight that resolves every supplied path
+# on the target and exits 3 when any leaves the resolved scratch root.
+_CLI_PATH_GUARD = (
+    "import os,sys\n"
+    f"root=os.path.realpath({SCRATCH_ROOT!r})\n"
+    "bad=[]\n"
+    "for p in sys.argv[1:]:\n"
+    "    r=os.path.realpath(p)\n"
+    "    if not (r==root or r.startswith(root+'/')): bad.append(p+' -> '+r)\n"
+    "if bad:\n"
+    "    sys.stderr.write('scratch path escapes '+root+': '+'; '.join(bad)+'\\n')\n"
+    "    sys.exit(3)\n"
+)
+
+
+def _scratch_guard_prefix(paths: list[str]) -> str:
+    """Remote-shell prefix running the realpath guard before the command."""
+    quoted = " ".join(shlex.quote(p) for p in paths)
+    return f"python3 -c {shlex.quote(_CLI_PATH_GUARD)} {quoted} && "
+
+
+def _scratch_escape_error(host: str, command: str, bad: list[str]) -> dict[str, Any]:
+    return {
+        "error": f"path resolves outside {SCRATCH_ROOT}/",
+        "paths": bad,
+        "host": host,
+        "command": command,
+        "returncode": -1,
+        "stdout": "",
+        "stderr": "",
+    }
+
+
 # Secret-shaped names that are still allowed through ``env`` because their
 # value is a *path to* a secret file, never the secret itself — the same
 # exposure class as the ``--password-file`` option the generated tools already
@@ -831,6 +888,18 @@ def _run_aitbc_cli(
         env=env,
         cwd=cwd,
     )
+    # #2498: cwd/env values passed the lexical scratch check, but a symlink
+    # under /var/tmp could still redirect them outside the root. Resolve
+    # realpaths on the target: refuse locally, prepend a remote pre-flight.
+    guard_paths = ([cwd] if cwd else []) + _env_path_values(env)
+    if guard_paths:
+        if _execution_context(host)["mode"] == "local":
+            root_real = os.path.realpath(SCRATCH_ROOT)
+            bad = [p for p in guard_paths if not _realpath_within(root_real, os.path.realpath(p))]
+            if bad:
+                return _scratch_escape_error(host, command, bad)
+        else:
+            command = _scratch_guard_prefix(guard_paths) + command
     if stdin_text is None:
         result = _run_remote(host, command, timeout)
     else:

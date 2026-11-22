@@ -328,12 +328,16 @@ class TestScratchFileTool:
         with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
             json.loads(mcp_server.aitbc_scratch_file(action="delete", path="/var/tmp/s/x", host="node2"))
             json.loads(mcp_server.aitbc_scratch_file(action="list", path="/var/tmp/s", host="node2"))
-        assert "rm -f -- /var/tmp/s/x" in captured[0]
-        assert "ls -1A -- /var/tmp/s" in captured[1]
+        # #2498: delete/list are python snippets too — the realpath guard must
+        # run inside the same single invocation (no && chaining allowed).
+        assert captured[0].startswith("python3 -c ")
+        assert "/var/tmp/s/x" in captured[0] and "os.remove" in captured[0]
+        assert captured[1].startswith("python3 -c ")
+        assert "/var/tmp/s" in captured[1] and "os.listdir" in captured[1]
 
     def test_scratch_root_itself_allowed_for_list(self):
         captured: list[str] = []
         with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
             result = json.loads(mcp_server.aitbc_scratch_file(action="list", path="/var/tmp", host="node2"))
         assert result["returncode"] == 0
-        assert "ls -1A -- /var/tmp" in captured[0]
+        assert "/var/tmp" in captured[0]
