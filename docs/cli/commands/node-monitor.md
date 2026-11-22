@@ -16,7 +16,7 @@ aitbc node monitor [OPTIONS]
 |---|---|---|---|---|
 | `--node-id` | text | — | yes | The Node id. |
 | `--realtime` | flag | `false` | no | Real-time monitoring |
-| `--interval` | integer | `5` | no | Update interval in seconds |
+| `--interval` | integer range | `5` | no | Update interval in seconds |
 
 ## Examples
 
