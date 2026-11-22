@@ -92,7 +92,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
         self,
         record: CrossChainTransfer,
         lock_state: str,
-        released: dict[str, tuple[str, datetime | None]],
+        released: dict[str, tuple[str | None, datetime | None]],
         refunded: dict[str, tuple[str, datetime | None]],
         now: datetime,
     ) -> tuple[str, str | None, datetime | None] | None:
@@ -142,15 +142,25 @@ class BridgeTransferReconcileMixin(BridgeBase):
         return stale
 
     def _evidence_for(
-        self, chain_id: str, stale: list[CrossChainTransfer]
-    ) -> tuple[dict[str, tuple[str, datetime | None]], dict[str, tuple[str, datetime | None]]]:
-        """(released, refunded) transfer_id -> (tx_hash, created_at) from sealed chain txs."""
+        self, chain_id: str, stale: list[CrossChainTransfer], deadline: float | None = None
+    ) -> tuple[dict[str, tuple[str | None, datetime | None]], dict[str, tuple[str, datetime | None]]]:
+        """(released, refunded) transfer_id -> (tx_hash, created_at) from sealed chain txs.
+
+        #2486: targets without a local store fall back to the same remote
+        evidence the #2469 backfill uses, so a store-less host's stale rows
+        still reconcile to completed after the target chain released.
+        """
         refunded = self._sealed_transfer_index(chain_id, "BRIDGE_REFUND", {r.transfer_id for r in stale})
-        released: dict[str, tuple[str, datetime | None]] = {}
+        released: dict[str, tuple[str | None, datetime | None]] = {}
+        remote: list[tuple[str, set[str]]] = []
         for target in {r.target_chain for r in stale}:
+            ids = {r.transfer_id for r in stale if r.target_chain == target}
             if self._chain_db_ready(target):
-                ids = {r.transfer_id for r in stale if r.target_chain == target}
                 released.update(self._sealed_transfer_index(target, "BRIDGE_RELEASE", ids))
+            else:
+                remote.append((target, ids))
+        for target, ids in remote:
+            released.update(self._remote_release_evidence(target, ids, deadline))
         return released, refunded
 
     def _reconcile_stale_pending(self, chain_id: str, deadline: float | None = None) -> int:
@@ -164,7 +174,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
             stale = self._stale_pending_rows(session, chain_id, now)
             if not stale:
                 return changed
-            released, refunded = self._evidence_for(chain_id, stale)
+            released, refunded = self._evidence_for(chain_id, stale, deadline)
             for record in stale:
                 if deadline is not None and time.monotonic() >= deadline:
                     break
@@ -214,6 +224,40 @@ class BridgeTransferReconcileMixin(BridgeBase):
                 evidence.update(self._remote_release_evidence(target, ids, deadline))
         return evidence
 
+    def _remote_transfer_base(self, target: str) -> str | None:
+        """Base URL of ``target``'s bridge API from ``CHAIN_SYNC_SOURCES``.
+
+        The default peer fallback is not consulted — it serves this node's
+        own chain, not ``target``. No mapping yields None.
+        """
+        from aitbc.sync import SyncSourceResolver
+
+        sources = SyncSourceResolver(getattr(settings, "chain_sync_sources", "") or "")
+        return sources.get_all_sources().get(target)
+
+    def _remote_release_verdict(self, target: str, transfer_id: str) -> tuple[str, dict[str, Any] | None]:
+        """Target chain's view of one transfer via its bridge API (#2486).
+
+        Returns ``("released", row)`` when the peer reports the transfer
+        confirmed/completed, ``("clear", row)`` for any other remote status,
+        ``("unreachable", None)`` when a mapping exists but the fetch failed,
+        and ``("unconfigured", None)`` when no sync source is configured or
+        remote evidence is disabled. The refund guard fails closed on
+        ``unreachable`` for post-finality rows; ``unconfigured`` keeps the
+        documented store-less time gates.
+        """
+        if not bool(getattr(settings, "bridge_reconcile_remote_evidence_enabled", True)):
+            return "unconfigured", None
+        base = self._remote_transfer_base(target)
+        if not base:
+            return "unconfigured", None
+        row = self._fetch_remote_transfer(base, transfer_id)
+        if row is None:
+            return "unreachable", None
+        if str(row.get("status") or "") in ("confirmed", "completed"):
+            return "released", row
+        return "clear", row
+
     def _remote_release_evidence(
         self, target: str, wanted: set[str], deadline: float | None
     ) -> dict[str, tuple[str | None, datetime | None]]:
@@ -222,18 +266,13 @@ class BridgeTransferReconcileMixin(BridgeBase):
         A node that holds no local store for ``target`` cannot read the
         sealed BRIDGE_RELEASE — but the producing chain's rpc answers
         ``GET /rpc/bridge/transfer/{id}`` with the same outcome (status,
-        target_tx_hash, confirm_time). The base URL comes from the per-chain
-        ``CHAIN_SYNC_SOURCES`` mapping only — the default peer fallback is
-        not consulted, since it serves this node's own chain, not ``target``.
-        No mapping, an unreachable peer, or a non-confirmed row all yield no
-        evidence; the local row keeps its honest NULL.
+        target_tx_hash, confirm_time). No mapping, an unreachable peer, or a
+        non-confirmed row all yield no evidence; the local row keeps its
+        honest NULL.
         """
         if not bool(getattr(settings, "bridge_reconcile_remote_evidence_enabled", True)):
             return {}
-        from aitbc.sync import SyncSourceResolver
-
-        sources = SyncSourceResolver(getattr(settings, "chain_sync_sources", "") or "")
-        base = sources.get_all_sources().get(target)
+        base = self._remote_transfer_base(target)
         if not base:
             return {}
         evidence: dict[str, tuple[str | None, datetime | None]] = {}

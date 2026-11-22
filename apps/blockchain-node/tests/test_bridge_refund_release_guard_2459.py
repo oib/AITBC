@@ -170,3 +170,93 @@ def test_no_release_evidence_refund_still_works(bridge, engine):
     refunded = bridge.refund_transfer(tid, SENDER)
     assert refunded.status == BridgeStatus.refunded
     assert _record(engine, tid).status == "refunded"
+
+
+# --------------------------------------------------------------------------
+# #2486: store-less hosts must consult the target chain's bridge API
+# --------------------------------------------------------------------------
+
+from aitbc_chain.config import settings  # noqa: E402
+
+REMOTE_HASH = "0x" + "55" * 32
+REMOTE_CONFIRM = "2026-11-22T01:02:03+00:00"
+
+
+def _remote_row(status: str = "completed") -> dict:
+    return {"status": status, "target_tx_hash": REMOTE_HASH, "confirm_time": REMOTE_CONFIRM}
+
+
+def _storeless_with_source(monkeypatch, fetch):
+    """Patch the bridge as store-less with a sync source and a remote answer."""
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{TARGET}:https://island.example")
+    return (
+        patch.object(CrossChainBridge, "_chain_db_ready", return_value=False),
+        patch.object(CrossChainBridge, "_fetch_remote_transfer", side_effect=fetch),
+    )
+
+
+def test_refund_refused_storeless_when_remote_reports_released(bridge, engine, monkeypatch):
+    """Auditor repro: confirmed/completed remote row + store-less host —
+    the refund must refuse and reconcile, exactly like the local-store case."""
+    _seed(engine)
+    tid = _lock_transfer(bridge, engine, status="pending")
+    _seal_release(engine, tid)
+
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: _remote_row())
+    with p1, p2, pytest.raises(ValueError, match="already released"):
+        bridge.refund_transfer(tid, SENDER)
+
+    record = _record(engine, tid)
+    assert record.status == "completed"
+    assert record.target_tx_hash == REMOTE_HASH
+    assert record.confirm_time is not None
+
+
+def test_refund_confirmed_storeless_unreachable_peer_fails_closed(bridge, engine, monkeypatch):
+    """A confirmed row past the age gate + unreachable target peer: the
+    refund cannot prove no release sealed, so it refuses rather than risk
+    a double pay."""
+    _seed(engine)
+    tid = _lock_transfer(bridge, engine, status="confirmed", age_seconds=7200)
+
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: None)
+    with p1, p2, pytest.raises(ValueError, match="unreachable"):
+        bridge.refund_transfer(tid, SENDER)
+
+    assert _record(engine, tid).status == "confirmed"
+
+
+def test_refund_pending_storeless_unreachable_peer_stays_time_gated(bridge, engine, monkeypatch):
+    """pending/locked rows keep the time gates when the peer cannot be asked —
+    they have not reached finality, so the documented store-less behavior holds."""
+    _seed(engine)
+    tid = _lock_transfer(bridge, engine, status="pending")
+
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: None)
+    with p1, p2:
+        refunded = bridge.refund_transfer(tid, SENDER)
+    assert refunded.status == BridgeStatus.refunded
+
+
+def test_refund_storeless_remote_clear_status_allows_refund(bridge, engine, monkeypatch):
+    """The peer answers but reports the transfer not released — clear to refund."""
+    _seed(engine)
+    tid = _lock_transfer(bridge, engine, status="pending")
+
+    p1, p2 = _storeless_with_source(monkeypatch, lambda base, t: _remote_row(status="pending"))
+    with p1, p2:
+        refunded = bridge.refund_transfer(tid, SENDER)
+    assert refunded.status == BridgeStatus.refunded
+
+
+def test_refund_storeless_unconfigured_source_keeps_time_gates(bridge, engine, monkeypatch):
+    """No CHAIN_SYNC_SOURCES mapping for the target = no evidence source at
+    all; the documented store-less time gates remain (residual, noted on
+    the issue)."""
+    _seed(engine)
+    tid = _lock_transfer(bridge, engine, status="confirmed", age_seconds=7200)
+    monkeypatch.setattr(settings, "chain_sync_sources", "")
+
+    with patch.object(CrossChainBridge, "_chain_db_ready", return_value=False):
+        refunded = bridge.refund_transfer(tid, SENDER)
+    assert refunded.status == BridgeStatus.refunded

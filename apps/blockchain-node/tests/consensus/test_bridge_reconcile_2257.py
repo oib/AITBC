@@ -472,3 +472,38 @@ def test_fetch_remote_transfer_non_200_and_errors(monkeypatch):
 
     monkeypatch.setattr(httpx, "Client", _Boom)
     assert BridgeTransferReconcileMixin._fetch_remote_transfer("https://island.example", "t1") is None
+
+
+def test_stale_pending_reconciles_via_remote_evidence(env, monkeypatch):
+    """#2486: a stale pending row on a store-less host must still reach
+    completed when the target chain's bridge API reports the release —
+    the same remote evidence the #2469 backfill uses, now in _evidence_for."""
+    rec, eng = env
+    eng.pop(DST)  # hub shape: source store only
+    _row(eng, "t-remote")
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
+    remote_at = datetime(2026, 11, 22, 1, 2, 3, tzinfo=UTC)
+    rec._fetch_remote_transfer = lambda base, tid: (
+        {"status": "completed", "target_tx_hash": "rel-remote", "confirm_time": remote_at.isoformat()}
+        if tid == "t-remote"
+        else None
+    )
+    assert rec._reconcile_stale_pending(SRC) == 1
+    assert _status(eng, "t-remote") == "completed"
+    with Session(eng[SRC]) as s:
+        record = s.get(CrossChainTransfer, "t-remote")
+        assert record.target_tx_hash == "rel-remote"
+        assert record.confirm_time is not None
+
+
+def test_stale_pending_remote_clear_status_stays_pending(env, monkeypatch):
+    """Remote says the transfer is not released — the row honestly stays pending."""
+    rec, eng = env
+    eng.pop(DST)
+    # Stale (>10min grace) but inside the 2h unsealed horizon, with no lock
+    # tx — only the remote "not released" answer keeps it pending.
+    _row(eng, "t-clear", lock_time=datetime.now(UTC) - timedelta(hours=1))
+    monkeypatch.setattr(settings, "chain_sync_sources", f"{DST}:https://island.example")
+    rec._fetch_remote_transfer = lambda base, tid: {"status": "pending"}
+    assert rec._reconcile_stale_pending(SRC) == 0
+    assert _status(eng, "t-clear") == "pending"
