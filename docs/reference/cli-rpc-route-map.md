@@ -22,8 +22,6 @@ association is keyword-based best-effort; `—` means unmatched.
 | *(unattributed — cli/aitbc_cli/commands/node/island.py)* | `/rpc/islands` | — | —
 | *(unattributed — cli/aitbc_cli/core/analytics.py)* | `/rpc/info` | — | —
 | *(unattributed — cli/aitbc_cli/core/node_client.py)* | `/rpc/info` | — | —
-| *(unattributed — cli/aitbc_cli/utils/blockchain.py)* | `/rpc/genesis_allocations` | — | —
-| *(unattributed — cli/aitbc_cli/utils/blockchain.py)* | `/rpc/head` | — | —
 | *(unattributed — cli/aitbc_cli/utils/chain_id.py)* | `/rpc/proposer` | — | —
 | *(unattributed — cli/aitbc_cli/utils/dual_mode_wallet_adapter.py)* | `/rpc/account/` | — | —
 | *(unattributed — cli/aitbc_cli/utils/dual_mode_wallet_adapter.py)* | `/rpc/sendTx` | — | —
