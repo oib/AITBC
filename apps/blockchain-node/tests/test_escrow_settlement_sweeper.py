@@ -294,29 +294,31 @@ def test_sealed_stored_hash_is_never_overwritten(session):
     assert _naive(row.released_at) == _naive(OLD_MARK)
 
 
-def test_marked_leg_with_missing_hash_stays_flagged(session):
-    """A marked leg whose stored hash is absent is verified via the job's
-    sealed tx — it is *not* demoted — but the row is not rewritten either,
-    so the detector's claim-by-mark still flags the missing audit trail."""
+def test_marked_leg_with_missing_hash_adopts_sealed_leg(session):
+    """#2523: a marked leg whose stored hash is absent adopts the job's
+    sealed leg hash — the settlement is proven, so the audit trail is
+    filled rather than left flagging a landed escrow."""
     _tx(session, "ESCROW_RELEASE", "0xsealed-release")
     _row(session, status="released", released_at=OLD_MARK, release_tx_hash=None)
     stats = ess.sweep_once(session, NOW, set())
     row = _refresh(session, session.get(Escrow, JOB))
-    assert stats["verified"] == 1 and stats["demoted"] == 0
+    assert stats["verified"] == 1 and stats["hash_adopted"] == 1 and stats["demoted"] == 0
     assert _naive(row.released_at) == _naive(OLD_MARK)
-    assert row.release_tx_hash is None  # no silent rewrite; flag stays honest
+    assert row.release_tx_hash == "0xsealed-release"
 
 
-def test_dead_stored_hash_on_marked_leg_does_not_demote_when_job_sealed(session):
-    """Mark is true (the job sealed under another hash): no demote, and no
-    rewrite either — the dead stored hash keeps flagging for the operator."""
+def test_dead_stored_hash_on_marked_leg_adopts_sealed_leg(session):
+    """#2523: mark is true and the job sealed under another hash — the
+    dead stored hash is replaced by the sealed one. Keeping it flagged a
+    landed escrow forever (EscrowSettlementUnlanded) and orphaned the
+    billed entry the fee proofs need."""
     _tx(session, "ESCROW_RELEASE", "0xreal-seal")
     _row(session, status="released", released_at=OLD_MARK, release_tx_hash="0xdead-hash")
     stats = ess.sweep_once(session, NOW, set())
     row = _refresh(session, session.get(Escrow, JOB))
-    assert stats["verified"] == 1 and stats["demoted"] == 0
+    assert stats["verified"] == 1 and stats["hash_adopted"] == 1 and stats["demoted"] == 0
     assert _naive(row.released_at) == _naive(OLD_MARK)
-    assert row.release_tx_hash == "0xdead-hash"
+    assert row.release_tx_hash == "0xreal-seal"
 
 
 def test_unmarked_refund_leg_with_sealed_hash_is_remarked(session):
@@ -702,3 +704,88 @@ async def test_unverifiable_lock_era_refuses(monkeypatch):
             await er.release_escrow("j1", {})
         assert exc.value.status_code == 409
     assert not session.committed
+
+
+# ------------------------------------------------- #2523 hash adoption
+
+
+def test_marked_leg_dead_hash_adopts_sealed_leg(session):
+    """#2523: a marked leg whose recorded hash never sealed but whose
+    settlement sealed under a different hash adopts the sealed hash —
+    the row stops serving a dead hash (the EscrowSettlementUnlanded
+    false-positive class)."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _row(session, status="released", released_at=OLD_MARK, release_tx_hash="0xdead-envelope")
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["hash_adopted"] == 1
+    assert row.release_tx_hash == "0xsealed-release"
+    assert _naive(row.released_at) == _naive(OLD_MARK)  # acceptance mark kept
+    assert row.status == "released"
+
+
+def test_hash_adoption_rekeys_billed_entry(session):
+    """#2523: the billed_legs entry recorded under the dead envelope hash
+    is re-keyed to the sealed hash so recompute_release_proofs can match
+    it — the change/fee passes stop deferring the row unproven."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _row(
+        session,
+        status="released",
+        released_at=OLD_MARK,
+        release_tx_hash="0xdead-envelope",
+        billed_legs=[{"tx_hash": "0xdead-envelope", "billed": 36000}],
+    )
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["hash_adopted"] == 1
+    assert row.release_tx_hash == "0xsealed-release"
+    assert row.billed_legs == [{"tx_hash": "0xsealed-release", "billed": 36000}]
+
+
+def test_hash_adoption_leaves_existing_sealed_billed_entry(session):
+    """#2523: when a billed entry already carries the sealed hash the
+    dead-hash entry stays orphaned — same semantics as a dropped leg's
+    entry, never merged or overwritten."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _row(
+        session,
+        status="released",
+        released_at=OLD_MARK,
+        release_tx_hash="0xdead-envelope",
+        billed_legs=[
+            {"tx_hash": "0xdead-envelope", "billed": 36000},
+            {"tx_hash": "0xsealed-release", "billed": 36000},
+        ],
+    )
+    ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert row.release_tx_hash == "0xsealed-release"
+    assert row.billed_legs == [
+        {"tx_hash": "0xdead-envelope", "billed": 36000},
+        {"tx_hash": "0xsealed-release", "billed": 36000},
+    ]
+
+
+def test_refund_leg_dead_hash_adopts_sealed_leg(session):
+    """#2523: adoption is leg-generic — a dead refund hash adopts the
+    sealed ESCROW_REFUND the same way (no billed re-key: refunds do not
+    bill)."""
+    _tx(session, "ESCROW_REFUND", "0xsealed-refund")
+    _row(session, status="refunded", refunded_at=OLD_MARK, refund_tx_hash="0xdead-refund")
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["hash_adopted"] == 1
+    assert row.refund_tx_hash == "0xsealed-refund"
+    assert _naive(row.refunded_at) == _naive(OLD_MARK)
+
+
+def test_dead_hash_with_no_sealed_leg_still_demotes(session):
+    """#2523 guard: adoption requires a sealed same-job leg — a dead hash
+    with none keeps the demote path (hash retained for the detector)."""
+    _row(session, status="released", released_at=OLD_MARK, release_tx_hash="0xdead-envelope")
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["hash_adopted"] == 0 and stats["demoted"] == 1
+    assert row.release_tx_hash == "0xdead-envelope"
+    assert row.status == "settlement_failed"

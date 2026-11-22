@@ -133,7 +133,7 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
     supplies ``proposer_pending`` so the function is testable without HTTP.
     Returns counters for logging.
     """
-    stats = {"rows": 0, "verified": 0, "demoted": 0, "remarked": 0, "skipped_locked": 0}
+    stats = {"rows": 0, "verified": 0, "demoted": 0, "remarked": 0, "hash_adopted": 0, "skipped_locked": 0}
     rows, sealed_map, by_job = _sweep_scan(session)
     for row in rows:
         stats["rows"] += 1
@@ -205,6 +205,33 @@ def _sweep_reconcile_row(
         session.commit()
 
 
+def _rekey_billed_leg(row: Escrow, old_hash: str, new_hash: str) -> None:
+    """#2523: move a ``billed_legs`` entry from a dead envelope hash to the
+    sealed leg hash so ``recompute_release_proofs`` can match it.
+
+    Only entries keyed by the row's previously stored hash are touched —
+    an entry already carrying the sealed hash means the route recorded
+    the adoption itself, so nothing changes. Entries for genuinely dropped
+    legs stay orphaned, exactly as before.
+    """
+    entries = getattr(row, "billed_legs", None) or []
+    if not entries:
+        return
+    if any(isinstance(e, dict) and e.get("tx_hash") == new_hash for e in entries):
+        return
+    new_entries = []
+    changed = False
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("tx_hash") == old_hash:
+            entry = {**entry, "tx_hash": new_hash}
+            changed = True
+        new_entries.append(entry)
+    if changed:
+        # A fresh list, not the mutated-in-place original: the JSON column
+        # only serializes on attribute assignment of a new value.
+        row.billed_legs = new_entries
+
+
 def _sweep_leg(row: Escrow, leg, sealed_map: dict, by_job: dict, now: datetime, proposer_pending, stats: dict) -> bool:
     """Reconcile one settlement leg of ``row`` against the sealed table.
     Returns True when the row was mutated (remark, amount heal, or demote)."""
@@ -229,6 +256,18 @@ def _sweep_leg(row: Escrow, leg, sealed_map: dict, by_job: dict, now: datetime, 
             # Verified healthy: the mark stands and the settlement is
             # sealed — nothing on the row is touched.
             stats["verified"] += 1
+            if stored_sealed is None and stored != leg_tx.tx_hash:
+                # #2523: the recorded hash is a dead envelope hash (the
+                # submit response's pending hash, later dropped) while the
+                # leg sealed under a different hash — adopt the sealed one
+                # so the row stops serving a hash that never landed, and
+                # re-key the matching billed entry so the fee proofs can
+                # find it. A stored hash that IS sealed never reaches here.
+                setattr(row, leg_hash, leg_tx.tx_hash)
+                if tx_type == "ESCROW_RELEASE" and stored:
+                    _rekey_billed_leg(row, stored, leg_tx.tx_hash)
+                stats["hash_adopted"] += 1
+                mutated = True
         if getattr(row, leg_amount) is None:
             # A sealed leg proves the amount too — marking only
             # time+hash leaves released rows in the change pass's
