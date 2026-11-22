@@ -3,10 +3,13 @@ Rating commands: rate, ratings, sync-ratings
 """
 
 import os
+import time
 
 import click
 
 from aitbc.config.hub import normalize_hub_base
+from aitbc.crypto.crypto import sign_transaction_data
+from aitbc.market.job_request_signature import jobs_request_message
 
 from ...config import _resolve_market_api_key, get_config
 from ...utils import error, info, output, success
@@ -16,7 +19,7 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http
 logger = get_logger(__name__)
 
 from ._group import market
-from . import get_wallet_address
+from . import get_chain_id, get_market_wallet
 from ...utils.error_handling import abort
 
 
@@ -52,20 +55,36 @@ def _market_base_url(override_url: str | None = None) -> str:
 @click.option("--service-id", "service_id", required=True, help="The Service id.")
 @click.option("--rating", "rating", required=True, type=float, help="The Rating.")
 @click.option("--comment", help="Optional comment/review text")
-@click.option("--reviewer-id", help="Reviewer ID (defaults to wallet address)")
 @click.option("--market-url", help="Override the market service URL")
 @click.pass_context
-def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, market_url: str):
-    """Rate a market service offer on a 1-5 scale."""
+def rate(ctx, service_id: str, rating: float, comment: str, market_url: str):
+    """Rate a market service offer on a 1-5 scale.
+
+    #2508: the market requires a wallet signature proving the reviewer —
+    the rating is signed by the resolved market wallet (``--wallet`` /
+    ``SHOP_WALLET_ADDRESS`` / configured wallet) and ``reviewer_id`` is
+    always that wallet's address. There is no self-declared reviewer id.
+    """
     try:
         # Validate rating scale
         if not (1.0 <= rating <= 5.0):
             error("Rating must be between 1.0 and 5.0")
             raise click.Abort()
 
-        # Default reviewer_id to wallet address
-        if not reviewer_id:
-            reviewer_id = get_wallet_address()
+        reviewer_id, private_key, _wallet_name = get_market_wallet(ctx, require_private_key=True)
+        if not reviewer_id or not private_key:
+            abort(ctx, "market rate requires a signable wallet (pass --wallet/--wallet-path or set SHOP_WALLET_ADDRESS)")
+            raise click.Abort()
+
+        # Sign the rating request — the market recovers the signer and
+        # requires it to equal reviewer_id (#2508). The binding covers the
+        # rating value, comment and reviewer id so the proof cannot be
+        # replayed with altered content.
+        chain_id = get_chain_id()
+        issued_at = int(time.time())
+        route = f"/v1/market/offer/{service_id}/rate"
+        binding = {"rating": rating, "comment": comment or "", "reviewer_id": reviewer_id}
+        message = jobs_request_message(reviewer_id, chain_id, issued_at, route, binding=binding)
 
         # Call market service API
         client = AITBCHTTPClient(
@@ -74,8 +93,16 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
             api_key=_resolve_market_api_key(get_config()),
         )
         response = client.post(
-            f"/v1/market/offer/{service_id}/rate",
-            json={"rating": rating, "reviewer_id": reviewer_id, "comment": comment or ""},
+            route,
+            json={
+                "rating": rating,
+                "reviewer_id": reviewer_id,
+                "comment": comment or "",
+                "signer_address": reviewer_id,
+                "chain_id": chain_id,
+                "issued_at": issued_at,
+                "signature": sign_transaction_data(message, private_key),
+            },
         )
 
         if response.get("status") == "success":

@@ -491,3 +491,50 @@ async def _provider_release_window_gate(
             },
         )
     return None
+
+
+def rating_signature_error(
+    *,
+    service_id: str,
+    rating: float,
+    reviewer_id: str,
+    comment: str,
+    signer_address: str | None,
+    chain_id: str | None,
+    issued_at: int | None,
+    signature: str | None,
+) -> JSONResponse | None:
+    """#2508: a rating must be signed by the reviewer's own wallet.
+
+    ``reviewer_id`` used to be self-declared — any holder of the distributed
+    market API key could forge a buyer's rating and lock it in (one rating
+    per reviewer per service, #1584). The request now carries the same
+    jobs-request signature proof the signed job routes use: the recovered
+    signer must equal ``reviewer_id``, and the signature binds the route,
+    the rating value, the comment and the reviewer id so a captured proof
+    cannot be replayed with altered content. Returns a ready 4xx response,
+    or None when the request may proceed.
+    """
+    try:
+        reviewer_canonical = canonical_address(reviewer_id)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"error": "reviewer_id must be a wallet address"})
+    route = f"/v1/market/offer/{service_id}/rate"
+    binding = {"rating": rating, "comment": comment, "reviewer_id": reviewer_id}
+    error, signer = verify_jobs_request_signature(
+        signer_address=signer_address,
+        chain_id=chain_id,
+        issued_at=issued_at,
+        route=route,
+        signature=signature,
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding=binding,
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or "invalid rating signature"})
+    if canonical_address(signer) != reviewer_canonical:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "rating signature does not match reviewer_id"},
+        )
+    return None

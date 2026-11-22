@@ -2,7 +2,7 @@
 
 # `aitbc market rate`
 
-Rate a market service offer on a 1-5 scale.
+Rate a market service offer on a 1-5 scale. #2508: the market requires a wallet signature proving the reviewer — the rating is signed by the resolved market wallet (``--wallet`` / ``SHOP_WALLET_ADDRESS`` / configured wallet) and ``reviewer_id`` is always that wallet's address. There is no self-declared reviewer id.
 
 ## Usage
 
@@ -17,7 +17,6 @@ aitbc market rate [OPTIONS]
 | `--service-id` | text | — | yes | The Service id. |
 | `--rating` | float | — | yes | The Rating. |
 | `--comment` | text | — | no | Optional comment/review text |
-| `--reviewer-id` | text | — | no | Reviewer ID (defaults to wallet address) |
 | `--market-url` | text | — | no | Override the market service URL |
 
 ## Examples

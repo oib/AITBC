@@ -606,7 +606,7 @@ def test_rate_service_not_found(client):
     """
     response = client.post(
         "/v1/market/offer/no-such-service/rate",
-        json={"rating": 5.0, "reviewer_id": "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e", "comment": "orphan"},
+        json=_rating_body("no-such-service", 5.0, "orphan"),
     )
     assert response.status_code == 404
     assert response.json() == {"error": "Service not found"}
@@ -615,7 +615,57 @@ def test_rate_service_not_found(client):
     assert [rating for rating in unsynced if rating["service_id"] == "no-such-service"] == []
 
 
-_RATING_REVIEWER = "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e"
+_RATING_KEY = "0x" + "44" * 32
+_RATING_REVIEWER_KEY = "0x" + "55" * 32
+
+
+def _rating_reviewer_address() -> str:
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    return derive_ethereum_address(_RATING_REVIEWER_KEY)
+
+
+def _rating_signature_fields(
+    service_id: str,
+    rating: float,
+    comment: str = "",
+    *,
+    key: str = _RATING_REVIEWER_KEY,
+    reviewer: str | None = None,
+    issued_at: int | None = None,
+):
+    """#2508: signature fields for POST /v1/market/offer/{id}/rate — the
+    recovered signer must equal reviewer_id, and the binding covers
+    rating/comment/reviewer_id."""
+    import time
+
+    from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
+    from aitbc.market.job_request_signature import jobs_request_message
+    from aitbc.utils.chain_id import resolve_chain_id
+    from market_service.config import settings
+
+    addr = reviewer or derive_ethereum_address(key)
+    chain_id = settings.default_chain_id or resolve_chain_id()
+    ts = int(time.time()) if issued_at is None else issued_at
+    route = f"/v1/market/offer/{service_id}/rate"
+    binding = {"rating": rating, "comment": comment, "reviewer_id": addr}
+    message = jobs_request_message(addr, chain_id, ts, route, binding=binding)
+    return {
+        "signer_address": addr,
+        "chain_id": chain_id,
+        "issued_at": ts,
+        "signature": sign_transaction_data(message, key),
+    }
+
+
+def _rating_body(service_id: str, rating: float = 4.0, comment: str = "fine", **sig_kwargs) -> dict:
+    reviewer = _rating_reviewer_address()
+    return {
+        "rating": rating,
+        "reviewer_id": reviewer,
+        "comment": comment,
+        **_rating_signature_fields(service_id, rating, comment, **sig_kwargs),
+    }
 
 
 async def _seed_completed_job(service_key: str, buyer: str, state: str = "RELEASED") -> None:
@@ -640,10 +690,10 @@ def test_rate_a_registered_service(client, registered_service):
     """
     import asyncio
 
-    asyncio.run(_seed_completed_job(registered_service, _RATING_REVIEWER))
+    asyncio.run(_seed_completed_job(registered_service, _rating_reviewer_address()))
     response = client.post(
         f"/v1/market/offer/{registered_service}/rate",
-        json={"rating": 4.0, "reviewer_id": _RATING_REVIEWER, "comment": "fine"},
+        json=_rating_body(registered_service, 4.0, "fine"),
     )
     assert response.status_code == 200
     assert response.json()["rating"]["service_id"] == registered_service
@@ -656,12 +706,55 @@ def test_rate_a_registered_service(client, registered_service):
     assert ratings["service_info"] == {"avg_rating": 4.0, "rating_count": 1}
 
 
-def test_rate_rejects_reviewer_without_completed_job(client, registered_service):
-    """#1584: an arbitrary reviewer_id with no completed interaction is refused."""
+def test_rate_rejects_unsigned_reviewer(client, registered_service):
+    """#2508: reviewer_id is self-declared without a signature — an unsigned
+    POST is refused before the service lookup, forged or not."""
     response = client.post(
         f"/v1/market/offer/{registered_service}/rate",
-        json={"rating": 1.0, "reviewer_id": "0x1111111111111111111111111111111111111111", "comment": "bomb"},
+        json={"rating": 1.0, "reviewer_id": _rating_reviewer_address(), "comment": "bomb"},
     )
+    assert response.status_code == 403
+
+
+def test_rate_rejects_signature_for_different_reviewer(client, registered_service):
+    """#2508: a valid signature from another wallet cannot rate as the
+    claimed reviewer_id — the recovered signer must equal reviewer_id."""
+    body = _rating_body(registered_service, 1.0, "bomb", key=_RATING_KEY)
+    response = client.post(f"/v1/market/offer/{registered_service}/rate", json=body)
+    assert response.status_code == 403
+
+
+def test_rate_rejects_tampered_rating_content(client, registered_service):
+    """#2508: the signature binds rating/comment/reviewer_id — a proof minted
+    for one rating cannot be replayed with altered content."""
+    body = _rating_body(registered_service, 4.0, "fine")
+    body["rating"] = 1.0
+    response = client.post(f"/v1/market/offer/{registered_service}/rate", json=body)
+    assert response.status_code == 403
+
+
+def test_rate_rejects_stale_signature(client, registered_service):
+    """#2508: issued_at outside the clock window is refused."""
+    import time
+
+    body = _rating_body(registered_service, 4.0, "fine", issued_at=int(time.time()) - 3600)
+    response = client.post(f"/v1/market/offer/{registered_service}/rate", json=body)
+    assert response.status_code == 403
+
+
+def test_rate_rejects_reviewer_without_completed_job(client, registered_service):
+    """#1584: an arbitrary reviewer_id with no completed interaction is refused."""
+    reviewer_key = "0x" + "66" * 32
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    reviewer = derive_ethereum_address(reviewer_key)
+    body = {
+        "rating": 1.0,
+        "reviewer_id": reviewer,
+        "comment": "bomb",
+        **_rating_signature_fields(registered_service, 1.0, "bomb", key=reviewer_key, reviewer=reviewer),
+    }
+    response = client.post(f"/v1/market/offer/{registered_service}/rate", json=body)
     assert response.status_code == 400
 
 
@@ -673,11 +766,22 @@ def test_rate_rejects_duplicate_reviewer(client, registered_service):
     """
     import asyncio
 
-    reviewer = "0x2222222222222222222222222222222222222222"
+    reviewer_key = "0x" + "77" * 32
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    reviewer = derive_ethereum_address(reviewer_key)
     asyncio.run(_seed_completed_job(registered_service, reviewer))
-    body = {"rating": 4.0, "reviewer_id": reviewer, "comment": "fine"}
+    body = {
+        "rating": 4.0,
+        "reviewer_id": reviewer,
+        "comment": "fine",
+        **_rating_signature_fields(registered_service, 4.0, "fine", key=reviewer_key, reviewer=reviewer),
+    }
+    # The duplicate must carry a *valid* signature — an identical replay is
+    # admitted by the signature gate (short clock window, no nonce store)
+    # and refused by the one-rating-per-reviewer rule instead.
     assert client.post(f"/v1/market/offer/{registered_service}/rate", json=body).status_code == 200
-    assert client.post(f"/v1/market/offer/{registered_service}/rate", json={**body, "rating": 1.0}).status_code == 400
+    assert client.post(f"/v1/market/offer/{registered_service}/rate", json=body).status_code == 400
 
 
 def test_get_ratings_default_paging(client):
