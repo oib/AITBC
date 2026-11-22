@@ -17,6 +17,7 @@ from ..models import Account, Block
 from ..protocol_escrow import (
     bounty_escrow_address,
     confirmed_lock_total,
+    confirmed_lock_txs,
     protocol_transfers_active,
     queue_protocol_transfer,
 )
@@ -92,6 +93,159 @@ def _optional_deadline_height(payload: dict[str, Any]) -> int | None:
     return value
 
 
+def _bounty_flow_tx_pending(session: Any, chain_id: str, tx_type: str, bounty_id: str) -> bool:
+    """True when a mempool entry already carries this bounty flow transfer.
+
+    Mirrors ``protocol_auth_identity_pending``: the pending copy is what a
+    retry must see before re-queueing, so a queued-but-unsealed payout or
+    refund is not emitted twice.
+    """
+    import json as _json
+
+    try:
+        from sqlmodel import select
+
+        from ..mempool_common import MempoolEntry
+
+        rows = session.exec(select(MempoolEntry.content).where(MempoolEntry.chain_id == chain_id)).all()
+    except Exception:  # noqa: BLE001 - mempool table absent (tests/minimal schemas): no pending copies exist
+        return False
+    for content in rows:
+        try:
+            tx = _json.loads(content) if isinstance(content, str) else content
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(tx, dict) or tx.get("type") != tx_type:
+            continue
+        if str((tx.get("payload") or {}).get("bounty_id", "")) == str(bounty_id):
+            return True
+    return False
+
+
+def _bounty_flow_tx_exists(session: Any, chain_id: str, tx_type: str, bounty_id: str) -> bool:
+    """True when a BOUNTY_* transfer for this bounty is sealed or pending.
+
+    ``confirmed_lock_txs`` matches any tx type by payload key, so it covers
+    BOUNTY_PAYOUT/BOUNTY_REFUND/BOUNTY_LOCK alike; the pending half scans
+    the mempool table the same way ``protocol_auth_identity_pending`` does.
+    """
+    if confirmed_lock_txs(session, chain_id, tx_type, "bounty_id", bounty_id):
+        return True
+    return _bounty_flow_tx_pending(session, chain_id, tx_type, bounty_id)
+
+
+def _heal_missing_outflow(
+    session: Any,
+    chain_id: str,
+    bounty: BountyContract,
+    submission_id: Any,
+    payload: dict[str, Any],
+    signature: Any,
+) -> tuple[str, int] | None:
+    """Queue the payout/refund a completed/expired bounty is missing (#2637).
+
+    The state row can reach ``completed``/``expired`` while its transfer
+    never queued (refused pool, restart between commit and queue). The
+    idempotent branches call this so a retry repairs the money movement
+    instead of answering success over a stranded lock. Returns
+    ``(tx_hash, amount)`` when a transfer was queued, else ``None``.
+    """
+    if bounty.status == "completed":
+        tx_type, recipient = "BOUNTY_PAYOUT", bounty.winner_address
+    elif bounty.status == "expired":
+        tx_type, recipient = "BOUNTY_REFUND", bounty.creator_address
+    else:
+        return None
+    if not recipient or _bounty_flow_tx_exists(session, chain_id, tx_type, bounty.bounty_id):
+        return None
+    # No payout/refund exists at all, so the whole confirmed lock is owed.
+    amount = confirmed_lock_total(session, chain_id, "BOUNTY_LOCK", "bounty_id", bounty.bounty_id)
+    if amount <= 0:
+        _logger.warning(
+            "Bounty %s is %s with no %s queued and no confirmed lock — cannot heal",
+            bounty.bounty_id,
+            bounty.status,
+            tx_type,
+        )
+        return None
+    out_payload: dict[str, Any] = {"bounty_id": str(bounty.bounty_id)}
+    if tx_type == "BOUNTY_PAYOUT":
+        # The apply-time binding keys on submission_id — carry the id the
+        # operator signed so payload.auth stays admissible.
+        out_payload["submission_id"] = str(submission_id)
+    tx_hash = queue_protocol_transfer(
+        sender=bounty_escrow_address(),
+        recipient=str(recipient),
+        amount=amount,
+        chain_id=chain_id,
+        tx_type=tx_type,
+        payload=out_payload,
+        auth={"signer": operator_address(), "message": payload, "signature": signature},
+    )
+    _logger.warning("Healed missing %s for bounty %s: tx=%s amount=%s", tx_type, bounty.bounty_id, tx_hash, amount)
+    return tx_hash, amount
+
+
+def _heal_missing_lock(
+    session: Any, chain_id: str, bounty: BountyContract, payload: dict[str, Any], signature: Any
+) -> str | None:
+    """Re-queue the BOUNTY_LOCK an existing bounty row lost (#2637).
+
+    A deploy whose queue was refused used to leave an ``active`` row with
+    no lock behind it — submissions accepted, verify/expire unfundable.
+    The idempotent deploy branch calls this so the retry restores the
+    escrow leg. Returns the tx hash when one was queued, else ``None``.
+    """
+    if _bounty_flow_tx_exists(session, chain_id, "BOUNTY_LOCK", bounty.bounty_id):
+        return None
+    lock_payload: dict[str, Any] = {"bounty_id": str(bounty.bounty_id)}
+    if bounty.deadline_height is not None:
+        lock_payload["deadline_height"] = bounty.deadline_height
+    return queue_protocol_transfer(
+        sender=bounty.creator_address,
+        recipient=bounty_escrow_address(),
+        amount=bounty.reward_amount,
+        chain_id=chain_id,
+        tx_type="BOUNTY_LOCK",
+        payload=lock_payload,
+        auth={"signer": operator_address(), "message": payload, "signature": signature},
+    )
+
+
+def _queue_payout_and_complete(
+    chain_id: str,
+    bounty: BountyContract,
+    submission: BountySubmissionRecord,
+    bounty_id: str,
+    submission_id: Any,
+    payload: dict[str, Any],
+    signature: Any,
+    winner: str,
+    payout: int,
+) -> str:
+    """Queue the BOUNTY_PAYOUT, then flip bounty+submission to paid (#2637).
+
+    The queue runs before the caller commits the state flip: a refused
+    queue raises with the row untouched, so the retry redoes the verify
+    instead of hitting the idempotent branch over a missing payout.
+    Returns the queued transaction hash.
+    """
+    tx_hash = queue_protocol_transfer(
+        sender=bounty_escrow_address(),
+        recipient=winner,
+        amount=payout,
+        chain_id=chain_id,
+        tx_type="BOUNTY_PAYOUT",
+        payload={"bounty_id": str(bounty_id), "submission_id": str(submission_id)},
+        auth={"signer": operator_address(), "message": payload, "signature": signature},
+    )
+    bounty.remaining_amount = 0
+    bounty.status = "completed"
+    bounty.winner_address = winner
+    submission.status = "verified"
+    return tx_hash
+
+
 def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> None:
     """Refuse to pay out of the shared bounty escrow before the lock has landed.
 
@@ -130,7 +284,11 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
             raise_for_unarmed("Bounty (create)")
         existing = _get_bounty(session, chain_id, str(bounty_id))
         if existing:
-            return {
+            # #2637: a prior deploy may have committed the row and lost the
+            # lock to a refused queue — re-queue it instead of reporting
+            # idempotent success over an unfunded bounty.
+            healed = _heal_missing_lock(session, chain_id, existing, payload, body.get("signature"))
+            result = {
                 "success": True,
                 "idempotent": True,
                 "bounty_id": existing.bounty_id,
@@ -138,6 +296,9 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
                 "status": existing.status,
                 "deadline_height": existing.deadline_height,
             }
+            if healed:
+                result["transaction_hash"] = healed
+            return result
         account = _account(session, chain_id, creator)
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
@@ -169,15 +330,26 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
         # Carried on the sealed BOUNTY_LOCK so the on-chain record shows the
         # deadline the signed body committed to.
         lock_payload["deadline_height"] = deadline_height
-    tx_hash = queue_protocol_transfer(
-        sender=creator,
-        recipient=bounty_escrow_address(),
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="BOUNTY_LOCK",
-        payload=lock_payload,
-        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-    )
+    try:
+        tx_hash = queue_protocol_transfer(
+            sender=creator,
+            recipient=bounty_escrow_address(),
+            amount=amount,
+            chain_id=chain_id,
+            tx_type="BOUNTY_LOCK",
+            payload=lock_payload,
+            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
+        )
+    except Exception:  # noqa: BLE001 - any queue refusal must not strand the row
+        # #2637: the BountyContract row is already committed — remove it so
+        # the retry deploys cleanly instead of hitting the idempotent
+        # branch over a bounty that has no lock behind it.
+        with session_scope() as cleanup:
+            orphan = _get_bounty(cleanup, chain_id, str(bounty_id))
+            if orphan is not None:
+                cleanup.delete(orphan)
+                cleanup.commit()
+        raise
     _logger.info("Bounty lock queued: %s amount=%s creator=%s tx=%s", bounty_id, amount, creator, tx_hash)
     result["transaction_hash"] = tx_hash
     result["message"] = "Bounty lock submitted to mempool; the balance moves when the transaction is included in a block"
@@ -226,6 +398,82 @@ def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
         return {"success": True, "submission_id": record.submission_id, "status": record.status}
 
 
+def _verify_bounty_locked(
+    session: Any,
+    chain_id: str,
+    bounty_id: str,
+    submission_id: Any,
+    verified: bool,
+    payload: dict[str, Any],
+    signature: Any,
+) -> tuple[dict[str, Any] | None, int, str | None, str | None]:
+    """Validate, resolve, reject or pay inside the session.
+
+    Returns ``(early_response, payout, status, payout_tx_hash)``: an early
+    response ends the request (idempotent replay or the ``resolve_only``
+    probe), a ``None`` early response means the row was mutated and
+    committed — the payout transfer, when verified, is already queued.
+    """
+    if not protocol_transfers_active(session, chain_id):
+        raise_for_unarmed("Bounty (verify/payout)")
+    bounty = _get_bounty(session, chain_id, bounty_id)
+    if not bounty:
+        raise HTTPException(status_code=404, detail=f"Bounty {bounty_id} not found")
+    if bounty.status in ("completed", "expired"):
+        # #2637: idempotent only when the money actually moved — a
+        # completed/expired row whose transfer never queued gets it
+        # queued now instead of answering success over a stranded lock.
+        healed = _heal_missing_outflow(session, chain_id, bounty, submission_id, payload, signature)
+        early = {"success": True, "idempotent": True, "status": bounty.status}
+        if healed:
+            early["transaction_hash"], early["healed_amount"] = healed
+        return early, 0, None, None
+    submission = session.exec(
+        select(BountySubmissionRecord).where(
+            BountySubmissionRecord.chain_id == chain_id,
+            BountySubmissionRecord.submission_id == str(submission_id),
+            # #2638: submission_id is unique per chain, not per bounty —
+            # without this predicate a submission made to bounty A could
+            # be "verified" against bounty B and paid out of B's lock.
+            BountySubmissionRecord.bounty_id == str(bounty_id),
+        )
+    ).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail=f"Submission {submission_id} not found")
+    now = datetime.now(UTC)
+    payout = 0
+    payout_tx_hash = None
+    if verified:
+        _require_funded(session, chain_id, bounty)
+        winner = submission.submitter_address
+        payout = bounty.remaining_amount
+        if payload.get("resolve_only"):
+            # Two-phase commit (#2472): the caller re-signs a body that
+            # carries these resolved values so payload.auth binds the
+            # payee and amount for gossip admission.
+            return {"success": True, "bounty_id": bounty_id, "resolved": {"to": winner, "amount": payout}}, payout, None, None
+        require_signed_transfer_values(payload, to=winner, amount=payout)
+        payout_tx_hash = _queue_payout_and_complete(
+            chain_id,
+            bounty,
+            submission,
+            bounty_id,
+            submission_id,
+            payload,
+            signature,
+            winner,
+            payout,
+        )
+    else:
+        submission.status = "rejected"
+    submission.updated_at = now
+    bounty.updated_at = now
+    session.add(submission)
+    session.add(bounty)
+    session.commit()
+    return None, payout, bounty.status, payout_tx_hash
+
+
 @rate_limit(rate=20, per=60)
 def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
@@ -240,62 +488,15 @@ def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
     if not submission_id:
         raise HTTPException(status_code=400, detail="submission_id is required")
     with session_scope() as session:
-        if not protocol_transfers_active(session, chain_id):
-            raise_for_unarmed("Bounty (verify/payout)")
-        bounty = _get_bounty(session, chain_id, bounty_id)
-        if not bounty:
-            raise HTTPException(status_code=404, detail=f"Bounty {bounty_id} not found")
-        if bounty.status in ("completed", "expired"):
-            return {"success": True, "idempotent": True, "status": bounty.status}
-        submission = session.exec(
-            select(BountySubmissionRecord).where(
-                BountySubmissionRecord.chain_id == chain_id,
-                BountySubmissionRecord.submission_id == str(submission_id),
-                # #2638: submission_id is unique per chain, not per bounty —
-                # without this predicate a submission made to bounty A could
-                # be "verified" against bounty B and paid out of B's lock.
-                BountySubmissionRecord.bounty_id == str(bounty_id),
-            )
-        ).first()
-        if not submission:
-            raise HTTPException(status_code=404, detail=f"Submission {submission_id} not found")
-        now = datetime.now(UTC)
-        winner = None
-        if verified:
-            _require_funded(session, chain_id, bounty)
-            winner = submission.submitter_address
-            payout = bounty.remaining_amount
-            if payload.get("resolve_only"):
-                # Two-phase commit (#2472): the caller re-signs a body that
-                # carries these resolved values so payload.auth binds the
-                # payee and amount for gossip admission.
-                return {"success": True, "bounty_id": bounty_id, "resolved": {"to": winner, "amount": payout}}
-            require_signed_transfer_values(payload, to=winner, amount=payout)
-            bounty.remaining_amount = 0
-            bounty.status = "completed"
-            bounty.winner_address = winner
-            submission.status = "verified"
-        else:
-            submission.status = "rejected"
-            payout = 0
-        submission.updated_at = now
-        bounty.updated_at = now
-        session.add(submission)
-        session.add(bounty)
-        session.commit()
-        status = bounty.status
+        early, payout, status, payout_tx_hash = _verify_bounty_locked(
+            session, chain_id, bounty_id, submission_id, verified, payload, body.get("signature")
+        )
+        if early is not None:
+            return early
 
     result = {"success": True, "bounty_id": bounty_id, "status": status, "payout": payout}
-    if winner and payout:
-        result["transaction_hash"] = queue_protocol_transfer(
-            sender=bounty_escrow_address(),
-            recipient=winner,
-            amount=payout,
-            chain_id=chain_id,
-            tx_type="BOUNTY_PAYOUT",
-            payload={"bounty_id": str(bounty_id), "submission_id": str(submission_id)},
-            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-        )
+    if payout_tx_hash:
+        result["transaction_hash"] = payout_tx_hash
         result["message"] = "Bounty payout submitted to mempool; the balance moves when the transaction is included in a block"
     return result
 
@@ -352,13 +553,14 @@ def _require_deadline_reached(session: Session, chain_id: str, bounty: BountyCon
 
 
 def _expire_bounty_locked(
-    session: Any, chain_id: str, bounty_id: str, user: str, payload: dict[str, Any]
-) -> tuple[dict[str, Any] | None, int, str | None]:
+    session: Any, chain_id: str, bounty_id: str, user: str, payload: dict[str, Any], signature: Any
+) -> tuple[dict[str, Any] | None, int, str | None, str | None]:
     """Validate, resolve or expire the bounty row inside the session.
 
-    Returns ``(early_response, refund, status)``: an early response ends
-    the request (idempotent replay or the ``resolve_only`` probe), a
-    ``None`` early response means the row was mutated to expired.
+    Returns ``(early_response, refund, status, refund_tx_hash)``: an early
+    response ends the request (idempotent replay or the ``resolve_only``
+    probe), a ``None`` early response means the row was mutated to expired
+    and the refund transfer is already queued.
     """
     if not protocol_transfers_active(session, chain_id):
         raise_for_unarmed("Bounty (expire/refund)")
@@ -368,7 +570,14 @@ def _expire_bounty_locked(
     if bounty.creator_address != user:
         raise HTTPException(status_code=403, detail="user_address does not match the locked account")
     if bounty.status == "expired":
-        return {"success": True, "idempotent": True, "bounty_id": bounty.bounty_id, "refunded": 0}, 0, None
+        # #2637: idempotent only when the refund actually queued — heal a
+        # missing BOUNTY_REFUND instead of reporting success over a
+        # stranded lock.
+        healed = _heal_missing_outflow(session, chain_id, bounty, None, payload, signature)
+        early = {"success": True, "idempotent": True, "bounty_id": bounty.bounty_id, "refunded": 0}
+        if healed:
+            early["transaction_hash"], early["refunded"] = healed
+        return early, 0, None, None
     if bounty.status == "completed":
         raise HTTPException(status_code=400, detail="Bounty already completed")
     _require_deadline_reached(session, chain_id, bounty)
@@ -382,16 +591,29 @@ def _expire_bounty_locked(
             },
             refund,
             None,
+            None,
         )
+    refund_tx_hash = None
     if refund:
         _require_funded(session, chain_id, bounty)
         require_signed_transfer_values(payload, to=user, amount=refund)
+        # #2637: queue BEFORE committing the state flip — a refused queue
+        # must leave the row untouched so the retry redoes the expire.
+        refund_tx_hash = queue_protocol_transfer(
+            sender=bounty_escrow_address(),
+            recipient=user,
+            amount=refund,
+            chain_id=chain_id,
+            tx_type="BOUNTY_REFUND",
+            payload={"bounty_id": str(bounty_id)},
+            auth={"signer": operator_address(), "message": payload, "signature": signature},
+        )
     bounty.remaining_amount = 0
     bounty.status = "expired"
     bounty.updated_at = datetime.now(UTC)
     session.add(bounty)
     session.commit()
-    return None, refund, bounty.status
+    return None, refund, bounty.status, refund_tx_hash
 
 
 @rate_limit(rate=20, per=60)
@@ -408,20 +630,14 @@ def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
         raise HTTPException(status_code=400, detail="user_address is required")
     user = _to_ait_address(str(user))
     with session_scope() as session:
-        early, refund, status = _expire_bounty_locked(session, chain_id, bounty_id, user, payload)
+        early, refund, status, refund_tx_hash = _expire_bounty_locked(
+            session, chain_id, bounty_id, user, payload, body.get("signature")
+        )
         if early is not None:
             return early
 
     result = {"success": True, "bounty_id": bounty_id, "status": status, "refunded": refund}
-    if refund:
-        result["transaction_hash"] = queue_protocol_transfer(
-            sender=bounty_escrow_address(),
-            recipient=user,
-            amount=refund,
-            chain_id=chain_id,
-            tx_type="BOUNTY_REFUND",
-            payload={"bounty_id": str(bounty_id)},
-            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-        )
+    if refund_tx_hash:
+        result["transaction_hash"] = refund_tx_hash
         result["message"] = "Bounty refund submitted to mempool; the balance moves when the transaction is included in a block"
     return result
