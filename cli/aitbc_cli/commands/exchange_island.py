@@ -69,6 +69,17 @@ def _transaction_rows(response: Any) -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], rows or [])
 
 
+def _row_sender(row: dict[str, Any]) -> str:
+    """Tx-level sender of a transaction row, normalised for comparison.
+
+    ``payload.user_id`` is self-declared and attacker-chosen; only the
+    sealed transaction's ``sender`` binds a cancel to the wallet that
+    signed it (#2501).
+    """
+    sender = row.get("sender")
+    return str(sender).lower() if sender else ""
+
+
 def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], set[str]]:
     """Correlate cancel transactions to their orders in the read model.
 
@@ -79,6 +90,12 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
     update on its order_id, never an order row of its own (#2400 —
     zero-amount "orders" polluted order history). Returns (rows, cancelled
     order_ids).
+
+    #2501: a cancel is honoured only when the cancel tx's sender is the
+    order row's sender — order_ids are public, so without the binding any
+    funded wallet could erase anyone's order from the book. A cancel whose
+    sender cannot be established, or that matches no same-sender order,
+    is ignored entirely (the cancel row is still dropped).
     """
     cancels: dict[str, dict[str, Any]] = {}
     originals: dict[str, list[dict[str, Any]]] = {}
@@ -88,13 +105,19 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
             continue
         oid = payload.get("order_id", "")
         if payload.get("action") == "cancel":
-            cancels.setdefault(oid, payload)
+            cancels.setdefault(oid, row)
         elif oid:
-            originals.setdefault(oid, []).append(payload)
-    cancelled_ids = set(cancels)
-    for oid in cancels:
-        for orig in originals.get(oid, []):
-            orig["status"] = "cancelled"
+            originals.setdefault(oid, []).append(row)
+    cancelled_ids: set[str] = set()
+    for oid, cancel_row in cancels.items():
+        cancel_sender = _row_sender(cancel_row)
+        if not cancel_sender:
+            continue
+        for orig_row in originals.get(oid, []):
+            orig_payload = orig_row.get("payload") or orig_row
+            if cancel_sender == _row_sender(orig_row):
+                orig_payload["status"] = "cancelled"
+                cancelled_ids.add(oid)
     kept = [
         row
         for row in rows

@@ -300,6 +300,7 @@ class _CancelAwareHTTPClient:
     open_rows = [
         {
             "transaction_id": 1,
+            "sender": "0xu",
             "side": "buy",
             "max_price": 0.001,
             "amount": 1.0,
@@ -311,6 +312,7 @@ class _CancelAwareHTTPClient:
         },
         {
             "transaction_id": 2,
+            "sender": "0xu",
             "side": "sell",
             "min_price": 0.002,
             "amount": 0.5,
@@ -324,6 +326,7 @@ class _CancelAwareHTTPClient:
     cancel_rows = [
         {
             "transaction_id": 3,
+            "sender": "0xu",
             "action": "cancel",
             "order_id": "ord_dead",
             "status": "cancelled",
