@@ -12,7 +12,7 @@ from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.market.job_request_signature import jobs_request_message
 
 from ...config import _resolve_market_api_key, get_config
-from ...utils import error, info, output, success
+from ...utils import error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 
 # Initialize logger
@@ -231,16 +231,37 @@ def sync_ratings(ctx, remote_url: str, limit: int):
             sync_response = remote_client.post("/v1/market/ratings/sync", json=unsynced_ratings)
 
             if sync_response.get("status") == "success":
-                # Mark local ratings as synced
+                # #2522: only mark ratings synced when the remote accounted
+                # for every sent row — failed>0 or a count shortfall means
+                # some ratings did not land, and marking them synced would
+                # lose them. The remote reports counts, not per-id results,
+                # so acceptance is all-or-nothing for the batch.
                 rating_ids = [r["id"] for r in unsynced_ratings]
-                # #2521: the route takes a bare JSON list (`list[str]` body),
-                # not an object — wrapping it 422s and nothing is marked.
-                mark_response = local_client.post("/v1/market/ratings/mark-synced", json=rating_ids)
+                synced_n = int(sync_response.get("synced", 0))
+                updated_n = int(sync_response.get("updated", 0))
+                skipped_n = int(sync_response.get("skipped", 0))
+                failed_n = int(sync_response.get("failed", 0))
+                accepted = failed_n == 0 and synced_n + updated_n + skipped_n == len(rating_ids)
+                if accepted:
+                    # #2521: the route takes a bare JSON list (`list[str]`
+                    # body), not an object — wrapping it 422s.
+                    mark_response = local_client.post("/v1/market/ratings/mark-synced", json=rating_ids)
+                    marked = mark_response.get("marked_synced", 0)
+                else:
+                    marked = 0
 
                 success(
-                    f"Synced {sync_response.get('synced', 0)} new, {sync_response.get('updated', 0)} updated ratings to remote"
+                    f"Synced {synced_n} new, {updated_n} updated, {skipped_n} already present, "
+                    f"{failed_n} failed ratings on remote"
                 )
-                info(f"Marked {mark_response.get('marked_synced', 0)} local ratings as synced")
+                if accepted:
+                    info(f"Marked {marked} local ratings as synced")
+                else:
+                    warning(
+                        f"Remote did not accept all {len(rating_ids)} ratings "
+                        f"({synced_n}+{updated_n}+{skipped_n} accounted, {failed_n} failed) — "
+                        "leaving them unsynced for the next run"
+                    )
             else:
                 abort(None, f"Failed to sync ratings to remote: {sync_response}")
         else:
