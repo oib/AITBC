@@ -399,3 +399,66 @@ def protocol_auth_signature_sealed(session: Any, chain_id: str, signature: str) 
         if isinstance(auth, dict) and str(auth.get("signature") or "") == str(signature):
             return True
     return False
+
+
+_BOUNTY_FLOW_TYPES = ("BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND")
+
+
+def bounty_flow_state(
+    session: Any,
+    chain_id: str,
+    bounty_id: str,
+    *,
+    before_height: int | None = None,
+) -> tuple[int, int, set[str]]:
+    """Sealed bounty money-flow totals for the v30 apply invariants (#2484).
+
+    Returns ``(locked_total, outflow_total, paid_submissions)`` computed
+    purely from replicated ``Transaction`` rows — never the node-local
+    ``BountyContract`` domain row, which RPC handlers mutate outside block
+    apply and which followers need not carry identically.
+
+    ``locked_total`` sums ``BOUNTY_LOCK`` values (every top-up lock counts);
+    ``outflow_total`` sums ``BOUNTY_PAYOUT`` + ``BOUNTY_REFUND`` values —
+    the honest lifecycle pays XOR refunds the full remaining amount, so a
+    combined bound is what actually protects the shared escrow from a
+    signed payout+refund pair. ``paid_submissions`` collects the
+    ``submission_id`` of every sealed payout for the one-payout-per-
+    submission rule.
+
+    ``before_height`` excludes rows stamped at or above it — the block
+    currently being applied — so same-block applications are accounted by
+    the caller's per-block accumulators instead of being counted twice
+    (staged rows are session-visible on the proposer path).
+    """
+    from sqlmodel import col, select
+
+    from .models import Transaction
+
+    stmt = select(Transaction).where(
+        Transaction.chain_id == chain_id,
+        col(Transaction.type).in_(_BOUNTY_FLOW_TYPES),
+        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+    )
+    expr = _payload_text_expr(session, "bounty_id")
+    if expr is not None:
+        stmt = stmt.where(expr == str(bounty_id))
+    locked = 0
+    outflow = 0
+    submissions: set[str] = set()
+    for tx in session.exec(stmt).all():
+        if str((tx.payload or {}).get("bounty_id", "")) != str(bounty_id):
+            continue
+        if before_height is not None and tx.block_height is not None and int(tx.block_height) >= int(before_height):
+            continue
+        tx_type = str(tx.type or "")
+        value = int(tx.value or 0)
+        if tx_type == "BOUNTY_LOCK":
+            locked += value
+        elif tx_type in ("BOUNTY_PAYOUT", "BOUNTY_REFUND"):
+            outflow += value
+            if tx_type == "BOUNTY_PAYOUT":
+                sub = (tx.payload or {}).get("submission_id")
+                if sub is not None and str(sub):
+                    submissions.add(str(sub))
+    return locked, outflow, submissions
