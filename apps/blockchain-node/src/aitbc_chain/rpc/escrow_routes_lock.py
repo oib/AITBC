@@ -271,14 +271,12 @@ async def _ensure_lock_sealed(job_id: str) -> None:
         # bounded 425-deferral budget on what is really an unavailable probe
         # (#2295: hub RPC restart window produced minutes of false 425s on a
         # confirmed lock). 503 keeps the retry semantics without the lie.
-        raise _er.HTTPException(
-            status_code=503,
-            detail=(
-                f"escrow lock lookup for job_id={job_id} is unavailable; "
-                "retry — the lock's sealed state could not be determined"
-            ),
-            headers={"Retry-After": "5"},
+        # Curated message (job_id only, no exception text) — kept out of an
+        # f-string inline so the 5xx hardening audit sees the named detail.
+        detail = (
+            f"escrow lock lookup for job_id={job_id} is unavailable; retry — the lock's sealed state could not be determined"
         )
+        raise _er.HTTPException(status_code=503, detail=detail, headers={"Retry-After": "5"})
     if lock_tx is None:
         raise _er.HTTPException(
             status_code=425,

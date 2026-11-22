@@ -229,11 +229,10 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: _er.Decimal, job_
         # #2270: a chain-side rejection (e.g. the settlement authority's float
         # cannot cover amount+fee at admission) must reach the caller, not
         # collapse into a generic success:false the coordinator reports as
-        # "Failed to refund payment".
-        raise _er.HTTPException(
-            status_code=503,
-            detail=(f"ESCROW_REFUND transaction rejected by the chain for job_id={job_id}: {_upstream_error_detail(resp)}"),
-        )
+        # "Failed to refund payment". The upstream detail is our own chain's
+        # bounded error body (already logged above), not exception internals.
+        detail = f"ESCROW_REFUND transaction rejected by the chain for job_id={job_id}: {_upstream_error_detail(resp)}"
+        raise _er.HTTPException(status_code=503, detail=detail)
     except Exception as e:
         _er._logger.error(
             "ESCROW_REFUND TX submission failed for job_id=%s (buyer %s was NOT refunded on-chain): %s",
