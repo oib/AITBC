@@ -340,12 +340,21 @@ class BridgeTransferReconcileMixin(BridgeBase):
         path keep ``confirm_time`` NULL forever — the pending scan never
         revisits terminal rows. Fill it (and a missing target_tx_hash) from
         the sealed BRIDGE_RELEASE evidence. Read-model fields only; the row
-        status is never rewritten here."""
+        status is never rewritten here.
+
+        #2492: the local store holds rows for transfers where this chain is
+        the TARGET too (the confirm/finalize path writes them locally), so
+        the scan keys on involvement — ``source_chain`` OR ``target_chain``
+        — not on ``source_chain`` alone. A store-less source chain (hub
+        holding only bc-2) then still backfills its island->bc-2 rows,
+        whose release evidence is the local sealed index. The pending
+        reconcile stays source-scoped: its lock/refund evidence rules are
+        only locally readable for source-side rows."""
         changed = 0
         with self._session_for(chain_id) as session:
             rows = session.exec(
                 select(CrossChainTransfer).where(
-                    CrossChainTransfer.source_chain == chain_id,
+                    (CrossChainTransfer.source_chain == chain_id) | (CrossChainTransfer.target_chain == chain_id),
                     CrossChainTransfer.status == "completed",
                     CrossChainTransfer.confirm_time.is_(None),  # type: ignore[union-attr]
                 )
