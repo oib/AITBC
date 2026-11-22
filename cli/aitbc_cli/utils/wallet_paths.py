@@ -9,8 +9,10 @@ operator shells share one standard.
 
 from __future__ import annotations
 
+import json
 import os
 import pwd
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -261,3 +263,36 @@ def daemon_keystore_has(wallet_name: str) -> bool | None:
         return False
     except Exception:  # noqa: BLE001 - list probe — unreadable wallet index means no match
         return None
+
+
+def multisig_recipient_refusal(to_address: str, dirs: Iterable[Path]) -> str | None:
+    """Refusal message when ``to_address`` is a recorded multisig address.
+
+    Multisig records (``<name>_multisig.json``) are local proposal ledgers
+    with no spendable key — the address can receive funds but nothing can
+    ever sign a spend from it (#2362). Every send path must consult this
+    guard; #2499 moved it here so ``transactions send``/batch/MCP and any
+    future ``--to``/``--recipient`` command share one check across all
+    wallet search dirs. Returns ``None`` when the address is not a recorded
+    multisig.
+    """
+    target = to_address.lower()
+    for directory in dirs:
+        try:
+            paths = list(Path(directory).glob("*_multisig.json"))
+        except OSError:
+            continue
+        for path in paths:
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            address = data.get("address")
+            if isinstance(address, str) and address.lower() == target:
+                name = path.name[: -len("_multisig.json")]
+                return (
+                    f"{to_address} is the address of multisig wallet '{name}' — it has no "
+                    "spendable key, so funds sent there are unrecoverable. Settle through an "
+                    "escrow flow or send from an authorized signer instead."
+                )
+    return None

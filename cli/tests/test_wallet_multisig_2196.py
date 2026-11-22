@@ -384,20 +384,24 @@ class TestMultisigUnspendableGuard2362:
         assert "Insufficient" in result.output
         assert "reachability" not in result.output
 
-    def test_multisig_addresses_maps_files(self, tmp_path):
-        from aitbc_cli.commands.wallet.basic import _multisig_addresses
+    def test_multisig_recipient_refusal_maps_files(self, tmp_path):
+        from aitbc_cli.utils.wallet_paths import multisig_recipient_refusal
 
         addr, _ = _make_multisig(tmp_path, name="team")
-        assert _multisig_addresses(tmp_path / "wallets") == {addr.lower(): "team"}
+        refusal = multisig_recipient_refusal(addr, [tmp_path / "wallets"])
+        assert refusal is not None
+        assert "team" in refusal
+        assert multisig_recipient_refusal("0x" + "00" * 20, [tmp_path / "wallets"]) is None
 
-    def test_send_guard_refuses_multisig_recipient(self, tmp_path):
+    def test_send_guard_refuses_multisig_recipient(self, tmp_path, monkeypatch):
         from aitbc_cli.commands.wallet.basic import _assert_not_multisig_recipient
         from aitbc_cli.utils.error_handling import CLIError
 
         addr, _ = _make_multisig(tmp_path, name="team")
+        monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path / "wallets"))
         ctx = type("C", (), {"obj": {}})()
         with pytest.raises(CLIError, match="unrecoverable"):
-            _assert_not_multisig_recipient(ctx, tmp_path / "wallets", addr.upper().replace("0X", "0x"))
+            _assert_not_multisig_recipient(ctx, addr.upper().replace("0X", "0x"))
 
     def test_send_invokes_multisig_guard(self, tmp_path, monkeypatch):
         """#2362 wiring pin: deleting the ``_assert_not_multisig_recipient``
@@ -413,6 +417,7 @@ class TestMultisigUnspendableGuard2362:
         sender_path = wallets / "sender.json"
         write_json_0600(sender_path, {"address": "0x" + "11" * 20, "private_key": "0x" + "44" * 32})
         addr, _ = _make_multisig(tmp_path, name="team")
+        monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path / "wallets"))
 
         # Past the guard, send resolves the RPC endpoint — stub it so a
         # removed call site surfaces as this sentinel, not a hang.

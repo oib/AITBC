@@ -24,8 +24,8 @@ from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import (
     find_wallet_file,
     find_wallet_file_report,
+    multisig_recipient_refusal,
     service_dir_wallet_note,
-    wallet_dir as resolve_wallet_dir,
     wallet_not_found_message,
     wallet_search_dirs,
     wallet_write_restricted_message,
@@ -57,41 +57,17 @@ from eth_keys.exceptions import ValidationError as _EthKeyValidationError
 logger = get_logger(__name__)
 
 
-def _multisig_addresses(wallet_dir: Path) -> dict[str, str]:
-    """Map lowercase multisig address -> wallet name for every ``*_multisig.json``.
+def _assert_not_multisig_recipient(ctx, to_address: str) -> None:
+    """Refuse sends to a locally recorded multisig address (#2362).
 
-    Multisig records are local proposal ledgers with no spendable key — the
-    address they name can receive funds but nothing can ever sign a spend
-    from it (#2362). Send paths consult this map to refuse funding them.
+    The lookup lives in ``utils.wallet_paths.multisig_recipient_refusal``
+    and scans every wallet search dir — ``transactions send``/batch and
+    the MCP send tool share the same gate via ``_send_transaction_impl``
+    (#2499).
     """
-    out: dict[str, str] = {}
-    try:
-        # NOTE: bare ``list`` is shadowed in this module by the ``wallet
-        # list`` click command — iterate the glob directly.
-        paths = [p for p in wallet_dir.glob("*_multisig.json")]
-    except OSError:
-        return out
-    for path in paths:
-        try:
-            data = json.loads(path.read_text())
-        except (OSError, ValueError):
-            continue
-        address = data.get("address")
-        if isinstance(address, str) and address.startswith("0x"):
-            out[address.lower()] = path.name[: -len("_multisig.json")]
-    return out
-
-
-def _assert_not_multisig_recipient(ctx, wallet_dir: Path, to_address: str) -> None:
-    """Refuse sends to a locally recorded multisig address (#2362)."""
-    name = _multisig_addresses(wallet_dir).get(to_address.lower())
-    if name is not None:
-        abort(
-            ctx,
-            f"{to_address} is the address of multisig wallet '{name}' — it has no "
-            "spendable key, so funds sent there are unrecoverable. Settle through an "
-            "escrow flow or send from an authorized signer instead.",
-        )
+    refusal = multisig_recipient_refusal(to_address, wallet_search_dirs())
+    if refusal is not None:
+        abort(ctx, refusal)
         raise click.Abort()
 
 
@@ -1123,7 +1099,7 @@ def send(
 
     # #2362: a locally recorded multisig address has no spendable key —
     # funding it burns the funds. Refuse before signing.
-    _assert_not_multisig_recipient(ctx, ctx.obj.get("wallet_dir") or resolve_wallet_dir(), to_address)
+    _assert_not_multisig_recipient(ctx, to_address)
 
     rpc_url = _resolve_send_rpc_endpoint(ctx, rpc_url)
     chain_id = _send_chain_id(ctx, rpc_url)
