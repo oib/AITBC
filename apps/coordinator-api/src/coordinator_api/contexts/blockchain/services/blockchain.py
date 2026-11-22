@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -99,6 +100,9 @@ class BlockchainService:
         return {"X-Api-Key": _chain_rpc_api_key()}
 
     def _signed(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # #2480: every operator-signed body carries a one-shot auth_nonce so
+        # its signature is unique per authorization — the node's replay bound.
+        payload.setdefault("auth_nonce", uuid.uuid4().hex)
         payload["signature"] = _sign_payload(payload)
         return payload
 

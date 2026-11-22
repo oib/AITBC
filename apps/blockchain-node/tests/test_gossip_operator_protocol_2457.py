@@ -62,6 +62,7 @@ def _bounty_lock_tx(**overrides: Any) -> dict[str, Any]:
         "bounty_id": "b-1",
         "user_address": USER,
         "reward_amount": 500,
+        "auth_nonce": "bn-lock-1",
         "chain_id": CHAIN,
     }
     tx: dict[str, Any] = {
@@ -83,6 +84,7 @@ def _agent_stake_lock_tx(**overrides: Any) -> dict[str, Any]:
         "stake_id": "s-1",
         "user_address": USER,
         "amount": 700,
+        "auth_nonce": "sn-lock-1",
         "chain_id": CHAIN,
     }
     tx: dict[str, Any] = {
@@ -100,7 +102,7 @@ def _agent_stake_lock_tx(**overrides: Any) -> dict[str, Any]:
 
 
 def _stake_unbond_tx(**overrides: Any) -> dict[str, Any]:
-    message = {"stake_id": "s-1", "user_address": USER, "chain_id": CHAIN}
+    message = {"stake_id": "s-1", "user_address": USER, "auth_nonce": "unb-1", "chain_id": CHAIN}
     tx: dict[str, Any] = {
         "from": STAKE_ESCROW,
         "to": STAKE_ESCROW,
@@ -183,7 +185,7 @@ def test_stake_unbond_split_legs_dropped(monkeypatch):
 def test_operator_claim_with_foreign_signature_dropped(monkeypatch):
     """auth.signer naming the operator but signed by another key fails."""
     _operator_env(monkeypatch)
-    message = {"bounty_id": "b-1", "user_address": USER, "reward_amount": 500, "chain_id": CHAIN}
+    message = {"bounty_id": "b-1", "user_address": USER, "reward_amount": 500, "auth_nonce": "forged-1", "chain_id": CHAIN}
     forged = _auth(message, signer=OPERATOR, key=USER_KEY)
     tx = _bounty_lock_tx(payload={"bounty_id": "b-1", "auth": forged})
     assert gossip_transaction_drop_reason(tx) == "invalid_protocol_auth"
@@ -192,7 +194,7 @@ def test_operator_claim_with_foreign_signature_dropped(monkeypatch):
 def test_bounty_payout_unbound_stays_local_only(monkeypatch):
     """Without signed to/amount the payout cannot bind its legs — dropped."""
     _operator_env(monkeypatch)
-    message = {"bounty_id": "b-1", "submission_id": "sub-1", "chain_id": CHAIN}
+    message = {"bounty_id": "b-1", "submission_id": "sub-1", "auth_nonce": "po-unb-1", "chain_id": CHAIN}
     tx: dict[str, Any] = {
         "from": BOUNTY_ESCROW,
         "to": USER,
@@ -208,7 +210,7 @@ def test_bounty_payout_unbound_stays_local_only(monkeypatch):
 
 def test_bounty_refund_unbound_stays_local_only(monkeypatch):
     _operator_env(monkeypatch)
-    message = {"bounty_id": "b-1", "user_address": USER, "chain_id": CHAIN}
+    message = {"bounty_id": "b-1", "user_address": USER, "auth_nonce": "re-unb-1", "chain_id": CHAIN}
     tx: dict[str, Any] = {
         "from": BOUNTY_ESCROW,
         "to": USER,
@@ -226,7 +228,7 @@ def test_operator_stake_release_unbound_stays_local_only(monkeypatch):
     """Agent STAKE_RELEASE amount is server-resolved — wallet-auth shape
     required, so an operator body (no nonce/timestamp) cannot ride gossip."""
     _operator_env(monkeypatch)
-    message = {"stake_id": "s-1", "user_address": USER, "chain_id": CHAIN}
+    message = {"stake_id": "s-1", "user_address": USER, "auth_nonce": "sr-unb-1", "chain_id": CHAIN}
     tx: dict[str, Any] = {
         "from": STAKE_ESCROW,
         "to": USER,

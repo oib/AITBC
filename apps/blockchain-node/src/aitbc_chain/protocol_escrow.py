@@ -319,3 +319,83 @@ def confirmed_lock_total(
     Callers compare this against the record amount before queueing a release.
     """
     return sum(int(tx.value or 0) for tx in confirmed_lock_txs(session, chain_id, tx_type, payload_key, payload_value))
+
+
+def tx_auth_signature(tx_data: dict[str, Any]) -> str | None:
+    """The ``payload.auth.signature`` one-shot identity of an envelope, if any (#2480).
+
+    Operator-signed protocol bodies sign business fields, not the envelope —
+    nonce/fee changes mint a fresh tx hash for the same authorization, so the
+    signature itself is the replay identity every dedup layer keys on.
+    """
+    payload = tx_data.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    auth = payload.get("auth")
+    if not isinstance(auth, dict):
+        return None
+    signature = auth.get("signature")
+    return str(signature) if signature else None
+
+
+def _payload_auth_signature_expr(session: Any) -> Any | None:
+    """SQL expression for ``str(payload.auth.signature)`` (#2480).
+
+    Same contract as ``_payload_text_expr`` but for the nested auth object —
+    every auth-bearing transfer stores ``payload.auth.signature``, including
+    envelopes sealed before the ``auth_nonce`` schema existed, so one lookup
+    covers the whole history.
+    """
+    from sqlalchemy import literal_column
+
+    dialect = session.get_bind().dialect.name
+    if dialect == "sqlite":
+        return literal_column("""coalesce(CAST(json_extract(payload, '$.auth.signature') AS TEXT), '')""")
+    if dialect == "postgresql":
+        return literal_column("""coalesce((payload -> 'auth' ->> 'signature'), '')""")
+    return None
+
+
+# Types whose envelopes may carry ``payload.auth`` — mirrors the gossip
+# admission sets in ``rpc/utils.py`` (kept here so the state layer can query
+# sealed rows without importing the RPC package).
+AUTH_PROTOCOL_TX_TYPES = (
+    "STAKE_LOCK",
+    "STAKE_RELEASE",
+    "BOUNTY_LOCK",
+    "BOUNTY_PAYOUT",
+    "BOUNTY_REFUND",
+    "STAKE_UNBOND",
+    # A ``TRANSFER`` envelope can still resolve to one of the above through
+    # ``payload.type``; its stored row keeps whichever label apply used.
+    "TRANSFER",
+)
+
+
+def protocol_auth_signature_sealed(session: Any, chain_id: str, signature: str) -> bool:
+    """True when a sealed transaction already carries this auth signature (#2480).
+
+    The signature is the one-shot identity of an operator authorization:
+    honest producers sign a unique ``auth_nonce`` per request, so a second
+    sighting of the same ``payload.auth.signature`` is always a replay —
+    whether it arrives at mempool admission or inside a proposed block.
+    """
+    from sqlmodel import col, select
+
+    from .models import Transaction
+
+    if not signature:
+        return False
+    stmt = select(Transaction).where(
+        Transaction.chain_id == chain_id,
+        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+        col(Transaction.type).in_(AUTH_PROTOCOL_TX_TYPES),
+    )
+    expr = _payload_auth_signature_expr(session)
+    if expr is not None:
+        stmt = stmt.where(expr == str(signature))
+    for tx in session.exec(stmt).all():
+        auth = (tx.payload or {}).get("auth")
+        if isinstance(auth, dict) and str(auth.get("signature") or "") == str(signature):
+            return True
+    return False
