@@ -17,8 +17,10 @@ aitbc bridge register-validator [OPTIONS]
 | `--chain-id` | text | — | yes | Chain ID the validator serves |
 | `--address` | text | — | yes | Validator's checksum address (0x...) |
 | `--public-key` | text | — | yes | Validator's secp256k1 public key hex (0x...) |
-| `--private-key` | text | — | yes | Validator's private key hex (for signing the registration request) |
-| `--admin-private-key` | text | — | no | Bridge admin private key hex (required when bridge_release_enabled=true) |
+| `--private-key` | text | — | no | DEPRECATED: validator's private key hex for signing the registration request (exposes the key in the process list; prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEY, or the prompt) |
+| `--private-key-file` | path | — | no | File containing the validator's private key hex |
+| `--admin-private-key` | text | — | no | DEPRECATED: bridge admin private key hex, required when bridge_release_enabled=true (exposes the key in the process list; prefer --admin-private-key-file, $AITBC_BRIDGE_ADMIN_PRIVATE_KEY, or the prompt) |
+| `--admin-private-key-file` | path | — | no | File containing the bridge admin private key hex |
 | `--admin-address` | text | — | no | Bridge admin address (defaults to address of admin-private-key) |
 | `--epoch` | integer | `0` | no | Validator set epoch number (default: 0) |
 | `--rpc-url` | text | `http://localhost:8202/rpc` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
@@ -26,9 +28,9 @@ aitbc bridge register-validator [OPTIONS]
 ## Examples
 
 ```bash
-aitbc bridge register-validator --chain-id <chain_id> --address <address> --public-key <public_key> --private-key <private_key>
+aitbc bridge register-validator --chain-id <chain_id> --address <address> --public-key <public_key>
 RPC_URL=http://127.0.0.1:8202/rpc
-aitbc bridge register-validator --chain-id <chain_id> --address <address> --public-key <public_key> --private-key <private_key> --rpc-url "$RPC_URL"
+aitbc bridge register-validator --chain-id <chain_id> --address <address> --public-key <public_key> --rpc-url "$RPC_URL"
 ```
 
 ## Related

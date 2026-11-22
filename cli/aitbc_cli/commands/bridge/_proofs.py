@@ -10,7 +10,19 @@ import click
 import httpx
 
 from ._group import _get_bridge_client, bridge
-from ._helpers import _OPS_ERRORS, _abort_ops, _derive_address, _fetch_block_header, _sign_dict, _sign_header
+from ._helpers import (
+    BRIDGE_ADMIN_KEY_ENV,
+    BRIDGE_PRIVATE_KEYS_ENV,
+    BRIDGE_PRIVATE_KEY_ENV,
+    _OPS_ERRORS,
+    _abort_ops,
+    _derive_address,
+    _fetch_block_header,
+    _resolve_bridge_key,
+    _resolve_bridge_keys,
+    _sign_dict,
+    _sign_header,
+)
 from ...utils import output
 from ...utils.error_handling import abort
 
@@ -69,13 +81,21 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output_p
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="Unsigned proof JSON file")
 @click.option(
     "--private-key",
-    required=True,
     multiple=True,
-    help="Private key hex to sign with (use multiple times for multi-sig; first becomes proposer_signature)",
+    help="DEPRECATED: private key hex to sign with (exposes the key in the process list; "
+    "prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEYS, or the prompt). "
+    "Use multiple times for multi-sig; first becomes proposer_signature",
+)
+@click.option(
+    "--private-key-file",
+    "private_key_file",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="File containing one private key hex (repeat for multi-sig; first becomes proposer_signature)",
 )
 @click.option("--output", "-o", "output_path", default=None, type=click.Path(), help="Output file (defaults to proof-file)")
 @click.pass_context
-def sign_proof(ctx, proof_file, private_key, output_path):
+def sign_proof(ctx, proof_file, private_key, private_key_file, output_path):
     """Sign a bridge proof with one or more validator private keys."""
     try:
         proof = json.loads(Path(proof_file).read_text())
@@ -85,14 +105,24 @@ def sign_proof(ctx, proof_file, private_key, output_path):
     if not isinstance(proof, dict):
         abort(ctx, f"Proof file must contain a JSON object, got {type(proof).__name__}")
 
-    if not private_key:
-        abort(ctx, "At least one --private-key is required")
+    signing_keys = _resolve_bridge_keys(
+        argv_values=private_key,
+        key_files=private_key_file,
+        env_name=BRIDGE_PRIVATE_KEYS_ENV,
+        required=True,
+        option="private-key",
+    )
+    if not signing_keys:
+        abort(
+            ctx,
+            "At least one private key is required (--private-key-file, $AITBC_BRIDGE_PRIVATE_KEYS, prompt, or --private-key)",
+        )
 
     # Build the canonical message from the proof (excluding any signature fields)
     sign_fields = {k: v for k, v in proof.items() if k not in ("proposer_signature", "validator_signatures")}
 
     signatures: list[str] = []
-    for pk in private_key:
+    for pk in signing_keys:
         signatures.append(_sign_dict(pk, sign_fields))
 
     proof["proposer_signature"] = signatures[0]
@@ -120,11 +150,22 @@ def sign_proof(ctx, proof_file, private_key, output_path):
   aitbc bridge store-header --proof-file /tmp/signed-proof.json --admin-private-key 0x... --rpc-url http://node2.example.net:8202/rpc""",
 )
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="Signed proof JSON file")
-@click.option("--admin-private-key", required=True, help="Private key of a configured bridge admin")
+@click.option(
+    "--admin-private-key",
+    default=None,
+    help="DEPRECATED: private key of a configured bridge admin (exposes the key in the process list; "
+    "prefer --admin-private-key-file, $AITBC_BRIDGE_ADMIN_PRIVATE_KEY, or the prompt)",
+)
+@click.option(
+    "--admin-private-key-file",
+    "admin_private_key_file",
+    type=click.Path(exists=True),
+    help="File containing the bridge admin private key hex",
+)
 @click.option("--admin-address", default=None, help="Admin address (defaults to address of admin-private-key)")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL of the target node")
 @click.pass_context
-def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
+def store_header(ctx, proof_file, admin_private_key, admin_private_key_file, admin_address, rpc_url):
     """Store a bridge block header on the target node from a signed proof."""
     try:
         proof = json.loads(Path(proof_file).read_text())
@@ -138,6 +179,16 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
     missing = [field for field in ("chain_id", "block_height", "block_hash", "state_root") if not proof.get(field)]
     if missing:
         abort(ctx, f"Proof file missing required field(s): {', '.join(missing)}")
+
+    admin_private_key = _resolve_bridge_key(
+        argv_value=admin_private_key,
+        key_file=admin_private_key_file,
+        env_name=BRIDGE_ADMIN_KEY_ENV,
+        required=True,
+        option="admin-private-key",
+    )
+    if admin_private_key is None:
+        abort(ctx, "a bridge admin private key is required")
 
     proposer = _derive_address(admin_private_key) if not admin_address else admin_address
     header_fields = {
@@ -201,16 +252,36 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
 @click.option("--height", default=None, type=int, help="Block height to ingest (default: latest)")
 @click.option("--chain-id", default=None, help="Source chain ID (default: source node's default)")
 @click.option("--re-sign/--no-re-sign", default=False, help="Replace the source signature with a local validator signature")
-@click.option("--private-key", default=None, help="Private key hex for re-signing (requires --re-sign)")
+@click.option(
+    "--private-key",
+    default=None,
+    help="DEPRECATED: private key hex for re-signing (exposes the key in the process list; "
+    "prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEY, or the prompt). Requires --re-sign",
+)
+@click.option(
+    "--private-key-file",
+    "private_key_file",
+    type=click.Path(exists=True),
+    help="File containing the private key hex for re-signing (requires --re-sign)",
+)
 @click.option("--proposer", default=None, help="Proposer address for the new signature (defaults to address of --private-key)")
 @click.option("--output", "-o", "output_path", default=None, type=click.Path(), help="Write the stored header to a JSON file")
 @click.pass_context
-def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, private_key, proposer, output_path):
+def ingest_header(
+    ctx, source_rpc, target_rpc, height, chain_id, re_sign, private_key, private_key_file, proposer, output_path
+):
     """Fetch a block header from a source node and store it as a bridge header."""
 
     if re_sign:
-        if not private_key:
-            abort(ctx, "--private-key is required when --re-sign is set")
+        private_key = _resolve_bridge_key(
+            argv_value=private_key,
+            key_file=private_key_file,
+            env_name=BRIDGE_PRIVATE_KEY_ENV,
+            required=True,
+            option="private-key",
+        )
+        if private_key is None:
+            abort(ctx, "a private key is required when --re-sign is set")
         proposer = proposer or _derive_address(private_key)
 
     async def _ingest():
@@ -246,15 +317,35 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
 @click.option("--source-rpc", default=None, help="RPC URL to fetch the block from (alternative to --header-file)")
 @click.option("--height", default=None, type=int, help="Block height to fetch from source")
 @click.option("--chain-id", default=None, help="Chain ID for the block")
-@click.option("--private-key", required=True, help="Validator private key hex to sign with")
+@click.option(
+    "--private-key",
+    default=None,
+    help="DEPRECATED: validator private key hex to sign with (exposes the key in the process list; "
+    "prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEY, or the prompt)",
+)
+@click.option(
+    "--private-key-file",
+    "private_key_file",
+    type=click.Path(exists=True),
+    help="File containing the validator private key hex",
+)
 @click.option("--proposer", default=None, help="Proposer/validator address (defaults to derived address)")
 @click.option("--target-rpc", default="http://localhost:8202/rpc", help="RPC URL to store the attested header on")
 @click.option(
     "--output", "-o", "output_path", default=None, type=click.Path(), help="Write the attested header to a JSON file"
 )
 @click.pass_context
-def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer, target_rpc, output_path):
+def attest(ctx, header_file, source_rpc, height, chain_id, private_key, private_key_file, proposer, target_rpc, output_path):
     """Sign a block header as a bridge validator and store it as a bridge header."""
+    private_key = _resolve_bridge_key(
+        argv_value=private_key,
+        key_file=private_key_file,
+        env_name=BRIDGE_PRIVATE_KEY_ENV,
+        required=True,
+        option="private-key",
+    )
+    if private_key is None:
+        abort(ctx, "a validator private key is required")
     proposer = proposer or _derive_address(private_key)
 
     async def _attest():

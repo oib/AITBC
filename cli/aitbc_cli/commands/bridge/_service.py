@@ -11,11 +11,14 @@ import httpx
 
 from ._group import _get_bridge_client, bridge
 from ._helpers import (
+    BRIDGE_ADMIN_KEY_ENV,
+    BRIDGE_PRIVATE_KEY_ENV,
     _OPS_ERRORS,
     _SERVICE_NAME,
     _abort_ops,
     _derive_address,
     _event_bridge_status,
+    _resolve_bridge_key,
     _sign_dict,
     _systemctl,
 )
@@ -125,18 +128,63 @@ def security_status(ctx, rpc_url):
 @click.option("--public-key", required=True, help="Validator's secp256k1 public key hex (0x...)")
 @click.option(
     "--private-key",
-    required=True,
-    help="Validator's private key hex (for signing the registration request)",
+    default=None,
+    help="DEPRECATED: validator's private key hex for signing the registration request "
+    "(exposes the key in the process list; prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEY, or the prompt)",
 )
 @click.option(
-    "--admin-private-key", default=None, help="Bridge admin private key hex (required when bridge_release_enabled=true)"
+    "--private-key-file",
+    "private_key_file",
+    type=click.Path(exists=True),
+    help="File containing the validator's private key hex",
+)
+@click.option(
+    "--admin-private-key",
+    default=None,
+    help="DEPRECATED: bridge admin private key hex, required when bridge_release_enabled=true "
+    "(exposes the key in the process list; prefer --admin-private-key-file, $AITBC_BRIDGE_ADMIN_PRIVATE_KEY, or the prompt)",
+)
+@click.option(
+    "--admin-private-key-file",
+    "admin_private_key_file",
+    type=click.Path(exists=True),
+    help="File containing the bridge admin private key hex",
 )
 @click.option("--admin-address", default=None, help="Bridge admin address (defaults to address of admin-private-key)")
 @click.option("--epoch", default=0, type=int, help="Validator set epoch number (default: 0)")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def register_validator(ctx, chain_id, address, public_key, private_key, admin_private_key, admin_address, epoch, rpc_url):
+def register_validator(
+    ctx,
+    chain_id,
+    address,
+    public_key,
+    private_key,
+    private_key_file,
+    admin_private_key,
+    admin_private_key_file,
+    admin_address,
+    epoch,
+    rpc_url,
+):
     """Register a bridge validator for multi-sig operations on a chain."""
+
+    private_key = _resolve_bridge_key(
+        argv_value=private_key,
+        key_file=private_key_file,
+        env_name=BRIDGE_PRIVATE_KEY_ENV,
+        required=True,
+        option="private-key",
+    )
+    if private_key is None:
+        abort(ctx, "a validator private key is required")
+    admin_private_key = _resolve_bridge_key(
+        argv_value=admin_private_key,
+        key_file=admin_private_key_file,
+        env_name=BRIDGE_ADMIN_KEY_ENV,
+        required=False,
+        option="admin-private-key",
+    )
 
     # Sign the registration request
     from aitbc.crypto.crypto import sign_transaction_hash

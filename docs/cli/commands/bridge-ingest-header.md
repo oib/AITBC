@@ -19,7 +19,8 @@ aitbc bridge ingest-header [OPTIONS]
 | `--height` | integer | — | no | Block height to ingest (default: latest) |
 | `--chain-id` | text | — | no | Source chain ID (default: source node's default) |
 | `--re-sign`, `--no-re-sign` | flag | `false` | no | Replace the source signature with a local validator signature |
-| `--private-key` | text | — | no | Private key hex for re-signing (requires --re-sign) |
+| `--private-key` | text | — | no | DEPRECATED: private key hex for re-signing (exposes the key in the process list; prefer --private-key-file, $AITBC_BRIDGE_PRIVATE_KEY, or the prompt). Requires --re-sign |
+| `--private-key-file` | path | — | no | File containing the private key hex for re-signing (requires --re-sign) |
 | `--proposer` | text | — | no | Proposer address for the new signature (defaults to address of --private-key) |
 | `--output`, `-o` | path | — | no | Write the stored header to a JSON file |
 
