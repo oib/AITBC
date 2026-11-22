@@ -11,6 +11,8 @@ from typing import Any
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR
+
 from ..config import settings
 from ..logger import get_logger
 from ..network.island_manager import get_island_manager
@@ -99,7 +101,7 @@ def _build_join_credentials(island_id: str, island_name: str, island_chain_id: s
     }
 
     # Optionally include genesis metadata if we can find a local genesis file.
-    data_dir = Path("/var/lib/aitbc/data")
+    data_dir = DATA_DIR / "data"
     genesis_candidates = [
         data_dir / settings.chain_id / "genesis.json",
         data_dir / island_chain_id / "genesis.json",
@@ -107,8 +109,15 @@ def _build_join_credentials(island_id: str, island_name: str, island_chain_id: s
     ]
     if genesis_block_hash := _read_genesis_block_hash(genesis_candidates):
         credentials["genesis_block_hash"] = genesis_block_hash
+    else:
+        _logger.warning(
+            "Join credentials: no genesis.json found under %s — genesis_block_hash omitted (checked chain ids %s, %s)",
+            data_dir,
+            settings.chain_id,
+            island_chain_id,
+        )
 
-    keystore_path = Path("/var/lib/aitbc/keystore/validator_keys.json")
+    keystore_path = KEYSTORE_DIR / "validator_keys.json"
     if genesis_address := _read_first_validator_key(keystore_path):
         credentials["genesis_address"] = genesis_address
 
