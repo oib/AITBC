@@ -772,3 +772,44 @@ async def test_force_sync_rejects_scoped_ipv6_resolution(mock_request, admin_sig
     with pytest.raises(HTTPException) as exc_info:
         await rpc_sync.force_sync(mock_request, signed)
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_force_sync_holds_import_serializer_around_import(isolated_engine, mock_request, admin_signer, monkeypatch):
+    """force_sync's destructive import must run under the same serializer
+    import_chain takes: the per-process ``_import_lock`` plus the
+    cross-worker advisory for the target chain (AUDIT-BN-FORCE-SYNC-NO-IMPORT-SERIALIZER-1)."""
+    acquired: list[str] = []
+    released: list[object] = []
+    seen: dict[str, bool] = {}
+
+    async def _no_validate(peer_url):
+        return None
+
+    async def _fake_fetch(peer_url: str):
+        return {"export_data": _valid_import_payload("chain-a")}
+
+    real_import = rpc_sync._import_chain_data
+
+    def _spy_import(import_data):
+        seen["lock_held"] = rpc_sync._import_lock.locked()
+        return real_import(import_data)
+
+    monkeypatch.setattr(rpc_sync, "_validate_force_sync_peer_url", _no_validate)
+    monkeypatch.setattr(rpc_sync, "_fetch_peer_chain_export", _fake_fetch)
+    monkeypatch.setattr(rpc_sync, "_import_chain_data", _spy_import)
+    monkeypatch.setattr(rpc_sync, "import_advisory_acquire", lambda cid: acquired.append(cid) or None)
+    monkeypatch.setattr(rpc_sync, "import_advisory_release", lambda held: released.append(held))
+
+    signed = admin_signer({"peer_url": "http://192.168.1.9:8006"})
+    result = await rpc_sync.force_sync(mock_request, signed)
+
+    assert result["success"] is True
+    assert result["synced_blocks"] == 1
+    assert seen["lock_held"] is True
+    assert acquired == ["chain-a"]
+    assert released == [None]
+
+    with Session(isolated_engine) as session:
+        blocks = session.exec(select(Block).where(Block.chain_id == "chain-a")).all()
+    assert [b.hash for b in blocks] == [_hex("chain-a-import-block-0")]
