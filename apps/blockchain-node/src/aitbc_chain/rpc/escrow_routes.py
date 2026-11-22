@@ -157,6 +157,7 @@ from .escrow_routes_lock import (
     _build_lock_tx as _build_lock_tx,
     _canonical_lock_fields as _canonical_lock_fields,
     _ensure_lock_sealed as _ensure_lock_sealed,
+    _pending_lock_tx_hashes as _pending_lock_tx_hashes,
     _refuse_v2_lock as _refuse_v2_lock,
     _submit_lock_tx as _submit_lock_tx,
     _verify_funding_lock as _verify_funding_lock,
@@ -292,28 +293,77 @@ async def _existing_lock_create_result(
     }
 
 
+def _read_row_lock_state(job_id: str) -> tuple[str | None, bool]:
+    """``(lock_tx_hash, unsettled)`` for the job's Escrow row; ``(None, False)`` when absent."""
+    with session_scope() as session:
+        row = session.get(Escrow, job_id)
+        if row is None:
+            return None, False
+        return row.lock_tx_hash, row.released_at is None and row.refunded_at is None
+
+
+def _delete_unsettled_row(job_id: str) -> None:
+    with session_scope() as session:
+        stale_row = session.get(Escrow, job_id)
+        if stale_row is not None and stale_row.released_at is None and stale_row.refunded_at is None:
+            session.delete(stale_row)
+            session.commit()
+
+
+async def _stale_create_lock_is_live(lock_hashes: set[str]) -> bool:
+    """True when a recorded lock hash may still land: pending in the mempool,
+    or the probe could not be answered. Reached only after the sealed-lock
+    lookup for the job came back empty, so "live" reduces to the mempool."""
+    if not lock_hashes:
+        return False
+    pending = await _pending_lock_tx_hashes()
+    return pending is None or bool(lock_hashes & pending)
+
+
 async def _drop_stale_create_state(mgr: Any, job_id: str) -> None:
-    """Drop the stale in-memory contract and unsettled row a failed create leaves behind."""
+    """Drop only state that is provably residue of a create whose lock never landed.
+
+    Reached after the sealed-lock lookup for ``job_id`` came back empty, so a
+    recorded ``lock_tx_hash`` is live exactly while its tx is still in the
+    mempool. A funded escrow whose ESCROW_LOCK has not sealed yet is not
+    residue: dropping it would orphan the buyer's in-flight lock along with
+    the row's agent bindings and energy columns
+    (AUDIT-BN-ESCROW-CREATE-DROPS-FUNDED-PENDING-LOCK-1). State drops only
+    when every recorded lock hash is confirmed absent from the mempool; an
+    unanswered probe keeps everything.
+    """
     stale_contract_id = next((cid for cid, c in mgr.escrow_contracts.items() if c.job_id == job_id), None)
+    stale_contract = mgr.escrow_contracts.get(stale_contract_id) if stale_contract_id is not None else None
+
+    try:
+        row_lock_hash, row_unsettled = await run_in_threadpool(_read_row_lock_state, job_id)
+    except _DB_PROBE_ERRORS as e:
+        _logger.warning("Failed to probe escrow record for job_id=%s: %s", job_id, e)
+        row_lock_hash, row_unsettled = None, False
+
+    lock_hashes = {h for h in (stale_contract.lock_tx_hash if stale_contract else None, row_lock_hash) if h}
+    if await _stale_create_lock_is_live(lock_hashes):
+        _logger.info(
+            "Keeping escrow state for job_id=%s: ESCROW_LOCK still pending or mempool probe inconclusive",
+            job_id,
+        )
+        return
+    # Every recorded lock hash is confirmed absent from the mempool and no
+    # lock sealed for the job — the locks are dead, so the state is residue.
+
     if stale_contract_id is not None:
         mgr.escrow_contracts.pop(stale_contract_id, None)
         mgr.active_contracts.discard(stale_contract_id)
         mgr.disputed_contracts.discard(stale_contract_id)
         _logger.info(
-            "Dropped stale escrow contract %s for job_id=%s: no ESCROW_LOCK on-chain",
+            "Dropped stale escrow contract %s for job_id=%s: no live ESCROW_LOCK",
             stale_contract_id,
             job_id,
         )
+    if not row_unsettled:
+        return
     try:
-
-        def _drop_stale_row() -> None:
-            with session_scope() as session:
-                stale_row = session.get(Escrow, job_id)
-                if stale_row is not None and stale_row.released_at is None and stale_row.refunded_at is None:
-                    session.delete(stale_row)
-                    session.commit()
-
-        await run_in_threadpool(_drop_stale_row)
+        await run_in_threadpool(_delete_unsettled_row, job_id)
     except _DB_PROBE_ERRORS as e:
         _logger.warning("Failed to drop stale escrow record for job_id=%s: %s", job_id, e)
 
@@ -682,13 +732,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             mgr, job_id, buyer, provider, amount_dec, buyer_agent_id, provider_agent_id, existing_lock_hash
         )
 
-    # No ESCROW_LOCK for this job_id reached the chain, so any contract or
-    # Escrow row still carrying the id is residue of a create whose lock
-    # submission failed -- or of a restart, since ``load_from_db`` revives every
-    # unsettled row. Drop it so the retry below is not rejected as a duplicate
-    # ("Invalid contract inputs") with no funds locked to show for it.
-    await _drop_stale_create_state(mgr, job_id)
-
+    # Resolve and verify the lock material *before* any cleanup: a create that
+    # carries no lock_tx/lock_signature is refused here, so it cannot delete
+    # the state of a healthy escrow whose lock is still pending
+    # (AUDIT-BN-ESCROW-CREATE-DROPS-FUNDED-PENDING-LOCK-1).
     quote = _create_energy_quote(body)
     tx_to_submit = _resolve_create_lock_tx(body, job_id, buyer, provider, amount_dec, quote)
     _verify_create_lock_tx(tx_to_submit, job_id, buyer, provider, amount_dec)
@@ -702,6 +749,15 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         quote,
         max_rate_age_seconds=_energy_max_rate_age_seconds(),
     )
+
+    # No ESCROW_LOCK for this job_id reached the chain, so any contract or
+    # Escrow row still carrying the id may be residue of a create whose lock
+    # submission failed -- or of a restart, since ``load_from_db`` revives every
+    # unsettled row. The drop itself keeps state whose recorded lock is still
+    # pending in the mempool: only provably dead locks are cleaned, so a retry
+    # is not rejected as a duplicate ("Invalid contract inputs") with no funds
+    # locked to show for it, and a funded pending-lock escrow is never orphaned.
+    await _drop_stale_create_state(mgr, job_id)
 
     # v0.25.5: do not call POST /register-account to bootstrap the buyer.  The
     # buyer must already have an on-chain account (genesis allocation or previous transfer)

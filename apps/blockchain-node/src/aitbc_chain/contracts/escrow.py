@@ -684,6 +684,7 @@ class EscrowManager:
                         energy_net_floor_units=record.energy_net_floor_units,
                         energy_provider_credit_units=record.energy_provider_credit_units,
                         energy_fee_basis_points=record.energy_fee_basis_points,
+                        lock_tx_hash=record.lock_tx_hash,
                     )
                     self.escrow_contracts[contract_id] = contract
                     self.active_contracts.add(contract_id)
@@ -828,6 +829,7 @@ class EscrowManager:
             energy_net_floor_units=record.energy_net_floor_units,
             energy_provider_credit_units=record.energy_provider_credit_units,
             energy_fee_basis_points=record.energy_fee_basis_points,
+            lock_tx_hash=record.lock_tx_hash,
         )
         self.escrow_contracts[contract_id] = contract
         if state not in {EscrowState.RELEASED, EscrowState.REFUNDED}:
