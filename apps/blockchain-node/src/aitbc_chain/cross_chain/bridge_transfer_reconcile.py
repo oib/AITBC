@@ -318,17 +318,21 @@ class BridgeTransferReconcileMixin(BridgeBase):
                 evidence["target_tx_hash"] = record.target_tx_hash
                 confirm_time = _aware(record.confirm_time)
                 evidence["confirm_time"] = confirm_time.isoformat() if confirm_time else None
-            return evidence
+                return evidence
+            # #2509: a pending/locked copy row can lag its sealed release —
+            # the status writeback may not have landed yet or was lost. The
+            # sealed index stays authoritative; fall through and consult it.
         hit = self._sealed_transfer_index(chain, "BRIDGE_RELEASE", {transfer_id}).get(transfer_id)
         if hit is not None:
             tx_hash, sealed_at = hit
             aware_sealed = _aware(sealed_at)
             evidence.update(
                 released=True,
-                status="completed",
                 target_tx_hash=tx_hash,
                 confirm_time=aware_sealed.isoformat() if aware_sealed else None,
             )
+            if evidence["status"] is None:
+                evidence["status"] = "completed"
         return evidence
 
     @staticmethod
