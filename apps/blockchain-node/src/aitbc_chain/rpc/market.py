@@ -175,29 +175,7 @@ def market_listings(request: Request, limit: int = 100) -> dict[str, Any]:
                 listing_id = f"tx_{tx_id}"
                 if listing_id in withdrawn:
                     continue
-                listing = {  # not-money: ratio, threshold or configuration default — not an amount of money
-                    "listing_id": listing_id,
-                    "seller_address": sender,
-                    "provider_address": payload.get("provider_address") or sender,
-                    "service_type": payload.get("service_type", ""),
-                    "model": payload.get("model", ""),
-                    "item_type": payload.get("item_type", "GPU"),
-                    "price": payload.get("price", 0.0),
-                    "price_unit": payload.get("price_unit", ""),
-                    "description": payload.get("description", ""),
-                    "deployment_type": payload.get("deployment_type", ""),
-                    "gpu_name": payload.get("gpu_name", ""),
-                    "gpu_device": payload.get("gpu_device", ""),
-                    "gpu_uuid": payload.get("gpu_uuid", ""),
-                    "gpu_model": payload.get("gpu_model") or payload.get("gpu_name", ""),
-                    "memory_gb": payload.get("memory_gb"),
-                    "disk_quota_mb": payload.get("disk_quota_mb"),
-                    "compute_capability": payload.get("compute_capability", ""),
-                    "endpoint": payload.get("endpoint", ""),
-                    "status": "active",
-                    "created_at": timestamp or datetime.now(UTC).isoformat(),
-                }
-                listings.append(listing)
+                listings.append(_onchain_listing_dict(tx_id, sender, payload, timestamp))
 
         # Merge on-chain and in-memory listings, newest first, then apply the
         # clamp to the combined result — the SQL LIMIT alone never bounded the
@@ -362,17 +340,96 @@ async def market_create(request: MarketCreateRequest, req: Request) -> dict[str,
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _onchain_listing_dict(tx_id: Any, sender: str | None, payload: dict[str, Any], timestamp: Any) -> dict[str, Any]:
+    """The listing shape /market/listings emits for one confirmed GPU_MARKET row."""
+    return {  # not-money: ratio, threshold or configuration default — not an amount of money
+        "listing_id": f"tx_{tx_id}",
+        "seller_address": sender,
+        "provider_address": payload.get("provider_address") or sender,
+        "service_type": payload.get("service_type", ""),
+        "model": payload.get("model", ""),
+        "item_type": payload.get("item_type", "GPU"),
+        "price": payload.get("price", 0.0),
+        "price_unit": payload.get("price_unit", ""),
+        "description": payload.get("description", ""),
+        "deployment_type": payload.get("deployment_type", ""),
+        "gpu_name": payload.get("gpu_name", ""),
+        "gpu_device": payload.get("gpu_device", ""),
+        "gpu_uuid": payload.get("gpu_uuid", ""),
+        "gpu_model": payload.get("gpu_model") or payload.get("gpu_name", ""),
+        "memory_gb": payload.get("memory_gb"),
+        "disk_quota_mb": payload.get("disk_quota_mb"),
+        "compute_capability": payload.get("compute_capability", ""),
+        "endpoint": payload.get("endpoint", ""),
+        "status": "active",
+        "created_at": timestamp or datetime.now(UTC).isoformat(),
+    }
+
+
+def _get_onchain_listing(listing_id: str) -> dict[str, Any] | None:
+    """Resolve a ``tx_<id>`` listing id against chain.db (#2656).
+
+    Returns the same dict shape ``/market/listings`` emits, or None when the
+    id is not a confirmed, non-withdrawn GPU_MARKET transaction. The LIKE
+    prefilter only narrows the candidate rows — ``withdrawn_listing_ids``
+    still decides withdrawal exactly, and extra matches are ignored.
+    """
+    import sqlite3
+
+    tx_id = listing_id[3:]
+    if not tx_id.isdigit():
+        return None
+    chain_db_path = _chain_db_path()
+    if not chain_db_path.exists():
+        return None
+    conn = sqlite3.connect(str(chain_db_path), timeout=60.0)
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT id, sender, payload, timestamp FROM "transaction" '
+            "WHERE type = 'GPU_MARKET' AND status = 'confirmed' "
+            "AND (CAST(id AS TEXT) = ? OR payload LIKE ?)",
+            (tx_id, f"%{listing_id}%"),
+        )
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    parsed: list[tuple[Any, str | None, dict[str, Any], Any]] = []
+    for row_id, sender, payload_json, timestamp in rows:
+        try:
+            payload = json.loads(payload_json) if payload_json else {}
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            parsed.append((row_id, sender, payload, timestamp))
+
+    # Only a seller's own cancel or `replaces` hides a listing (M-1) — same
+    # rule as the list route.
+    withdrawn = withdrawn_listing_ids((row_id, sender, payload) for row_id, sender, payload, _ in parsed)
+    for row_id, sender, payload, timestamp in parsed:
+        if f"tx_{row_id}" == listing_id and f"tx_{row_id}" not in withdrawn:
+            return _onchain_listing_dict(row_id, sender, payload, timestamp)
+    return None
+
+
 @router.get("/market/listing/{listing_id}", summary="Get market listing by ID", tags=["market"])
-def market_get_listing(listing_id: str) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def market_get_listing(listing_id: str, req: Request) -> dict[str, Any]:
     """Get a specific market listing"""
     _purge_expired_listings()
     try:
         metrics_registry.increment("rpc_market_get_total")
 
-        # Find listing
+        # Find listing — in-memory first, then on-chain tx_<id> (#2656).
         for listing in _market_listings:
             if listing.get("listing_id") == listing_id:
                 return {"listing": listing, "found": True}
+
+        if listing_id.startswith("tx_"):
+            onchain = _get_onchain_listing(listing_id)
+            if onchain is not None:
+                return {"listing": onchain, "found": True}
 
         raise HTTPException(status_code=404, detail="Listing not found")
 
