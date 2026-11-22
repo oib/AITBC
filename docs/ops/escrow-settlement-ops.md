@@ -328,6 +328,68 @@ alerts is unregistered and holds custody nothing will settle.
   goes silently green — registry diffs should name the evidence for
   each entry.
 
+### EscrowChangePassUnprovenRows — warning
+
+`increase(blockchain_escrow_change_pass_total{result="deferred_unproven"}[6h])
+> 0` for 6 h. The owed-change pass keeps finding released escrow rows it
+cannot prove — missing `billed_legs` (rows released before billed recording
+was added, the A7 baseline), an unpaired release leg, a sealed value that
+fails `recompute_release_proofs`, or owed change exceeding custody. These
+rows **never refund automatically**; the pass defers them every tick.
+
+- **Confirm:** the counter is per-pass, not per-row — enumerate the
+  candidate set on the alerting host, read-only:
+  `sqlite3 "file:/var/lib/aitbc/data/<chain>/chain.db?mode=ro" \
+  "SELECT job_id, released_at, billed_legs FROM escrow WHERE released_at IS NOT NULL AND refunded_amount IS NULL"`.
+  Rows the pass cannot prove are the subset whose sealed release legs do
+  not recompute against `billed_legs` (inspect per job with
+  `GET /rpc/escrow/<job_id>` and the sealed `transaction` legs). The
+  companion counter `result="deferred_unproven_baseline"` shows how many
+  deferrals are already recorded dispositions.
+- **Baseline disposition:** known-unproven job_ids are recorded in
+  `ESCROW_UNPROVEN_BASELINE_JOB_IDS` (comma-separated, on the node's env
+  file). A listed job_id counts under `deferred_unproven_baseline` instead
+  of `deferred_unproven`, so baseline-only state stays quiet and this
+  alert firing means a row **outside** the recorded baseline. Add an id
+  only after verifying the row is a genuine recorded disposition (e.g. a
+  pre-A7 legacy release whose residue is already accounted for); remove it
+  when the row's disposition resolves (manual settlement, proven refund,
+  or void). Never add an id to silence an uninvestigated row.
+- **Agent-safe:** report the instance, the `deferred_unproven` vs
+  `deferred_unproven_baseline` increment split, and the candidate job_ids
+  from the read-only query.
+- **Operator-only:** any settlement-authority action — a proven owed
+  change is paid by the pass itself once the row becomes provable; an
+  unprovable row needs a manual disposition decision (refund only with
+  proof, never treat the residue as treasury money).
+
+### EscrowFeeSweepPassUnprovenRows — warning
+
+`increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_unproven"}[6h])
+> 0` for 6 h. The fee-residue pass keeps deferring settled escrows whose
+custody residue exceeds the provable fee bound — either owed buyer change
+is still in custody (see `EscrowFeeSweepChangePending`) or the row carries
+an off-rule release shape / missing billed record. The residue is **not**
+treasury money until proven; the pass never guesses.
+
+- **Confirm:** same enumeration as above, scoped to settled rows with
+  residue — on the alerting host, read-only:
+  `sqlite3 "file:/var/lib/aitbc/data/<chain>/chain.db?mode=ro" \
+  "SELECT job_id, status, billed_legs FROM escrow WHERE status IN ('released','refunded','settlement_failed')"`,
+  then check the sealed legs (`ESCROW_LOCK`/`ESCROW_RELEASE`/`ESCROW_REFUND`/
+  `ESCROW_FEE_SWEEP` `transaction` rows for the job) against the row's
+  `billed_legs`. `result="deferred_unproven_baseline"` counts the recorded
+  dispositions still deferring.
+- **Baseline disposition:** identical mechanism — `ESCROW_UNPROVEN_BASELINE_JOB_IDS`
+  on the node env moves a verified known row to `deferred_unproven_baseline`
+  and out of this alert's signal. Same rules: verify before listing, remove
+  when resolved, never silence an uninvestigated row.
+- **Agent-safe:** report the instance and the unproven/baseline split; the
+  per-job leg listing above is read-only.
+- **Operator-only:** residue disposition — sweep or refund only through the
+  settlement-authority path after the row's proof is established; residue
+  that stays unproven is a recorded loss candidate, not spendable funds.
+
 ### RemoteWriteFailing — warning
 
 `rate(prometheus_remote_storage_samples_failed_total[15m]) > 0` for 15 m:

@@ -12,6 +12,7 @@ reaching the code that reads them.
 from __future__ import annotations
 
 import os
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import NamedTuple
 
@@ -450,6 +451,13 @@ def _floor_eligible_job_ids(
     return [str(j) for j in session.exec(stmt) if j]
 
 
+def _count_unproven_defer(stats: dict[str, int], job_id: str, baseline: Collection[str]) -> None:
+    """#2604: a job_id recorded in the unproven baseline counts under its own
+    result so the Escrow*UnprovenRows alerts (which watch
+    ``deferred_unproven``) see only rows outside the recorded baseline."""
+    stats["deferred_unproven_baseline" if job_id in baseline else "deferred_unproven"] += 1
+
+
 def fee_sweep_candidates(
     session,
     now: datetime,
@@ -458,6 +466,7 @@ def fee_sweep_candidates(
     grace_seconds: int,
     min_height: int,
     after_job_id: str = "",
+    unproven_baseline: Collection[str] = (),
 ) -> tuple[list[_FeeSweepCandidate], dict[str, int], str]:
     """Pick sweep-eligible jobs purely from sealed chain legs.
 
@@ -476,6 +485,7 @@ def fee_sweep_candidates(
         "no_lock": 0,
         "deferred_grace": 0,
         "deferred_unproven": 0,
+        "deferred_unproven_baseline": 0,
         "deferred_change_pending": 0,
     }
     ids = _floor_eligible_job_ids(session, min_height, after_job_id, max_jobs)
@@ -535,7 +545,7 @@ def fee_sweep_candidates(
         )
         fee_bound = proof[1] if proof else None
         if fee_bound is None:
-            stats["deferred_unproven"] += 1
+            _count_unproven_defer(stats, job_id, unproven_baseline)
             continue
         if expected > fee_bound:
             # The proof holds but custody carries more than the withheld
@@ -615,6 +625,7 @@ def change_owed_candidates(
     max_jobs: int,
     min_height: int,
     after_job_id: str = "",
+    unproven_baseline: Collection[str] = (),
 ) -> tuple[list[_ChangeCandidate], dict[str, int], str]:
     """Pick released rows with provable owed change, from sealed legs only.
 
@@ -632,6 +643,7 @@ def change_owed_candidates(
         "no_legs": 0,
         "skipped_floor": 0,
         "deferred_unproven": 0,
+        "deferred_unproven_baseline": 0,
     }
     ids = _released_unmarked_job_ids(session, after_job_id, max_jobs)
     if len(ids) < max_jobs and after_job_id:
@@ -648,13 +660,21 @@ def change_owed_candidates(
         if row is None:
             continue
         legs = legs_by_id.get(job_id) or _new_leg_acc()
-        candidate = _change_candidate_for_job(session, job_id, row, legs, min_height, stats)
+        candidate = _change_candidate_for_job(session, job_id, row, legs, min_height, stats, unproven_baseline)
         if candidate is not None:
             candidates.append(candidate)
     return candidates, stats, next_watermark
 
 
-def _change_candidate_for_job(session, job_id: str, row: Escrow, legs: dict, min_height: int, stats: dict[str, int]):
+def _change_candidate_for_job(
+    session,
+    job_id: str,
+    row: Escrow,
+    legs: dict,
+    min_height: int,
+    stats: dict[str, int],
+    unproven_baseline: Collection[str] = (),
+):
     # Same floor rule as the fee pass: ANY settlement leg below the
     # floor (a reused id's old era) poisons the derivation — skip.
     if legs["min_settlement_height"] is None:
@@ -702,7 +722,7 @@ def _change_candidate_for_job(session, job_id: str, row: Escrow, legs: dict, min
         lock_units=legs["lock_units"],
     )
     if proof is None:
-        stats["deferred_unproven"] += 1
+        _count_unproven_defer(stats, job_id, unproven_baseline)
         return None
     billed_total = proof[0]
     owed = legs["lock_units"] - billed_total - sum(legs["refund_values"])
@@ -714,7 +734,7 @@ def _change_candidate_for_job(session, job_id: str, row: Escrow, legs: dict, min
         # Owed exceeds what custody holds — the chain would refuse the
         # refund anyway, so never sign it; this shape means a leg is
         # missing or the row/legs disagree and needs eyes, not backoff.
-        stats["deferred_unproven"] += 1
+        _count_unproven_defer(stats, job_id, unproven_baseline)
         return None
     return _ChangeCandidate(job_id, row.buyer, row.provider, owed, custody)
 

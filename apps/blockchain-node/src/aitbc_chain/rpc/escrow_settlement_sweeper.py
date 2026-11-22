@@ -196,6 +196,7 @@ _FEE_PASS_RESULT_LABELS = (
     "dry_run",
     "deferred_custody",
     "deferred_unproven",
+    "deferred_unproven_baseline",
     "deferred_change_pending",
     "deferred_pending",
     "deferred_grace",
@@ -230,6 +231,7 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
             "no_residue",
             "deferred_grace",
             "deferred_unproven",
+            "deferred_unproven_baseline",
             "deferred_change_pending",
         ):
             stats[key] += sel[key]
@@ -254,6 +256,14 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
     return stats
 
 
+def _unproven_baseline_ids() -> frozenset[str]:
+    """#2604: job_ids recorded as known-unproven dispositions
+    (``ESCROW_UNPROVEN_BASELINE_JOB_IDS``, comma-separated). Their deferred
+    rows count under ``deferred_unproven_baseline`` so the UnprovenRows
+    alerts see only new rows. See docs/ops/escrow-settlement-ops.md."""
+    return frozenset(j.strip() for j in settings.escrow_unproven_baseline_job_ids.split(",") if j.strip())
+
+
 def _load_fee_candidates(now: datetime) -> tuple[list[_FeeSweepCandidate], dict[str, int]]:
     global _fee_pass_watermark
     with session_scope() as session:
@@ -264,6 +274,7 @@ def _load_fee_candidates(now: datetime) -> tuple[list[_FeeSweepCandidate], dict[
             grace_seconds=settings.escrow_fee_sweep_pass_grace_seconds,
             min_height=settings.escrow_fee_sweep_pass_min_height,
             after_job_id=_fee_pass_watermark,
+            unproven_baseline=_unproven_baseline_ids(),
         )
         if _pass_submit_failures:
             # F2: drop backoff entries for jobs absent from the eligible
@@ -364,6 +375,7 @@ _CHANGE_PASS_RESULT_LABELS = (
     "no_legs",
     "skipped_floor",
     "deferred_unproven",
+    "deferred_unproven_baseline",
     "deferred_custody",
     "deferred_pending",
     "deferred_backoff",
@@ -418,6 +430,7 @@ def _load_change_candidates(now: datetime) -> tuple[list[_ChangeCandidate], dict
             max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
             min_height=settings.escrow_fee_sweep_pass_min_height,
             after_job_id=_change_pass_watermark,
+            unproven_baseline=_unproven_baseline_ids(),
         )
         if _change_pass_failures:
             # Same prune rule as the fee pass: drop backoff entries for
