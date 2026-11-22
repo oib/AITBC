@@ -62,6 +62,41 @@ def _abort_403(command: str, body: str) -> None:
     abort(None, f"{command} {_ADMIN_REQUIRED_HINT} (HTTP 403 — {body[:200]})")
 
 
+def _workflow_dry_run(
+    coordinator_url: str,
+    headers: dict[str, str],
+    workflow_name: str,
+    execution_payload: dict[str, Any],
+    config: str | None,
+) -> None:
+    """Dry-run preview: verify the workflow exists, then print the request.
+
+    #2603: the old dry-run returned before reading the config or checking
+    the workflow name, so it claimed success for inputs the real run
+    refuses. This performs the same lookups a real run depends on — minus
+    the POST.
+    """
+    import httpx
+
+    lookup = httpx.get(
+        f"{coordinator_url}/v1/agents/workflows/{workflow_name}",
+        headers=headers,
+        timeout=15,
+    )
+    if lookup.status_code == 403:
+        _abort_403(f"workflow run {workflow_name}", lookup.text)
+    if lookup.status_code == 404:
+        abort(None, f"Unknown workflow: {workflow_name}")
+    if lookup.status_code != 200:
+        abort(None, f"Failed to verify workflow: HTTP {lookup.status_code} — {lookup.text[:200]}")
+    success(f"Dry run for workflow {workflow_name}")
+    click.echo("Would execute workflow without making changes")
+    click.echo(f"POST {coordinator_url}/v1/agents/workflows/{workflow_name}/execute")
+    click.echo(f"Payload: {json.dumps(execution_payload)}")
+    if config:
+        click.echo(f"Using config: {config}")
+
+
 @click.group(
     epilog="""Examples:
 
@@ -90,25 +125,26 @@ def run(ctx, workflow_name: str, config: str | None, dry_run: bool):
     try:
         import httpx
 
-        if dry_run:
-            success(f"Dry run for workflow {workflow_name}")
-            click.echo("Would execute workflow without making changes")
-            return
-
         config_obj = get_config()
         coordinator_url = _coordinator_url(config_obj)
         headers = _coordinator_headers(config_obj, ctx)
 
-        # Load config if provided
+        # Load config if provided — ahead of the dry-run return so a missing
+        # file refuses exactly like the real run (#2603).
         workflow_config: dict[str, Any] = {}
         if config:
             with open(config) as f:
                 workflow_config = yaml.safe_load(f) or {}
 
         execution_payload = {"workflow_id": workflow_name, "inputs": workflow_config}
+        execute_url = f"{coordinator_url}/v1/agents/workflows/{workflow_name}/execute"
+
+        if dry_run:
+            _workflow_dry_run(coordinator_url, headers, workflow_name, execution_payload, config)
+            return
 
         response = httpx.post(
-            f"{coordinator_url}/v1/agents/workflows/{workflow_name}/execute",
+            execute_url,
             json=execution_payload,
             headers=headers,
         )
