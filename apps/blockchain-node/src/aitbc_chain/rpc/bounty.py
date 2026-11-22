@@ -20,7 +20,12 @@ from ..protocol_escrow import (
     protocol_transfers_active,
     queue_protocol_transfer,
 )
-from .agent_economics_auth import operator_address, require_int, require_operator_signature
+from .agent_economics_auth import (
+    operator_address,
+    require_int,
+    require_operator_signature,
+    require_signed_transfer_values,
+)
 from .retired import raise_for_unarmed
 from .utils import _require_supported_chain, get_chain_id, validate_chain_id
 
@@ -255,6 +260,12 @@ def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
             _require_funded(session, chain_id, bounty)
             winner = submission.submitter_address
             payout = bounty.remaining_amount
+            if payload.get("resolve_only"):
+                # Two-phase commit (#2472): the caller re-signs a body that
+                # carries these resolved values so payload.auth binds the
+                # payee and amount for gossip admission.
+                return {"success": True, "bounty_id": bounty_id, "resolved": {"to": winner, "amount": payout}}
+            require_signed_transfer_values(payload, to=winner, amount=payout)
             bounty.remaining_amount = 0
             bounty.status = "completed"
             bounty.winner_address = winner
@@ -335,6 +346,49 @@ def _require_deadline_reached(session: Session, chain_id: str, bounty: BountyCon
         )
 
 
+def _expire_bounty_locked(
+    session: Any, chain_id: str, bounty_id: str, user: str, payload: dict[str, Any]
+) -> tuple[dict[str, Any] | None, int, str | None]:
+    """Validate, resolve or expire the bounty row inside the session.
+
+    Returns ``(early_response, refund, status)``: an early response ends
+    the request (idempotent replay or the ``resolve_only`` probe), a
+    ``None`` early response means the row was mutated to expired.
+    """
+    if not protocol_transfers_active(session, chain_id):
+        raise_for_unarmed("Bounty (expire/refund)")
+    bounty = _get_bounty(session, chain_id, bounty_id)
+    if not bounty:
+        raise HTTPException(status_code=404, detail=f"Bounty {bounty_id} not found")
+    if bounty.creator_address != user:
+        raise HTTPException(status_code=403, detail="user_address does not match the locked account")
+    if bounty.status == "expired":
+        return {"success": True, "idempotent": True, "bounty_id": bounty.bounty_id, "refunded": 0}, 0, None
+    if bounty.status == "completed":
+        raise HTTPException(status_code=400, detail="Bounty already completed")
+    _require_deadline_reached(session, chain_id, bounty)
+    refund = bounty.remaining_amount
+    if payload.get("resolve_only"):
+        return (
+            {
+                "success": True,
+                "bounty_id": bounty_id,
+                "resolved": {"to": user, "amount": refund},
+            },
+            refund,
+            None,
+        )
+    if refund:
+        _require_funded(session, chain_id, bounty)
+        require_signed_transfer_values(payload, to=user, amount=refund)
+    bounty.remaining_amount = 0
+    bounty.status = "expired"
+    bounty.updated_at = datetime.now(UTC)
+    session.add(bounty)
+    session.commit()
+    return None, refund, bounty.status
+
+
 @rate_limit(rate=20, per=60)
 def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
@@ -349,27 +403,9 @@ def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
         raise HTTPException(status_code=400, detail="user_address is required")
     user = _to_ait_address(str(user))
     with session_scope() as session:
-        if not protocol_transfers_active(session, chain_id):
-            raise_for_unarmed("Bounty (expire/refund)")
-        bounty = _get_bounty(session, chain_id, bounty_id)
-        if not bounty:
-            raise HTTPException(status_code=404, detail=f"Bounty {bounty_id} not found")
-        if bounty.creator_address != user:
-            raise HTTPException(status_code=403, detail="user_address does not match the locked account")
-        if bounty.status == "expired":
-            return {"success": True, "idempotent": True, "bounty_id": bounty.bounty_id, "refunded": 0}
-        if bounty.status == "completed":
-            raise HTTPException(status_code=400, detail="Bounty already completed")
-        _require_deadline_reached(session, chain_id, bounty)
-        refund = bounty.remaining_amount
-        if refund:
-            _require_funded(session, chain_id, bounty)
-        bounty.remaining_amount = 0
-        bounty.status = "expired"
-        bounty.updated_at = datetime.now(UTC)
-        session.add(bounty)
-        session.commit()
-        status = bounty.status
+        early, refund, status = _expire_bounty_locked(session, chain_id, bounty_id, user, payload)
+        if early is not None:
+            return early
 
     result = {"success": True, "bounty_id": bounty_id, "status": status, "refunded": refund}
     if refund:

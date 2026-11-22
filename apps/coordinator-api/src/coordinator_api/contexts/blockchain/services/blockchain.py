@@ -136,8 +136,22 @@ class BlockchainService:
         payload = self._signed({"stake_id": stake_id, "user_address": staker_address})
         return self._client().post(f"{RPC}/agent-staking/stake/{stake_id}/unbond", json=payload, headers=self._headers())
 
-    async def complete_unbonding(self, stake_id: str, staker_address: str) -> dict[str, Any]:
+    async def complete_unbonding(
+        self, stake_id: str, staker_address: str, release_amount: Decimal | None = None
+    ) -> dict[str, Any]:
         payload = self._signed({"stake_id": stake_id, "user_address": staker_address})
+        if release_amount is not None:
+            # #2472: signing the resolved payee/amount lets the node's
+            # BOUNTY/STAKE_RELEASE envelope bind both legs for gossip
+            # admission instead of staying local-queue only.
+            payload = self._signed(
+                {
+                    "stake_id": stake_id,
+                    "user_address": staker_address,
+                    "to": staker_address,
+                    "amount": ait_to_units(release_amount),
+                }
+            )
         return self._client().post(f"{RPC}/agent-staking/stake/{stake_id}/complete", json=payload, headers=self._headers())
 
     async def update_agent_performance(self, agent_wallet: str, accuracy: Decimal, successful: bool) -> dict[str, Any]:

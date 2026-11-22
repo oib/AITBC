@@ -21,7 +21,7 @@ from aitbc.exceptions import AITBCError
 from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
-from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, resolve_rpc_url
+from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, post_signed_resolved, resolve_rpc_url
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -146,7 +146,7 @@ def submit(ctx, bounty_id, submission_id, user_address, memo, **kw):
 def verify(ctx, bounty_id, submission_id, reject, **kw):
     """Verify a bounty submission — approval queues the BOUNTY_PAYOUT."""
     fields = {"bounty_id": bounty_id, "submission_id": submission_id, "verified": not reject}
-    post_signed(ctx, f"/rpc/bounty/{bounty_id}/verify", fields, title="Bounty Verify", **kw)
+    post_signed_resolved(ctx, f"/rpc/bounty/{bounty_id}/verify", fields, title="Bounty Verify", **kw)
 
 
 @bounty.command(
@@ -182,7 +182,7 @@ def dispute(ctx, bounty_id, submission_id, reason, **kw):
 def expire(ctx, bounty_id, user_address, **kw):
     """Expire a bounty and refund the remaining lock to its creator."""
     fields = {"bounty_id": bounty_id, "user_address": user_address}
-    post_signed(
+    post_signed_resolved(
         ctx,
         f"/rpc/bounty/{bounty_id}/expire",
         fields,

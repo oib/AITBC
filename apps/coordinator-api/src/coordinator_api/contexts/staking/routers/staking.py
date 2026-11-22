@@ -380,7 +380,12 @@ async def complete_unbonding(
             raise HTTPException(status_code=403, detail="Not authorized to complete this stake")
         if stake.status != StakeStatus.UNBONDING:
             raise HTTPException(status_code=400, detail="Stake is not unbonding")
-        await run_in_threadpool(asyncio.run, blockchain_service.complete_unbonding(stake_id, current_user["address"]))
+        # #2472: sign the resolved release payee/amount so the node's
+        # STAKE_RELEASE envelope is gossip-admissible, not local-queue only.
+        await run_in_threadpool(
+            asyncio.run,
+            blockchain_service.complete_unbonding(stake_id, current_user["address"], release_amount=stake.amount),
+        )
         result = await run_in_threadpool(staking_service.complete_unbonding, stake_id)
         return {
             "message": "Unbonding completed successfully",

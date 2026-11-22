@@ -189,6 +189,68 @@ def post_signed(
     return result
 
 
+def post_signed_resolved(
+    ctx: click.Context,
+    path: str,
+    fields: dict[str, Any],
+    *,
+    wallet_name: str | None,
+    wallet_path: str | None,
+    rpc_url: str | None,
+    chain_id: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    as_json: bool = False,
+    title: str | None = None,
+    default_user_field: str | None = None,
+) -> dict[str, Any]:
+    """Two-phase signed POST for resolved-value protocol transfers (#2472).
+
+    Phase 1 posts the caller's fields plus ``resolve_only``: a #2472-aware
+    node answers ``{"resolved": {"to", "amount"}}`` without mutating; an
+    older node ignores the flag and executes the legacy path, in which case
+    the probe response *is* the result and is rendered as-is (no second
+    post, so nothing executes twice). Phase 2 re-signs the same fields plus
+    the resolved ``to``/``amount`` so ``payload.auth`` binds both legs and
+    the transfer becomes gossip-admissible.
+    """
+    rpc = resolve_rpc_url(ctx, rpc_url)
+    address, private_key = load_operator_wallet(ctx, wallet_name, wallet_path, password, password_file, password_stdin)
+    if default_user_field and fields.get(default_user_field) is None:
+        fields[default_user_field] = address
+    cid = resolve_chain_id(ctx, rpc, chain_id)
+    client = AITBCHTTPClient(base_url=rpc, timeout=30)
+
+    probe = {k: v for k, v in fields.items() if v is not None}
+    probe["chain_id"] = cid
+    probe["resolve_only"] = True
+    probe["signature"] = sign_fields(probe, private_key)
+    try:
+        probe_result = client.post(path, json=probe)
+    except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
+        _abort_request_error(ctx, path, e)
+
+    resolved = probe_result.get("resolved") if isinstance(probe_result, dict) else None
+    if not isinstance(resolved, dict) or "to" not in resolved or "amount" not in resolved:
+        # Legacy node (executed) or nothing left to resolve — the probe
+        # response is the outcome.
+        output(probe_result, "json" if as_json else resolve_output_format(ctx), title=title)
+        return probe_result
+
+    body = {k: v for k, v in fields.items() if v is not None}
+    body["chain_id"] = cid
+    body["to"] = resolved["to"]
+    body["amount"] = resolved["amount"]
+    body["signature"] = sign_fields(body, private_key)
+    try:
+        result = client.post(path, json=body)
+    except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
+        _abort_request_error(ctx, path, e)
+    output(result, "json" if as_json else resolve_output_format(ctx), title=title)
+    return result
+
+
 def get_json(
     ctx: click.Context,
     path: str,
