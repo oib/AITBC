@@ -915,6 +915,7 @@ _WRAPPER_LOOP_PATHS = {
     "market download",
     "market hermes",
     "market host",
+    "market job-probe",
     "market jobs",
     "market list",
     "market match",
