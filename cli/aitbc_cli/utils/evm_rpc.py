@@ -104,6 +104,24 @@ def rpc_try(ctx, rpc_url: str, method: str, params: list[Any]) -> Any:
     return body.get("result")
 
 
+class _BroadcastRefused(RuntimeError):
+    """The node answered with a JSON-RPC ``error`` — a definitive refusal,
+    unlike a transport failure whose tx may still have landed."""
+
+
+def _signed_tx_hash(raw: str) -> str | None:
+    """keccak256 of the signed serialized transaction — the hash the node
+    would return, computable locally so a timed-out broadcast can still be
+    tracked. Advisory only: unparseable input returns None."""
+    try:
+        from eth_utils import keccak
+
+        data = bytes.fromhex(str(raw).removeprefix("0x"))
+        return "0x" + keccak(data).hex() if data else None
+    except Exception:  # noqa: BLE001 - the advisory hash must never mask the real error
+        return None
+
+
 def broadcast_raw(ctx, rpc_url: str, raw: str, label: str = "ETH transfer") -> str:
     """One eth_sendRawTransaction — a failure is reported, never retried."""
 
@@ -117,16 +135,27 @@ def broadcast_raw(ctx, rpc_url: str, raw: str, label: str = "ETH transfer") -> s
             )
             resp.raise_for_status()
             body = resp.json()
-        if "error" in body:
-            raise RuntimeError(body["error"])
-        return str(body["result"])
+        # ``error`` is failure only when truthy — some clients answer
+        # ``"error": null`` alongside a valid result (#2539).
+        if body.get("error"):
+            raise _BroadcastRefused(body["error"])
+        result = body.get("result")
+        if result is None:
+            raise RuntimeError("empty result")
+        return str(result)
 
     try:
         return asyncio.run(_post())
     except Exception as e:
+        tx_hash = _signed_tx_hash(raw)
+        tx_part = f" tx {tx_hash}" if tx_hash else ""
+        # A JSON-RPC refusal is definitive; a transport failure may still
+        # have landed — the signed tx hash lets the caller check first.
+        hint = "" if isinstance(e, _BroadcastRefused) else " — it may still have landed; check the tx before retrying"
         abort(
             ctx,
-            f"{label} broadcast failed at {display_rpc_url(rpc_url)} (not retried): {mask_rpc_url(str(e), rpc_url)}",
+            f"{label} broadcast failed{tx_part} at {display_rpc_url(rpc_url)} (not retried){hint}: "
+            f"{mask_rpc_url(str(e), rpc_url)}",
             from_exception=_masked_exc(e, rpc_url),
         )
         raise AssertionError("unreachable: abort always raises") from e

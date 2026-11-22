@@ -124,6 +124,80 @@ class TestBroadcastMasking:
         assert "https://mainnet.infura.io" in text
 
 
+class TestBroadcastResultHandling:
+    """#2539: ``error`` is failure only when truthy, and a transport failure
+    reports the locally computed tx hash plus a check-before-retrying hint."""
+
+    @staticmethod
+    def _client_returning(body):
+        class _Client:
+            def __init__(self, *a, **k):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, **kwargs):
+                class _Resp:
+                    def raise_for_status(self):
+                        pass
+
+                    def json(self):
+                        return body
+
+                return _Resp()
+
+        return _Client
+
+    def test_error_null_with_result_is_success(self, monkeypatch):
+        """Some clients answer ``"error": null`` beside a valid result —
+        that must not be reported as a failure."""
+        monkeypatch.setattr(
+            httpx, "AsyncClient", self._client_returning({"jsonrpc": "2.0", "id": 1, "error": None, "result": "0xabc123"})
+        )
+        assert broadcast_raw(None, PLAIN_URL, "0xdeadbeef") == "0xabc123"
+
+    def test_transport_failure_reports_tx_hash_and_retry_hint(self, monkeypatch):
+        class _Client:
+            def __init__(self, *a, **k):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, **kwargs):
+                raise httpx.ReadTimeout("timed out")
+
+        monkeypatch.setattr(httpx, "AsyncClient", _Client)
+        import re
+
+        with pytest.raises(CLIError) as excinfo:
+            broadcast_raw(None, PLAIN_URL, "0x" + "ab" * 40)
+        text = _abort_text(excinfo)
+        assert re.search(r"tx 0x[0-9a-f]{64}", text)
+        assert "check the tx before retrying" in text
+
+    def test_rpc_refusal_has_no_retry_hint(self, monkeypatch):
+        """A JSON-RPC error is a definitive refusal — the maybe-landed hint
+        would be wrong."""
+        monkeypatch.setattr(
+            httpx,
+            "AsyncClient",
+            self._client_returning({"jsonrpc": "2.0", "id": 1, "error": {"message": "insufficient funds"}}),
+        )
+        with pytest.raises(CLIError) as excinfo:
+            broadcast_raw(None, PLAIN_URL, "0x" + "ab" * 40)
+        text = _abort_text(excinfo)
+        assert "insufficient funds" in text
+        assert "check the tx before retrying" not in text
+
+
 class TestEthSendWrongChain:
     """TOOL-2b: the wrong-chain refusal is the case where someone pointed a
     keyed URL at the wrong network — it must not echo the key."""
