@@ -218,6 +218,68 @@ async def test_unstake_withdrawn_with_pending_release_stays_refused(rpc_db):
 
 
 @pytest.mark.asyncio
+async def test_unstake_active_with_sealed_release_heals_and_refuses(rpc_db):
+    """Queue-first edge: the release queued and sealed but the row commit
+    failed — the stake still reads active. The retry must not emit a
+    second release; it heals the row and answers 409."""
+    engine, queued, _monkeypatch = rpc_db
+    _seed_account(engine)
+    stake_id = _seed_matured_stake(engine)  # status stays "active"
+    with Session(engine) as session:
+        session.add(
+            Transaction(
+                chain_id=CHAIN,
+                tx_hash="0x" + "aa" * 32,
+                block_height=2,
+                sender=staking.stake_escrow_address(),
+                recipient=_to_ait_address(USER),
+                value=1000,
+                type="STAKE_RELEASE",
+                payload={"stake_id": str(stake_id)},
+            )
+        )
+        session.commit()
+    queued.clear()
+
+    with pytest.raises(HTTPException) as exc:
+        staking.unstake_tokens(request=Mock(), unstake_data=_unstake_body(stake_id))
+    assert exc.value.status_code == 409
+    assert "sealed" in exc.value.detail
+    assert _stake_row(engine, stake_id).status == "withdrawn"
+    assert not [q for q in queued if q["tx_type"] == "STAKE_RELEASE"]
+
+
+@pytest.mark.asyncio
+async def test_unstake_active_with_pending_release_refuses_without_queue(rpc_db):
+    """Same window while the first release is still in the mempool: the
+    retry refuses instead of double-queueing, and the row stays active so
+    a dropped entry can still be retried."""
+    engine, queued, _monkeypatch = rpc_db
+    _seed_account(engine)
+    stake_id = _seed_matured_stake(engine)
+    with Session(engine) as session:
+        session.add(
+            MempoolEntry(
+                chain_id=CHAIN,
+                tx_hash="0x" + "bb" * 32,
+                content=json.dumps({"type": "STAKE_RELEASE", "payload": {"stake_id": str(stake_id)}}),
+                fee=0,
+                size_bytes=1,
+                received_at=1.0,
+            )
+        )
+        session.commit()
+    queued.clear()
+
+    with pytest.raises(HTTPException) as exc:
+        staking.unstake_tokens(request=Mock(), unstake_data=_unstake_body(stake_id))
+    assert exc.value.status_code == 409
+    assert "pending" in exc.value.detail
+    assert _stake_row(engine, stake_id).status == "active"
+    assert not [q for q in queued if q["tx_type"] == "STAKE_RELEASE"]
+
+
+@pytest.mark.asyncio
 async def test_unstake_withdrawn_with_sealed_release_stays_refused(rpc_db):
     """Same guard on the sealed side: a STAKE_RELEASE already in a block
     means the stake paid out — no second release."""

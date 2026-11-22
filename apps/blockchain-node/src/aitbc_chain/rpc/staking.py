@@ -157,9 +157,21 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
         # #2629: a stake marked withdrawn before its release queued (the
         # pre-fix order) is retryable while no STAKE_RELEASE for it is
         # sealed or pending — the row flip used to strand it forever.
-        retryable = stake.status == "withdrawn" and not _stake_release_in_flight(session, chain_id, stake_id)
+        retryable = stake.status == "withdrawn" and _stake_release_state(session, chain_id, stake_id) is None
         if not retryable:
             raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
+    else:
+        release_state = _stake_release_state(session, chain_id, stake_id)
+        if release_state is not None:
+            # #2629: queue-before-commit means a failed row commit can leave
+            # an *active* stake whose release is already sealed or pending —
+            # never emit a second one. A sealed release means the payout
+            # already happened, so heal the row; a pending one is coming.
+            if release_state == "sealed":
+                stake.status = "withdrawn"
+                session.add(stake)
+                session.commit()
+            raise HTTPException(status_code=409, detail=f"Stake {stake_id} release is already {release_state}")
     now = datetime.now(UTC)
     locked_until = stake.locked_until
     if locked_until and locked_until.tzinfo is None:
@@ -188,11 +200,13 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
     return stake, lock_tx_hashes
 
 
-def _stake_release_in_flight(session: Session, chain_id: str, stake_id: Any) -> bool:
-    """True when a STAKE_RELEASE for this stake is sealed or pending (#2629)."""
+def _stake_release_state(session: Session, chain_id: str, stake_id: Any) -> str | None:
+    """``"sealed"``/``"pending"``/``None`` for this stake's STAKE_RELEASE (#2629)."""
     if confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "stake_id", stake_id):
-        return True
-    return protocol_transfer_pending(session, chain_id, "STAKE_RELEASE", "stake_id", stake_id)
+        return "sealed"
+    if protocol_transfer_pending(session, chain_id, "STAKE_RELEASE", {"stake_id": str(stake_id)}):
+        return "pending"
+    return None
 
 
 def _assert_v4_maturity(session: Session, chain_id: str, lock_txs: list[Any]) -> None:
