@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from aitbc_shared.models import ReputationDTO
-from sqlmodel import Session, and_, desc, func, select
+from sqlmodel import Session, and_, col, desc, select
 
 from aitbc.aitbc_logging import get_logger
 
@@ -23,6 +23,12 @@ from ..domain.reputation import (
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Upper bound on reputation rows the leaderboard live-scores per request.
+# The batched computation is ~2 statements regardless of candidate count, so
+# this only guards against a pathological table; it comfortably exceeds the
+# route's limit=500 and any realistic agent population.
+_LEADERBOARD_MAX_CANDIDATES = 5000
 
 
 class TrustScoreCalculator:
@@ -38,15 +44,9 @@ class TrustScoreCalculator:
         }
         self.decay_factors = {"daily": 0.95, "weekly": 0.9, "monthly": 0.8, "yearly": 0.6}
 
-    def calculate_performance_score(
-        self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)
-    ) -> float:
-        """Calculate performance-based trust score component"""
-        cutoff_date = datetime.now(UTC) - time_window
-        select(func.count()).where(and_(AgentReputation.agent_id == agent_id, AgentReputation.updated_at >= cutoff_date))
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
-        if not reputation:
-            return 500.0
+    @staticmethod
+    def _performance_score_from(reputation: AgentReputation) -> float:
+        """Performance component from an already-fetched reputation row."""
         base_score = reputation.performance_rating / 5.0 * 1000
         if reputation.transaction_count > 0:
             success_modifier = reputation.success_rate / 100.0
@@ -54,15 +54,20 @@ class TrustScoreCalculator:
         if reputation.average_response_time > 0:
             response_modifier = max(0.5, 1.0 - reputation.average_response_time / 10000.0)
             base_score *= response_modifier
-        return min(1000.0, max(0.0, base_score))  # type: ignore[no-any-return]
+        return min(1000.0, max(0.0, base_score))
 
-    def calculate_reliability_score(
+    def calculate_performance_score(
         self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)
     ) -> float:
-        """Calculate reliability-based trust score component"""
+        """Calculate performance-based trust score component"""
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             return 500.0
+        return self._performance_score_from(reputation)
+
+    @staticmethod
+    def _reliability_score_from(reputation: AgentReputation) -> float:
+        """Reliability component from an already-fetched reputation row."""
         base_score = reputation.reliability_score * 10
         if reputation.uptime_percentage > 0:
             uptime_modifier = reputation.uptime_percentage / 100.0
@@ -71,19 +76,20 @@ class TrustScoreCalculator:
         if total_jobs > 0:
             completion_ratio = reputation.jobs_completed / total_jobs
             base_score *= completion_ratio
-        return min(1000.0, max(0.0, base_score))  # type: ignore[no-any-return]
+        return min(1000.0, max(0.0, base_score))
 
-    def calculate_community_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=90)) -> float:
-        """Calculate community-based trust score component"""
-        cutoff_date = datetime.now(UTC) - time_window
-        feedback_query = select(CommunityFeedback).where(
-            and_(
-                CommunityFeedback.agent_id == agent_id,
-                CommunityFeedback.created_at >= cutoff_date,
-                CommunityFeedback.moderation_status == "approved",
-            )
-        )
-        feedbacks = session.execute(feedback_query).scalars().all()
+    def calculate_reliability_score(
+        self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)
+    ) -> float:
+        """Calculate reliability-based trust score component"""
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+        if not reputation:
+            return 500.0
+        return self._reliability_score_from(reputation)
+
+    @staticmethod
+    def _community_score_from_feedbacks(feedbacks: Sequence[CommunityFeedback]) -> float:
+        """Community component from already-fetched feedback rows."""
         if not feedbacks:
             return 500.0
         total_weight = 0.0
@@ -104,11 +110,22 @@ class TrustScoreCalculator:
             base_score *= volume_modifier
         return min(1000.0, max(0.0, base_score))
 
-    def calculate_security_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=180)) -> float:
-        """Calculate security-based trust score component"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
-        if not reputation:
-            return 500.0
+    def calculate_community_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=90)) -> float:
+        """Calculate community-based trust score component"""
+        cutoff_date = datetime.now(UTC) - time_window
+        feedback_query = select(CommunityFeedback).where(
+            and_(
+                CommunityFeedback.agent_id == agent_id,
+                CommunityFeedback.created_at >= cutoff_date,
+                CommunityFeedback.moderation_status == "approved",
+            )
+        )
+        feedbacks = session.execute(feedback_query).scalars().all()
+        return self._community_score_from_feedbacks(feedbacks)
+
+    @staticmethod
+    def _security_score_from(reputation: AgentReputation) -> float:
+        """Security component from an already-fetched reputation row."""
         base_score = 800.0
         if reputation.transaction_count > 0:
             dispute_ratio = reputation.dispute_count / reputation.transaction_count
@@ -119,11 +136,16 @@ class TrustScoreCalculator:
             base_score += certification_boost
         return min(1000.0, max(0.0, base_score))
 
-    def calculate_economic_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)) -> float:
-        """Calculate economic-based trust score component"""
+    def calculate_security_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=180)) -> float:
+        """Calculate security-based trust score component"""
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             return 500.0
+        return self._security_score_from(reputation)
+
+    @staticmethod
+    def _economic_score_from(reputation: AgentReputation) -> float:
+        """Economic component from an already-fetched reputation row."""
         if reputation.total_earnings > 0 and reputation.transaction_count > 0:
             avg_earning_per_transaction = reputation.total_earnings / reputation.transaction_count
             earning_modifier = min(2.0, float(avg_earning_per_transaction / Decimal("0.1")))
@@ -134,6 +156,13 @@ class TrustScoreCalculator:
             success_modifier = reputation.success_rate / 100.0
             base_score *= success_modifier
         return min(1000.0, max(0.0, base_score))
+
+    def calculate_economic_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)) -> float:
+        """Calculate economic-based trust score component"""
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+        if not reputation:
+            return 500.0
+        return self._economic_score_from(reputation)
 
     def calculate_composite_trust_score(
         self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)
@@ -157,6 +186,54 @@ class TrustScoreCalculator:
         else:
             final_score = weighted_score
         return min(1000.0, max(0.0, final_score))  # type: ignore[no-any-return]
+
+    def calculate_composite_trust_scores(
+        self, reputations: Sequence[AgentReputation], session: Session, time_window: timedelta = timedelta(days=30)
+    ) -> dict[str, float]:
+        """Batched live composite for already-fetched reputation rows (#2475).
+
+        Identical math to ``calculate_composite_trust_score`` per agent, but
+        the five per-agent ``AgentReputation`` selects collapse into the rows
+        in hand and ``CommunityFeedback`` is read in a single query — a fixed
+        ~2 statements for the whole set instead of ~6 per agent. Used by the
+        unauthenticated leaderboard, which may request up to 500 rows.
+        """
+        feedback_by_agent: dict[str, list[CommunityFeedback]] = {}
+        agent_ids = [reputation.agent_id for reputation in reputations]
+        if agent_ids:
+            cutoff_date = datetime.now(UTC) - time_window
+            feedback_rows = (
+                session.execute(
+                    select(CommunityFeedback).where(
+                        and_(
+                            col(CommunityFeedback.agent_id).in_(agent_ids),
+                            CommunityFeedback.created_at >= cutoff_date,
+                            CommunityFeedback.moderation_status == "approved",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for feedback in feedback_rows:
+                feedback_by_agent.setdefault(feedback.agent_id, []).append(feedback)
+
+        scores: dict[str, float] = {}
+        for reputation in reputations:
+            weighted_score = (
+                self._performance_score_from(reputation) * self.weights[TrustScoreCategory.PERFORMANCE]
+                + self._reliability_score_from(reputation) * self.weights[TrustScoreCategory.RELIABILITY]
+                + self._community_score_from_feedbacks(feedback_by_agent.get(reputation.agent_id, ()))
+                * self.weights[TrustScoreCategory.COMMUNITY]
+                + self._security_score_from(reputation) * self.weights[TrustScoreCategory.SECURITY]
+                + self._economic_score_from(reputation) * self.weights[TrustScoreCategory.ECONOMIC]
+            )
+            if reputation.trust_score > 0:
+                final_score = weighted_score * 0.7 + reputation.trust_score * 0.3
+            else:
+                final_score = weighted_score
+            scores[reputation.agent_id] = min(1000.0, max(0.0, final_score))
+        return scores
 
     def determine_reputation_level(self, trust_score: float) -> ReputationLevel:
         """Determine reputation level based on trust score"""
@@ -453,33 +530,42 @@ class ReputationService:
         """Get reputation leaderboard"""
         if not hasattr(AgentReputation, category):
             category = "trust_score"
-        query = select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(limit)
+        if category == "trust_score":
+            # #2475: entries report the live composite, so the ranking must use
+            # it too — pre-selecting the page by the stored cache column (which
+            # drifts between events) could exclude the true live leaders. The
+            # batched computation costs a fixed ~2 statements for the whole
+            # candidate set, so fetch every matching row (bounded by
+            # _LEADERBOARD_MAX_CANDIDATES) instead of a stored-score page.
+            query = (
+                select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(_LEADERBOARD_MAX_CANDIDATES)
+            )
+        else:
+            query = select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(limit)
         if region:
             query = query.where(AgentReputation.geographic_region == region)
         result = await run_in_threadpool(self.session.execute, query)
         reputations = result.scalars().all()
-        entries = await run_in_threadpool(self._leaderboard_entries, reputations)
+        scores = await run_in_threadpool(self.calculator.calculate_composite_trust_scores, reputations, self.session)
+        entries = self._leaderboard_entries(reputations, scores)
         if category == "trust_score":
-            # Ordering used the stored trust_score column — the composite cache
-            # update_trust_score maintains — while each entry now reports the
-            # live composite. Re-rank the page by the reported score so the
-            # displayed order matches the displayed values (#2406).
             entries.sort(key=lambda e: (-float(e["trust_score"]), str(e["agent_id"])))
+            entries = entries[:limit]
         for rank, entry in enumerate(entries, 1):
             entry["rank"] = rank
         return entries
 
-    def _leaderboard_entries(self, reputations: Sequence[AgentReputation]) -> list[dict[str, Any]]:
+    def _leaderboard_entries(self, reputations: Sequence[AgentReputation], scores: dict[str, float]) -> list[dict[str, Any]]:
         """Build leaderboard rows reporting the live composite trust score.
 
-        Every entry's ``trust_score``/``reputation_level`` come from the same
-        ``TrustScoreCalculator`` the profile and trust-score endpoints use, so
-        all three reputation reads agree for a given agent (#2406). The stored
-        columns remain the ranking key only.
+        ``scores`` comes from ``calculate_composite_trust_scores`` — the same
+        ``TrustScoreCalculator`` math the profile and trust-score endpoints
+        use, so all three reputation reads agree for a given agent (#2406).
+        Pure Python now that the batched computation runs ahead of it (#2475).
         """
         leaderboard = []
         for reputation in reputations:
-            trust_score = self.calculator.calculate_composite_trust_score(reputation.agent_id, self.session)
+            trust_score = scores[reputation.agent_id]
             leaderboard.append(
                 {
                     "rank": 0,  # assigned by the caller after any re-sort
