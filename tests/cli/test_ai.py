@@ -102,3 +102,29 @@ def test_ai_jobs_uses_local_coordinator(mock_config, mock_http_client):
     assert base_url == "http://127.0.0.1:8203"
     assert path == "/v1/jobs"
     assert kwargs["params"]["limit"] == 5
+
+
+def test_ai_submit_confidential_fails_closed(mock_config, mock_http_client):
+    """#2474: --confidential must refuse, not submit an ordinary job.
+
+    TEE attestation was removed in #2375; the coordinator rejects
+    confidential/TEE constraints, so the CLI fails before any request.
+    """
+    calls = mock_http_client
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "ai",
+            "submit",
+            "--prompt",
+            "sensitive input",
+            "--confidential",
+            "--coordinator-url",
+            "http://127.0.0.1:8203",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "not supported" in result.output
+    assert "#2375" in result.output
+    assert calls["post"] == []

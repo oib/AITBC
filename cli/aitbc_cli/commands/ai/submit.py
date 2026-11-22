@@ -303,10 +303,16 @@ def _apply_simple_constraints(
         constraints["acceptance_window_seconds"] = acceptance_window
 
 
-def _apply_confidential_constraint(constraints: dict[str, Any], *, confidential: bool) -> None:
-    """Mark a job confidential; enclave attestation was removed (#2375)."""
+def _reject_confidential(ctx, confidential: bool) -> None:
+    """#2474: fail closed — the coordinator rejects confidential/TEE
+    constraints since #2375 removed attestation; sending one anyway
+    would dispatch the job as an ordinary, non-confidential job."""
     if confidential:
-        constraints["confidential"] = True
+        _ai.abort(
+            ctx,
+            "--confidential is not supported: TEE attestation was removed in #2375 "
+            "and the coordinator rejects confidential/TEE job constraints",
+        )
 
 
 def _apply_payment_fields(
@@ -563,7 +569,11 @@ def _secure_escrow(
 @click.option(
     "--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release"
 )
-@click.option("--confidential", is_flag=True, help="Mark this job as confidential")
+@click.option(
+    "--confidential",
+    is_flag=True,
+    help="Mark this job as confidential (unsupported: rejected — TEE attestation removed in #2375)",
+)
 @click.option(
     "--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment"
 )
@@ -636,6 +646,8 @@ def submit(
     config = _ai.get_config()
 
     try:
+        _reject_confidential(ctx, confidential)
+
         # Get coordinator URL
         coord_url = _ai._coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
@@ -693,7 +705,6 @@ def submit(
             decode_seed=decode_seed,
             acceptance_window=acceptance_window,
         )
-        _apply_confidential_constraint(job_data["constraints"], confidential=confidential)
         _apply_payment_fields(
             ctx,
             job_data,

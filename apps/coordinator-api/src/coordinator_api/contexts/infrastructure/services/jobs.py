@@ -91,7 +91,7 @@ def _lock_client_for_inflight_cap(session: Session, client_id: str) -> None:
 
 def _bond_required_for(job: Job, payment: JobPayment | None = None) -> bool:
     """Return True if the job requires a performance bond check."""
-    constraints = Constraints(**job.constraints) if isinstance(job.constraints, dict) else Constraints()
+    constraints = Constraints.from_record(job.constraints) if isinstance(job.constraints, dict) else Constraints()
     if constraints.bond_required:
         return True
     if _BOND_REQUIRE:
@@ -719,7 +719,7 @@ class JobService:
 
     def to_assigned(self, job: Job) -> AssignedJob:
         raw = dict(job.constraints) if isinstance(job.constraints, dict) else {}
-        constraints = Constraints(**raw)
+        constraints = Constraints.from_record(raw)
         deadline = _to_utc(job.expires_at)
         return AssignedJob(
             job_id=job.id,
@@ -957,7 +957,7 @@ class JobService:
     def _satisfies_constraints(self, job: Job, miner: Miner, payment: JobPayment | None = None) -> bool:
         if not job.constraints:
             return True
-        constraints = Constraints(**job.constraints)
+        constraints = Constraints.from_record(job.constraints)
         capabilities = miner.capabilities or {}
 
         if not _offer_binding_allows(job, miner):
@@ -1045,7 +1045,7 @@ class JobService:
         reputations: dict[str, float] | None = None,
     ) -> bool:
         """Check whether a higher-reputation, capable miner is available for a job."""
-        constraints = Constraints(**job.constraints) if job.constraints else Constraints()
+        constraints = Constraints.from_record(job.constraints) if job.constraints else Constraints()
         for other in online_miners:
             if other.id == current_miner.id:
                 continue
