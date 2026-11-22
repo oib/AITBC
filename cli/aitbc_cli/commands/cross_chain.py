@@ -102,12 +102,17 @@ def _load_signing_wallet(
     return address, private_key
 
 
-def _wait_for_terminal_status(client: AITBCHTTPClient, path: str, timeout_seconds: int, label: str) -> dict[str, Any] | None:
+def _wait_for_terminal_status(
+    client: AITBCHTTPClient, path: str, timeout_seconds: int, label: str, output_format: str = "table"
+) -> dict[str, Any] | None:
     """Poll a status endpoint until a terminal bridge state or timeout.
 
-    Prints every real status transition. Returns the last payload; on timeout
-    the payload still carries the honest non-terminal state.
+    Prints every real status transition — on stdout for table output, on
+    stderr for machine formats so ``--output json`` stays one document
+    (#2590). Returns the last payload; on timeout the payload still carries
+    the honest non-terminal state.
     """
+    machine = output_format != "table"
     deadline = time.monotonic() + timeout_seconds
     last_status: str | None = None
     last_data: dict[str, Any] | None = None
@@ -121,11 +126,15 @@ def _wait_for_terminal_status(client: AITBCHTTPClient, path: str, timeout_second
         if status != last_status:
             last_status = status
             message = _STATUS_MESSAGES.get(str(status), str(status))
-            click.echo(f"{label} status: {message}")
+            click.echo(f"{label} status: {message}", err=machine)
         if status in TERMINAL_STATES:
             return last_data
         if time.monotonic() >= deadline:
-            output(f"Timed out after {timeout_seconds}s — last known status: {status}")
+            msg = f"Timed out after {timeout_seconds}s — last known status: {status}"
+            if machine:
+                click.echo(msg, err=True)
+            else:
+                output(msg)
             return last_data
         time.sleep(5)
 
@@ -336,7 +345,9 @@ def swap(
         swap_id = swap_result.get("swap_id")
         success(f"Track swap with: aitbc crosschain status --swap-id {swap_id}")
         if wait and swap_id:
-            waited = _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap")
+            waited = _wait_for_terminal_status(
+                http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap", resolve_output_format(ctx)
+            )
     except _OPS_ERRORS as e:
         abort(ctx, f"Swap failed: {e}", from_exception=e)
     if wait and swap_id:
@@ -362,12 +373,13 @@ def status(ctx, swap_id: str, rpc_url: str | None, wait: bool, timeout: int):
     try:
         http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=10)
         swap_data = http_client.get(f"/rpc/cross-chain/swap/{swap_id}")
+        fmt = resolve_output_format(ctx)
         if wait and swap_data.get("status") not in TERMINAL_STATES:
             swap_data = (
-                _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap") or swap_data
+                _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap", fmt) or swap_data
             )
         current = swap_data.get("status", "unknown")
-        click.echo(_STATUS_MESSAGES.get(str(current), f"Swap status: {current}"))
+        click.echo(_STATUS_MESSAGES.get(str(current), f"Swap status: {current}"), err=(fmt != "table"))
 
         details = {
             "Swap ID": swap_data.get("swap_id"),
@@ -418,6 +430,12 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int, rpc_url
         http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=10)
         swaps_data = http_client.get("/rpc/cross-chain/swaps", params=params)
         swaps = swaps_data.get("swaps", [])
+        fmt = resolve_output_format(ctx)
+
+        if fmt != "table":
+            # Machine formats get one document — never the grid table (#2590).
+            output({"swaps": swaps[:limit], "total_swaps": len(swaps), "shown": min(limit, len(swaps))}, fmt)
+            return
 
         if swaps:
             success(f"Found {len(swaps)} cross-chain swaps:")
@@ -528,7 +546,9 @@ def bridge(
         bridge_id = bridge_result.get("bridge_id")
         success(f"Track bridge with: aitbc crosschain bridge-status --bridge-id {bridge_id}")
         if wait and bridge_id:
-            waited = _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge")
+            waited = _wait_for_terminal_status(
+                http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge", resolve_output_format(ctx)
+            )
     except _OPS_ERRORS as e:
         abort(ctx, f"Bridge failed: {e}", from_exception=e)
     if wait and bridge_id:
@@ -554,13 +574,14 @@ def bridge_status(ctx, bridge_id: str, rpc_url: str | None, wait: bool, timeout:
     try:
         http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=10)
         bridge_data = http_client.get(f"/rpc/cross-chain/bridge/{bridge_id}")
+        fmt = resolve_output_format(ctx)
         if wait and bridge_data.get("status") not in TERMINAL_STATES:
             bridge_data = (
-                _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge")
+                _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge", fmt)
                 or bridge_data
             )
         current = bridge_data.get("status", "unknown")
-        click.echo(_STATUS_MESSAGES.get(str(current), f"Bridge status: {current}"))
+        click.echo(_STATUS_MESSAGES.get(str(current), f"Bridge status: {current}"), err=(fmt != "table"))
 
         details = {
             "Bridge ID": bridge_data.get("bridge_id"),
@@ -705,26 +726,30 @@ def stats(ctx, rpc_url: str | None):
     try:
         http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=10)
         stats_data = http_client.get("/rpc/cross-chain/stats")
+        fmt = resolve_output_format(ctx)
 
-        success("Cross-Chain Trading Statistics:")
+        doc = {
+            "Total Volume": f"{stats_data.get('total_volume', 0)} AIT",
+            "Supported Chains": ", ".join(stats_data.get("supported_chains", [])),
+            "Bridge Chains": ", ".join(stats_data.get("bridge_supported_chains", [])),
+            "Release Enabled": stats_data.get("release_enabled"),
+            "Relayer Enabled": stats_data.get("relayer_enabled"),
+            "Last Updated": stats_data.get("timestamp", ""),
+        }
+        if fmt == "table":
+            success("Cross-Chain Trading Statistics:")
+            for key, label in (("swap_stats", "Swap"), ("bridge_stats", "Bridge")):
+                rows = stats_data.get(key, [])
+                if rows:
+                    success(f"{label} Statistics:")
+                    table = [[s.get("status", ""), s.get("count", 0), format_ait(s.get("volume", 0))] for s in rows]
+                    click.echo(tabulate(table, headers=["Status", "Count", "Volume (AIT)"], tablefmt="grid"))
+        else:
+            # Machine formats get the raw stat rows inside the one document
+            # instead of grid tables on stdout (#2590).
+            doc["swap_stats"] = stats_data.get("swap_stats", [])
+            doc["bridge_stats"] = stats_data.get("bridge_stats", [])
 
-        for key, label in (("swap_stats", "Swap"), ("bridge_stats", "Bridge")):
-            rows = stats_data.get(key, [])
-            if rows:
-                success(f"{label} Statistics:")
-                table = [[s.get("status", ""), s.get("count", 0), format_ait(s.get("volume", 0))] for s in rows]
-                click.echo(tabulate(table, headers=["Status", "Count", "Volume (AIT)"], tablefmt="grid"))
-
-        output(
-            {
-                "Total Volume": f"{stats_data.get('total_volume', 0)} AIT",
-                "Supported Chains": ", ".join(stats_data.get("supported_chains", [])),
-                "Bridge Chains": ", ".join(stats_data.get("bridge_supported_chains", [])),
-                "Release Enabled": stats_data.get("release_enabled"),
-                "Relayer Enabled": stats_data.get("relayer_enabled"),
-                "Last Updated": stats_data.get("timestamp", ""),
-            },
-            ctx.obj["output_format"],
-        )
+        output(doc, fmt)
     except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)

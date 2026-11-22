@@ -1,6 +1,8 @@
 """CLI-JSON-CLEAN-1: under --output json, stdout must parse as JSON."""
 
 import json
+from typing import Any
+
 from click.testing import CliRunner
 
 import aitbc_cli.commands.transactions as tx
@@ -637,6 +639,8 @@ def test_crosschain_pools_empty_table_keeps_prose_on_stdout(monkeypatch):
     r = CliRunner().invoke(cc.pools, [], obj={"output_format": "table"})
     assert r.exit_code == 0, r.output
     assert "No cross-chain liquidity pools" in r.stdout
+
+
 # ---------------------------------------------------------------------------
 # CLI-JSON-CLEAN-2: analytics monitor / predict / optimize / alerts
 # ---------------------------------------------------------------------------
@@ -765,3 +769,121 @@ class _EmptyAnalytics:
 
     def get_optimization_recommendations(self, chain_id):
         return []
+
+
+# --- #2590: crosschain status/swaps/stats honour --output json -------------
+
+
+class _XChainStatusClient:
+    """Answers the cross-chain status/swaps/stats/bridge endpoints."""
+
+    swap_payloads: list | None = None
+
+    def __init__(self, **kw):
+        self._swap_iter: Any = iter(self.swap_payloads or [])
+
+    def get(self, path, params=None, **kw):
+        if "/swap/" in path:
+            return next(self._swap_iter)
+        if path.endswith("/swaps"):
+            return {
+                "swaps": [
+                    {
+                        "swap_id": "swap-1",
+                        "from_chain": "ait-mainnet",
+                        "to_chain": "ait-side",
+                        "amount": "10",
+                        "status": "completed",
+                        "created_at": "2026-11-22T00:00:00",
+                    }
+                ]
+            }
+        if path.endswith("/stats"):
+            return {
+                "total_volume": 42,
+                "supported_chains": ["ait-mainnet"],
+                "bridge_supported_chains": ["ait-side"],
+                "release_enabled": True,
+                "relayer_enabled": False,
+                "timestamp": "2026-11-22T00:00:00",
+                "swap_stats": [{"status": "completed", "count": 3, "volume": 30}],
+                "bridge_stats": [{"status": "completed", "count": 1, "volume": 12}],
+            }
+        if "/bridge/" in path:
+            return {"bridge_id": "b1", "status": "completed", "source_chain": "ait-mainnet"}
+        return {}
+
+
+def _xchain_status_client(monkeypatch, payloads):
+    cls = type("C", (_XChainStatusClient,), {"swap_payloads": payloads})
+    return _patch_crosschain(monkeypatch, cls)
+
+
+def test_crosschain_status_json_is_one_document(monkeypatch):
+    """#2590: the status sentence goes to stderr; stdout is the details doc."""
+    cc = _xchain_status_client(monkeypatch, [{"status": "completed", "swap_id": "s1"}])
+    r = CliRunner().invoke(cc.status, ["--swap-id", "s1"], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["Status"] == "completed"
+    assert "completed — released" in r.stderr
+    assert "completed — released" not in r.stdout
+
+
+def test_crosschain_status_wait_json_poll_lines_on_stderr(monkeypatch):
+    """#2590: --wait transition lines must not pollute the JSON document."""
+    cc = _xchain_status_client(
+        monkeypatch,
+        [
+            {"status": "pending", "swap_id": "s1"},
+            {"status": "locked", "swap_id": "s1"},
+            {"status": "completed", "swap_id": "s1"},
+        ],
+    )
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    r = CliRunner().invoke(cc.status, ["--swap-id", "s1", "--wait"], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["Status"] == "completed"
+    assert "Swap status:" in r.stderr
+    assert "Swap status:" not in r.stdout
+
+
+def test_crosschain_swaps_json_is_one_document(monkeypatch):
+    """#2590: `swaps` emits a JSON doc, not the grid table."""
+    cc = _patch_crosschain(monkeypatch, _XChainStatusClient)
+    r = CliRunner().invoke(cc.swaps, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["total_swaps"] == 1
+    assert doc["swaps"][0]["swap_id"] == "swap-1"
+    assert "+---" not in r.stdout
+
+
+def test_crosschain_swaps_table_keeps_grid(monkeypatch):
+    cc = _patch_crosschain(monkeypatch, _XChainStatusClient)
+    r = CliRunner().invoke(cc.swaps, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "From" in r.stdout and "swap-1" in r.stdout
+
+
+def test_crosschain_stats_json_is_one_document(monkeypatch):
+    """#2590: stats grid tables become doc fields; no grid on stdout."""
+    cc = _patch_crosschain(monkeypatch, _XChainStatusClient)
+    r = CliRunner().invoke(cc.stats, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["swap_stats"][0]["count"] == 3
+    assert doc["bridge_stats"][0]["volume"] == 12
+    assert "+---" not in r.stdout
+    assert "Statistics" not in r.stdout
+
+
+def test_crosschain_bridge_status_json_is_one_document(monkeypatch):
+    """#2590: bridge-status gets the same sentence-on-stderr treatment."""
+    cc = _xchain_status_client(monkeypatch, [])
+    r = CliRunner().invoke(cc.bridge_status, ["--bridge-id", "b1"], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["Status"] == "completed"
+    assert "completed — released" in r.stderr
