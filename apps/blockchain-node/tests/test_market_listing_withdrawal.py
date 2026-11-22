@@ -224,3 +224,53 @@ async def test_listing_reader_ignores_a_row_with_unparseable_payload(chain_db):
     with patch.object(market_mod, "_chain_db_path", lambda: path):
         listings = market_mod.market_listings(_request())
     assert [x for x in listings["listings"] if x["listing_id"].startswith("tx_")] == []
+
+
+# ---------------------------------------------------------------------------
+# GET /market/listing/{id} resolves on-chain tx_<id> (#2656)
+# ---------------------------------------------------------------------------
+
+
+def _get(chain_db, listing_id: str):
+    path, _engine = chain_db
+    with patch.object(market_mod, "_chain_db_path", lambda: path):
+        return market_mod.market_get_listing(listing_id, _request())
+
+
+def test_get_onchain_listing_by_tx_id(chain_db):
+    """An id /market/listings hands out must be fetchable, not 404."""
+    _seed(chain_db[1], [(1, SELLER, _offer()), (2, OTHER, _offer())])
+    out = _get(chain_db, "tx_1")
+    assert out["found"] is True
+    assert out["listing"]["listing_id"] == "tx_1"
+    assert out["listing"]["seller_address"] == SELLER
+    assert out["listing"]["service_type"] == "whisper"
+
+
+def test_get_withdrawn_onchain_listing_is_404(chain_db):
+    _seed(chain_db[1], [(1, SELLER, _offer()), (2, SELLER, _cancel("tx_1"))])
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        _get(chain_db, "tx_1")
+    assert exc.value.status_code == 404
+
+
+def test_get_unknown_tx_id_is_404(chain_db):
+    _seed(chain_db[1], [(1, SELLER, _offer())])
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        _get(chain_db, "tx_99")
+    assert exc.value.status_code == 404
+
+
+def test_get_in_memory_listing_still_works(chain_db, monkeypatch):
+    monkeypatch.setattr(
+        market_mod,
+        "_market_listings",
+        [{"listing_id": "listing_001", "seller_address": SELLER}],
+    )
+    out = _get(chain_db, "listing_001")
+    assert out["found"] is True
+    assert out["listing"]["listing_id"] == "listing_001"

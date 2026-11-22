@@ -196,5 +196,5 @@ async def test_expired_listing_is_evicted_on_read():
     assert [x["listing_id"] for x in out["listings"]] == []
     assert market_mod._market_listings == []
     with pytest.raises(HTTPException) as exc:
-        market_get_listing(lid)
+        market_get_listing(lid, _req())
     assert exc.value.status_code == 404
