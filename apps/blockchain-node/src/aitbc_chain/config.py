@@ -309,6 +309,17 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # validator runs the code, since a mixed set would apply different
     # rules and fork.
     state_transition_v29_height: int | None = None
+    # v30 (#2484 BOUNTY-PAYOUT-INVARIANTS-1): at or above this height a
+    # ``BOUNTY_PAYOUT``/``BOUNTY_REFUND`` may not push a bounty's total
+    # outflow past its summed ``BOUNTY_LOCK`` value, and a ``BOUNTY_PAYOUT``
+    # may pay a given ``submission_id`` at most once — computed from sealed
+    # ``Transaction`` rows plus same-block accumulators, never the
+    # RPC-mutated ``BountyContract`` row. Below the height the rules are
+    # unchanged so historical blocks (incl. the v17 payout+refund pair)
+    # replay identically. ``None`` (the default) keeps the rung dormant:
+    # pin fleet-wide only after every validator runs the code, since a
+    # mixed set would apply different rules and fork.
+    state_transition_v30_height: int | None = None
     # #2257: node-local reconciler for stale ``pending`` bridge transfer rows.
     # Bookkeeping only (no tx, no consensus effect). Off by default; with
     # ``dry_run`` on (default) it only logs what it would change.

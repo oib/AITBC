@@ -236,6 +236,11 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
         # block — the in-memory half of the v29 replay bound (the sealed-row
         # half lives in protocol_escrow.protocol_auth_signature_sealed).
         self._processed_auth_sigs: set[str] = set()
+        # #2484: bounty outflow applied in the current block — the in-memory
+        # half of the v30 per-bounty invariants (the sealed-row half lives in
+        # protocol_escrow.bounty_flow_state, queried with before_height).
+        self._block_bounty_out: dict[str, int] = {}
+        self._block_bounty_subs: set[tuple[str, str]] = set()
         # #1940 F4: speculative applies (the attestation post-state probe)
         # construct with cache_side_effects=False so no Redis invalidation
         # fires for state that is never committed. The production singleton
@@ -253,6 +258,8 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
         self._processed_nonces.clear()
         self._processed_tx_hashes.clear()
         self._processed_auth_sigs.clear()
+        self._block_bounty_out.clear()
+        self._block_bounty_subs.clear()
 
     def validate_transaction(
         self,
@@ -298,6 +305,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
             self._vt_dedup,
             self._vt_prepare,
             self._vt_protocol_auth_replay,
+            self._vt_bounty_invariants,
             self._vt_liquidity,
             self._vt_bridge_credit,
             self._vt_bridge_lock_sig,
@@ -474,7 +482,26 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
             auth_sig = tx_auth_signature(tx_data)
             if auth_sig is not None:
                 self._processed_auth_sigs.add(auth_sig)
+            # #2484: accumulate bounty outflow for the v30 invariants —
+            # _vt_bounty_invariants reads these for same-block applications.
+            self._accumulate_bounty_outflow(tx_type, tx_data, value)
         return result
+
+    def _accumulate_bounty_outflow(self, tx_type: str, tx_data: dict[str, Any], value: Any) -> None:
+        """#2484: fold one applied outflow tx into the per-block bounty
+        accumulators the v30 invariants read."""
+        if tx_type not in ("BOUNTY_PAYOUT", "BOUNTY_REFUND"):
+            return
+        bounty_payload = tx_data.get("payload") or {}
+        bounty_id = str(bounty_payload.get("bounty_id") or "")
+        if not bounty_id:
+            return
+        self._block_bounty_out[bounty_id] = self._block_bounty_out.get(bounty_id, 0) + int(value)
+        if tx_type != "BOUNTY_PAYOUT":
+            return
+        submission_id = str(bounty_payload.get("submission_id") or "")
+        if submission_id:
+            self._block_bounty_subs.add((bounty_id, submission_id))
 
     def apply_transaction_guarded(
         self,
@@ -598,6 +625,8 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
         self._processed_nonces.clear()
         self._processed_tx_hashes.clear()
         self._processed_auth_sigs.clear()
+        self._block_bounty_out.clear()
+        self._block_bounty_subs.clear()
 
 
 _state_transition = StateTransition()

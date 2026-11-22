@@ -93,6 +93,8 @@ class _ValidationMixin(_ValidationGpuMixin):
     if TYPE_CHECKING:
         _processed_tx_hashes: set[str]
         _processed_auth_sigs: set[str]
+        _block_bounty_out: dict[str, int]
+        _block_bounty_subs: set[tuple[str, str]]
 
     @staticmethod
     def _verify_payload_auth(tx_type: str, auth: Any, tx_data: dict[str, Any]) -> bool:
@@ -249,6 +251,60 @@ class _ValidationMixin(_ValidationGpuMixin):
             return (False, "protocol auth signature already used (replay)")
         if protocol_auth_signature_sealed(ctx.session, ctx.chain_id, signature):
             return (False, "protocol auth signature already sealed (replay)")
+        return None
+
+    def _vt_bounty_invariants(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        """v30 (#2484 BOUNTY-PAYOUT-INVARIANTS-1): per-bounty outflow bounds.
+
+        The #2480 replay bound makes each authorization one-shot but says
+        nothing about *distinct* signed transfers: a buggy or compromised
+        operator signer could still drain a bounty escrow with fresh auths.
+        v30 enforces, purely from replicated ``Transaction`` rows (never the
+        RPC-mutated ``BountyContract`` domain row):
+
+        - total ``BOUNTY_PAYOUT`` + ``BOUNTY_REFUND`` value for a
+          ``bounty_id`` may never exceed the summed ``BOUNTY_LOCK`` value —
+          refunds count because the honest lifecycle pays XOR refunds the
+          full remainder, so a signed payout+refund pair is the same drain;
+        - at most one ``BOUNTY_PAYOUT`` per ``(bounty_id, submission_id)``.
+
+        Same-block applications are tracked in ``_block_bounty_out`` /
+        ``_block_bounty_subs``; sealed rows at or above ``ctx.block_height``
+        are excluded so staged proposer rows are not double-counted. Below
+        v30 the rules are unchanged — historical blocks and the live
+        v17-ex-bounty-2 payout+refund pair replay identically.
+        """
+        if ctx.block_version < 30 or ctx.skip_dedup:
+            return None
+        if ctx.tx_type not in ("BOUNTY_PAYOUT", "BOUNTY_REFUND"):
+            return None
+        payload = ctx.tx_data.get("payload") or {}
+        bounty_id = str(payload.get("bounty_id") or "")
+        if not bounty_id:
+            # Fail closed: an outflow tx that names no bounty cannot be
+            # checked against any lock — and the payload-auth binding only
+            # cross-checks ids both sides carry, so a crafted envelope could
+            # omit it entirely.
+            return (False, f"{ctx.tx_type} missing bounty_id")
+        from ..protocol_escrow import bounty_flow_state
+
+        locked, outflow, submissions = bounty_flow_state(ctx.session, ctx.chain_id, bounty_id, before_height=ctx.block_height)
+        prior_outflow = outflow + self._block_bounty_out.get(bounty_id, 0)
+        try:
+            value = int(ctx.value or 0)
+        except (TypeError, ValueError):
+            return (False, f"{ctx.tx_type} value must be an integer")
+        if locked <= 0:
+            return (False, f"bounty {bounty_id} has no confirmed BOUNTY_LOCK")
+        if prior_outflow + value > locked:
+            return (
+                False,
+                f"bounty {bounty_id} outflow {prior_outflow + value} exceeds locked {locked}",
+            )
+        if ctx.tx_type == "BOUNTY_PAYOUT":
+            submission_id = str(payload.get("submission_id") or "")
+            if submission_id and (submission_id in submissions or (bounty_id, submission_id) in self._block_bounty_subs):
+                return (False, f"bounty {bounty_id} submission {submission_id} already paid")
         return None
 
     def _vt_liquidity(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
