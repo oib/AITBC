@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from sqlalchemy import update
-from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy.exc import IntegrityError, MultipleResultsFound
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
@@ -747,27 +747,7 @@ class _JobsMixin(_CoreMixin):
 
             job = await self._prepare_market_job(data, job_id)
             payment = self._build_market_job_payment(data.get("payment") or {}, job)
-
-            job.access_key = (job.payload or {}).get("access_key")
-            if job.access_key:
-                # #2607: the access lookup resolves by access_key alone —
-                # a second job reusing it made GET /v1/market/access/{key}
-                # ambiguous (500) for the first job's holder.
-                clash = (
-                    await self.session.execute(
-                        select(col(MarketJob.id))
-                        .where(col(MarketJob.access_key) == job.access_key, col(MarketJob.id) != job_id)
-                        .limit(1)
-                    )
-                ).scalar_one_or_none()
-                if clash is not None:
-                    raise AccessKeyConflict(f"access_key already in use: {job.access_key}")
-            # #2608: the declared payment (and later the locked escrow) must
-            # cover the offer's listed minimum — a dust amount used to mint
-            # a valid shop access token against a priced offer.
-            floor = await self._offer_price_floor(job)
-            if floor is not None and payment.amount < floor:
-                raise ValueError(f"payment amount {payment.amount} is below the offer's listed minimum {floor}")
+            await self._validate_job_claims(job, payment)
             job.payment_id = payment.id
             job.payment_amount = payment.amount
             job.payment_status = payment.status
@@ -783,10 +763,42 @@ class _JobsMixin(_CoreMixin):
                 **self._job_to_dict(job),
                 "payment": self._payment_to_dict(payment),
             }
+        except IntegrityError as e:
+            await self.session.rollback()
+            # #2607: on databases where the unique index exists, a race that
+            # slips past the pre-check still surfaces as a conflict, not a 500.
+            if "access_key" in str(e).lower():
+                raise AccessKeyConflict(f"access_key already in use: {job.access_key}") from e
+            raise
         except Exception as e:
             await self.session.rollback()
             logger.error("Error in create_market_job: %s: %s", type(e).__name__, e)
             raise
+
+    async def _validate_job_claims(self, job: MarketJob, payment: MarketJobPayment) -> None:
+        """#2607/#2608 pre-insert checks on a prepared job.
+
+        ``access_key``: the access lookup resolves by key alone — a second
+        job reusing it made GET /v1/market/access/{key} ambiguous (500)
+        for the first job's holder. ``payment.amount``: the declared
+        payment (and later the locked escrow) must cover the offer's
+        listed minimum — a dust amount used to mint a valid shop access
+        token against a priced offer.
+        """
+        job.access_key = (job.payload or {}).get("access_key")
+        if job.access_key:
+            clash = (
+                await self.session.execute(
+                    select(col(MarketJob.id))
+                    .where(col(MarketJob.access_key) == job.access_key, col(MarketJob.id) != job.id)
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if clash is not None:
+                raise AccessKeyConflict(f"access_key already in use: {job.access_key}")
+        floor = await self._offer_price_floor(job)
+        if floor is not None and payment.amount < floor:
+            raise ValueError(f"payment amount {payment.amount} is below the offer's listed minimum {floor}")
 
     async def _market_job_replay(self, data: dict[str, Any], job_id: str) -> dict[str, Any] | None:
         """Idempotent-replay lookups for ``create_market_job``; returns the
