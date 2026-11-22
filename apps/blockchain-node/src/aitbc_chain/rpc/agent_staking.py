@@ -25,6 +25,7 @@ from ..protocol_escrow import (
 from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
 from .agent_economics_auth import (
     operator_address,
+    payload_hash,
     require_int,
     require_operator_signature,
     require_signed_transfer_values,
@@ -211,6 +212,19 @@ def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]
             raise_for_unarmed("Agent staking (stake)")
         existing = _get_stake(session, chain_id, str(stake_id))
         if existing:
+            # #2641: idempotent only for the SAME request — a replay that
+            # names another staker, agent wallet, amount or term must not
+            # answer success over a stake it did not create.
+            if (
+                existing.staker_address != staker
+                or existing.agent_wallet != agent_wallet
+                or existing.amount != amount
+                or existing.lock_period != lock_period
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Stake {stake_id} already exists with different terms",
+                )
             return {
                 "success": True,
                 "idempotent": True,
@@ -779,7 +793,22 @@ def _write_memo(kind: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     external_id = str(payload.get("stake_id") or payload.get("agent_wallet") or "")
+    # #2631: dedupe on the signed body itself — a replayed operator-signed
+    # memo is the same request, so it must not write a second row. The hash
+    # covers the full canonical payload, so a genuinely different report
+    # (different metrics, epoch, amount) still lands as a new memo.
+    digest = payload_hash(payload)
     with session_scope() as session:
+        existing = session.exec(
+            select(AgentStakeMemo).where(
+                AgentStakeMemo.chain_id == chain_id,
+                AgentStakeMemo.kind == kind,
+                AgentStakeMemo.external_id == external_id,
+            )
+        ).all()
+        for memo in existing:
+            if payload_hash(memo.payload) == digest:
+                return {"success": True, "idempotent": True, "kind": kind, "external_id": external_id}
         memo = AgentStakeMemo(chain_id=chain_id, kind=kind, external_id=external_id, payload=payload)
         session.add(memo)
         session.commit()
