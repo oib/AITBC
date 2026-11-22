@@ -88,3 +88,35 @@ def test_pth_packages_covers_every_package_under_packages_py():
         f"  listed but not shipped: {sorted(listed - on_disk)}\n"
         f"Update PTH_PACKAGES in {__file__}."
     )
+
+
+def test_mcp_cli_tools_generator_resolves_this_checkout_first():
+    """#2648: on a linked worktree the venv .pth entries point at the primary
+    checkout, so ``aitbc``, ``aitbc_cli`` and the ``aitbc_*`` distributions
+    must be imported from THIS tree — the drift gate regenerates MCP tools
+    from the worktree's CLI and would otherwise mix worktree CLI with
+    primary-checkout library code (or fail outright on a worktree-only
+    module)."""
+    code = (
+        "import importlib.util, json\n"
+        "spec = importlib.util.spec_from_file_location('gen_mcp', 'scripts/dev/generate_mcp_cli_tools.py')\n"
+        "m = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(m)\n"
+        "import aitbc, aitbc_cli, aitbc_errors\n"
+        "print(json.dumps({'aitbc': aitbc.__file__, 'aitbc_cli': aitbc_cli.__file__,"
+        " 'aitbc_errors': aitbc_errors.__file__}))\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert proc.returncode == 0, proc.stderr
+    data = json.loads(proc.stdout.strip().splitlines()[-1])
+    repo = str(REPO)
+    for mod, path in data.items():
+        assert path is not None and path.startswith(repo), (
+            f"{mod} resolved outside this checkout: {path} (expected under {repo})"
+        )
