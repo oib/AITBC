@@ -530,13 +530,21 @@ def arbitrator_queue(ctx, arbitrator_address, node_url, format):
 @click.pass_context
 def arbitrator_authorize(ctx, arbitrator_address, revoke, owner_signature, node_url, wallet_name, format):
     """Grant or revoke arbitrator rights for an address (admin only)."""
-    payload: dict[str, Any] = {"arbitrator_address": arbitrator_address, "authorized": not revoke}
-    if owner_signature:
-        payload["owner_signature"] = owner_signature
     action = "Revoked" if revoke else "Authorized"
     try:
         client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
-        result = client.post("/rpc/disputes/arbitrators/authorize", json=payload)
+        if revoke:
+            # #2524: revocation is its own route — posting authorized=false
+            # to /authorize used to be ignored and the node granted anyway.
+            payload: dict[str, Any] = {"arbitrator_address": arbitrator_address}
+            if owner_signature:
+                payload["owner_signature"] = owner_signature
+            result = client.post("/rpc/disputes/arbitrators/revoke", json=payload)
+        else:
+            payload = {"arbitrator_address": arbitrator_address, "authorized": True}
+            if owner_signature:
+                payload["owner_signature"] = owner_signature
+            result = client.post("/rpc/disputes/arbitrators/authorize", json=payload)
         output(result, resolve_output_format(ctx, format), title=f"Arbitrator {action}")
     except NetworkError as e:
         _chain_error(ctx, e)
