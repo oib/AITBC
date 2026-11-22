@@ -149,10 +149,24 @@ def get_notification_service() -> OfferNotificationService:
 
 
 def get_search_service() -> OfferSearchService:
-    """Get or create the global OfferSearchService."""
+    """Get or create the global OfferSearchService.
+
+    On first creation the in-memory index is backfilled from the shared
+    OfferCache (#2470) — offers synced before the index feed existed (or
+    while this process was down) would otherwise stay invisible to
+    ``/v1/trading/offers/search`` until the next sync touches them.
+    """
     global _search_service
     if _search_service is None:
         _search_service = OfferSearchService()
+        try:
+            from aitbc.trading.offer_cache import OfferCache
+
+            indexed = _search_service.reindex_from_cache(OfferCache())
+            if indexed:
+                logger.info("Search index backfilled %d offers from cache", indexed)
+        except Exception as exc:  # noqa: BLE001 - backfill is best-effort
+            logger.debug("Search index backfill skipped: %s", exc)
     return _search_service
 
 

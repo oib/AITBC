@@ -64,6 +64,9 @@ class OfferSearchService:
         self._backend = settings.offer_search_index_backend
         self._client: Any | None = None
         self._index_name = "offers"
+        # Keyed ``{chain_id}:{offer_id}`` (#2470): the OfferCache namespaces
+        # offers per chain, so two chains can legitimately carry the same
+        # offer_id — a bare-offer_id dict silently kept only the last one.
         self._in_memory_offers: dict[str, SyncedOffer] = {}
 
         if self._enabled:
@@ -97,6 +100,10 @@ class OfferSearchService:
     def enabled(self) -> bool:
         return self._enabled
 
+    @staticmethod
+    def _memory_key(offer: SyncedOffer) -> str:
+        return f"{offer.chain_id}:{offer.offer_id}"
+
     def index_offer(self, offer: SyncedOffer) -> None:
         """Add or update an offer in the search index."""
         if self._enabled and self._client is not None:
@@ -104,18 +111,57 @@ class OfferSearchService:
                 self._client.index(self._index_name).add_documents([offer.to_dict()], "offer_id")
             except _OPS_ERRORS as e:
                 logger.warning("Search index error for offer %s: %s", offer.offer_id, e)
-                self._in_memory_offers[offer.offer_id] = offer
+                self._in_memory_offers[self._memory_key(offer)] = offer
         else:
-            self._in_memory_offers[offer.offer_id] = offer
+            self._in_memory_offers[self._memory_key(offer)] = offer
 
-    def delete_offer(self, offer_id: str) -> None:
-        """Remove an offer from the search index."""
+    def delete_offer(self, offer_id: str, chain_id: str | None = None) -> None:
+        """Remove an offer from the search index.
+
+        ``chain_id`` disambiguates the namespaced memory key; without it
+        every chain's entry for the id is dropped (the external backend
+        keys documents by bare offer_id, so it can only ever hold one).
+        """
         if self._enabled and self._client is not None:
             try:
                 self._client.index(self._index_name).delete_document(offer_id)
             except _OPS_ERRORS as e:
                 logger.warning("Search delete error for offer %s: %s", offer_id, e)
-        self._in_memory_offers.pop(offer_id, None)
+        if chain_id is not None:
+            self._in_memory_offers.pop(f"{chain_id}:{offer_id}", None)
+        else:
+            for key in [k for k in self._in_memory_offers if k.endswith(f":{offer_id}")]:
+                del self._in_memory_offers[key]
+
+    def reindex_from_cache(self, cache: Any) -> int:
+        """Backfill the in-memory index from an OfferCache (#2470).
+
+        Offers synced before this feed existed (or while the search service
+        was down) live only in the cache — hydrate once so ``search`` sees
+        them. Memory entries for scanned chains that the cache no longer
+        holds are pruned; chains the cache does not know are left alone.
+        Returns the number of offers indexed.
+        """
+        indexed = 0
+        seen_keys: set[str] = set()
+        try:
+            known = list(cache._get_known_chains())  # noqa: SLF001
+        except _OPS_ERRORS:
+            return 0
+        for cid in known:
+            try:
+                offers = cache.list_offers_by_chain(cid)
+            except _OPS_ERRORS:
+                continue
+            cached_ids = {o.offer_id for o in offers}
+            for key in [k for k in self._in_memory_offers if k.startswith(f"{cid}:")]:
+                if key.split(":", 1)[1] not in cached_ids:
+                    del self._in_memory_offers[key]
+            for offer in offers:
+                self.index_offer(offer)
+                seen_keys.add(self._memory_key(offer))
+                indexed += 1
+        return indexed
 
     def search(
         self,
