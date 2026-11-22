@@ -54,6 +54,15 @@ def _remote_api_headers() -> dict[str, str]:
     return {"X-API-Key": key} if key else {}
 
 
+class ChainStoreUnavailableError(RuntimeError):
+    """#2510: the peer cannot read the requested chain's store right now.
+
+    Distinct from "no evidence": callers must treat this as *unknown*, never
+    as a definitive negative — the RPC route maps it to 503 so remote
+    consumers keep their fail-closed ``unreachable`` verdict.
+    """
+
+
 class BridgeTransferReconcileMixin(BridgeBase):
     def _sealed_transfer_index(self, chain_id: str, tx_type: str, wanted: set[str]) -> dict[str, tuple[str, datetime | None]]:
         """Map ``transfer_id`` -> (tx_hash, created_at) for sealed ``tx_type`` txs on ``chain_id``."""
@@ -297,7 +306,9 @@ class BridgeTransferReconcileMixin(BridgeBase):
         so the row lookup alone is not authoritative — the sealed index is
         consulted as well. ``released`` is True only for a confirmed/completed
         row or a sealed release; every other outcome is a definitive negative.
-        Read-only; never creates a store for ``chain_id``.
+        Read-only; never creates a store for ``chain_id``. Raises
+        :class:`ChainStoreUnavailableError` when the store is not readable —
+        "no store here" is *unknown*, not "no release" (#2510).
         """
         chain = chain_id or str(getattr(settings, "chain_id", "") or "")
         evidence: dict[str, Any] = {
@@ -308,7 +319,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
             "confirm_time": None,
         }
         if not self._chain_db_ready(chain):
-            return evidence
+            raise ChainStoreUnavailableError(f"chain store not ready for {chain!r}")
         with self._session_for(chain) as session:
             record = session.get(CrossChainTransfer, transfer_id)
         if record is not None:
