@@ -719,9 +719,18 @@ def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[st
         # the caller cannot tell "you did not sign this" from "this transaction is
         # malformed".
         raise
+    except ValueError as e:
+        # Admission refusals (malformed amount/fee/nonce, unknown sender,
+        # insufficient balance, wrong nonce) are client errors — the detail
+        # is the refusal text, never internals.
+        _logger.warning("Transaction rejected: %s", e)
+        raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {e}") from e
     except Exception as e:
-        _logger.error("Failed to submit transaction: %s", e)
-        raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {str(e)}") from e
+        # Anything else is a node-side failure (db, mempool backend, bug): a
+        # generic 5xx — echoing str(e) leaked SQL text and bound parameters
+        # to unauthenticated callers (#2664).
+        _logger.exception("Failed to submit transaction")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @rate_limit(rate=200, per=60)
@@ -922,9 +931,13 @@ def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict
         # Raised deliberately above (403 for missing/invalid signature or bond).
         # Re-raise so callers can distinguish "not signed" from "malformed".
         raise
+    except ValueError as e:
+        # Admission refusals are client errors — see submit_transaction (#2664).
+        _logger.warning("Market transaction rejected: %s", e)
+        raise HTTPException(status_code=400, detail=f"Failed to submit market transaction: {e}") from e
     except Exception as e:
-        _logger.error("Failed to submit market transaction: %s", e)
-        raise HTTPException(status_code=400, detail=f"Failed to submit market transaction: {str(e)}") from e
+        _logger.exception("Failed to submit market transaction")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 # GPU_MARKET rows that can affect /transactions/market/match (#1623): rows
