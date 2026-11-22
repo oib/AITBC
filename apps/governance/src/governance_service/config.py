@@ -91,6 +91,12 @@ class Settings(ServiceSettings):
         default="",
         validation_alias="MARKET_API_KEY",
     )
+    # #2605: market's /v1/market/parameters/apply is operator-tier — the
+    # user key no longer reaches it. Preferred over market_api_key when set.
+    market_operator_api_key: str = Field(
+        default="",
+        validation_alias="MARKET_OPERATOR_API_KEY",
+    )
     poolhub_api_key: str = Field(default="")
 
     # #1646: how often the background sweep marks window-ended ACTIVE

@@ -9,10 +9,9 @@ original relative order.
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
@@ -20,8 +19,8 @@ from aitbc.network.url_safety import validate_fleet_outbound_url
 
 from ..config import settings
 from ..deps import get_market_service, get_session_dep, require_market_api_key, require_market_operator_key
-from ..gates import _warn_secret_query_transport, rating_signature_error
-from ..services.market_service import MarketService, coerce_offer_expires_at, max_page_size
+from ..gates import _party_signature_precheck, _warn_secret_query_transport, rating_signature_error
+from ..services.market_service import MarketService, max_page_size
 from ..storage import get_session
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
@@ -52,12 +51,44 @@ async def get_plugins(
         raise
 
 
+# Fields a caller may set on POST /v1/market/plugins (#2613). An allow-list,
+# not a block-list: ``status``, ``author``, ``download_count`` and ``rating``
+# are server-owned — a user-tier caller could previously publish an already
+# "approved" plugin under any author with fabricated reputation.
+_PLUGIN_WRITABLE_FIELDS = {"id", "name", "description", "type", "version", "ipfs_cid", "plugin_metadata"}
+_PLUGIN_STATUSES = {"pending", "approved", "rejected"}
+
+
 @router.post("/v1/market/plugins", dependencies=[Depends(require_market_api_key)])
-async def register_plugin(plugin_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
-    """Register a new plugin"""
+async def register_plugin(
+    plugin_data: dict[str, Any], request: Request, svc: Annotated[MarketService, Depends(get_market_service)]
+) -> Any:
+    """Register a new plugin.
+
+    #2613: non-operator callers sign the request (jobs-request proof over
+    ``/v1/market/plugins``); the recovered signer becomes ``author`` and the
+    row always lands ``pending`` — approval, reputation counters and author
+    identity are not caller-writable. The operator credential keeps full
+    control including ``status``.
+    """
     try:
         logger.info("POST /v1/market/plugins called with data keys: %s", plugin_data.keys())
-        result = await svc.register_plugin(plugin_data)
+        is_operator, signer, gate_error = await _party_signature_precheck(
+            request, plugin_data, "/v1/market/plugins", action="plugin registration"
+        )
+        if gate_error is not None:
+            return gate_error
+        clean = {key: value for key, value in plugin_data.items() if key in _PLUGIN_WRITABLE_FIELDS}
+        if is_operator:
+            status = str(plugin_data.get("status") or "pending")
+            if status not in _PLUGIN_STATUSES:
+                return JSONResponse(status_code=400, content={"error": f"status must be one of {sorted(_PLUGIN_STATUSES)}"})
+            clean["status"] = status
+            if plugin_data.get("author"):
+                clean["author"] = str(plugin_data["author"])
+        else:
+            clean["author"] = signer or ""
+        result = await svc.register_plugin(clean)
         logger.info("POST /v1/market/plugins registered plugin with id: %s", result["id"])
         return result
     except Exception as e:
@@ -432,9 +463,14 @@ async def sync_ratings(ratings: list[dict[str, Any]], svc: Annotated[MarketServi
         raise
 
 
-@router.post("/v1/market/ratings/mark-synced", dependencies=[Depends(require_market_api_key)])
+@router.post("/v1/market/ratings/mark-synced", dependencies=[Depends(require_market_operator_key)])
 async def mark_ratings_synced(rating_ids: list[str], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
-    """Mark ratings as synced to remote nodes"""
+    """Mark ratings as synced to remote nodes.
+
+    #2614: same tier as ``ratings/sync`` (#2519) — the user-tier key is
+    distributed to CLI users, so it must not be able to stop arbitrary
+    ratings from syncing.
+    """
     try:
         logger.info("POST /v1/market/ratings/mark-synced called with %s IDs", len(rating_ids))
         count = await svc.mark_ratings_synced(rating_ids)
@@ -446,9 +482,17 @@ async def mark_ratings_synced(rating_ids: list[str], svc: Annotated[MarketServic
 
 @router.post("/v1/transactions", dependencies=[Depends(require_market_api_key)])
 async def submit_transaction(
-    transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
+    transaction_data: dict[str, Any],
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
 ) -> Any:
-    """Submit market transaction"""
+    """Submit market transaction.
+
+    #2616: the offer path goes through ``MarketService.create_offer`` — the
+    same status/money/expires_at validation and caller-id replay the
+    ``/v1/market/offers`` route gets — instead of splatting the body into
+    the model unchecked.
+    """
     from aitbc_shared import MarketOffer
 
     transaction_type = transaction_data.get("type")
@@ -457,9 +501,6 @@ async def submit_transaction(
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for market service"})
     try:
         if action == "offer":
-            # #1554: normalize expires_at to naive UTC before the model sees it.
-            if transaction_data.get("expires_at") is not None:
-                transaction_data["expires_at"] = coerce_offer_expires_at(transaction_data["expires_at"])
             # #1553: a caller-supplied offer id is the natural idempotency
             # key — a retry replays success instead of dying on the PK.
             offer_id = transaction_data.get("id")
@@ -467,29 +508,16 @@ async def submit_transaction(
                 existing = await session.get(MarketOffer, str(offer_id))
                 if existing is not None:
                     return {"status": "success", "deduplicated": True, "offer_id": str(offer_id)}
-            offer = MarketOffer(**transaction_data)
-            session.add(offer)
+            await svc.create_offer(transaction_data)
         else:
             return JSONResponse(
                 status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
             )
-        try:
-            await session.commit()
-        except IntegrityError:
-            # Lost the first-write race on a caller-supplied id — the winner's
-            # row is the replay target (#1553).
-            await session.rollback()
-            offer_id = transaction_data.get("id")
-            if offer_id and await session.get(MarketOffer, str(offer_id)) is not None:
-                return {"status": "success", "deduplicated": True, "offer_id": str(offer_id)}
-            raise
         return {"status": "success"}
     except ValueError as exc:
         # Caller-supplied field failed validation (e.g. malformed expires_at).
-        await session.rollback()
         return JSONResponse(status_code=400, content={"error": str(exc)})
     except Exception:
-        await session.rollback()
         logger.exception("Transaction submission error")
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
@@ -573,12 +601,17 @@ _MARKET_GOVERNANCE_PARAMETERS: dict[str, type] = {
 }
 
 
-@router.post("/v1/market/parameters/apply", dependencies=[Depends(require_market_api_key)])
+@router.post("/v1/market/parameters/apply", dependencies=[Depends(require_market_operator_key)])
 def apply_market_parameter(
     request: ParameterChangeRequest,
-    authenticated: Annotated[dict[str, Any], Depends(require_market_api_key)],
+    authenticated: Annotated[dict[str, Any], Depends(require_market_operator_key)],
 ) -> dict[str, Any]:
     """Apply a governance-approved parameter change to the market service (v0.7.4 §B4).
+
+    #2605: this rewrites live service config (``default_chain_id``,
+    ``agent_coordinator_url``) — the distributed user-tier key must not
+    reach it. Operator tier only; the governance executor carries
+    ``MARKET_OPERATOR_API_KEY`` for this call.
 
     Validates that the parameter is known and the old_value matches the
     current config, then applies the new value to the running settings.

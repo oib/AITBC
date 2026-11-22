@@ -152,16 +152,21 @@ class MatchingService:
             score *= 1.1
         return min(max(score, 0.0), 1.0)
 
-    async def _claim_available_offer(self, offers: Sequence[MarketOffer]) -> MarketOffer | None:
+    async def _claim_available_offer(
+        self, offers: Sequence[MarketOffer], reservation_ttl_seconds: int | None = None
+    ) -> MarketOffer | None:
         """CAS-claim the first still-AVAILABLE candidate (#1424 item 6).
 
         The conditional UPDATE ... WHERE status IN (available spellings) is
         the compare-and-swap: rowcount != 1 means another matcher (or a
         booking/cancel) won the row, so fall through to the next candidate.
         The #1554 reservation deadline rides in the same write so the claim
-        and the sweeper TTL land atomically.
+        and the sweeper TTL land atomically. ``reservation_ttl_seconds``
+        overrides the shared offer TTL — match reservations get their own,
+        shorter horizon (#2612).
         """
-        reserved_until = (datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())).isoformat()
+        ttl = offer_reservation_ttl_seconds() if reservation_ttl_seconds is None else reservation_ttl_seconds
+        reserved_until = (datetime.now(UTC) + timedelta(seconds=ttl)).isoformat()
         for candidate in offers:
             claim_attrs = dict(candidate.attributes or {})
             claim_attrs["_reserved_until"] = reserved_until
@@ -183,6 +188,8 @@ class MatchingService:
         max_price: Decimal | None = None,
         preferred_region: str | None = None,
         chain_id: str | None = None,
+        buyer_address: str | None = None,
+        reservation_ttl_seconds: int | None = None,
     ) -> dict[str, Any]:
         """Match a compute request to the best available GPU offer (v0.6.6).
 
@@ -221,7 +228,7 @@ class MatchingService:
             # only found AVAILABLE candidates — two concurrent matches could
             # both pick the same offer and both reserve it. Committed before
             # the coordinator call, matching the previous semantics.
-            best_offer = await self._claim_available_offer(offers)
+            best_offer = await self._claim_available_offer(offers, reservation_ttl_seconds)
             if best_offer is None:
                 logger.info("No matching offers left to reserve (chain_id=%s)", chain_id)
                 return {"status": "no_match", "chain_id": chain_id}
@@ -240,6 +247,9 @@ class MatchingService:
                         "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id or resolve_chain_id(),
                         "offer_id": best_offer.id,
                         "provider": best_offer.provider,
+                        # #2612: the signed buyer the match is bound to —
+                        # the coordinator/escrow leg can bill this identity.
+                        "buyer_address": buyer_address,
                         "price_per_hour": str(best_offer.price_per_hour) if best_offer.price_per_hour is not None else None,
                         "requirements": requirements,
                     },
@@ -283,6 +293,7 @@ class MatchingService:
                 "status": "matched",
                 "offer_id": best_offer.id,
                 "provider": best_offer.provider,
+                "buyer_address": buyer_address,
                 "price_per_hour": best_offer.price_per_hour,
                 "gpu_model": best_offer.gpu_model,
                 "region": best_offer.region,

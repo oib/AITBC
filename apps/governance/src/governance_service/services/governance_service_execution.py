@@ -281,8 +281,13 @@ class _ExecutionMixin:
         }
 
         headers = {}
-        if target_service == "market" and settings.market_api_key:
-            headers["X-Api-Key"] = settings.market_api_key
+        if target_service == "market":
+            # #2605: parameters/apply is operator-tier on market — prefer the
+            # operator credential, fall back to the user key for deployments
+            # that have not split tiers yet.
+            market_key = settings.market_operator_api_key or settings.market_api_key
+            if market_key:
+                headers["X-Api-Key"] = market_key
         if target_service == "poolhub" and settings.poolhub_api_key:
             # pool-hub authenticates this call on X-PoolHub-Key
             # (apps/pool-hub .../routers/parameters.py), not X-Api-Key.
