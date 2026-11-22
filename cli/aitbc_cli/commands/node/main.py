@@ -16,7 +16,7 @@ try:
         remove_node_config,
         save_multichain_config,
     )
-    from aitbc_cli.core.node_client import NodeClient, probe_nodes
+    from aitbc_cli.core.node_client import NodeClient, collect_hosted_chains, probe_nodes
     from aitbc_cli.utils import error, info, output, resolve_output_format, success, warning
 except ImportError:
     from aitbc_cli.core.config import (
@@ -26,7 +26,7 @@ except ImportError:
         remove_node_config,
         save_multichain_config,
     )
-    from aitbc_cli.core.node_client import NodeClient, probe_nodes
+    from aitbc_cli.core.node_client import NodeClient, collect_hosted_chains, probe_nodes
     from aitbc_cli.utils import error, output, resolve_output_format, success, warning
 
     def info(message: str, **kwargs: Any):
@@ -165,33 +165,25 @@ def chains(ctx, show_private, node_id):
     try:
         config = load_multichain_config()
 
-        all_chains = []
+        # #2563: per-node failures are collected (not echoed to stdout);
+        # unreachable nodes are reported on stderr and named in JSON output.
+        all_chains, failures, answered = asyncio.run(collect_hosted_chains(config.nodes, node_id))
+        unreachable = [nid for nid, _ in failures]
+        for nid, err in failures:
+            click.echo(f"Error getting chains from node {nid}: {err}", err=True)
 
-        async def get_all_chains():
-            tasks = []
-            for nid, node_config in config.nodes.items():
-                if node_id and nid != node_id:
-                    continue
-
-                async def get_chains_for_node(nid, nconfig):
-                    try:
-                        async with NodeClient(nconfig) as client:
-                            chains = await client.get_hosted_chains()
-                            return [(nid, chain) for chain in chains]
-                    except Exception as e:  # noqa: BLE001 - NodeClient raises plain Exception for HTTP failures; per-node probe degrades to []
-                        click.echo(f"Error getting chains from node {nid}: {e}")
-                        return []
-
-                tasks.append(get_chains_for_node(nid, node_config))
-
-            results = await asyncio.gather(*tasks)
-            for result in results:
-                all_chains.extend(result)
-
-        asyncio.run(get_all_chains())
+        fmt = ctx.obj.get("output", "table")
 
         if not all_chains:
-            output("No chains found on any node", ctx.obj.get("output", "table"))
+            if fmt == "json":
+                output({"chains": [], "unreachable_nodes": unreachable}, fmt)
+            else:
+                output("No chains found on any node", fmt)
+            if failures and answered == 0:
+                # Every queried node failed — an outage, not an empty list.
+                # SystemExit (not Abort) so the outer except Exception
+                # doesn't re-wrap it as 'Error listing chains: '.
+                raise SystemExit(1)
             return
 
         # Filter private chains if not requested
@@ -213,7 +205,10 @@ def chains(ctx, show_private, node_id):
             for node_id, chain in all_chains
         ]
 
-        output(chains_data, ctx.obj.get("output", "table"), title="Chains by Node")
+        if fmt == "json":
+            output({"chains": chains_data, "unreachable_nodes": unreachable}, fmt, title="Chains by Node")
+        else:
+            output(chains_data, fmt, title="Chains by Node")
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
