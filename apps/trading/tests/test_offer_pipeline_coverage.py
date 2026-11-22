@@ -31,6 +31,18 @@ from aitbc.trading.offer_types import (
 from aitbc.trading.subscription_types import OfferEvent, OfferSubscription
 
 
+@pytest.fixture(autouse=True)
+def _fresh_sync_status():
+    """#2471: ``_sync_status`` is process-shared (ClassVar) like ``_sync_locks``
+    so the per-request service instances see the same status — tests that
+    assert on its contents need a clean slate each run."""
+    from trading_service.services.offer_sync_service import OfferSyncService
+
+    OfferSyncService._sync_status.clear()  # noqa: SLF001
+    yield
+    OfferSyncService._sync_status.clear()  # noqa: SLF001
+
+
 @pytest.fixture
 async def db_session():
     """In-memory SQLite session on ``trading_metadata`` (see domain/base.py)."""

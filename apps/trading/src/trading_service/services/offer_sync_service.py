@@ -82,10 +82,17 @@ class OfferSyncService:
     # syncs — two requests each ran a full 500-offer sync for the same chain.
     # The lock registry is process-global (one event loop per service
     # process; the OfferCache/Redis data layer was already shared). Status
-    # entries stay per-instance: they are per-request reporting state.
+    # entries are shared the same way (#2471): ``get_offer_sync_service``
+    # builds a fresh instance per request, so per-instance status left
+    # ``GET /v1/trading/offers/sync-status`` permanently empty — the sync
+    # wrote entries on the POST's throwaway instance and the GET read a
+    # different one. One event loop per service process; per-chain entries
+    # are disjoint and single-flight locks already serialize same-chain
+    # syncs, so sharing is safe.
     # asyncio locks bind to a loop lazily on first contention, so tests on
     # fresh loops keep working while uncontended.
     _sync_locks: ClassVar[OrderedDict[str, asyncio.Lock]] = OrderedDict()
+    _sync_status: ClassVar[OrderedDict[str, OfferSyncStatusEntry]] = OrderedDict()
 
     def __init__(
         self,
@@ -100,7 +107,6 @@ class OfferSyncService:
             timeout=settings.http_timeout,
             api_key=settings.blockchain_rpc_api_key,
         )
-        self._sync_status: OrderedDict[str, OfferSyncStatusEntry] = OrderedDict()
         # Single-flight locks, one per chain (#1567): ``is_syncing`` flags
         # were written but never read as a guard, so N concurrent discovers
         # each ran a full sync. ``lock.locked()`` + ``async with`` is atomic
