@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import client_ip_for_rate_limit
 
-from ....auth import AuthDep, require_auth
+from ....auth import AdminDep, AuthDep, require_auth
 from ....metrics import governance_errors_total, governance_requests_total
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
@@ -126,12 +126,14 @@ async def vote_on_proposal(
 ) -> EconomicParameterProposal:
     """Cast a vote on an economic parameter proposal."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/votes", method="POST").inc()
-    # Weight comes from the caller's governance profile, not the body (#1071).
+    # Weight comes from the caller's governance profile, not the body (#1071);
+    # the voter id is the JWT sub so one-vote-per-voter dedup is caller-bound
+    # (#2494).
     voter_id = user["sub"]
     profile = await run_in_threadpool(GovernanceService(session).get_or_create_profile, voter_id, 0.0)
     voting_power = effective_voting_power(profile)
     try:
-        return await run_in_threadpool(service.vote, proposal_id, payload.vote, voting_power)
+        return await run_in_threadpool(service.vote, proposal_id, payload.vote, voting_power, voter_id=voter_id)
     except ProposalNotFoundError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/votes", method="POST", error_type="not_found"
@@ -156,8 +158,15 @@ async def execute_proposal(
     request: Request,
     proposal_id: str,
     service: Annotated[EconomicProposalService, Depends(_get_service)],
+    user: AdminDep,
 ) -> EconomicParameterProposal:
-    """Execute an economic parameter proposal after voting closes."""
+    """Execute an economic parameter proposal after voting closes.
+
+    #2494: execution moves ``proposed_value`` into ``current_value`` — it
+    is an operator action, gated to the admin role like governance's
+    ``/proposals/{id}/execute``; any authenticated caller must not be able
+    to apply a passed parameter change.
+    """
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/execute", method="POST").inc()
     try:
         return await run_in_threadpool(service.execute_proposal, proposal_id)

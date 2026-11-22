@@ -183,6 +183,13 @@ class TestExecute:
         assert resp.status_code == 200
         assert resp.json()["status"] == "rejected"
 
+    def test_execute_requires_admin_role(self, client: TestClient, db_session: Session) -> None:
+        """#2494: execute applies a passed parameter change — it is an
+        operator action; a plain client token must not reach it."""
+        p = _seed_proposal(db_session, votes_for=10.0, votes_against=0.0, quorum=1.0)
+        resp = client.post(f"{BASE}/{p.id}/execute", headers=_client())
+        assert resp.status_code == 403
+
     def test_execute_zero_votes_division_guard(self, client: TestClient, db_session: Session) -> None:
         """Zero-total-vote proposals must be rejected with 400, not 500 —
         previously votes_for/total_votes raised ZeroDivisionError (#1313)."""

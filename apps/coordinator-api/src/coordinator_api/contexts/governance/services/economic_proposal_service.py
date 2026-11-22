@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlmodel import Session
 
-from ..domain.economic_proposal import EconomicParameterProposal, EconomicProposalStatus
+from ..domain.economic_proposal import EconomicParameterProposal, EconomicProposalStatus, EconomicProposalVote
 
 
 def _to_decimal(value: Decimal | str | float | int | None) -> Decimal:
@@ -106,8 +106,19 @@ class EconomicProposalService:
         proposal_id: str,
         vote: str,
         voting_power: float = 0.0,
+        *,
+        voter_id: str,
     ) -> EconomicParameterProposal:
-        """Cast a vote on a proposal."""
+        """Cast a vote on a proposal — one vote per voter (#2494).
+
+        ``voting_power`` is the caller's effective power snapshot at cast
+        time; it is recorded on the vote row so the tally stays
+        explainable. Delegation semantics are snapshot-based: delegating
+        after voting does not re-weight the recorded vote, and the
+        delegator's own stake stops counting toward their *future* votes
+        via ``effective_voting_power`` — it cannot be voted twice going
+        forward.
+        """
         proposal = self.get_proposal(proposal_id)
         if proposal is None:
             raise ProposalNotFoundError(f"proposal {proposal_id} not found")
@@ -117,15 +128,33 @@ class EconomicProposalService:
             raise ValueError(f"voting window closed for proposal {proposal_id}")
 
         normalised = vote.strip().lower()
+        if normalised not in {"for", "against", "abstain"}:
+            raise ValueError(f"invalid vote: {vote}")
+
+        existing = self.session.execute(
+            select(EconomicProposalVote).where(
+                EconomicProposalVote.proposal_id == proposal_id,  # type: ignore[arg-type]
+                EconomicProposalVote.voter_id == voter_id,  # type: ignore[arg-type]
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            raise ValueError("voter has already voted on this proposal")
+
         if normalised == "for":
             proposal.votes_for += voting_power
         elif normalised == "against":
             proposal.votes_against += voting_power
-        elif normalised == "abstain":
-            proposal.votes_abstain += voting_power
         else:
-            raise ValueError(f"invalid vote: {vote}")
+            proposal.votes_abstain += voting_power
 
+        self.session.add(
+            EconomicProposalVote(
+                proposal_id=proposal_id,
+                voter_id=voter_id,
+                vote=normalised,
+                voting_power=voting_power,
+            )
+        )
         self.session.add(proposal)
         self.session.commit()
         self.session.refresh(proposal)

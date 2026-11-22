@@ -74,6 +74,8 @@ def test_vote_and_execute_economic_proposal(client, db_session) -> None:
     db_session.add(proposal)
     db_session.commit()
 
+    # #2494: execute is admin-gated — swap to an admin token for this call.
+    client.headers = {"Authorization": f"Bearer {create_access_token('admin_user', 'admin')}"}
     exec_resp = client.post(f"/v1/economic-proposals/{proposal_id}/execute")
     assert exec_resp.status_code == 200
     result = exec_resp.json()

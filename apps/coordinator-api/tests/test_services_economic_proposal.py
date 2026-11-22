@@ -73,9 +73,9 @@ def test_get_and_list_proposals(db_session: Session):
 def test_vote_tallies(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
-    svc.vote(p.id, "for", voting_power=3.0)
-    svc.vote(p.id, "against", voting_power=1.0)
-    svc.vote(p.id, "abstain", voting_power=0.5)
+    svc.vote(p.id, "for", voting_power=3.0, voter_id="v-for")
+    svc.vote(p.id, "against", voting_power=1.0, voter_id="v-against")
+    svc.vote(p.id, "abstain", voting_power=0.5, voter_id="v-abstain")
     refreshed = svc.get_proposal(p.id)
     assert refreshed.votes_for == 3.0
     assert refreshed.votes_against == 1.0
@@ -86,14 +86,14 @@ def test_vote_tallies(db_session: Session):
 def test_vote_normalizes_case_and_whitespace(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
-    svc.vote(p.id, "  FOR  ", voting_power=1.0)
+    svc.vote(p.id, "  FOR  ", voting_power=1.0, voter_id="voter-1")
     assert svc.get_proposal(p.id).votes_for == 1.0
 
 
 @pytest.mark.unit
 def test_vote_unknown_proposal_raises(db_session: Session):
     with pytest.raises(ValueError, match="not found"):
-        _svc(db_session).vote("missing", "for")
+        _svc(db_session).vote("missing", "for", voter_id="voter-1")
 
 
 @pytest.mark.unit
@@ -101,15 +101,15 @@ def test_vote_invalid_value_raises(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
     with pytest.raises(ValueError, match="invalid vote"):
-        svc.vote(p.id, "maybe")
+        svc.vote(p.id, "maybe", voter_id="voter-1")
 
 
 @pytest.mark.unit
 def test_execute_moves_proposed_to_current(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
-    svc.vote(p.id, "for", voting_power=10.0)
-    svc.vote(p.id, "against", voting_power=2.0)
+    svc.vote(p.id, "for", voting_power=10.0, voter_id="v-for")
+    svc.vote(p.id, "against", voting_power=2.0, voter_id="v-against")
     _close_window(db_session, p)
     result = svc.execute_proposal(p.id)
     assert result.status == EconomicProposalStatus.EXECUTED
@@ -122,8 +122,8 @@ def test_execute_rejected_below_threshold(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
     p = svc.get_proposal(p.id)
-    svc.vote(p.id, "for", voting_power=1.0)
-    svc.vote(p.id, "against", voting_power=9.0)
+    svc.vote(p.id, "for", voting_power=1.0, voter_id="v-for")
+    svc.vote(p.id, "against", voting_power=9.0, voter_id="v-against")
     _close_window(db_session, p)
     result = svc.execute_proposal(p.id)
     assert result.status == EconomicProposalStatus.REJECTED
@@ -147,7 +147,7 @@ def test_execute_below_quorum_raises(db_session: Session):
     p.quorum = 100.0
     db_session.add(p)
     db_session.commit()
-    svc.vote(p.id, "for", voting_power=10.0)
+    svc.vote(p.id, "for", voting_power=10.0, voter_id="voter-1")
     _close_window(db_session, svc.get_proposal(p.id))
     with pytest.raises(ValueError, match="quorum"):
         svc.execute_proposal(p.id)
@@ -161,11 +161,11 @@ def test_execute_below_quorum_raises(db_session: Session):
 def test_vote_rejected_on_executed_proposal(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
-    svc.vote(p.id, "for", voting_power=10.0)
+    svc.vote(p.id, "for", voting_power=10.0, voter_id="voter-1")
     _close_window(db_session, p)
     svc.execute_proposal(p.id)
     with pytest.raises(ValueError):
-        svc.vote(p.id, "against", voting_power=100.0)
+        svc.vote(p.id, "against", voting_power=100.0, voter_id="voter-1")
 
 
 def test_vote_rejected_after_voting_window(db_session: Session):
@@ -175,18 +175,18 @@ def test_vote_rejected_after_voting_window(db_session: Session):
     db_session.add(p)
     db_session.commit()
     with pytest.raises(ValueError):
-        svc.vote(p.id, "for", voting_power=1.0)
+        svc.vote(p.id, "for", voting_power=1.0, voter_id="voter-1")
 
 
 def test_execute_rejected_on_terminal_proposal(db_session: Session):
     svc = _svc(db_session)
     p = _create(svc)
-    svc.vote(p.id, "for", voting_power=10.0)
+    svc.vote(p.id, "for", voting_power=10.0, voter_id="voter-1")
     _close_window(db_session, p)
     svc.execute_proposal(p.id)
     first_exec = svc.get_proposal(p.id).executed_at
     with pytest.raises(ValueError):
-        svc.vote(p.id, "for", voting_power=1.0)  # tallies frozen post-execution
+        svc.vote(p.id, "for", voting_power=1.0, voter_id="voter-2")  # tallies frozen post-execution
     with pytest.raises(ValueError):
         svc.execute_proposal(p.id)
     assert svc.get_proposal(p.id).executed_at == first_exec
@@ -196,6 +196,53 @@ def test_execute_rejected_while_voting_open(db_session: Session):
     # #1360 defect 3: execution must wait for the window to close.
     svc = _svc(db_session)
     p = _create(svc)
-    svc.vote(p.id, "for", voting_power=10.0)
+    svc.vote(p.id, "for", voting_power=10.0, voter_id="voter-1")
     with pytest.raises(ValueError, match="voting window"):
         svc.execute_proposal(p.id)
+
+
+# ---------------------------------------------------------------------------
+# #2494 — one vote per voter, snapshot semantics
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_second_vote_same_voter_rejected(db_session: Session):
+    """#2494: repeat votes and vote-then-switch must not stack power."""
+    svc = _svc(db_session)
+    p = _create(svc)
+    svc.vote(p.id, "for", voting_power=10.0, voter_id="whale")
+    with pytest.raises(ValueError, match="already voted"):
+        svc.vote(p.id, "against", voting_power=10.0, voter_id="whale")
+    with pytest.raises(ValueError, match="already voted"):
+        svc.vote(p.id, "for", voting_power=10.0, voter_id="whale")
+    refreshed = svc.get_proposal(p.id)
+    assert refreshed.votes_for == 10.0
+    assert refreshed.votes_against == 0.0
+
+
+@pytest.mark.unit
+def test_distinct_voters_each_count(db_session: Session):
+    svc = _svc(db_session)
+    p = _create(svc)
+    svc.vote(p.id, "for", voting_power=5.0, voter_id="v1")
+    svc.vote(p.id, "for", voting_power=7.0, voter_id="v2")
+    assert svc.get_proposal(p.id).votes_for == 12.0
+
+
+@pytest.mark.unit
+def test_vote_records_snapshot_power(db_session: Session):
+    """#2494: the vote row keeps the power snapshot for audit; tallies are
+    not re-weighted by later delegation changes."""
+    from sqlmodel import select
+
+    from coordinator_api.contexts.governance.domain.economic_proposal import EconomicProposalVote
+
+    svc = _svc(db_session)
+    p = _create(svc)
+    svc.vote(p.id, "for", voting_power=4.0, voter_id="v1")
+    rows = db_session.execute(select(EconomicProposalVote).where(EconomicProposalVote.proposal_id == p.id)).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].voter_id == "v1"
+    assert rows[0].vote == "for"
+    assert rows[0].voting_power == 4.0

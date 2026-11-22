@@ -24806,7 +24806,7 @@
           "economics"
         ],
         "summary": "Execute Proposal",
-        "description": "Execute an economic parameter proposal after voting closes.",
+        "description": "Execute an economic parameter proposal after voting closes.\n\n#2494: execution moves ``proposed_value`` into ``current_value`` \u2014 it\nis an operator action, gated to the admin role like governance's\n``/proposals/{id}/execute``; any authenticated caller must not be able\nto apply a passed parameter change.",
         "operationId": "execute_proposal_v1_economic_proposals__proposal_id__execute_post",
         "parameters": [
           {
