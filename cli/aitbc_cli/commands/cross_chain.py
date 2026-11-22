@@ -402,6 +402,10 @@ def status(ctx, swap_id: str, rpc_url: str | None, wait: bool, timeout: int):
         output(details, ctx.obj["output_format"])
         if swap_data.get("error"):
             abort(ctx, f"Error: {swap_data['error']}")
+    except CLIError:
+        # #2555: CLIError is inside _OPS_ERRORS — without this clause the
+        # swap's own error abort was re-wrapped as 'Network error: Error: …'.
+        raise
     except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
@@ -661,6 +665,10 @@ def confirm(
             },
             ctx.obj["output_format"],
         )
+    except CLIError:
+        # #2555: same relabel — 'No proof returned' must not become
+        # 'Confirm failed: No proof returned…' wrapped as a network error.
+        raise
     except _OPS_ERRORS as e:
         abort(ctx, f"Confirm failed: {e}", from_exception=e)
 
