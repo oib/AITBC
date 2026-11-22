@@ -14,6 +14,7 @@ from aitbc_chain.base_models import CrossChainSwap
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Account, Transaction
 from aitbc_chain.rpc import accounts as rpc_accounts
+from aitbc_chain.rpc import router as rpc_router
 from aitbc_chain.rpc import transactions as rpc_tx
 from aitbc_chain.rpc.routers import cross_chain as rpc_cc
 from sqlmodel import Session, create_engine
@@ -142,6 +143,25 @@ def test_mempool_clamps_limit(monkeypatch):
     assert seen["limit"] == 1
     rpc_tx.get_mempool(_request(), limit=10**9)
     assert seen["limit"] == 500
+
+
+def test_pending_alias_uses_mempool_handler(monkeypatch):
+    # #2633: GET /pending skipped the /mempool clamp and sealed-eviction by
+    # calling the raw mempool. It must delegate to the same handler.
+    seen = {}
+
+    class FakeMempool:
+        def get_pending_transactions(self, chain_id=None, limit=100):
+            seen["limit"] = limit
+            seen["chain_id"] = chain_id
+            return [{"tx_hash": "0x1", "payload": {}}]
+
+    monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: FakeMempool())
+    out = rpc_router.get_pending_transactions_route(_request(), limit=-5)
+    assert seen["limit"] == 1  # clamped like /mempool
+    assert out["success"] is True
+    assert out["count"] == 1
+    assert out["transactions"][0]["state"] == "pending"
 
 
 # --- /transactions/query (transactions.py:641) ------------------------------
