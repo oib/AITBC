@@ -19,7 +19,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.network.url_safety import validate_fleet_outbound_url
 
 from ..config import settings
-from ..deps import get_market_service, get_session_dep, require_market_api_key
+from ..deps import get_market_service, get_session_dep, require_market_api_key, require_market_operator_key
 from ..gates import _warn_secret_query_transport, rating_signature_error
 from ..services.market_service import MarketService, coerce_offer_expires_at, max_page_size
 from ..storage import get_session
@@ -413,9 +413,16 @@ async def get_unsynced_ratings(
         raise
 
 
-@router.post("/v1/market/ratings/sync", dependencies=[Depends(require_market_api_key)])
+@router.post("/v1/market/ratings/sync", dependencies=[Depends(require_market_operator_key)])
 async def sync_ratings(ratings: list[dict[str, Any]], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
-    """Sync ratings from remote node"""
+    """Sync ratings from remote node.
+
+    #2519: synced rows carry a caller-supplied ``reviewer_id`` with no
+    # signature to check — the local ``/rate`` path's #2508 proof and #1584
+    # job binding cannot be re-verified here, so inserts are restricted to
+    # the operator credential. ``MARKET_API_KEY`` is distributed to users
+    # and must not mint rating rows under arbitrary reviewer ids.
+    """
     try:
         logger.info("POST /v1/market/ratings/sync called with %s ratings", len(ratings))
         result = await svc.sync_ratings_from_remote(ratings)
