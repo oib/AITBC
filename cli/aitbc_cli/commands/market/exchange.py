@@ -6,6 +6,7 @@ Exchange subgroup and exchange commands
 """
 
 from decimal import Decimal
+from typing import Any, cast
 
 import click
 
@@ -530,16 +531,25 @@ def mint_ait(ctx, deposit_id: str):
 
   aitbc market exchange withdraw-eth --amount 0.1 --address 0x... --output json""",
 )
-@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
-@click.option("--address", "address", required=True, help="Blockchain address to fund.")
+@click.option("--amount", "amount", type=DECIMAL, help="Amount of AIT.")
+@click.option("--address", "address", help="Blockchain address to fund.")
+@click.option(
+    "--tx-hash",
+    "tx_hash",
+    help="Re-check a previously broadcast withdrawal hash instead of sending a new one",
+)
 @click.pass_context
-def withdraw_eth(ctx, amount: Decimal, address: str):
+def withdraw_eth(ctx, amount: Decimal | None, address: str | None, tx_hash: str | None):
     """Withdraw ETH from the bridge wallet (admin only)."""
     try:
         config = get_config()
 
-        if amount <= 0:
-            error("Amount must be positive")
+        if tx_hash:
+            _recheck_eth_withdrawal(ctx, config, tx_hash)
+            return
+
+        if amount is None or amount <= 0 or not address:
+            error("Amount and address are required (or pass --tx-hash to re-check a broadcast)")
             raise click.Abort()
 
         info(f"Withdrawing {amount} ETH to {address}")
@@ -550,6 +560,8 @@ def withdraw_eth(ctx, amount: Decimal, address: str):
 
         _execute_eth_withdrawal(config, amount, address)
 
+    except (click.Abort, click.exceptions.Exit):
+        raise
     except Exception as e:
         error(f"Error withdrawing ETH: {e}")
         raise click.Abort() from e
@@ -604,15 +616,28 @@ def _execute_eth_withdrawal(config, amount: Decimal, address: str) -> None:
 
         # Send transaction
         tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        tx_hash_hex = tx_hash.hex()
 
-        # Wait for confirmation
-        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+        # The hash is the only handle on a broadcast whose receipt wait fails
+        # — print it before waiting so the operator can re-check (#2580).
+        info(f"Transaction broadcast: {tx_hash_hex}")
+
+        # Wait for confirmation. A timeout/RPC error here does NOT mean the
+        # payout failed — the tx may still land; report it as submitted,
+        # record it pending, and exit distinctly so a retry is deliberate.
+        try:
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+        except Exception as wait_e:
+            warning(f"Withdrawal submitted but not yet confirmed: {tx_hash_hex} ({wait_e})")
+            _record_withdrawal(config, amount, address, tx_hash_hex, status="pending")
+            info(f"Re-check with: aitbc market exchange withdraw-eth --tx-hash {tx_hash_hex}")
+            raise click.exceptions.Exit(2) from wait_e
 
         if getattr(receipt, "status", 0) == 1:
             success(f"Withdrew {amount} ETH to {address}")
-            info(f"Transaction hash: {tx_hash.hex()}")
+            info(f"Transaction hash: {tx_hash_hex}")
 
-            _record_withdrawal(config, amount, address, tx_hash)
+            _record_withdrawal(config, amount, address, tx_hash_hex)
         else:
             error("Transaction failed")
             raise click.Abort()
@@ -620,13 +645,60 @@ def _execute_eth_withdrawal(config, amount: Decimal, address: str) -> None:
     except ImportError:
         error("web3.py not installed. Install with: pip install web3")
         raise click.Abort() from None
+    except (click.Abort, click.exceptions.Exit):
+        raise
     except Exception as e:
         error(f"Error withdrawing ETH: {e}")
         raise click.Abort() from e
 
 
-def _record_withdrawal(config, amount: Decimal, address: str, tx_hash) -> None:
-    """Record the completed withdrawal in the exchange service (best effort)."""
+def _recheck_eth_withdrawal(ctx, config, tx_hash: str) -> None:
+    """Re-check a broadcast withdrawal's receipt; records it once confirmed."""
+    try:
+        import os
+
+        from web3 import Web3
+        from web3.exceptions import TransactionNotFound
+
+        eth_rpc_url = getattr(config, "eth_rpc_url", os.environ.get("ETH_RPC_URL"))
+        if not eth_rpc_url:
+            error("ETH_RPC_URL not configured")
+            raise click.Abort()
+
+        w3 = Web3(Web3.HTTPProvider(eth_rpc_url))
+        if not w3.is_connected():
+            error("Failed to connect to Ethereum RPC")
+            raise click.Abort()
+
+        try:
+            receipt = w3.eth.get_transaction_receipt(cast(Any, tx_hash))
+        except TransactionNotFound:
+            receipt = None
+    except (click.Abort, click.exceptions.Exit):
+        raise
+    except Exception as e:
+        error(f"Error checking withdrawal {tx_hash}: {e}")
+        raise click.Abort() from e
+
+    if receipt is None:
+        info(f"Withdrawal {tx_hash} is still unconfirmed — check again later")
+        raise click.exceptions.Exit(2)
+    if getattr(receipt, "status", 0) != 1:
+        error(f"Withdrawal {tx_hash} reverted on-chain")
+        raise click.Abort()
+
+    tx = w3.eth.get_transaction(cast(Any, tx_hash))
+    to = tx.get("to") if isinstance(tx, dict) else getattr(tx, "to", None)
+    value_raw = tx.get("value") if isinstance(tx, dict) else getattr(tx, "value", 0)
+    value_int = int(value_raw) if value_raw is not None else 0
+    wei_amount = w3.from_wei(value_int, "ether")
+    amount = Decimal(str(wei_amount if wei_amount is not None else 0))
+    success(f"Withdrawal {tx_hash} confirmed: {amount} ETH to {to}")
+    _record_withdrawal(config, amount, str(to or ""), tx_hash, status="completed")
+
+
+def _record_withdrawal(config, amount: Decimal, address: str, tx_hash, status: str = "completed") -> None:
+    """Record the withdrawal in the exchange service (best effort)."""
     import httpx
 
     try:
@@ -636,8 +708,8 @@ def _record_withdrawal(config, amount: Decimal, address: str, tx_hash) -> None:
             json={
                 "amount": str(amount),
                 "to_address": address,
-                "tx_hash": tx_hash.hex(),
-                "status": "completed",
+                "tx_hash": tx_hash if isinstance(tx_hash, str) else tx_hash.hex(),
+                "status": status,
             },
         )
         if record_response.status_code != 200:

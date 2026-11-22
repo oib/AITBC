@@ -14,13 +14,14 @@ aitbc market exchange withdraw-eth [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--amount` | decimal | — | yes | Amount of AIT. |
-| `--address` | text | — | yes | Blockchain address to fund. |
+| `--amount` | decimal | — | no | Amount of AIT. |
+| `--address` | text | — | no | Blockchain address to fund. |
+| `--tx-hash` | text | — | no | Re-check a previously broadcast withdrawal hash instead of sending a new one |
 
 ## Examples
 
 ```bash
-aitbc market exchange withdraw-eth --amount <amount> --address <address>
+aitbc market exchange withdraw-eth
 ```
 
 ## Related
