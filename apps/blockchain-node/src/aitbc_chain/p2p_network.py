@@ -484,54 +484,69 @@ class P2PNetworkService:
             return
         self.active_connections[peer_node_id] = writer
         remote_ip = addr[0]
-        self.connected_endpoints.add((remote_ip, peer_listen_port))
-        # v0.6.2: Register peer capability with the sync layer (if callback set)
-        if self._peer_capability_callback and peer_block_height > 0:
-            peer_address = peer_public_address or remote_ip
-            peer_port = peer_public_port or peer_listen_port
-            rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
-            peer_rpc_url = f"http://{peer_address}:{rpc_port}"
-            self._peer_capability_callback(
-                peer_node_id,
-                peer_rpc_url,
-                tuple(peer_block_range),
-                chain_id=peer_chain_id or self.chain_id,
-                has_state=True,
-            )
-        if self.island_manager and peer_island_id:
-            self.island_manager.add_island_peer(peer_island_id, peer_node_id)
-        if self.hub_manager:
-            from .network.hub_manager import PeerInfo
-
-            self.hub_manager.register_peer(
-                PeerInfo(
-                    node_id=peer_node_id,
-                    address=remote_ip,
-                    port=peer_listen_port,
-                    island_id=peer_island_id,
-                    is_hub=peer_is_hub,
-                    public_address=peer_public_address,
-                    public_port=peer_public_port,
-                    last_seen=asyncio.get_event_loop().time(),
+        endpoint = (remote_ip, peer_listen_port)
+        self.connected_endpoints.add(endpoint)
+        try:
+            # v0.6.2: Register peer capability with the sync layer (if callback set)
+            if self._peer_capability_callback and peer_block_height > 0:
+                peer_address = peer_public_address or remote_ip
+                peer_port = peer_public_port or peer_listen_port
+                rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
+                peer_rpc_url = f"http://{peer_address}:{rpc_port}"
+                self._peer_capability_callback(
+                    peer_node_id,
+                    peer_rpc_url,
+                    tuple(peer_block_range),
+                    chain_id=peer_chain_id or self.chain_id,
+                    has_state=True,
                 )
-            )
-        reply_handshake = {
-            "type": "handshake",
-            "node_id": self.node_id,
-            "listen_port": self.port,
-            "chain_id": self.chain_id,
-            "island_id": self.island_id,
-            "island_name": self.island_name,
-            "is_hub": self.is_hub,
-            "island_chain_id": self.island_chain_id,
-            "public_address": self.public_endpoint[0] if self.public_endpoint else None,
-            "public_port": self.public_endpoint[1] if self.public_endpoint else None,
-            "protocol_version": self._protocol_version,
-            "block_height": self._get_block_height(),
-            "block_range": [0, self._get_block_height()],  # [min_height, max_height]
-        }
-        await self._send_message(writer, reply_handshake)
-        await self._listen_to_stream(reader, writer, (remote_ip, peer_listen_port), outbound=False, peer_id=peer_node_id)
+            if self.island_manager and peer_island_id:
+                self.island_manager.add_island_peer(peer_island_id, peer_node_id)
+            if self.hub_manager:
+                from .network.hub_manager import PeerInfo
+
+                self.hub_manager.register_peer(
+                    PeerInfo(
+                        node_id=peer_node_id,
+                        address=remote_ip,
+                        port=peer_listen_port,
+                        island_id=peer_island_id,
+                        is_hub=peer_is_hub,
+                        public_address=peer_public_address,
+                        public_port=peer_public_port,
+                        last_seen=asyncio.get_event_loop().time(),
+                    )
+                )
+            reply_handshake = {
+                "type": "handshake",
+                "node_id": self.node_id,
+                "listen_port": self.port,
+                "chain_id": self.chain_id,
+                "island_id": self.island_id,
+                "island_name": self.island_name,
+                "is_hub": self.is_hub,
+                "island_chain_id": self.island_chain_id,
+                "public_address": self.public_endpoint[0] if self.public_endpoint else None,
+                "public_port": self.public_endpoint[1] if self.public_endpoint else None,
+                "protocol_version": self._protocol_version,
+                "block_height": self._get_block_height(),
+                "block_range": [0, self._get_block_height()],  # [min_height, max_height]
+            }
+            await self._send_message(writer, reply_handshake)
+        except Exception:
+            # Roll back the half-registered peer: the caller's error path
+            # only closes the writer, so without this the dead slot keeps
+            # squatting peer_node_id and counting against the inbound
+            # caps (AUDIT-BN-P2P-INBOUND-FAILED-HANDSHAKE-LEAKS-SLOT-1).
+            self.active_connections.pop(peer_node_id, None)
+            self.connected_endpoints.discard(endpoint)
+            self._prune_peer_session_state(peer_node_id)
+            if self.island_manager and peer_island_id:
+                self.island_manager.remove_island_peer(peer_island_id, peer_node_id)
+            if self.hub_manager:
+                self.hub_manager.unregister_peer(peer_node_id)
+            raise
+        await self._listen_to_stream(reader, writer, endpoint, outbound=False, peer_id=peer_node_id)
 
     async def _handle_inbound_connection_inner(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, addr: Any
