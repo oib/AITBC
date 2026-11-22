@@ -62,23 +62,18 @@ def verify_signature(challenge: str, signature: str, signer_address: str) -> boo
         True if signature is valid
     """
     try:
-        # Remove 0x prefix if present
-        if signature.startswith("0x"):
-            signature = signature[2:]
+        from eth_utils import keccak
 
-        # Convert to bytes
-        signature_bytes = bytes.fromhex(signature)
+        from aitbc.crypto import signature_recovery
 
-        # Recover address from signature
-        from eth_account import Account
-        from eth_utils import keccak, to_checksum_address
-
+        # The challenge digest is signed raw (no EIP-191 prefix) — the same
+        # framing sign_challenge uses and signature_recovery verifies.
         message_hash = keccak(challenge.encode())
-        recovered_address = Account.recover_message(signable_hash=message_hash, signature=signature_bytes)
+        return signature_recovery.verify_signature(message_hash, signature, signer_address)
 
-        # Compare with expected signer
-        return to_checksum_address(recovered_address) == to_checksum_address(signer_address)
-
+    except signature_recovery.SignatureMalformed:
+        logger.warning("Signature verification failed: malformed signature", exc_info=True)
+        return False
     except Exception:  # noqa: BLE001 - verification boundary: any failure means the signature is invalid
         logger.warning("Signature verification failed", exc_info=True)
         return False
@@ -96,18 +91,18 @@ def sign_challenge(challenge: str, private_key: str) -> str:
         Signature as hex string
     """
     try:
-        # Remove 0x prefix if present
+        from eth_keys import keys
+        from eth_utils import keccak
+
         if private_key.startswith("0x"):
             private_key = private_key[2:]
 
-        from eth_account import Account
-        from eth_utils import keccak
-
-        account = Account.from_key("0x" + private_key)
+        # Sign the raw digest, matching verify_signature's recovery framing.
+        # eth_keys validates the scalar range itself.
         message_hash = keccak(challenge.encode())
-        signature = account.sign_message(message_hash)
+        signature = keys.PrivateKey(bytes.fromhex(private_key)).sign_msg_hash(message_hash)
 
-        return "0x" + signature.signature.hex()  # type: ignore[no-any-return]
+        return signature.to_hex()
 
     except Exception as e:  # noqa: BLE001 - crypto boundary: any failure is reported as ValueError
         raise ValueError(f"Failed to sign challenge: {e}") from e
@@ -144,8 +139,8 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
     # Validate amount
     try:
         amount = Decimal(str(tx_data["amount"]))
-        if amount <= 0:
-            return False, "Amount must be positive"
+        if not amount.is_finite() or amount <= 0:
+            return False, "Amount must be a positive finite number"
     except (InvalidOperation, ValueError, TypeError):
         logger.warning("Invalid amount format for transaction: %s", tx_data.get("amount"), exc_info=True)
         return False, "Invalid amount format"
@@ -236,6 +231,7 @@ class MultisigSecurityManager:
             "multisig_wallet": multisig_wallet,
             "nonce": nonce,
             "created_at": datetime.now(UTC).isoformat(),
+            "signatures": {},
         }
         self._save(challenges)
 
@@ -278,7 +274,19 @@ class MultisigSecurityManager:
         if canonical_signer not in {canonical_address(addr) for addr in authorized_signers}:
             return False, f"Signer {signer_address} is not authorized"
 
-        return True, "Signature verified successfully"
+        # Record the signature: without it the same signer could "verify"
+        # repeatedly and no threshold was ever evaluated (#2600).
+        signatures = challenge_data.setdefault("signatures", {})
+        if canonical_signer in signatures:
+            return False, f"Signer {signer_address} already signed this transaction"
+        signatures[canonical_signer] = signature
+        self._save(challenges)
+
+        required = len(authorized_signers)
+        count = len(signatures)
+        if count >= required:
+            return True, f"Signature verified — threshold reached ({count}/{required} signers)"
+        return True, f"Signature verified ({count}/{required} signers)"
 
     def cleanup_challenge(self, tx_id: str):
         """Clean up challenge after transaction completion"""
