@@ -383,3 +383,37 @@ class TestRelayerWorklist:
         with Session(engine) as session:
             assert session.get(CrossChainTransfer, "0xdup").status == "confirmed"
         assert worklist == []
+
+
+class TestConfirmTimePropagation:
+    """#2469: the ledger status route applies confirm_time even on
+    same-status writebacks, and the finalizer's writeback forwards it —
+    that is how a ledger host without the target store learns the release
+    timestamp."""
+
+    def test_same_status_writeback_applies_confirm_time(self, ledger_db):
+        from datetime import datetime as _dt
+
+        (ledger_register_route(None, _register_body()))
+        stamp = _dt(2026, 11, 21, 22, 0, 0, tzinfo=UTC)
+        (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed", confirm_time=stamp)))
+        row = ledger_read_route(None, "0xabc")
+        assert row["transfer"]["confirm_time"] is not None
+        # Same-status writeback stays idempotent for status but still
+        # refreshes confirm_time — the propagation path for #2469.
+        later = _dt(2026, 11, 21, 23, 0, 0, tzinfo=UTC)
+        (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed", confirm_time=later)))
+        row = ledger_read_route(None, "0xabc")
+        assert "23:00:00" in row["transfer"]["confirm_time"]
+
+    def test_ledger_writeback_forwards_confirm_time(self, bridge, monkeypatch):
+        calls = {}
+        monkeypatch.setattr(bridge_ledger, "ledger_enabled", lambda: True)
+        monkeypatch.setattr(
+            bridge_ledger,
+            "write_status",
+            lambda *a, **k: calls.setdefault("kwargs", k) or True,
+        )
+        stamp = datetime(2026, 11, 21, 22, 0, 0, tzinfo=UTC)
+        bridge._ledger_writeback("0xt1", "completed", target_tx_hash="0xrel", confirm_time=stamp)
+        assert calls["kwargs"]["confirm_time"] == stamp

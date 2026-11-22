@@ -103,6 +103,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     "completed",
                     target_tx_hash=record.target_tx_hash,
                     proof_hash=record.proof_hash,
+                    confirm_time=record.confirm_time,
                 )
                 in_memory = self._pending_transfers.get(record.transfer_id)
                 if in_memory:
@@ -420,13 +421,25 @@ class BridgeTransferFinalizerMixin(BridgeBase):
         status: str,
         target_tx_hash: str | None = None,
         proof_hash: str | None = None,
+        confirm_time: datetime | None = None,
     ) -> None:
-        """Best-effort status writeback to the shared ledger (#696)."""
+        """Best-effort status writeback to the shared ledger (#696).
+
+        ``confirm_time`` propagates the producing chain's release timestamp
+        to ledger hosts that hold no target-chain store (#2469) — the ledger
+        status route applies it even on same-status writebacks.
+        """
         try:
             from .bridge_ledger import ledger_enabled, write_status
 
             if ledger_enabled():
-                write_status(transfer_id, status, target_tx_hash=target_tx_hash, proof_hash=proof_hash)
+                write_status(
+                    transfer_id,
+                    status,
+                    target_tx_hash=target_tx_hash,
+                    proof_hash=proof_hash,
+                    confirm_time=confirm_time,
+                )
         except Exception:  # noqa: BLE001 - shared-ledger client is httpx + lazy import; best-effort by design
             logger.exception("Bridge ledger status writeback failed for %s", transfer_id)
 
@@ -556,6 +569,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     "confirmed",
                     target_tx_hash=confirmed.target_tx_hash,
                     proof_hash=hashlib.sha256(json.dumps(proof, sort_keys=True).encode()).hexdigest(),
+                    confirm_time=confirmed.confirm_time,
                 )
             except ValueError as e:
                 # Finality/threshold/validator-set failures stay pending; the
