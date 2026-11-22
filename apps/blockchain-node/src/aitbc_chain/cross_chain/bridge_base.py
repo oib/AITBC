@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from datetime import datetime
 from typing import Any, Protocol
 
 from aitbc.bridge import ValidatorSetRegistry
@@ -72,6 +73,9 @@ class BridgeBase(Protocol):
         target_chain: str | None = None,
     ) -> None: ...
     def _chain_db_ready(self, chain_id: str) -> bool: ...
+    def _sealed_transfer_index(
+        self, chain_id: str, tx_type: str, wanted: set[str]
+    ) -> dict[str, tuple[str, datetime | None]]: ...
     def _build_transfer_from_record(
         self, record: CrossChainTransfer, proof: dict[str, Any] | None = None
     ) -> BridgeTransfer: ...
