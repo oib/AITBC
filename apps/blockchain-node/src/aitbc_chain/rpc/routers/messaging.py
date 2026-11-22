@@ -95,13 +95,25 @@ async def search_route(
     request: Request,
     query: str | None = None,
     q: str | None = None,
+    topic: str | None = None,
+    author: str | None = None,
+    include_hidden: bool = False,
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
     return await messaging_search(  # type: ignore[no-any-return]
-        request, query=query, q=q, limit=limit, offset=offset, cursor=cursor, chain_id=chain_id
+        request,
+        query=query,
+        q=q,
+        topic=topic,
+        author=author,
+        include_hidden=include_hidden,
+        limit=limit,
+        offset=offset,
+        cursor=cursor,
+        chain_id=chain_id,
     )
 
 

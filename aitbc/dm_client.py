@@ -141,7 +141,7 @@ def dm_store_save(path: Path, data: dict[str, Any]) -> None:
         raise
 
 
-def dm_prepare_era(path: Path, *, rotate: bool = False) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+def dm_prepare_era(path: Path, *, rotate: bool = False, persist: bool = True) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     """Pick or create the era a key publication should use — shared by the
     CLI ``dm keygen`` and the SDK ``dm_publish_key`` so the persist-before-
     publish order cannot drift.
@@ -151,7 +151,10 @@ def dm_prepare_era(path: Path, *, rotate: bool = False) -> tuple[dict[str, Any] 
     Otherwise the era carries ``published_tx: None`` and is **already on
     disk**: a retry reuses the stored unpublished era instead of minting a
     second key, so a crash between save and submit can never strand a
-    published public half.
+    published public half. ``persist=False`` generates the era in memory
+    only — for dry runs that must not leave key material on disk; the next
+    persisting call mints a fresh era, so a dry-run pubkey is never the
+    published one.
     """
     store = dm_store_load(path, strict=True)
     keys = store["keys"]
@@ -162,7 +165,8 @@ def dm_prepare_era(path: Path, *, rotate: bool = False) -> tuple[dict[str, Any] 
         return last, store  # unpublished era — retry publishes this one
     era = generate_key_era()
     keys.append(era)
-    dm_store_save(path, store)
+    if persist:
+        dm_store_save(path, store)
     return era, store
 
 

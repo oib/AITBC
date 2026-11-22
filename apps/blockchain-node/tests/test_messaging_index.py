@@ -705,7 +705,29 @@ class TestIndex:
         with pytest.raises(ValueError, match="invalid cursor"):
             list_messages(seeded, CHAIN, cursor="10:3")
         assert parse_cursor("10:" + "ab" * 32) == (10, "ab" * 32)
+        # AUDIT-MESSAGING-CURSOR-0X-1: next_cursor values are 0x-prefixed —
+        # a cursor the endpoint emits must always parse back.
+        assert parse_cursor("10:0x" + "AB" * 32) == (10, "ab" * 32)
         assert parse_cursor(None) is None
+
+    def test_cursor_pages_same_block_with_0x_stored_hashes(self, session):
+        """AUDIT-MESSAGING-CURSOR-0X-1: stored tx_hash is 0x-prefixed while
+        the cursor hash is bare — the same-block keyset boundary must still
+        split the block correctly."""
+        _block(session, 7)
+        session.add_all([_tx_row(7, i, payload={"aitbc_msg": _env(body=f"m{i}", topic="dev")}) for i in range(1, 6)])
+        # Production stores the 0x-prefixed form; rewrite the hashes.
+        for row in session.exec(select(Transaction).where(Transaction.block_height == 7)):
+            row.tx_hash = "0x" + row.tx_hash
+        session.commit()
+        page1 = list_messages(session, CHAIN, topic="dev", limit=2)
+        assert page1["next_cursor"] is not None and page1["next_cursor"].startswith("7:0x")
+        page2 = list_messages(session, CHAIN, topic="dev", limit=2, cursor=page1["next_cursor"])
+        page3 = list_messages(session, CHAIN, topic="dev", limit=2, cursor=page2["next_cursor"])
+        bodies = [m["body"] for p in (page1, page2, page3) for m in p["messages"]]
+        assert bodies == ["m5", "m4", "m3", "m2", "m1"]
+        seen = [m["tx_hash"] for p in (page1, page2, page3) for m in p["messages"]]
+        assert len(seen) == len(set(seen)) == 5
 
     def test_same_block_order_is_node_independent(self, session):
         """F3: (block_height, tx_hash) ordering is deterministic — two DBs
