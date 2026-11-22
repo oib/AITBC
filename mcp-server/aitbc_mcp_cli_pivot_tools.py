@@ -461,14 +461,17 @@ def _is_help_invocation(
     """True only when the invocation makes Click print help and exit before
     any command body runs (#2453, tightened #2493).
 
-    Click's help option is eager: a standalone ``-h``/``--help`` token in
-    ``args`` (appended verbatim) or a bare ``--help`` emitted by an option
-    key named ``help`` triggers it. Option *values* render as
-    ``--key=value`` — a value of ``--help`` is just data (e.g.
-    ``--prompt=--help`` still submits the prompt), so values must never
-    count or a mutating call would skip the confirm gate while executing.
+    Click's help option is eager: a ``--help``/``-h`` token in ``args``
+    (appended verbatim) or a bare ``--help`` emitted by an option key named
+    ``help`` triggers it — but only when Click's parser reads it as the
+    flag. A token after a value-taking option is that option's *value*
+    (``args=["--prompt", "--help"]`` → ``prompt == "--help"`` and the body
+    still runs), so token text alone cannot decide (#2513). Only a lone
+    help token is safe to exempt; anything else must carry ``confirm``.
+    Option *values* render as ``--key=value`` — a value of ``--help`` is
+    just data (e.g. ``--prompt=--help`` still submits the prompt).
     """
-    if any(str(a) in ("-h", "--help") for a in (args or [])):
+    if args in (["--help"], ["-h"]):
         return True
     for mapping in option_maps:
         for key, value in (mapping or {}).items():

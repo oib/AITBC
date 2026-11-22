@@ -1784,6 +1784,39 @@ class TestHelpInvocationBypass:
         )
         assert result.get("error") == "Confirmation required"
 
+    def test_help_token_in_args_value_position_still_requires_confirm(self):
+        """#2513: ``--prompt --help`` puts --help in the option's value slot —
+        Click runs the body, so the confirm gate must fire."""
+        for args in (["--prompt", "--help"], ["--memo", "-h"], ["--", "--help"], ["--help", "extra"]):
+            result = json.loads(
+                mcp_server.run_aitbc_cli(
+                    group="ai",
+                    subcommand="submit",
+                    args=args,
+                    host="node0",
+                    dry_run=False,
+                    confirm=False,
+                )
+            )
+            assert result.get("error") == "Confirmation required", args
+
+    def test_lone_help_arg_with_options_still_skips_confirm(self):
+        """#2513: a lone ``args=["--help"]`` is always flag position — option
+        tokens render ``--key=value`` after it, so Click still prints help."""
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(
+                mcp_server.run_aitbc_cli(
+                    group="ai",
+                    subcommand="submit",
+                    args=["--help"],
+                    options={"limit": "5"},
+                    host="node0",
+                    dry_run=False,
+                    confirm=False,
+                )
+            )
+        assert "error" not in result
+
     def test_help_option_key_still_skips_confirm(self):
         """#2493: a bare ``--help`` option key emits a real help token —
         Click exits before the command body, so no confirm is needed."""
