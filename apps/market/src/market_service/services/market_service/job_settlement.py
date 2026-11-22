@@ -156,6 +156,12 @@ class _JobsSettlementMixin(_JobsMixin):
         match this job's payment record. Anything less used to flip the
         payment to ``escrowed`` on an HTTP call alone.
         """
+        # #2608: the locked amount must also cover the offer's listed
+        # minimum — comparing only to the caller-declared payment let a
+        # dust escrow mint a valid access token on a priced offer.
+        floor = await self._offer_price_floor(job)
+        if floor is not None and payment.amount < floor:
+            raise ValueError(f"Job payment amount {payment.amount} is below the offer's listed minimum {floor}")
         escrow = await self._rpc_client.verify_escrow(job.id)
         if not escrow:
             raise ValueError(f"No on-chain escrow found for job {job.id}; payment cannot be marked escrowed")
@@ -217,6 +223,12 @@ class _JobsSettlementMixin(_JobsMixin):
         enforce against one escrow authorizing unlimited tokens.
         """
         if payment is None:
+            return False
+        # #2608: the shop gate must refuse a token whose locked amount is
+        # below the offer's listed minimum — same floor as creation and
+        # escrow verification.
+        floor = await self._offer_price_floor(job)
+        if floor is not None and payment.amount < floor:
             return False
         escrow_key = str((job.payload or {}).get("escrow_job_id") or job.id)
         if not await self._escrow_key_claimed_by_this_job(job, escrow_key):
@@ -549,6 +561,16 @@ class _JobsSettlementMixin(_JobsMixin):
         # #1835 F1: same freeze as release — an open dispute blocks refund.
         if job.disputed_at is not None and job.dispute_cleared_at is None:
             raise ValueError(f"Cannot refund escrow for job {job_id}: an open dispute freezes settlement")
+        # #2609: provider-attested delivery ends buyer-initiated refund —
+        # resolution is dispute or expiry. A cleared dispute means the
+        # operator already adjudicated; EXPIRED/FAILED stay refundable as
+        # the expiry/failure paths.
+        if (
+            (job.payload or {}).get("provider_confirmed")
+            and job.dispute_cleared_at is None
+            and job.state not in {"EXPIRED", "FAILED"}
+        ):
+            raise ValueError(f"Cannot refund escrow for job {job_id}: provider confirmed delivery; dispute or expiry only")
         if payment.status == "released" or job.state in {"RELEASED", "COMPLETED"}:
             raise ValueError(f"Cannot refund escrow for job {job_id}: payment already released")
         if job.state in {"QUEUED", "RUNNING"} and payment.status != "refund_pending":

@@ -609,6 +609,21 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "403": {
             "description": "match requires buyer_address and a buyer wallet signature (or the operator credential) / match signature does not match buyer_address",
             "content": {
@@ -1060,6 +1075,21 @@
           },
           "403": {
             "description": "alias escrow claims require buyer_address / alias escrow claims require a buyer wallet signature / alias claim signature does not match buyer_address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -3188,6 +3218,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "{action} requires a party signature or the operator credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3240,6 +3300,51 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "{action} requires a party signature or the operator credential / signer is not this graph's owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Knowledge graph not found: {graph_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3289,6 +3394,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "{action} requires a party signature or the operator credential / signer is not this graph's owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Knowledge graph not found: {graph_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -4002,7 +4152,7 @@
     "/v1/market/edge-advertise": {
       "post": {
         "summary": "Edge Advertise",
-        "description": "Register or update an edge node's GPU capabilities in the market (v0.6.6).\n\nEdge nodes call this endpoint on startup to advertise their available\nGPU resources. If the node_id already exists, the record is updated.",
+        "description": "Register or update an edge node's GPU capabilities in the market (v0.6.6).\n\nEdge nodes call this endpoint on startup to advertise their available\nGPU resources. If the node_id already exists, the record is updated \u2014\nbut only by the identity that owns it (#2621).",
         "operationId": "edge_advertise_v1_market_edge_advertise_post",
         "requestBody": {
           "required": true,
@@ -4020,8 +4170,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Edge Advertise V1 Market Edge Advertise Post"
                 }
               }
@@ -4033,6 +4181,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "endpoint: {exc}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "edge advertisement requires a node wallet signature or the operator credential / edge advertisement belongs to a different node identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -4207,6 +4385,55 @@
             "type": "array",
             "title": "Gpus",
             "description": "Raw GPU profiles from edge service"
+          },
+          "signer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer Address"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
+          },
+          "owner_address": {
+            "type": "string",
+            "title": "Owner Address",
+            "default": ""
           }
         },
         "type": "object",

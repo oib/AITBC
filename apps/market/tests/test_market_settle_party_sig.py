@@ -29,9 +29,14 @@ def _uid() -> str:
     return uuid4().hex[:8]
 
 
-async def _seed_settle_job(state: str = "RUNNING") -> tuple[str, str, str]:
+async def _seed_settle_job(state: str = "RUNNING", provider_confirmed: bool = True) -> tuple[str, str, str]:
     """Return (job_id, buyer_private_key, provider_private_key) with an
-    escrowed payment — releasable from RUNNING, refundable once CANCELED."""
+    escrowed payment — releasable from RUNNING, refundable once CANCELED.
+
+    ``provider_confirmed=False`` models a cancel that landed before the
+    provider's delivery attestation — #2609 refuses refunds on attested
+    jobs outside the dispute/expiry paths, so refund-path tests that only
+    exercise signature auth seed the unattested variant."""
     from aitbc.crypto.crypto import derive_ethereum_address
 
     buyer_key, provider_key = "0x" + "11" * 32, "0x" + "22" * 32
@@ -53,7 +58,7 @@ async def _seed_settle_job(state: str = "RUNNING") -> tuple[str, str, str]:
                 service_type="ipfs",
                 state=state,
                 offer_id="offer_x",
-                payload={"provider_confirmed": True},
+                payload={"provider_confirmed": True} if provider_confirmed else {},
                 payment_id=payment.id,
                 payment_status="escrowed",
             )
@@ -147,7 +152,7 @@ async def test_party_signed_refund_returns_200(stub_escrow_rpc) -> None:
     from fastapi.testclient import TestClient
     from market_service.main import app
 
-    job_id, _, provider_key = await _seed_settle_job(state="CANCELED")
+    job_id, _, provider_key = await _seed_settle_job(state="CANCELED", provider_confirmed=False)
     proof = _settle_signature(job_id, provider_key, derive_ethereum_address(provider_key), f"/v1/market/jobs/{job_id}/refund")
     with TestClient(app) as client:
         r = client.post(f"/v1/market/jobs/{job_id}/refund", json={"reason": "cancelled", **proof})
@@ -176,7 +181,7 @@ async def test_unsigned_refund_api_key_path_still_works(stub_escrow_rpc) -> None
     from fastapi.testclient import TestClient
     from market_service.main import app
 
-    job_id, _, _ = await _seed_settle_job(state="CANCELED")
+    job_id, _, _ = await _seed_settle_job(state="CANCELED", provider_confirmed=False)
     with TestClient(app) as client:
         r = client.post(f"/v1/market/jobs/{job_id}/refund", json={"reason": "cancelled"})
     assert r.status_code == 200

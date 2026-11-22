@@ -15,6 +15,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import OfferFSM, OfferStatus
 from aitbc.market.job_request_signature import verify_jobs_request_signature
+from aitbc.network.url_safety import validate_fleet_outbound_url
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
 
@@ -32,6 +33,16 @@ logger = get_logger(__name__)
 # #1976 release-window gate immediately. ``size`` stays caller-writable:
 # it is the declared content size, overwritten by pin-confirm.
 _PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at", "pinned", "pin_tx_hash", "attested_billing"})
+
+
+class AccessKeyConflict(ValueError):
+    """#2607: a second job tried to claim an access_key already in use."""
+
+
+def _provider_delivery_confirmed(job: MarketJob) -> bool:
+    """#2609: the provider's signed pin attestation is on record."""
+    return bool((job.payload or {}).get("provider_confirmed"))
+
 
 from .shared import (
     MAX_JOB_TTL_SECONDS,
@@ -322,8 +333,18 @@ class _JobsMixin(_CoreMixin):
             # accepting a caller-supplied escrow id would let a provider
             # steer settlement at a foreign escrow (#815).
             rental_id = data.get("rental_id")
-            if rental_id:
-                await self._apply_job_bound_token_rules(str(rental_id), data, sig)
+            # #2623: standalone tokens (no job binding) carried no proof and
+            # never expired — every new token must bind to a resolvable
+            # market job, which requires the provider's wallet signature
+            # via the job-bound rules below.
+            if not rental_id:
+                raise ValueError("rental_id is required — IPFS rental tokens must bind to a market job")
+            await self._apply_job_bound_token_rules(str(rental_id), data, sig)
+            # #2623: a token must expire. Job-bound tokens inherit the job's
+            # settlement clock; a job without one gets a bounded fallback so
+            # no token can live forever.
+            if data.get("expires_at") is None:
+                data["expires_at"] = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7)
             token = IpfsRentalToken(**data)
             if not token.created_at:
                 token.created_at = datetime.now(UTC).replace(tzinfo=None)
@@ -358,30 +379,32 @@ class _JobsMixin(_CoreMixin):
           update needs that job provider's signature and the job-bound
           fields (parties, CID, settlement clock) are re-derived from the
           stored job, exactly like registration;
-        - standalone tokens (no ``rental_id``) and legacy non-job rental
-          ids keep the unsigned update path — there is no provider job to
-          verify against.
+        - #2623: tokens with no resolvable job binding are immutable after
+          first write — there is no provider to authorize an update.
         """
         stored = existing.rental_id
         claimed = data.get("rental_id")
         if claimed is not None and str(claimed) != str(stored or ""):
             raise ValueError("rental_id does not match the registered token")
         if not stored:
-            return
+            # #2623: a token with no job binding is unsigned — it is
+            # immutable after first write.
+            raise ValueError("token is not bound to a market job and cannot be updated")
         job = await self.session.get(MarketJob, str(stored))
         if job is None:
-            return
+            raise ValueError("token is not bound to a market job and cannot be updated")
         if job.expires_at is not None:
             data["expires_at"] = job.expires_at
         await self._verify_ipfs_rental_token_signature(job, sig)
         self._bind_ipfs_token_to_job(data, job)
 
     async def _apply_job_bound_token_rules(self, rental_id: str, data: dict[str, Any], sig: dict[str, Any]) -> None:
-        """#2348/#2491: job-bound token rules — inherit the settlement clock,
-        require the provider's wallet signature, bind parties/CID to the job."""
+        """#2348/#2491/#2623: job-bound token rules — inherit the settlement
+        clock, require the provider's wallet signature, bind parties/CID to
+        the job. The rental_id must resolve to a real market job."""
         job = await self.session.get(MarketJob, rental_id)
         if job is None:
-            return
+            raise ValueError(f"rental_id does not resolve to a market job: {rental_id}")
         if job.expires_at is not None:
             data["expires_at"] = job.expires_at
         # #2491: a token bound to a market job's escrow may only be
@@ -474,6 +497,16 @@ class _JobsMixin(_CoreMixin):
         for field in ("created_at", "updated_at", "expires_at"):
             if field in data:
                 data[field] = self._parse_iso_dt(data[field])
+
+        # #2623: the stored URLs are fetched by the rental sweeper/shop gate —
+        # refuse loopback/link-local/metadata targets at write time.
+        for url_field in ("ipfs_api", "public_endpoint"):
+            raw_url = data.get(url_field)
+            if raw_url:
+                try:
+                    validate_fleet_outbound_url(str(raw_url))
+                except ValueError as exc:
+                    raise ValueError(f"{url_field}: {exc}") from exc
 
         # Column allowlist: settlement state (status, pinned, expires_at,
         # tx_hash, timestamps) is service-owned — a caller writing it could
@@ -656,6 +689,46 @@ class _JobsMixin(_CoreMixin):
             logger.warning("GPU_MARKET anchor lookup for %s failed on chain RPC: %s", offer_id, e)
         raise ValueError(f"Unknown offer_id: {offer_id}")
 
+    async def _offer_price_floor(self, job: MarketJob) -> Decimal | None:
+        """#2608: the listed minimum a job's payment/escrow must cover.
+
+        Resolves the job's offer to its local ``SoftwareService`` row (the
+        same lookup ``_require_known_offer`` accepts) and returns the listed
+        price scaled by the billed quantity where the unit is derivable —
+        ``per_day`` reads ``payload.days``; every other unit floors at one
+        unit price. On-chain-only offers have no local price to check and
+        return None. Non-positive or unreadable prices return None.
+        """
+        offer_id = job.offer_id
+        if not offer_id:
+            return None
+        service = (
+            (
+                await self.session.execute(
+                    select(SoftwareService).where(
+                        (SoftwareService.offer_id == offer_id) | (SoftwareService.plugin_id == offer_id)
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if service is None:
+            return None
+        try:
+            unit_price = Decimal(str(service.price))
+        except (InvalidOperation, ValueError):
+            return None
+        if not unit_price.is_finite() or unit_price <= 0:
+            return None
+        quantity = Decimal("1")
+        if (service.price_unit or "") == "per_day":
+            try:
+                quantity = max(Decimal("1"), Decimal(str((job.payload or {}).get("days"))))
+            except (InvalidOperation, ValueError):
+                quantity = Decimal("1")
+        return unit_price * quantity
+
     async def create_market_job(self, data: dict[str, Any]) -> dict[str, Any]:
         """Create a MarketJob and MarketJobPayment for a software job."""
         try:
@@ -676,6 +749,25 @@ class _JobsMixin(_CoreMixin):
             payment = self._build_market_job_payment(data.get("payment") or {}, job)
 
             job.access_key = (job.payload or {}).get("access_key")
+            if job.access_key:
+                # #2607: the access lookup resolves by access_key alone —
+                # a second job reusing it made GET /v1/market/access/{key}
+                # ambiguous (500) for the first job's holder.
+                clash = (
+                    await self.session.execute(
+                        select(col(MarketJob.id))
+                        .where(col(MarketJob.access_key) == job.access_key, col(MarketJob.id) != job_id)
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+                if clash is not None:
+                    raise AccessKeyConflict(f"access_key already in use: {job.access_key}")
+            # #2608: the declared payment (and later the locked escrow) must
+            # cover the offer's listed minimum — a dust amount used to mint
+            # a valid shop access token against a priced offer.
+            floor = await self._offer_price_floor(job)
+            if floor is not None and payment.amount < floor:
+                raise ValueError(f"payment amount {payment.amount} is below the offer's listed minimum {floor}")
             job.payment_id = payment.id
             job.payment_amount = payment.amount
             job.payment_status = payment.status
@@ -974,6 +1066,12 @@ class _JobsMixin(_CoreMixin):
             if job.state in {"CANCELED", "REFUNDED", "RELEASED", "COMPLETED"}:
                 return self._job_to_dict(job)
 
+            # #2609: once the provider attested delivery (signed pin-confirm),
+            # a buyer cancel would skip the acceptance window and the dispute
+            # path — resolution is dispute or expiry only.
+            if _provider_delivery_confirmed(job):
+                raise ValueError(f"Cannot cancel job {job_id}: provider confirmed delivery; use dispute or let it expire")
+
             now = datetime.now(UTC).replace(tzinfo=None)
 
             # #1790: payment flip is a CAS too — only an escrowed payment
@@ -1080,11 +1178,17 @@ class _JobsMixin(_CoreMixin):
         try:
             stmt = select(MarketJob).where(col(MarketJob.access_key) == access_key)
             result = await self.session.execute(stmt)
-            job = result.scalar_one_or_none()
+            # #2607: legacy rows may share an access_key — pick the row whose
+            # secret actually matches instead of crashing on multiple rows.
+            job = next(
+                (
+                    candidate
+                    for candidate in result.scalars().all()
+                    if _secret_matches((candidate.payload or {}).get("access_secret") or "", access_secret)
+                ),
+                None,
+            )
             if not job:
-                return None
-
-            if not _secret_matches((job.payload or {}).get("access_secret") or "", access_secret):
                 return None
 
             if job.state not in _ACCESS_TOKEN_ACTIVE_STATES:

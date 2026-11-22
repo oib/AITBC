@@ -5,6 +5,7 @@ The monolithic ``market_service.py`` was split into domain mixins
 (#1867); every name that was importable from it remains importable here.
 """
 
+from .jobs import AccessKeyConflict
 from .service import MarketService
 from .shared import (
     MAX_JOB_TTL_SECONDS,
@@ -54,6 +55,7 @@ from .shared import (
 )
 
 __all__ = [
+    "AccessKeyConflict",
     "MAX_JOB_TTL_SECONDS",
     "AmbiguousOfferIdError",
     "OfferIdConflictError",

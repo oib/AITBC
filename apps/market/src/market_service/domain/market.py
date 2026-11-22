@@ -180,8 +180,10 @@ class MarketJob(MarketBase, table=True):
     result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     receipt: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
-    # Access token for this job (e.g. IPFS access key)
-    access_key: str | None = Field(default=None, index=True)
+    # Access token for this job (e.g. IPFS access key). #2607: unique —
+    # a second job reusing the key made GET /v1/market/access/{key} 500
+    # for the first job's holder. NULLs stay allowed (pre-token jobs).
+    access_key: str | None = Field(default=None, index=True, unique=True)
 
     # Payment denormalization (authoritative source is MarketJobPayment)
     payment_id: str | None = Field(default=None, index=True)
@@ -302,6 +304,9 @@ class EdgeNodeAdvertisement(MarketBase, table=True):
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     node_id: str = Field(index=True, unique=True)
+    # #2621: the wallet identity that first registered this advertisement —
+    # updates must be signed by the same address (or the operator).
+    owner_address: str = Field(default="")
     endpoint: str = Field(default="")
     node_type: str = Field(default="edge")
     service: str = Field(default="aitbc-edge")

@@ -191,17 +191,61 @@ class GPUService:
             metrics = await gpu_client.get_gpu_metrics(gpu_id, limit)
         return metrics
 
+    @staticmethod
+    def _advertise_identity(node_id: str, endpoint: str) -> dict[str, Any]:
+        """#2621: sign the advertisement with the node's wallet when a key
+        is configured (``EDGE_WALLET_PRIVATE_KEY`` /
+        ``AITBC_WALLET_PRIVATE_KEY`` + ``CHAIN_ID``). Returns ``{}`` when
+        no key is resolvable — the market then refuses the write for
+        non-operator callers, which is the intended fail-closed behavior.
+        """
+        import os
+        import time
+
+        from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
+        from aitbc.market.job_request_signature import jobs_request_message
+
+        private_key = os.getenv("EDGE_WALLET_PRIVATE_KEY") or os.getenv("AITBC_WALLET_PRIVATE_KEY")
+        chain_id = os.getenv("CHAIN_ID")
+        if not private_key or not chain_id:
+            return {}
+        address = derive_ethereum_address(private_key)
+        issued_at = int(time.time())
+        message = jobs_request_message(
+            address,
+            chain_id,
+            issued_at,
+            "/v1/market/edge-advertise",
+            binding={"node_id": node_id, "endpoint": endpoint},
+        )
+        return {
+            "signer_address": address,
+            "chain_id": chain_id,
+            "issued_at": issued_at,
+            "signature": sign_transaction_data(message, private_key),
+        }
+
     async def advertise_to_market(self) -> dict[str, Any]:
         """Advertise this edge node's GPU capabilities to the market (v0.6.6).
 
         POSTs the list of available GPU profiles to the market service so
         that the market can include edge-hosted GPUs in offer discovery.
+        #2621: the advertisement is signed with the node wallet when
+        ``EDGE_WALLET_PRIVATE_KEY``/``AITBC_WALLET_PRIVATE_KEY`` is
+        configured — unsigned writes are refused for non-operator callers.
         """
+        import os
+        import socket
+
         import httpx
 
         async with GPUServiceClient() as gpu_client:
             profiles = await gpu_client.get_gpu_profiles()
+        node_id = os.getenv("EDGE_NODE_ID", os.getenv("NODE_ID", f"edge-{socket.gethostname()}"))
+        endpoint = f"http://{os.getenv('EDGE_ADVERTISE_HOST') or socket.gethostname()}:{settings.app_port}"
         payload = {
+            "node_id": node_id,
+            "endpoint": endpoint,
             "node_type": "edge",
             "service": "aitbc-edge",
             "gpu_count": len(profiles),
@@ -215,6 +259,7 @@ class GPUService:
                 for p in profiles
             ],
         }
+        payload.update(self._advertise_identity(node_id, endpoint))
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(f"{settings.market_url}/v1/market/edge-advertise", json=payload)

@@ -15,11 +15,20 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.market.job_request_signature import verify_jobs_request_signature
 from aitbc.network.url_safety import validate_fleet_outbound_url
+from aitbc.utils.chain_id import resolve_chain_id
 
 from ..config import settings
 from ..deps import get_market_service, get_session_dep, require_market_api_key, require_market_operator_key
-from ..gates import _party_signature_precheck, _warn_secret_query_transport, rating_signature_error
+from ..gates import (
+    _canonical_or_none,
+    _is_operator,
+    _party_signature_precheck,
+    _warn_secret_query_transport,
+    rating_signature_error,
+)
 from ..services.market_service import (
     AmbiguousOfferIdError,
     MarketService,
@@ -254,14 +263,61 @@ async def get_software_offer_health(plugin_id: str, svc: Annotated[MarketService
         raise
 
 
+# #2622: writable fields for knowledge-graph writes — an allow-list so a
+# caller cannot smuggle ``id``/``owner``/timestamps into the model splat.
+_GRAPH_WRITABLE_FIELDS = {"name", "description", "status"}
+_NODE_WRITABLE_FIELDS = {"node_type", "label", "properties"}
+_EDGE_WRITABLE_FIELDS = {"source_node_id", "target_node_id", "edge_type", "properties", "weight"}
+
+
+async def _graph_write_gate(
+    svc: MarketService,
+    graph_id: str,
+    is_operator: bool,
+    signer: str | None,
+) -> JSONResponse | None:
+    """#2622: node/edge writes need an existing graph owned by the signer.
+
+    Returns a ready error response, or None when the write may proceed.
+    Runs after ``_party_signature_precheck`` so the signer is already a
+    verified address (or the caller is the operator).
+    """
+    graph = await svc.get_knowledge_graph(graph_id)
+    if graph is None:
+        return JSONResponse(status_code=404, content={"error": f"Knowledge graph not found: {graph_id}"})
+    if is_operator:
+        return None
+    owner = _canonical_or_none(getattr(graph, "owner", None))
+    if owner is None or signer != owner:
+        return JSONResponse(status_code=403, content={"error": "signer is not this graph's owner"})
+    return None
+
+
 @router.post("/v1/knowledge-graph", dependencies=[Depends(require_market_api_key)])
-async def create_graph(graph_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
+async def create_graph(
+    graph_data: dict[str, Any],
+    request: Request,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+) -> Any:
     """Create a new knowledge graph"""
     try:
         logger.info("POST /v1/knowledge-graph called with data keys: %s", graph_data.keys())
-        result = await svc.create_graph(graph_data)
+        # #2622: a graph is owned state — creation needs a party signature
+        # (or the operator credential), and ``owner`` is server-derived:
+        # the recovered signer for callers, an operator-supplied value
+        # otherwise. Caller-supplied ``owner``/``id`` never reach the row.
+        is_operator, signer, gate_error = await _party_signature_precheck(
+            request, graph_data, "/v1/knowledge-graph", action="knowledge graph creation"
+        )
+        if gate_error is not None:
+            return gate_error
+        clean = {k: v for k, v in graph_data.items() if k in _GRAPH_WRITABLE_FIELDS}
+        clean["owner"] = signer if signer else str(graph_data.get("owner") or "")
+        result = await svc.create_graph(clean)
         logger.info("POST /v1/knowledge-graph created graph with id: %s", result["id"])
         return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/knowledge-graph: %s: %s", type(e).__name__, str(e))
         raise
@@ -269,31 +325,81 @@ async def create_graph(graph_data: dict[str, Any], svc: Annotated[MarketService,
 
 @router.post("/v1/knowledge-graph/{graph_id}/nodes", dependencies=[Depends(require_market_api_key)])
 async def add_node(
-    graph_id: str, node_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]
+    graph_id: str,
+    node_data: dict[str, Any],
+    request: Request,
+    svc: Annotated[MarketService, Depends(get_market_service)],
 ) -> Any:
     """Add a node to a knowledge graph"""
     try:
-        node_data["graph_id"] = graph_id
+        is_operator, signer, gate_error = await _party_signature_precheck(
+            request, node_data, f"/v1/knowledge-graph/{graph_id}/nodes", action="knowledge graph node write"
+        )
+        if gate_error is not None:
+            return gate_error
+        owner_gate = await _graph_write_gate(svc, graph_id, is_operator, signer)
+        if owner_gate is not None:
+            return owner_gate
+        clean = {k: v for k, v in node_data.items() if k in _NODE_WRITABLE_FIELDS}
+        clean["graph_id"] = graph_id
         logger.info("POST /v1/knowledge-graph/%s/nodes called", graph_id)
-        result = await svc.add_node(node_data)
+        result = await svc.add_node(clean)
         logger.info("Added node with id: %s", result["id"])
         return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/knowledge-graph/%s/nodes: %s: %s", graph_id, type(e).__name__, str(e))
         raise
 
 
+async def _validate_edge_payload(svc: MarketService, clean: dict[str, Any], graph_id: str) -> None:
+    """#2622: edge weight must be finite; endpoints must be nodes in THIS
+    graph — a foreign or dangling reference would corrupt the graph."""
+    weight = clean.get("weight")
+    if weight is not None:
+        try:
+            weight_f = float(weight)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("edge weight must be a finite number") from exc
+        if not (weight_f == weight_f and abs(weight_f) != float("inf")):
+            raise ValueError("edge weight must be a finite number")
+        clean["weight"] = weight_f
+    for field in ("source_node_id", "target_node_id"):
+        node_id = clean.get(field)
+        if not node_id:
+            raise ValueError(f"edge requires {field}")
+        node = await svc.get_graph_node(str(node_id))
+        if node is None or node.graph_id != graph_id:
+            raise ValueError(f"{field} does not reference a node in this graph")
+
+
 @router.post("/v1/knowledge-graph/{graph_id}/edges", dependencies=[Depends(require_market_api_key)])
 async def add_edge(
-    graph_id: str, edge_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]
+    graph_id: str,
+    edge_data: dict[str, Any],
+    request: Request,
+    svc: Annotated[MarketService, Depends(get_market_service)],
 ) -> Any:
     """Add an edge to a knowledge graph"""
     try:
-        edge_data["graph_id"] = graph_id
+        is_operator, signer, gate_error = await _party_signature_precheck(
+            request, edge_data, f"/v1/knowledge-graph/{graph_id}/edges", action="knowledge graph edge write"
+        )
+        if gate_error is not None:
+            return gate_error
+        owner_gate = await _graph_write_gate(svc, graph_id, is_operator, signer)
+        if owner_gate is not None:
+            return owner_gate
+        clean = {k: v for k, v in edge_data.items() if k in _EDGE_WRITABLE_FIELDS}
+        await _validate_edge_payload(svc, clean, graph_id)
+        clean["graph_id"] = graph_id
         logger.info("POST /v1/knowledge-graph/%s/edges called", graph_id)
-        result = await svc.add_edge(edge_data)
+        result = await svc.add_edge(clean)
         logger.info("Added edge with id: %s", result["id"])
         return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/knowledge-graph/%s/edges: %s: %s", graph_id, type(e).__name__, str(e))
         raise
@@ -714,21 +820,87 @@ class EdgeAdvertiseRequest(BaseModel):
     region: str = Field(default="")
     capabilities: list[str] = Field(default_factory=list)
     gpus: list[dict[str, Any]] = Field(default_factory=list, description="Raw GPU profiles from edge service")
+    # #2621: wallet-signature fields — a non-operator caller must prove the
+    # node identity it advertises; ``owner_address`` is operator-only and
+    # pre-binds the advertisement's owner.
+    signer_address: str | None = None
+    chain_id: str | None = None
+    issued_at: int | None = None
+    signature: str | None = None
+    owner_address: str = Field(default="")
+
+
+def _edge_advertise_identity(
+    http_request: Request, request: EdgeAdvertiseRequest
+) -> tuple[bool, str | None, JSONResponse | None]:
+    """#2621: resolve the advertiser identity — the operator credential, or
+    the wallet signer recovered from a route-bound signature over
+    ``{node_id, endpoint}``. Returns ``(is_operator, signer, error)``; the
+    caller returns ``error`` when it is not None."""
+    if _is_operator(http_request):
+        return True, None, None
+    if not any(
+        (
+            request.signer_address,
+            request.chain_id,
+            request.issued_at is not None,
+            request.signature,
+        )
+    ):
+        return (
+            False,
+            None,
+            JSONResponse(
+                status_code=403,
+                content={"error": "edge advertisement requires a node wallet signature or the operator credential"},
+            ),
+        )
+    error, recovered = verify_jobs_request_signature(
+        signer_address=request.signer_address,
+        chain_id=request.chain_id,
+        issued_at=request.issued_at,
+        route="/v1/market/edge-advertise",
+        signature=request.signature,
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding={"node_id": request.node_id, "endpoint": request.endpoint},
+    )
+    if error or not recovered:
+        return False, None, JSONResponse(status_code=403, content={"error": error or "invalid edge advertisement signature"})
+    return False, canonical_address(recovered), None
 
 
 @router.post("/v1/market/edge-advertise", dependencies=[Depends(require_market_api_key)])
 async def edge_advertise(
-    request: EdgeAdvertiseRequest, session: Annotated[AsyncSession, Depends(get_session)]
-) -> dict[str, Any]:
+    request: EdgeAdvertiseRequest,
+    http_request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Any:
     """Register or update an edge node's GPU capabilities in the market (v0.6.6).
 
     Edge nodes call this endpoint on startup to advertise their available
-    GPU resources. If the node_id already exists, the record is updated.
+    GPU resources. If the node_id already exists, the record is updated —
+    but only by the identity that owns it (#2621).
     """
     from datetime import UTC, datetime
     from sqlalchemy import select
 
     from ..domain.market import EdgeNodeAdvertisement
+
+    # #2621: the endpoint is stored and later fetched by peers — apply the
+    # same outbound-URL validation as the parameter route.
+    if request.endpoint:
+        try:
+            validate_fleet_outbound_url(request.endpoint)
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"error": f"endpoint: {exc}"})
+
+    # #2621: the advertisement is bound to a node identity — a wallet
+    # signature over the route-bound {node_id, endpoint} (or the operator
+    # credential). The recovered signer owns the row: first write binds it,
+    # later writes must come from the same address.
+    is_operator, signer, identity_error = _edge_advertise_identity(http_request, request)
+    if identity_error is not None:
+        return identity_error
 
     # Extract gpu_models from gpus list if not provided directly
     gpu_models = request.gpu_models
@@ -746,6 +918,15 @@ async def edge_advertise(
 
     now = datetime.now(UTC).replace(tzinfo=None)
     if existing:
+        if not is_operator:
+            existing_owner = _canonical_or_none(existing.owner_address)
+            if existing_owner is not None and existing_owner != signer:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "edge advertisement belongs to a different node identity"},
+                )
+            # First signed write on a legacy unowned row binds the signer.
+            existing.owner_address = signer or ""
         existing.endpoint = request.endpoint
         existing.gpu_models = gpu_models
         existing.gpu_count = gpu_count
@@ -757,8 +938,14 @@ async def edge_advertise(
         logger.info("Updated edge node advertisement: %s", request.node_id)
         return {"status": "updated", "node_id": request.node_id, "gpu_count": gpu_count}
     else:
+        owner = ""
+        if is_operator:
+            owner = _canonical_or_none(request.owner_address) or ""
+        else:
+            owner = signer or ""
         adv = EdgeNodeAdvertisement(
             node_id=request.node_id,
+            owner_address=owner,
             endpoint=request.endpoint,
             node_type=request.node_type,
             service=request.service,

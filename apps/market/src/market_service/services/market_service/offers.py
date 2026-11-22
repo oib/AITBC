@@ -254,6 +254,9 @@ class _OffersMixin(_OffersSoftwareMixin):
                 "bid_id": bid.id,
                 "offer_id": offer_id,
                 "provider": provider,
+                # #2618: the accepted bid price — the escrow must bill the
+                # bid, never a caller-supplied amount.
+                "price": str(bid.price),
                 "status": "pending",
                 "message": "Bid created successfully",
                 "escrow_contract_id": None,
@@ -310,6 +313,100 @@ class _OffersMixin(_OffersSoftwareMixin):
             "total_offers": total_offers,
             "total_capacity": total_capacity,
             "average_price": str(Decimal(avg_price).quantize(Decimal("0.01"))) if avg_price else "0",
+        }
+
+    async def get_offer_history(self, offer: MarketOffer) -> dict[str, Any]:
+        """#2624: real booking figures for one offer, computed from its bids.
+
+        ``booking_count``/``last_booked`` count every bid placed;
+        ``total_revenue`` sums only completed (paid) bids. ``price_history``
+        stays the single initial-listing entry — the service records no
+        price-change events, so anything more would be fabricated.
+        """
+        from sqlalchemy import func, select
+
+        stmt = select(
+            func.count(),
+            func.coalesce(func.sum(Bid.price).filter(col(Bid.status) == "completed"), 0),
+            func.max(Bid.created_at),
+        ).where(col(Bid.offer_id) == offer.id)
+        row = (await self.session.execute(stmt)).one()
+        booking_count, revenue, last_booked = row[0] or 0, row[1] or 0, row[2]
+        return {
+            "offer_id": offer.id,
+            "created_at": offer.created_at,
+            "price_history": [
+                {
+                    "price": str(offer.price_per_hour) if offer.price_per_hour is not None else None,
+                    "timestamp": offer.created_at,
+                    "reason": "initial_listing",
+                }
+            ],
+            "booking_count": int(booking_count),
+            "total_revenue": str(Decimal(str(revenue)).quantize(Decimal("0.00000001"))),
+            "last_booked": last_booked.isoformat() if last_booked else None,
+        }
+
+    async def get_market_performance(self, period: str = "daily") -> dict[str, Any]:
+        """#2624: market performance computed from bids and offers — the
+        previous endpoint returned fixed zeros for every field."""
+        from sqlalchemy import func, select
+
+        # Completed bids are the settled trades; pending/expired never paid.
+        trade_stmt = (
+            select(func.count(), func.coalesce(func.sum(Bid.price), 0), func.coalesce(func.avg(Bid.price), 0))
+            .where(col(Bid.status) == "completed")
+            .group_by(col(Bid.status))
+        )
+        trade_row = (await self.session.execute(trade_stmt)).first()
+        total_trades = int(trade_row[0]) if trade_row else 0
+        total_volume = Decimal(str(trade_row[1])) if trade_row else Decimal("0")
+        avg_price = Decimal(str(trade_row[2])) if trade_row else Decimal("0")
+
+        bid_count_stmt = select(func.count()).select_from(Bid)
+        total_bids = int((await self.session.execute(bid_count_stmt)).scalar() or 0)
+
+        # Price volatility: population stddev of completed bid prices, as a
+        # fraction of the mean — 0 when fewer than two trades exist.
+        prices_stmt = select(col(Bid.price)).where(col(Bid.status) == "completed")
+        prices = [Decimal(str(p)) for p in (await self.session.execute(prices_stmt)).scalars().all()]
+        volatility = Decimal("0")
+        if len(prices) >= 2 and avg_price > 0:
+            mean = sum(prices, Decimal("0")) / Decimal(len(prices))
+            variance = sum(((p - mean) ** 2 for p in prices), Decimal("0")) / Decimal(len(prices))
+            volatility = (variance.sqrt() / mean).quantize(Decimal("0.0001"))
+
+        offer_stmt = select(
+            func.count(),
+            func.count().filter(col(MarketOffer.status).in_(spellings_of(OfferStatus.AVAILABLE))),
+            func.count().filter(col(MarketOffer.status) == OfferStatus.IN_USE.value),
+            func.count(func.distinct(MarketOffer.provider)),
+        ).select_from(MarketOffer)
+        o = (await self.session.execute(offer_stmt)).one()
+        total_offers, available_offers, in_use_offers, active_providers = (
+            int(o[0] or 0),
+            int(o[1] or 0),
+            int(o[2] or 0),
+            int(o[3] or 0),
+        )
+        return {
+            "period": period,
+            "total_volume": str(total_volume.quantize(Decimal("0.00000001"))),
+            "total_trades": total_trades,
+            "average_price": str(avg_price.quantize(Decimal("0.00000001"))),
+            "price_volatility": str(volatility),
+            # Share of listed offers currently bookable — the honest
+            # liquidity measure this dataset supports.
+            "liquidity_score": str((Decimal(available_offers) / total_offers).quantize(Decimal("0.0001")))
+            if total_offers
+            else "0",
+            "active_providers": active_providers,
+            "utilization_rate": str((Decimal(in_use_offers) / total_offers).quantize(Decimal("0.0001")))
+            if total_offers
+            else "0",
+            # Settled bids over all bids placed — the fill rate this
+            # dataset supports.
+            "fill_rate": str((Decimal(total_trades) / total_bids).quantize(Decimal("0.0001"))) if total_bids else "0",
         }
 
     async def list_plugins(self, plugin_type: str | None = None, status: str = "approved") -> list[dict[str, Any]]:
@@ -390,6 +487,18 @@ class _OffersMixin(_OffersSoftwareMixin):
             await self.session.rollback()
             logger.error("Error in register_plugin: %s: %s", type(e).__name__, str(e))
             raise
+
+    async def get_knowledge_graph(self, graph_id: str) -> Any | None:
+        """#2622: fetch a graph row for the write-ownership gate."""
+        from ...domain.market import KnowledgeGraph
+
+        return await self.session.get(KnowledgeGraph, graph_id)
+
+    async def get_graph_node(self, node_id: str) -> Any | None:
+        """#2622: fetch a node row for edge endpoint validation."""
+        from ...domain.market import GraphNode
+
+        return await self.session.get(GraphNode, node_id)
 
     async def create_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new knowledge graph"""
