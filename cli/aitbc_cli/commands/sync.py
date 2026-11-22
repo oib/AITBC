@@ -208,11 +208,16 @@ def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
 def _query_sync_endpoints(ctx, client: AITBCHTTPClient, chain_id, node_url):
     """Query head, network-info, and sync config; aborts when the node is down."""
     head_params = {"chain_id": chain_id} if chain_id else None
+    sync_config: dict[str, Any] | None = None
     try:
         head = client.get("/rpc/head", params=head_params)
         network_info = client.get("/rpc/network-info")
-        # Query sync configuration (v0.6.2)
-        sync_config: dict[str, Any] | None = client.get("/rpc/sync/config")
+        # #2540: /rpc/sync/config is optional (v0.6.2+) — a refused/absent
+        # call degrades to "no optimisation info", not a node-down abort.
+        try:
+            sync_config = client.get("/rpc/sync/config")
+        except NetworkError:
+            pass
     except NetworkError as e:
         abort(ctx, f"Cannot connect to node at {node_url}", from_exception=e)
     finally:
