@@ -17,6 +17,7 @@ from ..logger import get_logger
 from ..models import Account, Block
 from ..protocol_escrow import (
     confirmed_lock_txs,
+    protocol_transfer_pending,
     protocol_transfers_active,
     queue_protocol_transfer,
     stake_escrow_address,
@@ -40,6 +41,15 @@ def _account(session: Session, chain_id: str, address: str) -> Account:
     if not account:
         raise HTTPException(status_code=404, detail=f"Account {address} not found")
     return account
+
+
+def _agent_lock_in_flight(session: Session, chain_id: str, stake_id: str) -> str | None:
+    """``"sealed"``/``"pending"``/``None`` for a STAKE_LOCK on this stake (#2628)."""
+    if confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id):
+        return "sealed"
+    if protocol_transfer_pending(session, chain_id, "STAKE_LOCK", {"agent_stake_id": str(stake_id)}):
+        return "pending"
+    return None
 
 
 def _get_stake(session: Session, chain_id: str, stake_id: str) -> AgentStakeRecord | None:
@@ -209,6 +219,34 @@ def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]
                 "status": existing.status,
                 "locked_until": existing.locked_until.isoformat(),
             }
+        lock_state = _agent_lock_in_flight(session, chain_id, str(stake_id))
+        if lock_state is not None:
+            # #2628: a lock already queued or sealed for this stake_id means
+            # a previous attempt died after queueing — rebuild the row
+            # instead of queueing a second lock. stake_id is the
+            # idempotency key, so the signed body stays authoritative.
+            record = AgentStakeRecord(
+                chain_id=chain_id,
+                stake_id=str(stake_id),
+                staker_address=staker,
+                agent_wallet=agent_wallet,
+                amount=amount,
+                lock_period=lock_period,
+                locked_until=datetime.now(UTC) + timedelta(days=lock_period),
+                status="active",
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return {
+                "success": True,
+                "idempotent": True,
+                "stake_id": record.stake_id,
+                "amount": record.amount,
+                "status": record.status,
+                "locked_until": record.locked_until.isoformat(),
+                f"lock_{lock_state}": True,
+            }
         account = _account(session, chain_id, staker)
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
@@ -217,6 +255,21 @@ def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]
         # table outside block processing desynchronises it from every block
         # header. See ``protocol_escrow``.
         locked_until = datetime.now(UTC) + timedelta(days=lock_period)
+        # #2628: queue BEFORE the row commits — a refused queue leaves no
+        # stake record, so the retry re-runs cleanly instead of answering
+        # idempotent success for a lock that never queued.
+        tx_hash = queue_protocol_transfer(
+            sender=staker,
+            recipient=stake_escrow_address(),
+            amount=amount,
+            chain_id=chain_id,
+            tx_type="STAKE_LOCK",
+            # v4: lock_days makes the unbonding window consensus-visible.
+            payload={"agent_stake_id": str(stake_id), "lock_days": lock_period},
+            # Operator-signed on the staker's behalf; carried into the block
+            # record as the lock's provable authorization.
+            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
+        )
         record = AgentStakeRecord(
             chain_id=chain_id,
             stake_id=str(stake_id),
@@ -230,30 +283,16 @@ def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]
         session.add(record)
         session.commit()
         session.refresh(record)
-        result = {
+        _logger.info("Agent stake lock queued: %s amount=%s staker=%s tx=%s", stake_id, amount, staker, tx_hash)
+        return {
             "success": True,
             "stake_id": record.stake_id,
             "amount": record.amount,
             "status": record.status,
             "locked_until": record.locked_until.isoformat(),
+            "transaction_hash": tx_hash,
+            "message": "Stake lock submitted to mempool; the balance moves when the transaction is included in a block",
         }
-
-    tx_hash = queue_protocol_transfer(
-        sender=staker,
-        recipient=stake_escrow_address(),
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_LOCK",
-        # v4: lock_days makes the unbonding window consensus-visible.
-        payload={"agent_stake_id": str(stake_id), "lock_days": lock_period},
-        # Operator-signed on the staker's behalf; carried into the block
-        # record as the lock's provable authorization.
-        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-    )
-    _logger.info("Agent stake lock queued: %s amount=%s staker=%s tx=%s", stake_id, amount, staker, tx_hash)
-    result["transaction_hash"] = tx_hash
-    result["message"] = "Stake lock submitted to mempool; the balance moves when the transaction is included in a block"
-    return result
 
 
 @rate_limit(rate=20, per=60)
@@ -290,6 +329,25 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         # a block. Each top-up queues its own STAKE_LOCK, and
         # complete_agent_stake requires the confirmed locks to cover the whole
         # principal before it releases anything.
+        # #2628: a top-up lock already queued or sealed for this exact
+        # (stake, additional_amount) means a previous attempt died after
+        # queueing — reconcile the record instead of queueing a second lock.
+        early = _reconcile_agent_topup(session, chain_id, record, additional, stake_id)
+        if early is not None:
+            return early
+        # #2628: queue BEFORE the amount commits — a refused queue leaves
+        # the record untouched so the retry re-runs cleanly.
+        tx_hash = queue_protocol_transfer(
+            sender=user,
+            recipient=stake_escrow_address(),
+            amount=additional,
+            chain_id=chain_id,
+            tx_type="STAKE_LOCK",
+            # additional_amount marks the lock as a top-up so status reads can
+            # tell it apart from the stake's original lock (#2456).
+            payload={"agent_stake_id": str(stake_id), "lock_days": record.lock_period, "additional_amount": additional},
+            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
+        )
         record.amount += additional
         record.updated_at = datetime.now(UTC)
         session.add(record)
@@ -297,17 +355,6 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         session.refresh(record)
         total_amount = record.amount
 
-    tx_hash = queue_protocol_transfer(
-        sender=user,
-        recipient=stake_escrow_address(),
-        amount=additional,
-        chain_id=chain_id,
-        tx_type="STAKE_LOCK",
-        # additional_amount marks the lock as a top-up so status reads can
-        # tell it apart from the stake's original lock (#2456).
-        payload={"agent_stake_id": str(stake_id), "lock_days": record.lock_period, "additional_amount": additional},
-        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-    )
     return {
         "success": True,
         "stake_id": str(stake_id),
@@ -320,6 +367,96 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         "transaction_hash": tx_hash,
         "message": "Stake top-up submitted to mempool; the balance moves when the transaction is included in a block",
     }
+
+
+def _reconcile_agent_topup(
+    session: Session, chain_id: str, record: AgentStakeRecord, additional: int, stake_id: str
+) -> dict[str, Any] | None:
+    """#2628: settle a top-up whose STAKE_LOCK is already queued or sealed.
+
+    ``record.amount`` must equal the sealed lock total once every queued
+    lock has applied. For a matching lock (same ``agent_stake_id`` +
+    ``additional_amount``) the record either already counts it
+    (idempotent return), still owes the delta (a previous attempt died
+    between queue and commit — apply it now, no second queue), or sits
+    among other unresolved top-ups (409 — never guess).
+    """
+    lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id)
+    accounted = sum(int(tx.value or 0) for tx in lock_txs)
+    match_sealed = any(str((tx.payload or {}).get("additional_amount", "")) == str(additional) for tx in lock_txs)
+    # A pending lock's value is not in ``accounted`` yet; a sealed one's is.
+    match_pending = protocol_transfer_pending(
+        session,
+        chain_id,
+        "STAKE_LOCK",
+        {"agent_stake_id": str(stake_id), "additional_amount": additional},
+    )
+    if match_pending:
+        applied_state = accounted + additional
+    elif match_sealed:
+        applied_state = accounted
+    else:
+        return None
+    if record.amount == applied_state:
+        already = True
+    elif record.amount == applied_state - additional:
+        record.amount += additional
+        record.updated_at = datetime.now(UTC)
+        session.add(record)
+        session.commit()
+        already = False
+    else:
+        raise HTTPException(
+            status_code=409,
+            detail="Unresolved agent-stake top-ups in flight; retry after the pending locks seal",
+        )
+    return {
+        "success": True,
+        "stake_id": str(stake_id),
+        "amount": additional,
+        "added_amount": additional,
+        "new_total": record.amount,
+        "transaction_hash": None,
+        "already_queued": already,
+        "message": "Stake top-up lock already queued; the balance moves when the transaction is included in a block",
+    }
+
+
+def _queue_unbond_marker_and_flip(
+    session: Session,
+    chain_id: str,
+    record: AgentStakeRecord,
+    stake_id: str,
+    amount: int,
+    payload: dict[str, Any],
+    signature: Any,
+) -> tuple[str | None, bool]:
+    """#2628: queue the STAKE_UNBOND marker BEFORE the row flips.
+
+    A refused queue raises before any commit, leaving the stake active so
+    the retry re-runs cleanly. A marker already pending means a previous
+    attempt died after queueing — flip the row without emitting a second
+    marker. Returns ``(tx_hash, marker_pending)``.
+    """
+    marker_pending = protocol_transfer_pending(session, chain_id, "STAKE_UNBOND", {"agent_stake_id": str(stake_id)})
+    tx_hash = None
+    if not marker_pending:
+        tx_hash = queue_protocol_transfer(
+            sender=stake_escrow_address(),
+            recipient=stake_escrow_address(),
+            amount=amount,
+            chain_id=chain_id,
+            tx_type="STAKE_UNBOND",
+            payload={"agent_stake_id": str(stake_id)},
+            auth={"signer": operator_address(), "message": payload, "signature": signature},
+        )
+    now = datetime.now(UTC)
+    record.status = "unbonding"
+    record.unbonding_at = now
+    record.updated_at = now
+    session.add(record)
+    session.commit()
+    return tx_hash, marker_pending
 
 
 @rate_limit(rate=20, per=60)
@@ -362,11 +499,9 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         if now < locked_until:
             raise HTTPException(status_code=400, detail=f"Lock period not expired. Locked until: {locked_until.isoformat()}")
         amount = record.amount
-        record.status = "unbonding"
-        record.unbonding_at = now
-        record.updated_at = now
-        session.add(record)
-        session.commit()
+        tx_hash, marker_pending = _queue_unbond_marker_and_flip(
+            session, chain_id, record, stake_id, amount, payload, body.get("signature")
+        )
 
     # STAKE_UNBOND marker (Option A, #719): the agent_stake row is
     # node-local, so the unbond transition was invisible off the serving
@@ -376,15 +511,6 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
     # transition lands in sealed history on every host and the status read
     # becomes derivable from tx rows. Idempotent calls above return before
     # this and cannot double-emit.
-    tx_hash = queue_protocol_transfer(
-        sender=stake_escrow_address(),
-        recipient=stake_escrow_address(),
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_UNBOND",
-        payload={"agent_stake_id": str(stake_id)},
-        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-    )
     # "unbonding" is not "released" — funds stay locked until `complete`
     # emits the STAKE_RELEASE transfer. The response says so outright so
     # callers can't read the ok-shape as a finished unbond (Refs #719).
@@ -395,6 +521,7 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         "funds_released": False,
         "next": "complete",
         "transaction_hash": tx_hash,
+        "already_queued": marker_pending,
         "message": "Unbond marker submitted to mempool; the transition is consensus-visible once it is included in a block",
     }
 
@@ -495,32 +622,47 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
                 "resolved": {"to": user, "amount": amount},
             }
         require_signed_transfer_values(payload, to=user, amount=amount)
+        if protocol_transfer_pending(session, chain_id, "STAKE_RELEASE", {"agent_stake_id": str(stake_id)}):
+            # #2628: a previous attempt queued the release but died before
+            # the row flipped — the payout is already on its way, so answer
+            # success without queueing a duplicate. The row stays
+            # "unbonding" so a dropped mempool entry still retries cleanly.
+            return {
+                "success": True,
+                "stake_id": str(stake_id),
+                "status": "unbonding",
+                "amount": amount,
+                "release_pending": True,
+                "message": "Stake release already queued; the balance moves when the transaction is included in a block",
+            }
+        # #2628: queue BEFORE the row flips — a refused queue leaves the
+        # stake unbonding so the retry re-runs the release instead of
+        # answering idempotent success for a payout that never queued.
+        tx_hash = queue_protocol_transfer(
+            sender=stake_escrow_address(),
+            recipient=user,
+            amount=amount,
+            chain_id=chain_id,
+            tx_type="STAKE_RELEASE",
+            payload={
+                "agent_stake_id": str(stake_id),
+                # v4: the release spends exactly these replicated lock records.
+                "lock_tx_hashes": [tx.tx_hash for tx in lock_txs],
+            },
+            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
+        )
         record.status = "completed"
         record.updated_at = datetime.now(UTC)
         session.add(record)
         session.commit()
-
-    tx_hash = queue_protocol_transfer(
-        sender=stake_escrow_address(),
-        recipient=user,
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_RELEASE",
-        payload={
-            "agent_stake_id": str(stake_id),
-            # v4: the release spends exactly these replicated lock records.
-            "lock_tx_hashes": [tx.tx_hash for tx in lock_txs],
-        },
-        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
-    )
-    return {
-        "success": True,
-        "stake_id": str(stake_id),
-        "status": "completed",
-        "amount": amount,
-        "transaction_hash": tx_hash,
-        "message": "Stake release submitted to mempool; the balance moves when the transaction is included in a block",
-    }
+        return {
+            "success": True,
+            "stake_id": str(stake_id),
+            "status": "completed",
+            "amount": amount,
+            "transaction_hash": tx_hash,
+            "message": "Stake release submitted to mempool; the balance moves when the transaction is included in a block",
+        }
 
 
 def _write_memo(kind: str, body: dict[str, Any]) -> dict[str, Any]:
