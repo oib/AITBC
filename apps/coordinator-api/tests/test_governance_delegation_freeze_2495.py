@@ -36,7 +36,7 @@ def _get(db, pid: str) -> GovernanceProfile:
     return db.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == pid)).one()
 
 
-def _open_proposal(db) -> Proposal:
+def _open_proposal(db, *, voted: bool = False) -> Proposal:
     now = datetime.now(UTC).replace(tzinfo=None)
     prop = Proposal(
         proposer_id="p0",
@@ -45,6 +45,7 @@ def _open_proposal(db) -> Proposal:
         status=ProposalStatus.ACTIVE,
         voting_starts=now - timedelta(hours=1),
         voting_ends=now + timedelta(days=1),
+        votes_for=5.0 if voted else 0.0,
     )
     db.add(prop)
     db.commit()
@@ -66,20 +67,21 @@ def _closed_proposal(db) -> Proposal:
     return prop
 
 
-def _open_grant(db) -> GrantProposal:
+def _open_grant(db, *, voted: bool = False) -> GrantProposal:
     grant = GrantProposal(
         developer_id="dev-1",
         title="g",
         description="d",
         status=GrantStatus.VOTING,
         voting_ends=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+        votes_for=5.0 if voted else 0.0,
     )
     db.add(grant)
     db.commit()
     return grant
 
 
-def _open_econ(db) -> EconomicParameterProposal:
+def _open_econ(db, *, voted: bool = False) -> EconomicParameterProposal:
     now = datetime.now(UTC).replace(tzinfo=None)
     prop = EconomicParameterProposal(
         proposer_id="p0",
@@ -87,6 +89,7 @@ def _open_econ(db) -> EconomicParameterProposal:
         status=EconomicProposalStatus.SUBMITTED,
         voting_starts=now,
         voting_ends=now + timedelta(days=1),
+        votes_for=5.0 if voted else 0.0,
     )
     db.add(prop)
     db.commit()
@@ -97,7 +100,7 @@ def test_delegate_blocked_while_governance_vote_open(db_session):
     svc = GovernanceService(db_session)
     _profile(db_session, "d1")
     _profile(db_session, "e1")
-    _open_proposal(db_session)
+    _open_proposal(db_session, voted=True)
 
     with pytest.raises(ValueError, match="delegation is locked"):
         svc.delegate_votes("d1", "e1")
@@ -110,7 +113,7 @@ def test_delegate_blocked_while_grant_vote_open(db_session):
     svc = GovernanceService(db_session)
     _profile(db_session, "d2")
     _profile(db_session, "e2")
-    _open_grant(db_session)
+    _open_grant(db_session, voted=True)
 
     with pytest.raises(ValueError, match="delegation is locked"):
         svc.delegate_votes("d2", "e2")
@@ -120,7 +123,7 @@ def test_delegate_blocked_while_economic_vote_open(db_session):
     svc = GovernanceService(db_session)
     _profile(db_session, "d3")
     _profile(db_session, "e3")
-    _open_econ(db_session)
+    _open_econ(db_session, voted=True)
 
     with pytest.raises(ValueError, match="delegation is locked"):
         svc.delegate_votes("d3", "e3")
@@ -144,7 +147,36 @@ def test_redelegate_same_target_allowed_during_open_vote(db_session):
     _profile(db_session, "d5")
     _profile(db_session, "e5")
     svc.delegate_votes("d5", "e5")
-    _open_proposal(db_session)
+    _open_proposal(db_session, voted=True)
 
     svc.delegate_votes("d5", "e5")  # no-op path, must not raise
     assert _get(db_session, "d5").delegate_to == "e5"
+
+
+def test_delegate_allowed_while_contests_unvoted(db_session):
+    """#2512: an opened-but-unvoted contest freezes nothing — any user could
+    otherwise lock delegation globally just by proposing. The freeze only
+    engages once a contest's tally has counted stake."""
+    svc = GovernanceService(db_session)
+    _profile(db_session, "d6")
+    _profile(db_session, "e6")
+    _open_proposal(db_session)  # unvoted
+    _open_grant(db_session)  # unvoted
+    _open_econ(db_session)  # unvoted
+
+    svc.delegate_votes("d6", "e6")
+    assert _get(db_session, "d6").delegate_to == "e6"
+
+
+def test_delegate_blocked_when_any_voted_contest_open(db_session):
+    """#2512: one voted contest among several unvoted ones still freezes —
+    counted stake must not move while its window is open."""
+    svc = GovernanceService(db_session)
+    _profile(db_session, "d7")
+    _profile(db_session, "e7")
+    _open_proposal(db_session)  # unvoted
+    _open_grant(db_session, voted=True)
+    _open_econ(db_session)  # unvoted
+
+    with pytest.raises(ValueError, match="delegation is locked"):
+        svc.delegate_votes("d7", "e7")
