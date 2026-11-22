@@ -11,6 +11,15 @@ new port or listener; the reading is at most one interval stale.
 A snapshot written by the same process is skipped on read (single-process
 deployments already render the registry directly — appending it again would
 duplicate every series).
+
+Both processes import ``aitbc_chain.metrics`` and register the same names,
+so a naive append exposes shared series twice — duplicate samples AND
+duplicate ``# TYPE`` lines, which strict parsers reject and Prometheus
+counts as dropped duplicates (#2488). ``with_node_snapshot`` therefore
+drops every snapshot series (sample, TYPE and HELP lines) whose name the
+RPC render already carries; node-only names pass through untouched. The
+RPC process's own value wins for shared names — the node process is also
+scraped directly on its own port, so no data is lost.
 """
 
 from __future__ import annotations
@@ -66,6 +75,52 @@ def read_snapshot(path: Path | None = None, max_age: float | None = None) -> str
     return rest
 
 
+def _exposition_names(rendered: bytes) -> set[str]:
+    """Metric names in an exposition: TYPE/HELP subjects plus sample names.
+
+    Sample names matter for summaries — ``foo`` renders ``foo_count`` /
+    ``foo_sum`` samples under one ``# TYPE foo summary`` line, and the
+    snapshot's copies of those samples must dedup against the RPC render's
+    sample names, not just its TYPE subjects.
+    """
+    names: set[str] = set()
+    for raw in rendered.decode("utf-8", "replace").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            parts = line.split()
+            if len(parts) >= 3 and parts[1] in ("TYPE", "HELP"):
+                names.add(parts[2])
+            continue
+        names.add(line.split("{", 1)[0].split()[0])
+    return names
+
+
+def _drop_known_series(node_metrics: str, known: set[str]) -> str:
+    """Snapshot text minus every series ``known`` already exposes.
+
+    Drops matching sample lines and the ``# TYPE``/``# HELP`` lines that
+    would otherwise duplicate them; comments and node-only families pass
+    through unchanged.
+    """
+    kept: list[str] = []
+    for line in node_metrics.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            parts = stripped.split()
+            if len(parts) >= 3 and parts[1] in ("TYPE", "HELP") and parts[2] in known:
+                continue
+            kept.append(line)
+            continue
+        if stripped.split("{", 1)[0].split()[0] in known:
+            continue
+        kept.append(line)
+    return "\n".join(kept) + ("\n" if kept else "")
+
+
 def with_node_snapshot(rendered: bytes) -> bytes:
     """``rendered`` plus the node-process snapshot when enabled and fresh."""
     if not getattr(settings, "node_metrics_snapshot_enabled", True):
@@ -73,7 +128,10 @@ def with_node_snapshot(rendered: bytes) -> bytes:
     node_metrics = read_snapshot()
     if not node_metrics.strip():
         return rendered
-    return rendered + b"\n# node-process registry (snapshot)\n" + node_metrics.encode()
+    filtered = _drop_known_series(node_metrics, _exposition_names(rendered))
+    if not filtered.strip():
+        return rendered
+    return rendered + b"\n# node-process registry (snapshot)\n" + filtered.encode()
 
 
 async def snapshot_loop() -> None:
