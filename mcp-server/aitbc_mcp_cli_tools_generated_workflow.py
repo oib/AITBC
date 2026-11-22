@@ -102,16 +102,16 @@ def aitbc_workflow_run(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_workflow_status(
-    workflow_name: Annotated[str, Field(description="The Workflow name.")],
+    execution_id: Annotated[str, Field(description="The execution ID printed by `workflow run`.")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the execution status of a workflow by name (admin-only)."""
+    """Get the status of a workflow execution by its execution ID (admin-only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"workflow_name": "workflow-name"},
+        values={"execution_id": "execution-id"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -127,18 +127,19 @@ def aitbc_workflow_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_workflow_stop(
-    workflow_name: Annotated[str, Field(description="The Workflow name.")],
+    workflow_name: Annotated[str, Field(description="The Workflow name (id) the execution belongs to.")],
+    execution_id: Annotated[str, Field(description="The execution ID printed by `workflow run`.")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop a running workflow by its execution ID (admin-only)."""
+    """Stop a running workflow execution (admin-only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"workflow_name": "workflow-name"},
+        values={"workflow_name": "workflow-name", "execution_id": "execution-id"},
     )
     args = None
     target = _host_for_role(role, host)

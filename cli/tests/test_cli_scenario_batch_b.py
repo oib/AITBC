@@ -324,7 +324,7 @@ def test_workflow_status_403_names_admin_gate(runner):
         patch("aitbc_cli.commands.workflow.auth_headers", return_value={}),
         patch("httpx.get", return_value=resp),
     ):
-        result = runner.invoke(status_cmd, ["--workflow-name", "gpu-market"], obj={"output_format": "table"})
+        result = runner.invoke(status_cmd, ["--execution-id", "exec-1"], obj={"output_format": "table"})
 
     assert result.exit_code != 0
     assert "admin-role credential" in result.output

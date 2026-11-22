@@ -2,7 +2,7 @@
 
 # `aitbc workflow stop`
 
-Stop a running workflow by its execution ID (admin-only).
+Stop a running workflow execution (admin-only). The cancel route needs both ids: ``workflow_name`` selects the workflow in the path and ``execution_id`` the execution to cancel.
 
 ## Usage
 
@@ -14,10 +14,11 @@ aitbc workflow stop [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--workflow-name` | text | — | yes | The Workflow name. |
+| `--workflow-name` | text | — | yes | The Workflow name (id) the execution belongs to. |
+| `--execution-id` | text | — | yes | The execution ID printed by `workflow run`. |
 
 ## Examples
 
 ```bash
-aitbc workflow stop --workflow-name <workflow_name>
+aitbc workflow stop --workflow-name <workflow_name> --execution-id <execution_id>
 ```
