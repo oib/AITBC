@@ -735,7 +735,7 @@
           "exchange"
         ],
         "summary": "Complete Deposit",
-        "description": "Mark a deposit as completed after AIT minting (admin operation).",
+        "description": "Mark a deposit as completed after AIT minting (admin operation).\n\nAn optional ``{\"tx_hash\": \"0x\u2026\"}`` body records the AIT transfer hash on\nthe row (#2550) \u2014 the CLI has always sent it and the endpoint used to\ndrop it, leaving ``ait_tx_hash`` NULL forever.",
         "operationId": "complete_deposit_v1_exchange_deposits__deposit_id__complete_post",
         "parameters": [
           {
@@ -748,6 +748,24 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -772,7 +790,7 @@
             }
           },
           "400": {
-            "description": "Deposit must be verified first",
+            "description": "Deposit must be verified first / tx_hash must be a 0x-prefixed 32-byte hex hash",
             "content": {
               "application/json": {
                 "schema": {

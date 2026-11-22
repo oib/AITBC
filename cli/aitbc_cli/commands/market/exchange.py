@@ -1,4 +1,5 @@
 import os
+import time
 
 """
 Exchange subgroup and exchange commands
@@ -7,6 +8,9 @@ Exchange subgroup and exchange commands
 from decimal import Decimal
 
 import click
+
+from aitbc.exceptions import ValidationError
+from aitbc.utils.validation import validate_address_strict
 
 from ...config import get_config
 from ...utils import DECIMAL, error, info, success, warning
@@ -134,11 +138,16 @@ def list_deposits(ctx, status: str, limit: int):
         raise click.Abort() from e
 
 
-def _pending_deposit(client: AITBCHTTPClient, deposit_id: str) -> dict:
-    """Fetch a deposit and require status 'pending'."""
+def _mintable_deposit(client: AITBCHTTPClient, deposit_id: str) -> dict:
+    """Fetch a deposit and require a mintable status.
+
+    'verified' counts: a run that verified the deposit and then failed
+    before completing must be resumable, or the row strands forever
+    (#2545).
+    """
     deposit = client.get(f"/v1/exchange/deposits/{deposit_id}")
-    if deposit["status"] != "pending":
-        error(f"Deposit is not pending (current status: {deposit['status']})")
+    if deposit["status"] not in ("pending", "verified"):
+        error(f"Deposit is not mintable (current status: {deposit['status']}); expected pending or verified")
         raise click.Abort()
     return deposit
 
@@ -152,12 +161,45 @@ def _confirm_mint(deposit: dict) -> bool:
     return click.confirm("Verify this deposit and mint AIT tokens?")
 
 
-def _verify_deposit(client: AITBCHTTPClient, deposit_id: str) -> None:
+def _verify_deposit(client: AITBCHTTPClient, deposit_id: str, status: str) -> None:
+    if status == "verified":
+        info("Deposit already verified; resuming the mint")
+        return
     verify_response = client.post(f"/v1/exchange/deposits/{deposit_id}/verify")
     if not verify_response.get("success"):
         error(f"Failed to verify deposit: {verify_response}")
         raise click.Abort()
     success(f"Deposit verified: {deposit_id}")
+
+
+def _mint_recipient(deposit: dict) -> str:
+    """The deposit's recorded AIT recipient — the ETH sender named it at
+    deposit time; paying the operator's configured wallet instead strands
+    the minted AIT (#2547)."""
+    recipient = str(deposit.get("recipient") or "").strip()
+    if not recipient:
+        error("Deposit carries no AIT recipient address; refusing to pay the operator wallet instead")
+        raise click.Abort()
+    try:
+        return validate_address_strict(recipient)
+    except ValidationError as exc:
+        error(f"Deposit recipient is not a valid AIT address: {exc}")
+        raise click.Abort() from exc
+
+
+def _treasury_preflight(config, deposit: dict) -> None:
+    """Every fallible transfer precondition that must pass BEFORE the deposit
+    flips to 'verified' — a failure after the flip used to strand the row
+    because the CLI refused to re-run it (#2545)."""
+    genesis_wallet_address = getattr(config, "genesis_wallet_address", "")
+    blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+    secret = getattr(config, "genesis_wallet_private_key", None)
+    if secret is None:
+        error(f"No signing key for {genesis_wallet_address}; cannot authorise the transfer.")
+        error("Set GENESIS_WALLET_PRIVATE_KEY to the key controlling that address.")
+        raise click.Abort()
+    _mint_recipient(deposit)
+    _treasury_sender_nonce(genesis_wallet_address, blockchain_rpc_url)
 
 
 def _treasury_sender_nonce(genesis_wallet_address: str, blockchain_rpc_url: str) -> int:
@@ -178,18 +220,38 @@ def _treasury_sender_nonce(genesis_wallet_address: str, blockchain_rpc_url: str)
     return nonce
 
 
+def _treasury_next_nonce(genesis_wallet_address: str, sealed_nonce: int, chain_id, blockchain_rpc_url: str) -> int:
+    """Sealed nonce advanced past the sender's pending mempool slots (#2546):
+    the account nonce does not move while earlier transfers sit in the
+    mempool, so consecutive mints signing it collide on the (sender, nonce)
+    slot."""
+    from ...utils.nonce import pending_nonce_floor
+
+    client = AITBCHTTPClient(base_url=blockchain_rpc_url, timeout=10)
+    floor = pending_nonce_floor(client, genesis_wallet_address, sealed_nonce, chain_id)
+    if floor is None:
+        warning(
+            f"Pending-nonce probe failed for {genesis_wallet_address}; using sealed nonce "
+            f"{sealed_nonce} — a concurrent mint can collide on the nonce slot"
+        )
+        return sealed_nonce
+    return floor
+
+
 def _treasury_transfer_tx(
     config,
     genesis_wallet_address: str,
-    wallet_address,
+    recipient: str,
     deposit_amount_ait: Decimal,
     chain_id,
     blockchain_rpc_url: str,
+    deposit_id: str,
 ) -> str:
     """Sign and submit the treasury AIT transfer; return the tx hash."""
     import httpx
 
-    nonce = _treasury_sender_nonce(genesis_wallet_address, blockchain_rpc_url)
+    sealed_nonce = _treasury_sender_nonce(genesis_wallet_address, blockchain_rpc_url)
+    nonce = _treasury_next_nonce(genesis_wallet_address, sealed_nonce, chain_id, blockchain_rpc_url)
 
     # Build transaction payload for AIT transfer
     fee_ait = Decimal("0.01")
@@ -200,11 +262,13 @@ def _treasury_transfer_tx(
         "type": "TRANSFER",
         "chain_id": chain_id,
         "from": genesis_wallet_address,
-        "to": wallet_address,
+        "to": recipient,
         "amount": amount_seconds,
         "fee": fee_seconds,
         "nonce": nonce,
-        "payload": {"amount": amount_seconds},
+        # deposit_id binds the transfer to its deposit on-chain so a resumed
+        # mint can find and adopt this submission instead of paying twice.
+        "payload": {"amount": amount_seconds, "deposit_id": deposit_id},
     }
 
     # The endpoint has rejected unsigned transactions since v0.10.13 (403 "Signature
@@ -242,29 +306,169 @@ def _complete_mint(client: AITBCHTTPClient, deposit_id: str, tx_hash) -> None:
     raise click.Abort()
 
 
-def _transfer_ait(
-    config,
-    client: AITBCHTTPClient,
-    deposit_id: str,
-    deposit: dict,
-    deposit_amount_ait: Decimal,
-) -> None:
-    """Transfer AIT tokens from the treasury wallet (fixed supply, no minting)."""
-    wallet_address = getattr(config, "wallet_address", None) or os.environ.get("WALLET_ADDRESS")
-    chain_id = getattr(config, "chain_id", None)
-    genesis_wallet_address = getattr(config, "genesis_wallet_address", "")
-    blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+_MINT_SEAL_TIMEOUT_SECONDS = 300.0
+_MINT_SEAL_POLL_SECONDS = 5.0
+
+
+def _mint_chain_get(path: str, blockchain_rpc_url: str):
+    """GET a chain RPC path; aborts when the answer cannot be trusted.
+
+    The dedup and seal-wait probes are money-path reads: an unreadable
+    answer cannot prove there is no earlier transfer, so the run stops
+    rather than risk a second payment.
+    """
+    import httpx
 
     try:
-        import httpx  # noqa: F401  (import surface preserved; used by helpers)
+        resp = httpx.get(f"{blockchain_rpc_url}{path}", timeout=10)
+    except httpx.RequestError as e:
+        error(f"Chain RPC unreachable at {blockchain_rpc_url}: {e}")
+        raise click.Abort() from e
+    if resp.status_code != 200:
+        error(f"Chain RPC GET {path} failed: {resp.status_code} {resp.text[:200]}")
+        raise click.Abort()
+    return resp.json()
 
-        tx_hash = _treasury_transfer_tx(
-            config, genesis_wallet_address, wallet_address, deposit_amount_ait, chain_id, blockchain_rpc_url
+
+def _mint_tx_queries(deposit_id: str, sender: str, chain_id, blockchain_rpc_url: str) -> tuple[str | None, bool]:
+    """``(sealed mint tx_hash | None, pending mint tx seen)`` for ``deposit_id``.
+
+    Scans the sealed transaction table first, then the proposer mempool, both
+        filtered client-side on ``payload.deposit_id`` — the binding the transfer
+        itself carries (#2545/#2546).
+    """
+    query = f"?transaction_type=TRANSFER&sender={sender}&limit=100"
+    if chain_id:
+        query += f"&chain_id={chain_id}"
+    sealed = _mint_chain_get(f"/rpc/transactions{query}", blockchain_rpc_url)
+    for tx in sealed if isinstance(sealed, list) else []:
+        if not isinstance(tx, dict):
+            continue
+        payload = tx.get("payload") or {}
+        if payload.get("deposit_id") == deposit_id and tx.get("tx_hash"):
+            return str(tx["tx_hash"]), True
+
+    mempool_query = f"?limit=500{('&chain_id=' + str(chain_id)) if chain_id else ''}"
+    mempool = _mint_chain_get(f"/rpc/mempool{mempool_query}", blockchain_rpc_url)
+    pending = False
+    for tx in (mempool.get("transactions") if isinstance(mempool, dict) else None) or []:
+        if not isinstance(tx, dict):
+            continue
+        payload = tx.get("payload") or {}
+        tx_sender = str(tx.get("from") or tx.get("sender") or "")
+        if payload.get("deposit_id") == deposit_id and tx_sender.lower() == sender.lower():
+            pending = True
+            break
+    return None, pending
+
+
+def _prior_mint_tx_hash(deposit: dict, sender: str, chain_id, blockchain_rpc_url: str) -> str | None:
+    """tx_hash of an earlier mint transfer for this deposit, if one exists.
+
+    A ``ait_tx_hash`` already recorded on the row wins outright. Otherwise
+    the chain is asked: a sealed match is adopted directly; a pending match
+    means a previous run's transfer is still in flight — wait for it to seal
+    or die rather than signing a second payment for the same deposit.
+    """
+    recorded = deposit.get("ait_tx_hash")
+    if recorded:
+        return str(recorded)
+
+    deposit_id = str(deposit.get("id") or "")
+    if not deposit_id:
+        return None
+    sealed_hash, pending_seen = _mint_tx_queries(deposit_id, sender, chain_id, blockchain_rpc_url)
+    if sealed_hash:
+        return sealed_hash
+    if not pending_seen:
+        return None
+
+    deadline = time.monotonic() + _MINT_SEAL_TIMEOUT_SECONDS
+    while True:
+        if time.monotonic() >= deadline:
+            error(
+                f"An earlier mint transfer for deposit {deposit_id} is still pending after "
+                f"{_MINT_SEAL_TIMEOUT_SECONDS:.0f}s; retry mint-ait later instead of risking a second payment"
+            )
+            raise click.Abort()
+        time.sleep(_MINT_SEAL_POLL_SECONDS)
+        sealed_hash, pending_seen = _mint_tx_queries(deposit_id, sender, chain_id, blockchain_rpc_url)
+        if sealed_hash:
+            return sealed_hash
+        if not pending_seen:
+            # Dropped from the mempool without sealing — safe to submit fresh.
+            return None
+
+
+def _wait_tx_sealed(tx_hash: str, config) -> None:
+    """Block until the transfer is sealed before /complete runs (#2546):
+    mempool admission is not payment — an unsealed hash can still die, and
+    the deposit would read 'completed' for money that never landed."""
+    import httpx
+
+    chain_id = getattr(config, "chain_id", None)
+    blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+    query = f"?chain_id={chain_id}" if chain_id else ""
+    deadline = time.monotonic() + _MINT_SEAL_TIMEOUT_SECONDS
+    while True:
+        try:
+            resp = httpx.get(f"{blockchain_rpc_url}/rpc/transaction/{tx_hash}{query}", timeout=10)
+        except httpx.RequestError as e:
+            error(f"Chain RPC unreachable at {blockchain_rpc_url}: {e}")
+            raise click.Abort() from e
+        if resp.status_code == 200:
+            body = resp.json() or {}
+            if body.get("status") == "confirmed" and body.get("block_height") is not None:
+                return
+            if body.get("status") == "rejected":
+                error(f"Mint transfer {tx_hash} was rejected on-chain; deposit left verified — investigate before re-running")
+                raise click.Abort()
+        elif resp.status_code != 404:
+            error(f"Transaction lookup for {tx_hash} failed: {resp.status_code} {resp.text[:200]}")
+            raise click.Abort()
+        if time.monotonic() >= deadline:
+            error(
+                f"Mint transfer {tx_hash} did not seal within {_MINT_SEAL_TIMEOUT_SECONDS:.0f}s; "
+                "deposit left verified — re-run mint-ait to resume"
+            )
+            raise click.Abort()
+        time.sleep(_MINT_SEAL_POLL_SECONDS)
+
+
+def _transfer_ait(
+    config,
+    deposit: dict,
+    deposit_amount_ait: Decimal,
+    recipient: str,
+) -> str:
+    """Return the tx hash paying the deposit's AIT amount to its recipient.
+
+    Adopts an earlier submission for the same deposit — recorded on the row,
+    sealed, or still pending — instead of signing a second payment, so a
+    resumed run can never double-mint (#2545/#2546).
+    """
+    import httpx
+
+    genesis_wallet_address = getattr(config, "genesis_wallet_address", "")
+    chain_id = getattr(config, "chain_id", None)
+    blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+    deposit_id = str(deposit.get("id") or "")
+
+    try:
+        prior_hash = _prior_mint_tx_hash(deposit, genesis_wallet_address, chain_id, blockchain_rpc_url)
+        if prior_hash:
+            info(f"Reusing earlier mint transfer {prior_hash[:18]}… for this deposit")
+            return prior_hash
+
+        return _treasury_transfer_tx(
+            config,
+            genesis_wallet_address,
+            recipient,
+            deposit_amount_ait,
+            chain_id,
+            blockchain_rpc_url,
+            deposit_id,
         )
-
-        _complete_mint(client, deposit_id, tx_hash)
-        success(f"Transferred {deposit_amount_ait:.2f} AIT to {wallet_address} (tx: {tx_hash[:16]}...)")
-
     except httpx.RequestError as e:
         error(f"Network error contacting blockchain: {e}")
         raise click.Abort() from e
@@ -289,15 +493,26 @@ def mint_ait(ctx, deposit_id: str):
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
 
-        deposit = _pending_deposit(client, deposit_id)
+        deposit = _mintable_deposit(client, deposit_id)
         deposit_amount_ait = Decimal(deposit.get("amount_ait", 0))
 
         if not _confirm_mint(deposit):
             info("Cancelled")
             return
 
-        _verify_deposit(client, deposit_id)
-        _transfer_ait(config, client, deposit_id, deposit, deposit_amount_ait)
+        # Every fallible transfer precondition runs BEFORE the status flip:
+        # verifying first and then failing on the key, the treasury account
+        # or the submit used to strand the deposit at 'verified' with no way
+        # to re-run (#2545). The deposit's own recipient is paid, never the
+        # operator wallet (#2547).
+        recipient = _mint_recipient(deposit)
+        _treasury_preflight(config, deposit)
+
+        _verify_deposit(client, deposit_id, deposit["status"])
+        tx_hash = _transfer_ait(config, deposit, deposit_amount_ait, recipient)
+        _wait_tx_sealed(tx_hash, config)
+        _complete_mint(client, deposit_id, tx_hash)
+        success(f"Transferred {deposit_amount_ait:.2f} AIT to {recipient} (tx: {tx_hash[:16]}...)")
 
     except NetworkError as e:
         error(f"Network error: {e}")
