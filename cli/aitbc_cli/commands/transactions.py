@@ -31,8 +31,10 @@ from ..utils.wallet_paths import (
     WalletSearchResult,
     ambiguous_wallet_note,
     find_wallet_file_report,
+    multisig_recipient_refusal,
     service_dir_wallet_note,
     wallet_not_found_message,
+    wallet_search_dirs,
 )
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 
@@ -373,6 +375,17 @@ def _confirm_env_key_send(
     )
 
 
+def _refuse_multisig_recipient(to_address: str) -> None:
+    """#2499: abort when ``to_address`` is a recorded multisig address.
+
+    The lookup lives in ``utils.wallet_paths`` and scans every wallet
+    search dir — ``wallet send`` shares the same gate.
+    """
+    refusal = multisig_recipient_refusal(to_address, wallet_search_dirs())
+    if refusal is not None:
+        abort(None, refusal)
+
+
 def _send_transaction_impl(
     from_wallet: str | None,
     to_address: str,
@@ -408,6 +421,12 @@ def _send_transaction_impl(
         logger.error("Invalid recipient address: %s", e)
         abort(None, f"Invalid recipient address: {e}")
         return None
+
+    # #2499: a locally recorded multisig address has no spendable key —
+    # funding it burns the funds. Every send through this impl (send,
+    # batch, MCP transactions_send, bond/exchange/ipfs/messaging payouts)
+    # shares the #2362 guard; it previously covered only ``wallet send``.
+    _refuse_multisig_recipient(to_address)
 
     if not _validate_send_amount(tx_type, amount):
         return None
