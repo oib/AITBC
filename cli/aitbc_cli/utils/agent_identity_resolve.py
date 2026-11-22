@@ -9,6 +9,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.exceptions import AITBCError
 
 from ..config import get_config
+from .chain_id import agent_registry_chain_id
 from .error_handling import abort
 from .http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, service_root_url
 
@@ -46,16 +47,22 @@ def resolve_escrow_parties(
     provider: str | None,
     buyer_agent_id: str | None = None,
     provider_agent_id: str | None = None,
-    chain_id: int = 1,
+    chain_id: int | str | None = None,
 ) -> tuple[str, str, str | None, str | None]:
-    """Resolve optional agent ids to payment addresses; verify explicit addresses match."""
+    """Resolve optional agent ids to payment addresses; verify explicit addresses match.
+
+    ``chain_id`` accepts the deployment's chain id or name (e.g. ``bc-2``);
+    it is mapped to the integer registry id the resolve API expects here so
+    no caller has to convert (#2584).
+    """
+    registry_chain = agent_registry_chain_id(chain_id)
     if buyer_agent_id:
-        resolved_buyer = resolve_agent_payment_address(ctx, buyer_agent_id, chain_id)
+        resolved_buyer = resolve_agent_payment_address(ctx, buyer_agent_id, registry_chain)
         if buyer and canonical_address(buyer) != resolved_buyer:
             abort(ctx, f"buyer address does not match resolved address for agent {buyer_agent_id!r}")
         buyer = buyer or resolved_buyer
     if provider_agent_id:
-        resolved_provider = resolve_agent_payment_address(ctx, provider_agent_id, chain_id)
+        resolved_provider = resolve_agent_payment_address(ctx, provider_agent_id, registry_chain)
         if provider and canonical_address(provider) != resolved_provider:
             abort(ctx, f"provider address does not match resolved address for agent {provider_agent_id!r}")
         provider = provider or resolved_provider

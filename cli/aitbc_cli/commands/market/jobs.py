@@ -112,7 +112,7 @@ def _escrow_parties_for_market_run(
         provider=provider_address or wallet_address,
         buyer_agent_id=buyer_agent_id,
         provider_agent_id=provider_agent_id,
-        chain_id=int(get_chain_id()),
+        chain_id=get_chain_id(),
     )
     return buyer, provider, ba, pa
 
