@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
@@ -122,6 +122,26 @@ def _require_amount_units(value: Any, field: str = "amount", allow_zero: bool = 
     if units < 0 or (units == 0 and not allow_zero):
         raise HTTPException(status_code=400, detail=f"{field} must be positive")
     return units
+
+
+def _parse_slippage_tolerance(value: Any) -> float:
+    """Slippage tolerance must be a finite fraction in [0, 1] (#2636).
+
+    The bare ``float()`` this replaces answered 500 on garbage and happily
+    accepted NaN, infinities and negatives — all of which then got signed
+    into the swap payload.
+    """
+    if value is None:
+        return 0.01
+    if isinstance(value, bool):
+        raise HTTPException(status_code=400, detail="slippage_tolerance must be a finite fraction in [0, 1]")
+    try:
+        tolerance = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise HTTPException(status_code=400, detail="slippage_tolerance must be a finite fraction in [0, 1]") from None
+    if not tolerance.is_finite() or tolerance < 0 or tolerance > 1:
+        raise HTTPException(status_code=400, detail="slippage_tolerance must be a finite fraction in [0, 1]")
+    return float(tolerance)
 
 
 def _bridge_supported_targets() -> list[str]:
@@ -355,7 +375,7 @@ def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -> dict
     sender = swap_data.get("sender") or swap_data.get("user_address")
     recipient = swap_data.get("recipient") or sender
     signature = swap_data.get("signature")
-    slippage = float(swap_data.get("slippage_tolerance", 0.01))
+    slippage = _parse_slippage_tolerance(swap_data.get("slippage_tolerance"))
 
     if not all([from_chain, to_chain, from_token, to_token, sender, recipient]):
         raise HTTPException(

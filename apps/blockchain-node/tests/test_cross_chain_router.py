@@ -216,6 +216,29 @@ class TestCrossChainSwap:
         assert resp.status_code == 400
         assert "min_amount" in resp.json()["detail"]
 
+    @pytest.mark.parametrize("bad", ["abc", "-0.5", "1.5", "nan", "inf", "-inf", True])
+    def test_swap_rejects_invalid_slippage(self, client: TestClient, engine, sender_account, bad) -> None:
+        """#2636: slippage_tolerance must be a finite fraction in [0, 1] —
+        garbage used to 500 and NaN/inf/negative were signed into the swap."""
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        sign_data = _swap_sign_data(sender_account.address, sender, 1_000, slippage_tolerance=bad)
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+        resp = client.post("/swap", json=payload)
+        assert resp.status_code == 400
+        assert "slippage_tolerance" in resp.json()["detail"]
+
+    @pytest.mark.parametrize("good", [0.0, 0.01, 0.5, 1.0])
+    def test_swap_accepts_valid_slippage_bounds(self, client: TestClient, engine, sender_account, good) -> None:
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        sign_data = _swap_sign_data(sender_account.address, sender, 1_000, slippage_tolerance=good)
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+        resp = client.post("/swap", json=payload)
+        assert resp.status_code == 200
+
     def test_swap_status_reports_honest_pending(self, client: TestClient, engine, sender_account) -> None:
         """A locked-but-unconfirmed swap reports pending, never completed."""
         sender = sender_account.address.lower()

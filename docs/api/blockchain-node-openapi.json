@@ -10509,7 +10509,7 @@
             }
           },
           "400": {
-            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / {field} is required (integer compute-units) / {field} must be integer compute-units (1 AIT = 36,000,000 units) / \u2026",
+            "description": "slippage_tolerance must be a finite fraction in [0, 1] / from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / {field} is required (integer compute-units) / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -22930,7 +22930,7 @@
             }
           },
           "400": {
-            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / {field} is required (integer compute-units) / {field} must be integer compute-units (1 AIT = 36,000,000 units) / \u2026",
+            "description": "slippage_tolerance must be a finite fraction in [0, 1] / from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / {field} is required (integer compute-units) / \u2026",
             "content": {
               "application/json": {
                 "schema": {
