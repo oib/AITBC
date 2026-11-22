@@ -5,6 +5,7 @@ Adds comprehensive miner management commands to AITBC CLI
 """
 
 import argparse
+import os
 import sys
 
 import click
@@ -46,8 +47,23 @@ Examples:
         """,
     )
 
-    parser.add_argument("--coordinator-url", default="http://127.0.0.1:8203", help="Coordinator API URL")
-    parser.add_argument("--api-key", default="miner_prod_key_use_real_value", help="Miner API key")
+    # #2594: defaults read the environment — a hardcoded argparse default
+    # used to win over MINER_API_KEY/COORDINATOR_URL and the placeholder
+    # key was sent as if it were real.
+    parser.add_argument(
+        "--coordinator-url",
+        default=os.getenv("COORDINATOR_URL", "http://127.0.0.1:8203"),
+        help="Coordinator API URL (default: $COORDINATOR_URL or http://127.0.0.1:8203)",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=os.getenv("MINER_API_KEY", ""),
+        help="Miner API key (default: $MINER_API_KEY; prefer --api-key-file or the env var)",
+    )
+    parser.add_argument(
+        "--api-key-file",
+        help="Path to a file containing the miner API key (preferred over --api-key)",
+    )
 
     subparsers = parser.add_subparsers(dest="action", help="Miner management actions")
 
@@ -151,9 +167,21 @@ def _market_kwargs(args, kwargs: dict) -> tuple[str, dict] | None:
     return None
 
 
-def _action_kwargs(args) -> tuple[str, dict] | None:
+def _resolve_api_key(args) -> str:
+    """Key resolution order (#2594): --api-key-file > $MINER_API_KEY > --api-key."""
+    if args.api_key_file:
+        try:
+            with open(args.api_key_file) as f:
+                return f.read().strip()
+        except OSError as e:
+            click.echo(f"❌ Cannot read API key file {args.api_key_file}: {e}")
+            sys.exit(1)
+    return (args.api_key or "").strip()
+
+
+def _action_kwargs(args, api_key: str) -> tuple[str, dict] | None:
     """Map parsed args to the dispatcher's (action, kwargs) pair."""
-    kwargs = {"coordinator_url": args.coordinator_url, "api_key": args.api_key}
+    kwargs = {"coordinator_url": args.coordinator_url, "api_key": api_key}
 
     if args.action == "market":
         return _market_kwargs(args, kwargs)
@@ -208,13 +236,23 @@ def main():
         parser.print_help()
         return
 
-    resolved = _action_kwargs(args)
+    api_key = _resolve_api_key(args)
+    if not api_key:
+        click.echo("❌ No miner API key — set MINER_API_KEY, pass --api-key-file, or --api-key")
+        sys.exit(1)
+
+    resolved = _action_kwargs(args, api_key)
     if resolved is None:
-        return
+        sys.exit(1)
     action, kwargs = resolved
 
     result = miner_cli_dispatcher(action, **kwargs)
     _display_result(action, result)
+
+    # #2538: a failed call must not exit 0 — connection errors, HTTP
+    # failures and unknown actions all surface as ❌/missing results.
+    if not result or str(result.get("status", "")).startswith("❌"):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

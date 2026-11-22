@@ -23,6 +23,17 @@ DEFAULT_COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://127.0.0.1:8203")
 DEFAULT_API_KEY = os.getenv("MINER_API_KEY", "")
 
 
+def _admin_api_key(api_key: str) -> str:
+    """Credential for admin-scoped calls (#2594).
+
+    ``ADMIN_API_KEY`` is the fleet's real admin credential; the legacy
+    ``miner_``→``admin_`` string rewrite stays only as a fallback for
+    callers that have no admin key configured. Read at call time so a
+    rotated env var takes effect without re-import.
+    """
+    return os.getenv("ADMIN_API_KEY") or api_key.replace("miner_", "admin_")
+
+
 def _build_register_caps(
     gpu_memory: int | None,
     models: list | None,
@@ -133,8 +144,7 @@ def get_miner_status(
     """Get miner status and statistics"""
     try:
         # Use admin API key to get miner status
-        admin_api_key = api_key.replace("miner_", "admin_")
-        headers = {"X-Api-Key": admin_api_key}
+        headers = {"X-Api-Key": _admin_api_key(api_key)}
 
         response = requests.get(f"{coordinator_url}/v1/admin/miners", headers=headers, timeout=30)
 
@@ -316,6 +326,34 @@ def submit_job_result(
         return {"action": "result", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
+def _fetch_miner_record(miner_id: str, api_key: str, coordinator_url: str) -> tuple[dict | None, dict | None]:
+    """Current admin view of one miner: ``(record, error_payload)``.
+
+    Exactly one of the two is non-None. Used by ``update_capabilities``
+    to merge partial updates onto the stored record — the PUT route
+    replaces capabilities/concurrency/region wholesale, so a partial
+    body would silently wipe the rest (#2537).
+    """
+    try:
+        response = requests.get(
+            f"{coordinator_url}/v1/admin/miners",
+            headers={"X-Api-Key": _admin_api_key(api_key)},
+            timeout=30,
+        )
+    except requests.exceptions.RequestException as e:
+        return None, {"error": f"cannot read current miner record: {e}"}
+    if response.status_code != 200:
+        return None, {"error": f"cannot read current miner record: HTTP {response.status_code}"}
+    try:
+        miners = response.json().get("items", [])
+    except ValueError:
+        return None, {"error": "cannot read current miner record: invalid response"}
+    record = next((m for m in miners if isinstance(m, dict) and m.get("miner_id") == miner_id), None)
+    if record is None:
+        return None, {"error": f"miner {miner_id} not found"}
+    return record, None
+
+
 def update_capabilities(
     miner_id: str,
     api_key: str = DEFAULT_API_KEY,
@@ -328,16 +366,32 @@ def update_capabilities(
     region: str | None = None,
     wallet: str | None = None,
 ) -> dict | None:
-    """Update miner capabilities"""
+    """Update miner capabilities.
+
+    The PUT route replaces the stored record, so this merges the requested
+    fields onto the miner's current capabilities/concurrency/region
+    (#2537) — a partial update can no longer null out fields the caller
+    did not mention or wipe capabilities it did not resend.
+    """
     try:
-        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
+        current, fetch_error = _fetch_miner_record(miner_id, api_key, coordinator_url)
+        if current is None:
+            return {"action": "update", "status": "❌ Update failed", **(fetch_error or {})}
 
         caps = _build_update_caps(gpu_memory, models, pricing, capabilities)
+        merged_caps = dict(current.get("capabilities") or {})
+        merged_caps.update(caps)
 
-        payload = {"capabilities": caps, "concurrency": concurrency, "region": region}
+        payload = {
+            "capabilities": merged_caps,
+            "concurrency": concurrency if concurrency is not None else current.get("concurrency", 1),
+            "region": region if region is not None else current.get("region"),
+        }
 
         if wallet:
             payload["wallet_address"] = wallet
+
+        headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         response = requests.put(
             f"{coordinator_url}/v1/miners/{miner_id}/capabilities", headers=headers, json=payload, timeout=30
@@ -348,7 +402,7 @@ def update_capabilities(
                 "action": "update",
                 "miner_id": miner_id,
                 "status": "✅ Capabilities updated successfully",
-                "updated_capabilities": caps,
+                "updated_capabilities": merged_caps,
             }
         else:
             return {"action": "update", "status": "❌ Update failed", "error": response.text}
@@ -436,7 +490,7 @@ def list_market_offers(
 ) -> dict | None:
     """List market offers"""
     try:
-        admin_headers = {"X-Api-Key": api_key.replace("miner_", "admin_")}
+        admin_headers = {"X-Api-Key": _admin_api_key(api_key)}
 
         params = {}
         if region:
@@ -447,9 +501,16 @@ def list_market_offers(
         if response.status_code == 200:
             offers = response.json()
 
-            # Filter by miner if specified
+            # Filter by miner if specified — exact match on the offer's
+            # miner identity field (#2595). The old substring scan over
+            # str(o) matched "miner-1" inside "miner-10" and missed ids
+            # with uppercase characters.
             if miner_id:
-                offers = [o for o in offers if miner_id in str(o).lower()]
+                offers = [
+                    o
+                    for o in offers
+                    if isinstance(o, dict) and str(o.get("provider_id") or o.get("provider") or "") == miner_id
+                ]
 
             return {
                 "action": "market_list",
@@ -482,7 +543,7 @@ def create_market_offer(
 ) -> dict | None:
     """Create market offer"""
     try:
-        admin_headers = {"X-Api-Key": api_key.replace("miner_", "admin_")}
+        admin_headers = {"X-Api-Key": _admin_api_key(api_key)}
 
         payload = {"miner_id": miner_id, "price": str(price), "capacity": capacity, "region": region}
 

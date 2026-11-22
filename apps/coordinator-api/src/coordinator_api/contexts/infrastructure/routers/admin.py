@@ -197,6 +197,10 @@ def list_miners(
             "inflight": miner.inflight,
             "concurrency": miner.concurrency,
             "region": miner.region,
+            # #2537: the miner CLI merges partial capability updates onto
+            # this record — without it a PUT would have to resend (or
+            # wipe) fields the caller never mentioned.
+            "capabilities": miner.capabilities,
             "last_heartbeat": miner.last_heartbeat.isoformat(),
             "average_job_duration_ms": miner.average_job_duration_ms,
             "jobs_completed": miner.jobs_completed,
