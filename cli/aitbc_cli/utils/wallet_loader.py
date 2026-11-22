@@ -224,7 +224,31 @@ def load_wallet_for_payment(
     if require_private_key and (not isinstance(private_key, str) or not private_key):
         abort(ctx, f"Wallet '{name}' has no usable private key for signing")
 
+    if isinstance(private_key, str) and private_key:
+        derived = _address_for_private_key(private_key)
+        if derived is not None and to_canonical(derived) != address:
+            # The file's address field is a claim, not proof — a wallet whose
+            # key derives a different address would sign for the wrong
+            # account (#2598).
+            abort(
+                ctx,
+                f"Wallet '{name}' is inconsistent: stored address {address} does not "
+                f"match the address derived from its private key {to_canonical(derived)}",
+            )
+
     return address, cast(str | None, private_key if private_key else None), name
+
+
+def _address_for_private_key(private_key: str) -> str | None:
+    """Derive the secp256k1 address for *private_key*; None when it is not a
+    usable key (signing paths will fail on it later regardless)."""
+    try:
+        from eth_account import Account
+
+        key = private_key if private_key.startswith("0x") else f"0x{private_key}"
+        return cast(str, Account.from_key(key).address)
+    except Exception:  # noqa: BLE001 - derivation probe: unusable keys simply yield no address
+        return None
 
 
 def _load_wallet_from_daemon(

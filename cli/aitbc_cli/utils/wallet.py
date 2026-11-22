@@ -35,17 +35,25 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
         cipher = crypto.get("cipher", crypto.get("algorithm", ""))
         if cipher in ("aes-256-gcm",):
             salt = bytes.fromhex(crypto["kdfparams"]["salt"])
+            # Same plausibility bound as the fernet branch — a tampered
+            # file claiming billions of rounds would hang the KDF (#2569).
+            iterations = int(crypto["kdfparams"].get("c", 100000))
+            if not 10_000 <= iterations <= 10_000_000:
+                raise ValueError(f"implausible PBKDF2 iteration count in keystore: {iterations}")
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 length=32,
                 salt=salt,
-                iterations=crypto["kdfparams"]["c"],
+                iterations=iterations,
                 backend=default_backend(),
             )
             key = kdf.derive(password.encode())
             aesgcm = AESGCM(key)
             nonce = bytes.fromhex(crypto["cipherparams"]["nonce"])
-            priv = aesgcm.decrypt(nonce, bytes.fromhex(crypto["ciphertext"]), None)
+            try:
+                priv = aesgcm.decrypt(nonce, bytes.fromhex(crypto["ciphertext"]), None)
+            except Exception as e:  # noqa: BLE001 - decrypt boundary: any failure is a bad password or corrupt file
+                raise ValueError("Invalid password or corrupted encrypted data") from e
             return priv.hex()
 
         if cipher in ("fernet", "PBKDF2-SHA256-Fernet"):
@@ -67,8 +75,11 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
             dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
             fernet_key = base64.urlsafe_b64encode(dk)
             fernet = Fernet(fernet_key)
-            ciphertext = base64.b64decode(crypto["ciphertext"])
-            priv = fernet.decrypt(ciphertext)
+            try:
+                ciphertext = base64.b64decode(crypto["ciphertext"])
+                priv = fernet.decrypt(ciphertext)
+            except Exception as e:  # noqa: BLE001 - decrypt boundary: any failure is a bad password or corrupt file
+                raise ValueError("Invalid password or corrupted encrypted data") from e
             return priv.decode()
 
     raise ValueError(f"Unsupported cipher in keystore {keystore_path}")

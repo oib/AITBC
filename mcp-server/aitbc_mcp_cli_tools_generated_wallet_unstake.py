@@ -65,8 +65,9 @@ def aitbc_wallet_unstake(
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"use_daemon": "use-daemon"},
+        flags={},
         values={},
+        dual_flags={"use_daemon": ("use-daemon", "no-daemon")},
     )
     args = None
     target = _host_for_role(role, host)
