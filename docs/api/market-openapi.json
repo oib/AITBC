@@ -2662,7 +2662,7 @@
     "/v1/market/offer": {
       "get": {
         "summary": "List Software Offers",
-        "description": "List market offers (hardware+software bundles).\n\nWithout ``status``, on-chain GPU registrations their registrant deactivated\nare left out; pass ``status=deactivated`` to list them.",
+        "description": "List market offers (hardware+software bundles).\n\nWithout ``status``, on-chain GPU registrations their registrant deactivated\nare left out; pass ``status=deactivated`` to list them. ``provider``\nrestricts the merged catalog to offers published by that node/miner id\n(#2553) \u2014 applied before the page cap so a provider's own offers cannot be\npushed out by unrelated rows.",
         "operationId": "list_software_offers_v1_market_offer_get",
         "parameters": [
           {
@@ -2695,6 +2695,22 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
             }
           }
         ],

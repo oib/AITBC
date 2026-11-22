@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlmodel import Session
 
 from ..domain.developer import Developer
@@ -40,10 +40,14 @@ class DeveloperService:
         return developer
 
     def get_by_wallet(self, wallet_address: str) -> Developer | None:
-        """Get a developer by wallet address."""
+        """Get a developer by wallet address.
+
+        Stored addresses are lowercase (schema validator); path params arrive
+        in whatever case the caller typed, so compare case-insensitively.
+        """
         return (
             self.session.execute(
-                select(Developer).where(Developer.wallet_address == wallet_address),  # type: ignore[arg-type]
+                select(Developer).where(func.lower(Developer.wallet_address) == wallet_address.lower()),
             )
             .scalars()
             .one_or_none()

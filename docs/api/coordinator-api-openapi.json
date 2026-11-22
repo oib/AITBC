@@ -22086,7 +22086,17 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Registration timestamp is stale or in the future",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wallet signature does not match wallet_address",
             "content": {
               "application/json": {
                 "schema": {
@@ -48539,14 +48549,24 @@
               }
             ],
             "title": "Github Handle"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature"
+          },
+          "timestamp": {
+            "type": "integer",
+            "title": "Timestamp"
           }
         },
         "type": "object",
         "required": [
-          "wallet_address"
+          "wallet_address",
+          "signature",
+          "timestamp"
         ],
         "title": "DeveloperCreate",
-        "description": "Payload for registering a developer."
+        "description": "Payload for registering a developer.\n\n``signature``/``timestamp`` prove control of ``wallet_address`` \u2014 the\nsignature covers a domain-separated claim over every field (#2566)."
       },
       "coordinator_api__contexts__developer_platform__schemas__developer_platform__DeveloperCreate": {
         "properties": {

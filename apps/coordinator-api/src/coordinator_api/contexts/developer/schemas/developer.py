@@ -9,12 +9,18 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DeveloperCreate(BaseModel):
-    """Payload for registering a developer."""
+    """Payload for registering a developer.
+
+    ``signature``/``timestamp`` prove control of ``wallet_address`` — the
+    signature covers a domain-separated claim over every field (#2566).
+    """
 
     wallet_address: str
     name: str | None = None
     email: str | None = None
     github_handle: str | None = None
+    signature: str
+    timestamp: int
 
     @field_validator("wallet_address")
     @classmethod

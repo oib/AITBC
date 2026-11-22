@@ -51,7 +51,7 @@ def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
         # Create default configuration
         default_config = MultiChainConfig()
         save_multichain_config(default_config, config_path)
-        return default_config
+        return _with_local_rpc_fallback(default_config)
 
     try:
         with open(config_file) as f:
@@ -77,8 +77,16 @@ def _with_local_rpc_fallback(config: MultiChainConfig) -> MultiChainConfig:
     from aitbc_cli.config import get_config
 
     endpoint = (getattr(get_config(), "blockchain_rpc_url", "") or "http://127.0.0.1:8202").rstrip("/")
-    if endpoint and all(node.endpoint != endpoint for node in config.nodes.values()):
-        config.nodes.setdefault("local-rpc", NodeConfig(id="local-rpc", endpoint=endpoint))
+    if not endpoint:
+        return config
+    existing = config.nodes.get("local-rpc")
+    if existing is not None:
+        # The synthetic entry mirrors blockchain_rpc_url — refresh it so a
+        # persisted copy from an older config never goes stale (#2578).
+        existing.endpoint = endpoint
+        return config
+    if all(node.endpoint != endpoint for node in config.nodes.values()):
+        config.nodes["local-rpc"] = NodeConfig(id="local-rpc", endpoint=endpoint)
     return config
 
 
@@ -93,6 +101,9 @@ def save_multichain_config(config: MultiChainConfig, config_path: str | None = N
     try:
         # Convert Path objects to strings for YAML serialization
         config_dict = config.model_dump()
+        # The local-rpc entry is synthetic (mirrors blockchain_rpc_url) —
+        # persisting it would freeze a stale endpoint in the registry (#2578).
+        config_dict.get("nodes", {}).pop("local-rpc", None)
         if "chains" in config_dict and "backup_path" in config_dict["chains"]:
             config_dict["chains"]["backup_path"] = str(config_dict["chains"]["backup_path"])
 

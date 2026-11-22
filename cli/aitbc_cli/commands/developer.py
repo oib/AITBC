@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import os
+import time
 
 import click
 import httpx
 
 from aitbc.exceptions import AITBCError
+from aitbc.crypto.developer_registry import (
+    developer_register_claim,
+    sign_developer_register,
+)
+from aitbc.crypto.signature_recovery import canonical_address
 from ..config import get_config
 from ..utils import output, resolve_output_format
+from ..utils.agent_signing import load_signing_wallet
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
 from ..utils.error_handling import CLIError, abort
+from ..utils.wallet_secret import wallet_password_options
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -73,6 +81,13 @@ def developer():
 @click.option("--name", default=None, help="Developer name")
 @click.option("--email", default=None, help="Developer email")
 @click.option("--github-handle", default=None, help="GitHub handle")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet that signs the registration proof (default: $AITBC_DEFAULT_WALLET); required",
+)
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def register(
@@ -81,17 +96,58 @@ def register(
     name: str | None,
     email: str | None,
     github_handle: str | None,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     format: str,
 ):
-    """Register a developer in the DAO grant registry with optional name, email, and GitHub handle."""
+    """Register a developer in the DAO grant registry with optional name, email, and GitHub handle.
+
+    The registry requires a wallet signature proving control of
+    ``--wallet-address`` (#2566): pass ``--wallet`` (or set
+    ``AITBC_DEFAULT_WALLET``) for the key that signs the claim.
+    """
     try:
-        client = _get_client(ctx)
+        signing = load_signing_wallet(
+            ctx,
+            wallet_name=wallet_name,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+        )
+        if signing is None:
+            abort(
+                ctx,
+                "developer register requires a wallet signature — pass --wallet <name> "
+                "(or set AITBC_DEFAULT_WALLET) for the key controlling --wallet-address",
+            )
+            return
+        signer_address, private_key = signing
+        if canonical_address(signer_address) != canonical_address(wallet_address):
+            abort(
+                ctx,
+                f"Signing wallet {signer_address} does not match --wallet-address {wallet_address} — "
+                "register the address the wallet actually controls",
+            )
+            return
+        timestamp = int(time.time())
+        claim = developer_register_claim(
+            wallet_address=wallet_address,
+            name=name,
+            email=email,
+            github_handle=github_handle,
+            timestamp=timestamp,
+        )
         payload = {
             "wallet_address": wallet_address,
             "name": name,
             "email": email,
             "github_handle": github_handle,
+            "signature": sign_developer_register(claim, private_key),
+            "timestamp": timestamp,
         }
+        client = _get_client(ctx)
         result = client.post("/v1/developers", json={k: v for k, v in payload.items() if v is not None})
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:

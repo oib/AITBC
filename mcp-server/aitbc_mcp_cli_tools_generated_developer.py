@@ -60,6 +60,12 @@ def aitbc_developer_register(
     name: Annotated[str | None, Field(description="Developer name")] = None,
     email: Annotated[str | None, Field(description="Developer email")] = None,
     github_handle: Annotated[str | None, Field(description="GitHub handle")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet that signs the registration proof (default: $AITBC_DEFAULT_WALLET); required")
+    ] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -76,6 +82,8 @@ def aitbc_developer_register(
             "name": "name",
             "email": "email",
             "github_handle": "github-handle",
+            "wallet_name": "wallet",
+            "password_file": "password-file",
             "format": "format",
         },
     )

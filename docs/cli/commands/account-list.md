@@ -2,7 +2,7 @@
 
 # `aitbc account list`
 
-List all known accounts from the blockchain RPC.
+List known accounts from the blockchain RPC, one keyset page at a time.
 
 ## Usage
 
@@ -16,6 +16,10 @@ aitbc account list [OPTIONS]
 |---|---|---|---|---|
 | `--rpc-url` | text | `http://localhost:8202` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
 | `--chain-id` | text | — | no | Chain ID for multichain operations |
+| `--limit` | integer | `100` | no | Accounts per page (server caps at 500) |
+| `--offset` | integer | `0` | no | Row offset on top of the cursor position |
+| `--cursor` | text | — | no | Keyset cursor from a previous page's next_cursor |
+| `--all` | flag | `false` | no | Page through every account via next_cursor instead of stopping at one page |
 
 ## Examples
 
