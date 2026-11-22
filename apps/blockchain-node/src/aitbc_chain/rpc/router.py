@@ -202,6 +202,13 @@ _MINING_SIMULATED_NOTE = (
 )
 
 
+def _caller_owns_miner_row(row: MinerRegistry, caller_l: str) -> bool:
+    """#2407/#2500: a registry row belongs to the caller when either the miner
+    address or the authorizing wallet matches — the single ownership
+    predicate shared by mining start and stop so the two cannot drift."""
+    return str(row.miner_address).lower() == caller_l or str(row.authorized_by or "").lower() == caller_l
+
+
 def _miner_public(row: MinerRegistry) -> dict[str, Any]:
     return {
         "address": row.miner_address,
@@ -241,6 +248,7 @@ def start_mining_route(
         raise HTTPException(status_code=400, detail="threads must be a positive integer")
 
     chain_id = resolve_chain_id()
+    caller_l = admin_address.lower()
     with session_scope(chain_id) as session:
         row = session.exec(
             select(MinerRegistry).where(
@@ -250,6 +258,13 @@ def start_mining_route(
         ).first()
         now = datetime.now(UTC)
         if row is None:
+            # #2500: registration is self-service only — a caller may not
+            # create a row naming an address it does not control.
+            if miner_address.lower() != caller_l:
+                raise HTTPException(
+                    status_code=403,
+                    detail="miner_address must be the authenticated wallet",
+                )
             session.add(
                 MinerRegistry(
                     chain_id=chain_id,
@@ -261,9 +276,17 @@ def start_mining_route(
                 )
             )
         else:
+            # #2500: same ownership predicate as /mining/stop — start must
+            # not let one operator re-enable, re-thread or retitle another
+            # wallet's row, and must not rewrite authorized_by (that would
+            # hand the new controller the stop route's scope check too).
+            if not _caller_owns_miner_row(row, caller_l):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"miner '{miner_address}' is not registered to the authenticated wallet",
+                )
             row.threads = threads
             row.enabled = True
-            row.authorized_by = admin_address
             row.started_at = now
             row.stopped_at = None
         session.commit()
@@ -305,11 +328,7 @@ def stop_mining_route(
     chain_id = resolve_chain_id()
     with session_scope(chain_id) as session:
         rows = session.exec(select(MinerRegistry).where(MinerRegistry.chain_id == chain_id)).all()
-        mine = [
-            row
-            for row in rows
-            if str(row.miner_address).lower() == caller_l or str(row.authorized_by or "").lower() == caller_l
-        ]
+        mine = [row for row in rows if _caller_owns_miner_row(row, caller_l)]
         if requested is not None:
             mine = [row for row in mine if str(row.miner_address).lower() == requested.lower()]
             if not mine:
