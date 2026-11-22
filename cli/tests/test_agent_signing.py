@@ -207,7 +207,7 @@ class TestRegistryBinding:
         from aitbc_cli.utils.agent_signing import check_registry_binding
 
         client = _mock_client()
-        client.get.side_effect = Exception("GET request failed: 404 Client Error")
+        client.get.side_effect = _status_network_error(404)
         msg = check_registry_binding(client, "ghost", ACCOUNT.address)
         assert msg is not None and "not registered" in msg and "agent-comm register" in msg
 
@@ -437,7 +437,7 @@ class TestAgentMsgSigning:
 
     def test_send_unregistered_agent_fails_with_guidance(self, runner):
         client = _agent_msg_client()
-        client.get.side_effect = Exception("GET request failed: 404 Client Error: Not Found")
+        client.get.side_effect = _status_network_error(404)
         from aitbc_cli.commands.agent import messaging
 
         with (

@@ -23,7 +23,7 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, http_response_status
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -141,15 +141,20 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
                     },
                 )
             except NetworkError as e:
+                # #2478: classify by the response's real status, not digits
+                # in the message — a URL/port/hash can contain "503"/"404"
+                # without that status, and an unreachable coordinator
+                # (no response) must NOT take the simulated branch.
+                status = http_response_status(e)
                 # A 503 from the coordinator means confidential TEE settlement is not enabled;
                 # fall back to the local simulated settlement rather than failing outright.
-                if "503" in str(e) or "Service Unavailable" in str(e):
+                if status == 503:
                     click.echo(
                         "Coordinator does not have confidential TEE enabled; using simulated local settlement.",
                         err=True,
                     )
                     result = simulated_result
-                elif "404" in str(e) or "Not Found" in str(e):
+                elif status == 404:
                     # #2425 (operator ruling): no in-repo service serves
                     # /v1/confidential/payments — a 404 means the route is
                     # unserved, the same capability-absent class as 503.

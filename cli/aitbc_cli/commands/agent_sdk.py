@@ -579,7 +579,10 @@ def get_agent_status(
     except NetworkError as e:
         logger.debug("Could not fetch agent status from coordinator: %s", e)
         status = _http_status_code(e)
-        if status == 404 or (status is None and "404" in str(e)):
+        # #2478: only a real HTTP 404 means "not registered" — a transport
+        # failure whose text happens to contain "404" (port, hash) is an
+        # outage, not an absent agent.
+        if status == 404:
             message = "Agent not registered with the coordinator."
         elif status in (401, 403):
             message = (

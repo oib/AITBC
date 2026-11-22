@@ -27,9 +27,24 @@ def runner():
     return CliRunner()
 
 
+class _HttpCause(Exception):
+    """Exception carrying a ``.response`` like requests.HTTPError."""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"{status_code} Error")
+        self.response = mock.Mock(status_code=status_code)
+
+
+def _http_error(status_code: int) -> NetworkError:
+    """NetworkError shaped like the real client's wrap of a requests.HTTPError."""
+    err = NetworkError(f"{status_code} Error")
+    err.__cause__ = _HttpCause(status_code)
+    return err
+
+
 def test_account_404_reports_not_found_and_zero(runner):
     client_mod = mock.Mock()
-    client_mod.get.side_effect = NetworkError("404 Not Found")
+    client_mod.get.side_effect = _http_error(404)
     with (
         mock.patch.object(basic_mod, "_resolve_wallet_address", return_value=_ADDR),
         mock.patch.object(basic_mod, "AITBCHTTPClient", return_value=client_mod),

@@ -10,7 +10,7 @@ from aitbc.exceptions import AITBCError
 
 from ..utils import success
 from ..utils.error_handling import CLIError, abort, is_unauthorized
-from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
+from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError, http_response_status
 from ..utils.wallet_paths import wallet_search_dirs
 
 DEFAULT_RPC_URL = "http://localhost:8202"
@@ -132,7 +132,7 @@ def start(ctx: click.Context, wallet_name: str, threads: int, rpc_url: str | Non
                 "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.",
                 from_exception=e,
             )
-        elif "404" in str(e):
+        elif http_response_status(e) == 404:
             abort(ctx, "Mining RPC endpoint not found. Check blockchain-node RPC configuration.", from_exception=e)
         else:
             abort(ctx, f"Error starting mining: {e}", from_exception=e)
