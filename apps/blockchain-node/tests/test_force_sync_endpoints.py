@@ -813,3 +813,57 @@ async def test_force_sync_holds_import_serializer_around_import(isolated_engine,
     with Session(isolated_engine) as session:
         blocks = session.exec(select(Block).where(Block.chain_id == "chain-a")).all()
     assert [b.hash for b in blocks] == [_hex("chain-a-import-block-0")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "peer_payload",
+    [
+        {},
+        {"export_data": None},
+        {"export_data": "not-a-dict"},
+        {"export_data": {"blocks": "not-a-list"}},
+        {"export_data": {}},
+        ["not", "a", "dict"],
+    ],
+)
+async def test_force_sync_malformed_peer_export_is_502(mock_request, admin_signer, monkeypatch, peer_payload):
+    """A peer answer without a usable export_data is the peer's fault —
+    502 naming the peer, never a 500 KeyError (AUDIT-BN-FORCE-SYNC-MALFORMED-PEER-500-1)."""
+    from fastapi import HTTPException
+
+    async def _no_validate(peer_url):
+        return None
+
+    async def _fake_fetch(peer_url: str):
+        return peer_payload
+
+    monkeypatch.setattr(rpc_sync, "_validate_force_sync_peer_url", _no_validate)
+    monkeypatch.setattr(rpc_sync, "_fetch_peer_chain_export", _fake_fetch)
+
+    signed = admin_signer({"peer_url": "http://192.168.1.9:8006"})
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.force_sync(mock_request, signed)
+    assert exc_info.value.status_code == 502
+    assert "192.168.1.9" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_force_sync_peer_invalid_json_is_502(mock_request, admin_signer, monkeypatch):
+    """Non-JSON peer bodies surface as 502, not an unhandled 500."""
+    import requests
+    from fastapi import HTTPException
+
+    bad = Mock(status_code=200)
+    bad.json.side_effect = ValueError("Expecting value")
+    monkeypatch.setattr(requests, "get", Mock(return_value=bad))
+
+    async def _no_validate(peer_url):
+        return None
+
+    monkeypatch.setattr(rpc_sync, "_validate_force_sync_peer_url", _no_validate)
+
+    signed = admin_signer({"peer_url": "http://192.168.1.9:8006"})
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.force_sync(mock_request, signed)
+    assert exc_info.value.status_code == 502
