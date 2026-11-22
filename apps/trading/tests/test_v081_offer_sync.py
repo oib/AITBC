@@ -13,6 +13,19 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _fresh_sync_status():
+    """#2471: ``_sync_status`` is process-shared (ClassVar) — clear it so
+    status assertions see only this test's entries."""
+    from trading_service.services.offer_sync_service import OfferSyncService
+
+    OfferSyncService._sync_status.clear()  # noqa: SLF001
+    yield
+    OfferSyncService._sync_status.clear()  # noqa: SLF001
+
 
 # ============================================================================
 # B1: Offer Sync Config
@@ -73,6 +86,24 @@ class TestOfferSyncService:
         assert len(status) == 1
         assert status[0].chain_id == "ait-hub"
         assert status[0].offer_count == 5
+
+    def test_sync_status_shared_across_instances(self):
+        """#2471: ``get_offer_sync_service`` builds a fresh instance per
+        request — a sync on one instance must be visible to the next."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+        from aitbc.trading.offer_types import OfferSyncStatusEntry
+
+        writer = OfferSyncService(AsyncMock(), cache=MagicMock())
+        writer._sync_status["bc-2"] = OfferSyncStatusEntry(  # noqa: SLF001
+            chain_id="bc-2",
+            last_sync="2026-11-22T00:00:00Z",
+            offer_count=11,
+        )
+
+        reader = OfferSyncService(AsyncMock(), cache=MagicMock())
+        status = reader.get_sync_status()
+        assert [e.chain_id for e in status] == ["bc-2"]
+        assert status[0].offer_count == 11
 
 
 # ============================================================================
