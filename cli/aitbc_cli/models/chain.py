@@ -3,10 +3,19 @@ Data models for multi-chain functionality
 """
 
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from aitbc.utils.units import ait_to_units
+
+# Economic defaults are AIT base units (1 AIT = 36,000,000), never wei — the
+# old Ethereum 1e18/2e18 values read as ~28/56 billion AIT (#2596).
+_MIN_STAKE_UNITS = ait_to_units(Decimal("100"))  # 100 AIT, the staking-pool minimum
+_BLOCK_REWARD_UNITS = str(ait_to_units(Decimal("1")))  # 1 AIT
+_GAS_PRICE_UNITS = 0  # AITBC has no gas market; transactions pay a flat fee
 
 
 class ChainType(str, Enum):  # noqa: UP042
@@ -41,7 +50,7 @@ class GenesisAccount(BaseModel):
     """Genesis account configuration"""
 
     address: str = Field(..., description="Account address")
-    balance: str = Field(..., description="Account balance in wei")
+    balance: str = Field(..., description="Account balance in AIT base units (1 AIT = 36,000,000)")
     type: str = Field(default="regular", description="Account type")
 
 
@@ -69,7 +78,7 @@ class ConsensusConfig(BaseModel):
     algorithm: ConsensusAlgorithm = Field(..., description="Consensus algorithm")
     block_time: int = Field(default=5, description="Block time in seconds")
     max_validators: int = Field(default=100, description="Maximum number of validators")
-    min_stake: int = Field(default=1000000000000000000, description="Minimum stake in wei")
+    min_stake: int = Field(default=_MIN_STAKE_UNITS, description="Minimum stake in AIT base units (1 AIT = 36,000,000)")
     authorities: list[str] = Field(default_factory=list, description="List of authority addresses")
 
 
@@ -78,8 +87,8 @@ class ChainParameters(BaseModel):
 
     max_block_size: int = Field(default=1048576, description="Maximum block size in bytes")
     max_gas_per_block: int = Field(default=10000000, description="Maximum gas per block")
-    min_gas_price: int = Field(default=1000000000, description="Minimum gas price in wei")
-    block_reward: str = Field(default="2000000000000000000", description="Block reward in wei")
+    min_gas_price: int = Field(default=_GAS_PRICE_UNITS, description="Minimum gas price in AIT base units (0 = no gas market)")
+    block_reward: str = Field(default=_BLOCK_REWARD_UNITS, description="Block reward in AIT base units (1 AIT = 36,000,000)")
     difficulty: int = Field(default=1000000, description="Initial difficulty")
 
 
@@ -105,7 +114,7 @@ class GenesisConfig(BaseModel):
         default="0x0000000000000000000000000000000000000000000000000000000000000000", description="Parent hash"
     )
     gas_limit: int = Field(default=10000000, description="Gas limit")
-    gas_price: int = Field(default=20000000000, description="Gas price")
+    gas_price: int = Field(default=_GAS_PRICE_UNITS, description="Gas price in AIT base units (0 = no gas market)")
     difficulty: int = Field(default=1000000, description="Initial difficulty")
     block_time: int = Field(default=5, description="Block time")
     accounts: list[GenesisAccount] = Field(default_factory=list, description="Genesis accounts")
@@ -152,7 +161,7 @@ class ChainInfo(BaseModel):
     avg_block_time: float = Field(default=0.0, description="Average block time")
     avg_gas_used: int = Field(default=0, description="Average gas used per block")
     growth_rate_mb_per_day: float = Field(default=0.0, description="Growth rate MB per day")
-    gas_price: int = Field(default=20000000000, description="Current gas price")
+    gas_price: int = Field(default=_GAS_PRICE_UNITS, description="Current gas price in AIT base units (0 = no gas market)")
     memory_usage_mb: float = Field(default=0.0, description="Memory usage in MB")
     disk_usage_mb: float = Field(default=0.0, description="Disk usage in MB")
     privacy: PrivacyConfig = Field(default_factory=PrivacyConfig, description="Privacy settings")
@@ -188,7 +197,7 @@ class GenesisBlock(BaseModel):
         default="0x0000000000000000000000000000000000000000000000000000000000000000", description="Parent hash"
     )
     gas_limit: int = Field(default=10000000, description="Gas limit")
-    gas_price: int = Field(default=20000000000, description="Gas price")
+    gas_price: int = Field(default=_GAS_PRICE_UNITS, description="Gas price in AIT base units (0 = no gas market)")
     difficulty: int = Field(default=1000000, description="Initial difficulty")
     block_time: int = Field(default=5, description="Block time")
     accounts: list[GenesisAccount] = Field(default_factory=list, description="Genesis accounts")

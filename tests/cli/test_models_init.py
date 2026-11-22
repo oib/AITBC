@@ -11,13 +11,13 @@ class TestModelsInit:
 
     def test_models_module_exists(self):
         """Test that models module can be imported"""
-        from models import chain
+        from aitbc_cli.models import chain
 
         assert chain is not None
 
     def test_models_chain_module(self):
         """Test that chain module has expected exports"""
-        from models.chain import (
+        from aitbc_cli.models.chain import (
             ChainConfig,
             ChainLimits,
             ChainParameters,
