@@ -307,6 +307,23 @@ def _escrow_payment_client(coord_http_client: AITBCHTTPClient) -> AITBCHTTPClien
     )
 
 
+def _escrow_party_address(ctx, raw: str, party: str, required_hint: str) -> str:
+    """Canonicalize + validate an escrow party address (#2531).
+
+    ``to_canonical`` passes non-addresses through lowercased, so the
+    canonical form is gated on ``is_canonical`` — garbage must abort here
+    rather than reach ``create_signed_escrow_lock``.
+    """
+    from ...utils.address import is_canonical, to_canonical
+
+    canon = to_canonical(str(raw or ""))
+    if not canon:
+        abort(ctx, f"{party}_address is required to secure escrow: {required_hint}")
+    if not is_canonical(canon):
+        abort(ctx, f"Invalid {party}_address {raw!r}: expected a 0x-prefixed 40-hex address")
+    return canon
+
+
 def _create_escrow_payment(
     ctx,
     coord_http_client: AITBCHTTPClient,
@@ -326,18 +343,22 @@ def _create_escrow_payment(
     provider_agent_id: str | None = None,
     market_job_id: str | None = None,
 ) -> dict[str, Any]:
-    from ...utils.address import to_canonical
-
     try:
         amount_ait = Decimal(str(amount))
     except InvalidOperation:
         abort(ctx, f"Invalid payment amount: {amount}")
-    buyer = to_canonical(str(buyer_address or ""))
-    if not buyer:
-        abort(ctx, "buyer_address is required to secure escrow: set --wallet, --buyer-address, or CUSTOMER_WALLET_ADDRESS")
-    provider = to_canonical(str(provider_address or ""))
-    if not provider:
-        abort(ctx, "provider_address is required to secure escrow: set --provider-address or SHOP_WALLET_ADDRESS")
+    buyer = _escrow_party_address(
+        ctx,
+        buyer_address,
+        "buyer",
+        "set --wallet, --buyer-address, or CUSTOMER_WALLET_ADDRESS",
+    )
+    provider = _escrow_party_address(
+        ctx,
+        provider_address,
+        "provider",
+        "set --provider-address or SHOP_WALLET_ADDRESS",
+    )
     # Resolve only when an escrow will actually be signed: submit paths that
     # skip payment must not depend on the blockchain RPC being reachable.
     chain_id = chain_id or resolve_chain_id(ctx, rpc_url)

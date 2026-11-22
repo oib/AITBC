@@ -35,6 +35,9 @@ def to_eip55(address: str) -> str:
 
 
 def is_canonical(address: str) -> bool:
-    """Return True if ``address`` is already a 40-hex ``0x`` string."""
+    """Return True if ``address`` is a 40-hex ``0x`` string.
+
+    #2531: prefix+length alone accepted ``0xZZZ…`` — the body must be hex.
+    """
     lowered = address.strip().lower()
-    return lowered.startswith("0x") and len(lowered) == 42
+    return lowered.startswith("0x") and len(lowered) == 42 and all(c in "0123456789abcdef" for c in lowered[2:])
