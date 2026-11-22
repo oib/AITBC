@@ -25912,15 +25912,33 @@
         "summary": "Submit Slash Appeal",
         "description": "Submit an appeal against a bond slashing decision",
         "operationId": "submit_slash_appeal_v1_governance_slash_appeals_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SlashAppealRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -25928,8 +25946,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Submit Slash Appeal V1 Governance Slash Appeals Post"
                 }
               }
@@ -46445,6 +46463,7 @@
         "properties": {
           "bond_id": {
             "type": "string",
+            "minLength": 1,
             "title": "Bond Id"
           },
           "reason": {
@@ -46454,9 +46473,11 @@
           },
           "evidence": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 2048
             },
             "type": "array",
+            "maxItems": 20,
             "title": "Evidence"
           },
           "provider_id": {

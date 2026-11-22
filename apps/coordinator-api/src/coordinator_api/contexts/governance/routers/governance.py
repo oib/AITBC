@@ -8,8 +8,8 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field, field_validator
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field, StringConstraints, field_validator
+from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
@@ -74,9 +74,12 @@ class VoteRequest(BaseModel):
 
 
 class SlashAppealRequest(BaseModel):
-    bond_id: str
+    # #2489: bond_id keys the ghost-bond guard — an empty string used to
+    # match "any bond" and store an untraceable appeal. Evidence is
+    # unbounded caller input on an automated store; cap both axes.
+    bond_id: str = Field(min_length=1)
     reason: str = ""
-    evidence: list[str] = Field(default_factory=list)
+    evidence: list[Annotated[str, StringConstraints(max_length=2048)]] = Field(default_factory=list, max_length=20)
     provider_id: str = ""
     slash_event_id: str = ""
 
@@ -294,32 +297,34 @@ def submit_slash_appeal(
     request: Request,
     appeal_request: SlashAppealRequest,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Submit an appeal against a bond slashing decision"""
     # #2359: an appeal must reference a real bond — without this check any
     # caller could file appeals against nonexistent provider/bond ids,
-    # creating ghost records reviewers cannot action.
+    # creating ghost records reviewers cannot action. #2489: bond_id is
+    # required non-empty (schema), the lookup is a single row keyed on it,
+    # a supplied provider_id must match the bond's owner, and only that
+    # provider (or an admin) may file — the route used to be anonymous.
     from sqlmodel import select as sm_select
 
     from ...market.domain.provider_bond import ProviderBond
+    from ...market.routers.bonds import _require_provider_access
 
-    stmt = sm_select(ProviderBond)
+    stmt = sm_select(ProviderBond).where(ProviderBond.bond_id == appeal_request.bond_id)
     if appeal_request.provider_id:
         stmt = stmt.where(ProviderBond.provider_id == appeal_request.provider_id)
-    candidates = session.execute(stmt).scalars().all()
-    bond = next(
-        (b for b in candidates if not appeal_request.bond_id or b.bond_id == appeal_request.bond_id),
-        None,
-    )
+    bond = session.execute(stmt).scalars().first()
     if bond is None:
         raise HTTPException(
             status_code=404,
             detail="no bond matches the appeal's provider_id/bond_id",
         )
+    _require_provider_access(session, user, bond.provider_id)
     try:
         appeal = SlashAppeal(
             bond_id=appeal_request.bond_id,
-            provider_id=appeal_request.provider_id,
+            provider_id=bond.provider_id or appeal_request.provider_id,
             slash_event_id=appeal_request.slash_event_id,
             reason=appeal_request.reason,
             evidence=appeal_request.evidence,
