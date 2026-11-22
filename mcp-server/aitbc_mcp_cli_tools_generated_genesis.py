@@ -128,7 +128,10 @@ def aitbc_genesis_sync_from_hub(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to sync genesis for (auto-detected from config if not provided)")
     ] = None,
-    rpc_url: Annotated[str | None, Field(description="Hub RPC URL to fetch genesis from (default: from config)")] = None,
+    rpc_url: Annotated[
+        str | dict[str, Any] | None,
+        Field(description="Hub base URL serving /agent/genesis.json (default: blockchain_rpc_url from config)"),
+    ] = None,
     data_dir: Annotated[str | None, Field(description="Data directory path (default: /var/lib/aitbc/data)")] = None,
     force: Annotated[bool | None, Field(description="Force overwrite existing genesis.json")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
