@@ -15,7 +15,7 @@ aitbc genesis sync-from-hub [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--chain-id` | text | — | no | Chain ID to sync genesis for (auto-detected from config if not provided) |
-| `--rpc-url` | text | — | no | Hub RPC URL to fetch genesis from (default: from config) |
+| `--rpc-url` | text | — | no | Hub base URL serving /agent/genesis.json (default: blockchain_rpc_url from config) |
 | `--data-dir` | text | — | no | Data directory path (default: /var/lib/aitbc/data) |
 | `--force` | flag | `false` | no | Force overwrite existing genesis.json |
 

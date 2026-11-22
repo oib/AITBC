@@ -12,6 +12,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -55,16 +56,48 @@ def _load_env(path: Path) -> dict[str, str]:
     return env
 
 
+def _write_file_mode_atomic(path: Path, text: str, perms: int) -> None:
+    """Write *text* to *path* atomically, with *perms* set from creation.
+
+    The temp file is opened 0600 (mkstemp) and chmod'ed to *perms* before
+    ``os.replace``, so a key-bearing env file is never group/world-readable
+    between create and a post-write chmod, and a failed write never leaves
+    a truncated file behind (#2593). The previous owner/group are restored
+    best-effort so an in-place rewrite keeps its service ownership.
+    """
+    st = path.stat() if path.exists() else None
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    tmp = Path(tmp_name)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, perms)
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    if st is not None:
+        try:
+            os.chown(path, st.st_uid, st.st_gid)
+        except OSError:
+            pass
+
+
 def _replace_or_append(path: Path, name: str, value: str, perms: int = 0o600) -> None:
     text = path.read_text() if path.exists() else ""
     pattern = re.compile(rf"^{re.escape(name)}=.*$", re.MULTILINE)
     line = f"{name}={value}"
     if pattern.search(text):
-        text = pattern.sub(line, text)
+        # Function replacement: a plain-string repl treats backslashes in
+        # the value as template escapes and corrupts (or raises on) the file.
+        text = pattern.sub(lambda _m: line, text)
     else:
         text = text.rstrip("\n") + "\n" + line + "\n"
-    path.write_text(text)
-    os.chmod(path, perms)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_file_mode_atomic(path, text, perms)
 
 
 def _chown_aitbc(path: Path) -> None:
@@ -72,7 +105,9 @@ def _chown_aitbc(path: Path) -> None:
         try:
             shutil.chown(path, user, group)
             return
-        except (OSError, KeyError):
+        except (OSError, LookupError):
+            # LookupError covers KeyError and shutil.chown's own
+            # "no such user/group" raise for an absent account (#2528).
             continue
 
 
@@ -118,14 +153,15 @@ def _write_default_wallet(wallet_dir: Path, address: str, public_key: str, priva
         "public_key": public_key,
         "private_key": f"0x{private_key_hex}",
         "chain_id": chain_id,
-        "created_at": datetime.now(UTC).isoformat() + "Z",
+        "created_at": datetime.now(UTC).isoformat().removesuffix("+00:00") + "Z",
         "balance": 0,
         "transactions": [],
     }
     from .wallet_loader import write_json_0600
 
     write_json_0600(wallet_path, wallet)
-    os.chmod(wallet_path, 0o640)
+    # Keep the plaintext-key file owner-only: the service user owns it via
+    # _chown_aitbc, and group-read would expose the key (#2529).
     _chown_aitbc(wallet_path)
     return wallet_path
 
@@ -240,18 +276,25 @@ def _generate_wallet(
     return address, public_key_hex
 
 
-def _clear_wallet_dbs(data_dir: Path) -> None:
+def _clear_wallet_dbs(data_dir: Path, backup_root: Path | None = None) -> None:
     """Clear the wallet daemon DBs so they re-import from env/files on restart.
 
-    Honour the reset's data dir — under the reset guard every target is
-    scratch-confined, so this must never reach the live
-    ``/var/lib/aitbc/data`` from a scratch run.
+    When *backup_root* is given each existing DB is copied there first, so a
+    failed reset never leaves the operator with neither live nor backup
+    wallet state (#2572). Honour the reset's data dir — under the reset
+    guard every target is scratch-confined, so this must never reach the
+    live ``/var/lib/aitbc/data`` from a scratch run.
     """
     for db in (data_dir / "wallet_ledger.db", data_dir / "keystore.db"):
         try:
-            if db.exists():
-                db.unlink()
-                success(f"Cleared old wallet daemon DB: {db}")
+            if not db.exists():
+                continue
+            if backup_root is not None:
+                backup = backup_root / db.name
+                shutil.copy2(db, backup)
+                success(f"Backed up wallet daemon DB: {db} -> {backup}")
+            db.unlink()
+            success(f"Cleared old wallet daemon DB: {db}")
         except OSError:
             pass
 
@@ -308,7 +351,10 @@ def _run_reset_script(
         "AITBC_WALLETS_DIR": str(wallet_dir),
     }
     try:
-        r = _run_subprocess([sys.executable, str(reset_script)], env=env_override)
+        # check=False: with check=True a non-zero exit raises
+        # CalledProcessError before the returncode branch below can print
+        # the script's stderr (#2571).
+        r = _run_subprocess([sys.executable, str(reset_script)], check=False, env=env_override)
         if r.returncode != 0:
             error(f"reset_chain_0x.py failed:\n{r.stderr}")
             return False
@@ -326,7 +372,7 @@ def _chown_chain_data(chain_data_dir: Path) -> None:
         for item in chain_data_dir.rglob("*"):
             _chown_aitbc(item)
         _chown_aitbc(chain_data_dir)
-    except (OSError, KeyError):
+    except (OSError, LookupError):
         pass
 
 
@@ -401,18 +447,21 @@ def reset_genesis(
     success(f"Stopping AITBC services for chain {chain_id}...")
     _stop_services(scratch_only=True)
 
-    # Clear the wallet daemon DB so it re-imports from env/files on restart.
-    _clear_wallet_dbs(data_dir)
-
     # Back up env.
     _backup_env(etc_dir, backup_root)
 
-    # Generate or load wallet.
+    # Generate or load wallet. The wallet-daemon DBs are cleared only AFTER
+    # this precondition passes — clearing them first meant a missing
+    # GENESIS_ADDRESS restarted services with empty wallet DBs (#2572).
     wallet = _genesis_wallet(new_wallet, etc_dir, wallet_dir, chain_id, password)
     if wallet is None:
         _start_services(scratch_only=True)
         return None
     address, public_key = wallet
+
+    # Copy the wallet daemon DBs into the reset backup, then clear them so
+    # they re-import from env/files on restart.
+    _clear_wallet_dbs(data_dir, backup_root)
 
     # Run the genesis reset script.
     if not _run_reset_script(reset_script, db_path, chain_id, data_dir, etc_dir, wallet_dir):

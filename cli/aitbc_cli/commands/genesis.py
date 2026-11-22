@@ -2,9 +2,12 @@
 
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -163,16 +166,24 @@ def verify(ctx, chain_id: str, data_dir: str):
         config = get_config()
         chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
-    verified = _verify_genesis_config(ctx, chain_id, data_dir)
-    verified = _verify_genesis_db(ctx, chain_id, data_dir) and verified
+    genesis_data = _verify_genesis_config(ctx, chain_id, data_dir)
+    db_verified, db_genesis_hash = _verify_genesis_db(ctx, chain_id, data_dir)
+    verified = genesis_data is not None and db_verified
+    if genesis_data is not None:
+        verified = _crosscheck_genesis(ctx, chain_id, genesis_data, db_genesis_hash) and verified
     verified = _verify_treasury_wallet(ctx) and verified
 
     if not verified:
         ctx.exit(1)
 
 
-def _verify_genesis_config(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data") -> bool:
-    """Check the genesis config file; exits the command on hard failures."""
+def _verify_genesis_config(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data") -> dict[str, Any] | None:
+    """Check the genesis config file; exits the command on hard failures.
+
+    Returns the parsed document, or None when required fields are missing —
+    any parseable JSON used to pass here, so a placeholder file verified
+    clean (#2543).
+    """
     import json
 
     # Check genesis config file
@@ -183,7 +194,7 @@ def _verify_genesis_config(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/d
 
     try:
         with open(genesis_path) as f:
-            genesis_data = json.load(f)
+            genesis_data: dict[str, Any] = json.load(f)
 
         success(f"✓ Genesis config found: {genesis_path}")
         # The canonical genesis document carries ``genesis_hash`` at top
@@ -200,14 +211,47 @@ def _verify_genesis_config(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/d
             },
             ctx.obj.get("output_format", "table"),
         )
+
+        missing = []
+        if not genesis_data.get("chain_id"):
+            missing.append("chain_id")
+        if not (genesis_data.get("genesis_hash") or block.get("hash")):
+            missing.append("genesis_hash")
+        if not isinstance(genesis_data.get("allocations"), list):
+            missing.append("allocations")
+        if missing:
+            error(f"Genesis config missing required fields: {', '.join(missing)}")
+            return None
+        return genesis_data
     except _OPS_ERRORS as e:
         error(f"Failed to read genesis config: {e}")
         ctx.exit(1)
-    return True
+    return None
 
 
-def _verify_genesis_db(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data") -> bool:
-    """Check the genesis block and accounts in the chain database."""
+def _crosscheck_genesis(ctx, chain_id: str, genesis_data: dict[str, Any], db_genesis_hash: str | None) -> bool:
+    """Compare the genesis file against the requested chain and the sealed
+    block-0 row — file and DB are only trustworthy together (#2543)."""
+    ok = True
+    file_chain = genesis_data.get("chain_id")
+    if file_chain != chain_id:
+        error(f"Genesis file chain_id {file_chain!r} does not match requested chain {chain_id!r}")
+        ok = False
+    file_hash = genesis_data.get("genesis_hash") or (genesis_data.get("block") or {}).get("hash")
+    if not file_hash:
+        error("Genesis file carries no genesis hash (genesis_hash or block.hash)")
+        ok = False
+    elif db_genesis_hash and file_hash != db_genesis_hash:
+        error(f"Genesis file hash {file_hash} does not match sealed block-0 hash {db_genesis_hash}")
+        ok = False
+    return ok
+
+
+def _verify_genesis_db(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data") -> tuple[bool, str | None]:
+    """Check the genesis block and accounts in the chain database.
+
+    Returns (verified, sealed block-0 hash) so the caller can cross-check it
+    against the genesis file (#2543)."""
     import sqlite3
 
     # Check database (chain-specific path)
@@ -220,6 +264,7 @@ def _verify_genesis_db(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data"
             ctx.exit(1)
 
     verified = True
+    db_genesis_hash: str | None = None
     try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
@@ -236,6 +281,7 @@ def _verify_genesis_db(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data"
 
         if genesis_block:
             success("✓ Genesis block found in database")
+            db_genesis_hash = genesis_block[1]
             output(
                 {"height": genesis_block[0], "hash": genesis_block[1], "proposer": genesis_block[2]},
                 ctx.obj.get("output_format", "table"),
@@ -258,7 +304,7 @@ def _verify_genesis_db(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data"
     except _OPS_ERRORS as e:
         error(f"Failed to verify database: {e}")
         ctx.exit(1)
-    return verified
+    return verified, db_genesis_hash
 
 
 def _verify_treasury_wallet(ctx) -> bool:
@@ -402,6 +448,75 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
         ctx.exit(1)
 
 
+def _validate_synced_genesis(ctx, genesis_data: Any, chain_id: str) -> bool:
+    """The synced document must be a complete genesis doc for *chain_id* —
+    matching chain id, a genesis hash, and a non-empty allocations list.
+    Anything less is a placeholder and is refused (#2542)."""
+    if not isinstance(genesis_data, dict):
+        error("Hub did not return a genesis document (not a JSON object)")
+        return False
+    doc_chain = genesis_data.get("chain_id")
+    if doc_chain != chain_id:
+        error(f"Genesis document chain_id {doc_chain!r} does not match requested chain {chain_id!r}")
+        return False
+    genesis_hash = genesis_data.get("genesis_hash") or (genesis_data.get("block") or {}).get("hash")
+    if not genesis_hash:
+        error("Genesis document carries no genesis hash (genesis_hash or block.hash)")
+        return False
+    allocations = genesis_data.get("allocations")
+    if not isinstance(allocations, list) or not allocations:
+        error("Genesis document has no allocations — refusing to write a placeholder")
+        return False
+    return True
+
+
+def _fetch_genesis_document(ctx, rpc_url: str) -> Any:
+    """GET {rpc_url}/agent/genesis.json and return the parsed JSON.
+
+    Exits the command on transport/HTTP errors; the caller validates the
+    document itself (#2542)."""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(f"{rpc_url}/agent/genesis.json")
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        error(f"Failed to fetch genesis document from hub: HTTP {e.response.status_code}")
+        error("The hub must serve the genesis document at /agent/genesis.json")
+        ctx.exit(1)
+    except httpx.RequestError as e:
+        error(f"Failed to connect to hub: {e}")
+        ctx.exit(1)
+    except _OPS_ERRORS as e:
+        error(f"Failed to sync genesis: {e}")
+        ctx.exit(1)
+    return None
+
+
+def _write_genesis_atomic(path: Path, genesis_data: dict[str, Any]) -> None:
+    """Write the genesis document via temp file + os.replace so an
+    interrupted sync never leaves a truncated genesis.json (#2542)."""
+    st = path.stat() if path.exists() else None
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=".genesis.", suffix=".tmp")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(genesis_data, f, indent=2, default=str)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    if st is not None:
+        try:
+            os.chown(path, st.st_uid, st.st_gid)
+        except OSError:
+            pass
+
+
 @genesis.command(
     epilog="""Examples:
 
@@ -410,7 +525,11 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
   aitbc genesis sync-from-hub --chain-id ait-mainnet --force"""
 )
 @click.option("--chain-id", default=None, help="Chain ID to sync genesis for (auto-detected from config if not provided)")
-@click.option("--rpc-url", default=None, help="Hub RPC URL to fetch genesis from (default: from config)")
+@click.option(
+    "--rpc-url",
+    default=None,
+    help="Hub base URL serving /agent/genesis.json (default: blockchain_rpc_url from config)",
+)
 @click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
 @click.option("--force", is_flag=True, help="Force overwrite existing genesis.json")
 @click.pass_context
@@ -460,56 +579,41 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
     # Create directory if it doesn't exist
     genesis_dir.mkdir(parents=True, exist_ok=True)
 
-    success(f"Fetching genesis from hub: {rpc_url}")
+    success(f"Fetching genesis document from hub: {rpc_url}")
     success(f"Chain ID: {chain_id}")
 
-    try:
-        # Fetch genesis from hub RPC endpoint
-        # The hub should expose a /rpc/genesis endpoint or similar
-        # For now, we'll try to fetch from the block endpoint
-        with httpx.Client(timeout=10.0) as client:
-            # Try to get genesis block from RPC
-            response = client.get(f"{rpc_url}/rpc/blocks/0?chain_id={chain_id}")
-            response.raise_for_status()
-            block_data = response.json()
-
-            # Construct genesis data from block
-            genesis_data = {
-                "genesis_hash": block_data.get("hash"),
-                "parent_hash": block_data.get("parent_hash", "0x00"),
-                "proposer": block_data.get("proposer", "genesis"),
-                "timestamp": block_data.get("timestamp"),
-                "state_root": block_data.get(
-                    "state_root", "0x0000000000000000000000000000000000000000000000000000000000000000"
-                ),
-                "allocations": [],
-            }
-
-            # Write genesis.json
-            with open(genesis_path, "w") as f:
-                json.dump(genesis_data, f, indent=2, default=str)
-
-            success(f"✓ Genesis synced successfully: {genesis_path}")
-            output(
-                {
-                    "chain_id": chain_id,
-                    "genesis_hash": genesis_data["genesis_hash"],
-                    "timestamp": genesis_data["timestamp"],
-                    "file_path": str(genesis_path),
-                },
-                ctx.obj.get("output_format", "table"),
-            )
-
-    except httpx.HTTPStatusError as e:
-        error(f"Failed to fetch genesis from hub: HTTP {e.response.status_code}")
-        error(f"Response: {e.response.text}")
+    # The join genesis document is served at /agent/genesis.json on the hub
+    # site (docs/agent/guides/open-island-joining-guide.md). The old
+    # /rpc/blocks/0 row is NOT a genesis document — it carries no chain_id
+    # or allocations, so writing it produced a placeholder that --force
+    # could clobber a complete genesis.json with (#2542). Refuse rather
+    # than write an unverified document.
+    genesis_data = _fetch_genesis_document(ctx, rpc_url)
+    if not _validate_synced_genesis(ctx, genesis_data, chain_id):
         ctx.exit(1)
-    except httpx.RequestError as e:
-        error(f"Failed to connect to hub: {e}")
-        ctx.exit(1)
-    except _OPS_ERRORS as e:
-        error(f"Failed to sync genesis: {e}")
-        ctx.exit(1)
+
+    # --force replaces a complete genesis.json: keep a timestamped copy
+    # first so the overwrite stays recoverable (#2542).
+    if genesis_path.exists():
+        backup = genesis_path.with_name(f"genesis.json.bak-{int(time.time())}")
+        shutil.copy2(genesis_path, backup)
+        warning(f"Existing genesis file backed up to {backup} before --force overwrite")
+
+    # Write atomically: temp file + os.replace, so an interrupted sync never
+    # leaves a truncated genesis.json (#2542).
+    _write_genesis_atomic(genesis_path, genesis_data)
+
+    success(f"✓ Genesis synced successfully: {genesis_path}")
+    genesis_hash = genesis_data.get("genesis_hash") or (genesis_data.get("block") or {}).get("hash")
+    output(
+        {
+            "chain_id": chain_id,
+            "genesis_hash": genesis_hash,
+            "timestamp": genesis_data.get("timestamp") or (genesis_data.get("block") or {}).get("timestamp"),
+            "file_path": str(genesis_path),
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @genesis.command(
