@@ -9,7 +9,7 @@ from aitbc.exceptions import AITBCError
 
 from ..utils import output
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, server_answered_status
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,20 @@ def _is_hub_node() -> bool:
     return False
 
 
+def _abort_pool_hub_failure(ctx, e: NetworkError, pool_hub_url: str) -> None:
+    """Abort naming the HTTP status when the server answered (#2585).
+
+    A 4xx/5xx is not 'unreachable' — the service responded; only genuine
+    transport failures (DNS/TCP/TLS/timeout) earn that word.
+    """
+    code = server_answered_status(e)
+    if code is not None:
+        detail = http_error_detail(e)
+        suffix = f" — {detail}" if detail else ""
+        abort(ctx, f"Pool Hub at {pool_hub_url} answered HTTP {code}{suffix}", from_exception=e)
+    abort(ctx, f"Pool Hub at {pool_hub_url} is unreachable: {e}", from_exception=e)
+
+
 @click.group(
     epilog="""Examples:
 
@@ -101,7 +115,7 @@ def status(ctx, pool_hub_url):
         status = http_client.get("/health")
         output(status, ctx.obj.get("output_format", "table"), title="Pool Hub Status")
     except NetworkError as e:
-        abort(ctx, f"Pool Hub at {pool_hub_url} is unreachable: {e}", from_exception=e)
+        _abort_pool_hub_failure(ctx, e, pool_hub_url)
     except _POOL_HUB_ERRORS as e:
         abort(ctx, f"Error getting pool hub status: {e}", from_exception=e)
 
@@ -156,6 +170,6 @@ def sla(ctx, pool_id, miner_id, hours, violations, resolved, pool_hub_url):
             sla_data = http_client.get("/v1/sla/status")
             output(sla_data, output_format, title="SLA Monitor")
     except NetworkError as e:
-        abort(ctx, f"Pool Hub at {pool_hub_url} is unreachable: {e}", from_exception=e)
+        _abort_pool_hub_failure(ctx, e, pool_hub_url)
     except _POOL_HUB_ERRORS as e:
         abort(ctx, f"Error monitoring SLA: {e}", from_exception=e)
