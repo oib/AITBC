@@ -569,7 +569,11 @@ class _DbReservationMixin:
                             MempoolEntry.received_at < cutoff,
                         )
                     ).all()
-                    cid_hashes = [r[0] for r in cid_rows if r[0] not in keep]
+                    # exec() on a single-column select yields scalars, not
+                    # rows — r[0] here reduced every hash to "0" and the
+                    # delete matched nothing, so TTL eviction never fired
+                    # on the database backend (#2649).
+                    cid_hashes = [r for r in cid_rows if r not in keep]
                     if not cid_hashes:
                         continue
                     res = session.exec(
