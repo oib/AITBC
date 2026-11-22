@@ -20,7 +20,7 @@ from aitbc.network.url_safety import validate_fleet_outbound_url
 
 from ..config import settings
 from ..deps import get_market_service, get_session_dep, require_market_api_key
-from ..gates import _warn_secret_query_transport
+from ..gates import _warn_secret_query_transport, rating_signature_error
 from ..services.market_service import MarketService, coerce_offer_expires_at, max_page_size
 from ..storage import get_session
 
@@ -277,6 +277,12 @@ class RatingRequest(BaseModel):
     rating: float
     reviewer_id: str
     comment: str = ""
+    # #2508: wallet-signature proof — the recovered signer must equal
+    # reviewer_id (same jobs-request scheme as the signed job routes).
+    signer_address: str | None = None
+    chain_id: str | None = None
+    issued_at: int | None = None
+    signature: str | None = None
 
 
 @router.post("/v1/market/offer/{service_id}/rate", dependencies=[Depends(require_market_api_key)])
@@ -286,6 +292,21 @@ async def rate_service(
     """Rate a market service offer"""
     try:
         logger.info("POST /v1/market/offer/%s/rate called with rating=%s", service_id, rating_data.rating)
+        # #2508: reviewer_id is self-declared unless proven — require the
+        # reviewer's wallet signature before touching service state so an
+        # unsigned caller cannot probe existence or forge a rating.
+        sig_error = rating_signature_error(
+            service_id=service_id,
+            rating=rating_data.rating,
+            reviewer_id=rating_data.reviewer_id,
+            comment=rating_data.comment or "",
+            signer_address=rating_data.signer_address,
+            chain_id=rating_data.chain_id,
+            issued_at=rating_data.issued_at,
+            signature=rating_data.signature,
+        )
+        if sig_error is not None:
+            return sig_error
         # `add_service_rating` never checked that the service exists, and the aggregate it
         # then updates is guarded by `if service:` -- so rating a service that is not there
         # answered 200 and wrote an orphan row that no aggregate would ever count (V23-81).

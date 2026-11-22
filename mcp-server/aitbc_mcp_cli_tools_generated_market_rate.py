@@ -29,7 +29,6 @@ def aitbc_market_rate(
     service_id: Annotated[str, Field(description="The Service id.")],
     rating: Annotated[float, Field(description="The Rating.")],
     comment: Annotated[str | None, Field(description="Optional comment/review text")] = None,
-    reviewer_id: Annotated[str | None, Field(description="Reviewer ID (defaults to wallet address)")] = None,
     market_url: Annotated[str | None, Field(description="Override the market service URL")] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
     market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
@@ -46,13 +45,7 @@ def aitbc_market_rate(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={
-            "service_id": "service-id",
-            "rating": "rating",
-            "comment": "comment",
-            "reviewer_id": "reviewer-id",
-            "market_url": "market-url",
-        },
+        values={"service_id": "service-id", "rating": "rating", "comment": "comment", "market_url": "market-url"},
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
