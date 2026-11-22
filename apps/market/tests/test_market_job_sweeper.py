@@ -1375,3 +1375,142 @@ async def test_expired_job_with_unproven_token_refunds(sweeper) -> None:
     counts = await sw.sweep_once()
     assert job_id in rpc.refunded
     assert counts["refunded"] == 1
+
+
+@pytest.mark.asyncio
+async def test_job_bound_token_update_requires_provider_signature(sweeper) -> None:
+    """#2514: the #2491 signature gate must also cover the UPDATE path —
+    an unsigned upsert that omits ``rental_id`` used to rewrite a
+    provider-signed token's secret, CID and parties while the stored
+    ``rental_id`` kept the escrow binding."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    service, _sw, _rpc = sweeper
+    job_id, buyer_address, provider_address = await _ipfs_job_with_escrow(service)
+    provider_key = "0x" + "22" * 32
+    attacker = derive_ethereum_address("0x" + "99" * 32)
+
+    await service.register_ipfs_rental_token(
+        {
+            "access_key": "ak-upd",
+            "access_secret": "sec-orig",
+            "rental_id": job_id,
+            "cid": "QmTest",
+            **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
+        }
+    )
+
+    # Unsigned update, no rental_id — the old bypass.
+    with pytest.raises(ValueError, match="signer_address"):
+        await service.register_ipfs_rental_token(
+            {
+                "access_key": "ak-upd",
+                "access_secret": "sec-pwned",
+                "cid": "QmEvil",
+                "buyer_address": attacker,
+                "provider_address": attacker,
+            }
+        )
+    # Foreign-signed update — verification passes but the signer is not
+    # the job's provider.
+    foreign_addr = derive_ethereum_address("0x" + "33" * 32)
+    with pytest.raises(ValueError, match="provider"):
+        await service.register_ipfs_rental_token(
+            {
+                "access_key": "ak-upd",
+                "access_secret": "sec-pwned",
+                **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, "0x" + "33" * 32, foreign_addr),
+            }
+        )
+
+    from market_service.domain.market import IpfsRentalToken
+
+    async with get_session_context() as session:
+        row = (await session.execute(select(IpfsRentalToken).where(IpfsRentalToken.access_key == "ak-upd"))).scalar_one()
+        assert row.provider_address == provider_address
+        assert row.buyer_address == buyer_address
+        assert row.cid == "QmTest"
+        assert row.access_secret != "sec-pwned"
+
+
+@pytest.mark.asyncio
+async def test_job_bound_token_update_with_provider_signature(sweeper) -> None:
+    """#2514: a provider-signed update succeeds — credential rotation is
+    legitimate — but party/CID claims are rebound to the stored job."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    service, _sw, _rpc = sweeper
+    job_id, buyer_address, provider_address = await _ipfs_job_with_escrow(service)
+    provider_key = "0x" + "22" * 32
+    attacker = derive_ethereum_address("0x" + "99" * 32)
+
+    await service.register_ipfs_rental_token(
+        {
+            "access_key": "ak-upd-ok",
+            "access_secret": "sec-orig",
+            "rental_id": job_id,
+            "cid": "QmTest",
+            **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
+        }
+    )
+    result = await service.register_ipfs_rental_token(
+        {
+            "access_key": "ak-upd-ok",
+            "access_secret": "sec-rotated",
+            "cid": "QmFake",
+            "buyer_address": attacker,
+            "provider_address": attacker,
+            # rental_id omitted — authorization comes from the stored token.
+            **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
+        }
+    )
+    assert result["provider_address"] == provider_address
+    assert result["buyer_address"] == buyer_address
+    assert result["cid"] == "QmTest"
+    assert result["rental_id"] == job_id
+
+
+@pytest.mark.asyncio
+async def test_token_update_rejects_differing_rental_id(sweeper) -> None:
+    """#2514: a request ``rental_id`` that differs from the stored token's
+    is refused — otherwise a signature valid for the caller's own job
+    could rewrite a victim token that stays bound to the victim escrow."""
+
+    service, _sw, _rpc = sweeper
+    job_id, buyer_address, provider_address = await _ipfs_job_with_escrow(service)
+    other_job_id, _ob, _op = await _ipfs_job_with_escrow(service)
+    provider_key = "0x" + "22" * 32
+
+    await service.register_ipfs_rental_token(
+        {
+            "access_key": "ak-rid",
+            "access_secret": "sec",
+            "rental_id": job_id,
+            "cid": "QmTest",
+            **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
+        }
+    )
+    # Signed for the STORED job but claiming a different rental_id.
+    with pytest.raises(ValueError, match="rental_id"):
+        await service.register_ipfs_rental_token(
+            {
+                "access_key": "ak-rid",
+                "access_secret": "sec2",
+                "rental_id": other_job_id,
+                **_rental_token_signature(job_id, "QmTest", buyer_address, provider_address, provider_key, provider_address),
+            }
+        )
+    # A standalone token cannot acquire a rental_id via update either.
+    await service.register_ipfs_rental_token({"access_key": "ak-plain", "access_secret": "sec"})
+    with pytest.raises(ValueError, match="rental_id"):
+        await service.register_ipfs_rental_token({"access_key": "ak-plain", "access_secret": "sec2", "rental_id": job_id})
+
+
+@pytest.mark.asyncio
+async def test_standalone_token_update_stays_unsigned(sweeper) -> None:
+    """#2514: tokens with no job binding keep the legacy unsigned update —
+    there is no provider job to verify against."""
+    service, _sw, _rpc = sweeper
+    await service.register_ipfs_rental_token({"access_key": "ak-legacy", "access_secret": "sec-1", "cid": "QmA"})
+    result = await service.register_ipfs_rental_token({"access_key": "ak-legacy", "access_secret": "sec-2", "cid": "QmB"})
+    assert result["cid"] == "QmB"
