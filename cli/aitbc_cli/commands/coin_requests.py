@@ -580,12 +580,21 @@ def show(ctx, request_id):
         click.echo(f"Audit Log: {req.audit_log}")
 
 
-def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = None) -> bool | None:
-    """Does the chain hold this transaction? None when the chain could not be reached.
+def _chain_tx_is_sealed(rpc_url: str, tx_hash: str, chain_id: str | None = None) -> bool | None:
+    """Is this hash *settled* on chain? None when that cannot be determined.
 
-    The distinction matters: a missing transaction is a discrepancy to act on, an
-    unreachable node is not, and treating the second as the first would invite someone
-    to reopen a request that was paid perfectly well.
+    A 200 from ``/rpc/transaction/{hash}`` only proves the node knows the
+    hash — a rejected or still-pending payout returns 200 too, and counting
+    it as paid is what let `reopen` refuse to undo a payment that never
+    happened (#2518). Settled means ``status == "confirmed"`` with a
+    ``block_height``; a terminal non-confirmed status (``failed`` /
+    ``rejected``) is absent for payment purposes, and a mempool ``pending``
+    view is unverifiable — it may still seal.
+
+    The tri-state matters: a missing or dead transaction is a discrepancy to
+    act on, an unreachable node or pending tx is not, and treating either as
+    "paid" would invite someone to reopen a request that was paid perfectly
+    well — or as "absent" would pay twice.
 
     `chain_id` is left off unless asked for. The node knows which chain it is serving and
     the caller does not: guessing here — from `CHAIN_ID`, which defaults to `ait-hub` while
@@ -600,11 +609,23 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = No
     except requests.RequestException as e:
         click.echo(f"  Could not reach {rpc_url}: {e}")
         return None
-    if response.status_code == 200:
-        return True
     if response.status_code == 404:
         return False
-    click.echo(f"  Unexpected {response.status_code} from {rpc_url}: {response.text[:200]}")
+    if response.status_code != 200:
+        click.echo(f"  Unexpected {response.status_code} from {rpc_url}: {response.text[:200]}")
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        click.echo(f"  Unparseable response from {rpc_url}")
+        return None
+    if not isinstance(body, dict):
+        return None
+    status = body.get("status")
+    if status in ("failed", "rejected"):
+        return False
+    if status == "confirmed" and body.get("block_height") is not None:
+        return True
     return None
 
 
@@ -636,18 +657,18 @@ def reconcile(ctx, rpc_url, annotate, chain_id):
                 click.echo(f"{req.id}: stranded mid-execution ({tx_hash}) — reconcile against the chain by hand")
                 continue
             checked += 1
-            present = _chain_has_transaction(rpc_url, tx_hash, chain_id)
-            if present is None:
+            settled = _chain_tx_is_sealed(rpc_url, tx_hash, chain_id)
+            if settled is None:
                 unreachable += 1
                 continue
-            if present:
+            if settled:
                 continue
             missing += 1
             amount = format_ait(req.amount) if req.amount is not None else "N/A"
-            click.echo(f"{req.id}: chain has no {tx_hash}")
+            click.echo(f"{req.id}: no settled {tx_hash} on chain")
             click.echo(f"  claims {amount} paid to {req.wallet_address}")
             if annotate:
-                entry = f" | Reconciled {datetime.now(UTC).isoformat()}: {tx_hash} absent from chain at {rpc_url}"
+                entry = f" | Reconciled {datetime.now(UTC).isoformat()}: {tx_hash} not settled on chain at {rpc_url}"
                 req.audit_log = (req.audit_log or "") + entry
                 click.echo("  recorded in audit log")
 
@@ -685,18 +706,18 @@ def reopen(ctx, request_id, rpc_url, force, chain_id):
 
         tx_hash = str(req.transaction_hash)
         if not tx_hash.startswith("claiming:"):
-            present = _chain_has_transaction(rpc_url, tx_hash, chain_id)
-            if present is None and not force:
+            settled = _chain_tx_is_sealed(rpc_url, tx_hash, chain_id)
+            if settled is None and not force:
                 abort(ctx, "Refusing to reopen: could not confirm with the chain whether this was paid.")
                 return
-            if present:
+            if settled:
                 if not force:
-                    abort(ctx, f"Refusing to reopen: the chain has {tx_hash}. This request was paid.")
+                    abort(ctx, f"Refusing to reopen: {tx_hash} is settled on chain. This request was paid.")
                     return
-                click.echo(f"Refusing to reopen: the chain has {tx_hash}. This request was paid.")
+                click.echo(f"Refusing to reopen: {tx_hash} is settled on chain. This request was paid.")
                 click.echo("--force given; reopening a request the chain says was paid.")
 
-        entry = f" | Reopened {datetime.now(UTC).isoformat()}: cleared {tx_hash} (absent from chain at {rpc_url})"
+        entry = f" | Reopened {datetime.now(UTC).isoformat()}: cleared {tx_hash} (not settled on chain at {rpc_url})"
         req.audit_log = (req.audit_log or "") + entry
         req.transaction_hash = None
         click.echo(f"Reopened {request_id}. It is executable again — the hub will pay it if you execute it.")

@@ -369,7 +369,7 @@ def test_coin_requests_reopen_unverifiable_exits_nonzero(runner, monkeypatch):
     import aitbc_cli.commands.coin_requests as cr_mod
 
     req = SimpleNamespace(id="req-1", transaction_hash="0x" + "cd" * 32, audit_log="")
-    monkeypatch.setattr(cr_mod, "_chain_has_transaction", lambda *a, **kw: None)
+    monkeypatch.setattr(cr_mod, "_chain_tx_is_sealed", lambda *a, **kw: None)
     _patch_coin_db(monkeypatch, cr_mod, row=req)
     result = runner.invoke(
         cr_mod.coin_requests,
