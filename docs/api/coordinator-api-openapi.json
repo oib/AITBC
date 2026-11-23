@@ -28086,6 +28086,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Reward claims are not payable yet: the chain records a memo only, no transfer is sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
