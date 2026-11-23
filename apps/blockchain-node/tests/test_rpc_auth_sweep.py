@@ -139,6 +139,31 @@ class TestEscrowSettlementAuth:
         read = client.get("/rpc/escrow/job-1", headers={"X-API-Key": KEY})
         assert read.status_code != 403
 
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_peer_key_with_settlement_key_reaches_handler(self, client, monkeypatch, path):
+        """#2742: a fleet peer node's own RPC key + the fleet-shared settlement
+        credential is a legitimate settlement caller — customer nodes hold
+        both by design and must be able to refund escrows they cannot settle
+        locally."""
+        monkeypatch.setattr(escrow_routes, "_RPC_API_PEER_KEYS", frozenset({"peer-key-a"}))
+        resp = self._post(client, path, api_key="peer-key-a", settle_key=self.SETTLE_KEY)
+        assert resp.status_code != 403, path
+
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_peer_key_without_settlement_key_still_403(self, client, monkeypatch, path):
+        """The peer-key base gate does not weaken the settlement credential:
+        X-Settlement-Key is still mandatory."""
+        monkeypatch.setattr(escrow_routes, "_RPC_API_PEER_KEYS", frozenset({"peer-key-a"}))
+        assert self._post(client, path, api_key="peer-key-a").status_code == 403, path
+
+    def test_peer_key_still_rejected_on_non_settlement_routes(self, client, monkeypatch):
+        """Peer keys unlock settlement routes only — create/read keep the
+        own-key gate so the escrow control plane stays scoped."""
+        monkeypatch.setattr(escrow_routes, "_RPC_API_PEER_KEYS", frozenset({"peer-key-a"}))
+        h = {"X-API-Key": "peer-key-a"}
+        assert client.get("/rpc/escrow/job-1", headers=h).status_code == 403
+        assert client.post("/rpc/escrow/create", json={}, headers=h).status_code == 403
+
 
 class TestControlPlaneAuth:
     """Chain lifecycle and block import are operator operations."""

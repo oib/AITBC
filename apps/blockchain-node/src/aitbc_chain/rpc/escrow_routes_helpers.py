@@ -196,6 +196,27 @@ def verify_rpc_fleet_read_key(api_key: str | None = _er.Security(_er._api_key_he
     )
 
 
+def verify_rpc_fleet_peer_key(api_key: str | None = _er.Security(_er._api_key_header)) -> str:
+    """Accept this node's RPC key or a configured ``BLOCKCHAIN_RPC_API_KEY_PEERS``
+    fleet key — never an issued join key.
+
+    Base-key gate for the settlement routes (``/escrow/{id}/release`` and
+    ``/refund``): those routes additionally require ``X-Settlement-Key``
+    (#1917), a fleet-shared credential every node holds, so a customer node
+    presenting its own RPC key plus the settlement key is a legitimate
+    settlement caller. The own-key-only ``verify_rpc_api_key`` stranded
+    exactly that caller — customer nodes could lock escrows but never
+    settle them (#2742).
+    """
+    if _er.rpc_fleet_key_accepted(api_key):
+        return api_key or ""
+    _er._logger.warning("Rejected fleet settlement RPC request: missing or invalid X-API-Key")
+    raise _er.HTTPException(
+        status_code=_er.status.HTTP_403_FORBIDDEN,
+        detail="Forbidden: missing or invalid API key",
+    )
+
+
 def verify_rpc_export_key(api_key: str | None = _er.Security(_er._api_key_header)) -> str:
     """Require a fleet RPC key (this node's admin key or a configured peer
     key) — issued join keys are rejected.
