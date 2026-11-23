@@ -341,8 +341,8 @@ class AgentIdentityUpdate(SQLModel):
     display_name: str | None = Field(default=None, max_length=100)
     description: str | None = Field(default=None)
     avatar_url: str | None = Field(default=None)
-    status: IdentityStatus | None = Field(default=None)
-    verification_level: VerificationType | None = Field(default=None)
+    # status and verification_level are trust fields — server-owned, never
+    # writable through the owner-facing update model (#2689).
     supported_chains: list[int] | None = Field(default=None)
     primary_chain: int | None = Field(default=None)
     meta_data: dict[str, Any] | None = Field(default=None)

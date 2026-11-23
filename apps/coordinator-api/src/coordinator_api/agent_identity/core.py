@@ -81,9 +81,14 @@ class AgentIdentityCore:
         if not identity:
             raise ValueError(f"Identity not found: {identity_id}")
         update_data = request.model_dump(exclude_unset=True)
+        # Wire names meta_data/settings map onto the identity_data/
+        # settings_data columns; without the rename they were silently
+        # dropped while the API reported them as updated (#2689).
+        field_renames = {"meta_data": "identity_data", "settings": "settings_data"}
         for field, value in update_data.items():
-            if hasattr(identity, field):
-                setattr(identity, field, value)
+            target = field_renames.get(field, field)
+            if hasattr(identity, target):
+                setattr(identity, target, value)
         identity.updated_at = datetime.now(UTC)
         self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         self.session.refresh(identity)  # noqa: unawaited-async — sync Session (sqlmodel)
