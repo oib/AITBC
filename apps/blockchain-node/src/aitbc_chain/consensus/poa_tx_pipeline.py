@@ -471,6 +471,11 @@ class _TxPipelineMixin(_PoaBaseMixin):
         one exists, else build the new confirmed row. Records are flushed to
         the session only by the caller after all transitions succeed."""
         if existing_tx_record:
+            if existing_tx_record.status == "rejected":
+                # #2745: a content-identical resubmission just sealed — the
+                # row flips rejected→confirmed, so its dead-letter metadata
+                # must not keep advertising the earlier rejection.
+                existing_tx_record.tx_metadata = None
             existing_tx_record.block_height = ctx.next_height
             existing_tx_record.status = "confirmed"
             existing_tx_record.timestamp = ctx.timestamp.isoformat()

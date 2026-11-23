@@ -1394,6 +1394,41 @@ def _mempool_pending_lookup(chain_id: str, tx_hash: str) -> dict[str, Any] | Non
     return None
 
 
+def _rejected_resubmission_view(tx: Transaction, chain_id: str, tx_hash: str) -> dict[str, Any] | None:
+    """Pending mempool view for ``tx_hash`` when its durable row is rejected (#2745).
+
+    Returns ``None`` for non-rejected rows and when nothing is pending — the
+    caller then answers from the stored row as before.
+    """
+    if tx.status != "rejected":
+        return None
+    pending = _mempool_pending_lookup(chain_id, tx_hash)
+    if pending is None:
+        return None
+    pending["previously_rejected"] = True
+    return pending
+
+
+def _rejection_metadata_fields(tx: Transaction) -> dict[str, Any]:
+    """``rejected_*`` fields parsed from ``tx_metadata`` for rejected rows.
+
+    Apply-time rejections carry their reason in ``tx_metadata`` (#669);
+    callers (e.g. the agent-coordinator escrow reconcile, #2744) use it to
+    tell *why* a hash will never seal. Gated on status so a resurrected
+    confirmed row never advertises its earlier rejection (#2745), and
+    tolerant of the plain-text notes import-side rejection rows carry.
+    """
+    if tx.status != "rejected" or not tx.tx_metadata:
+        return {}
+    try:
+        meta = json.loads(tx.tx_metadata)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(meta, dict):
+        return {}
+    return {key: meta[key] for key in ("rejected_reason", "rejected_at_height", "rejected_at") if key in meta}
+
+
 @rate_limit(rate=200, per=60)
 def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """Look up one transaction by hash (V23-66).
@@ -1417,6 +1452,16 @@ def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None)
             if pending is not None:
                 return pending
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction {tx_hash} not found")
+        # #2745: the tx hash is content-deterministic, so resubmitting a
+        # previously rejected transaction rebuilds the identical hash and
+        # mempool admission accepts it again. A live pending entry must win
+        # over the stale rejected row — otherwise every status read reports
+        # a dead letter while a valid resubmission waits to seal (apply
+        # resurrects the row to confirmed). Once the resubmission dies or
+        # seals, the rejected/confirmed row is the answer again.
+        live = _rejected_resubmission_view(tx, resolved_chain_id, tx_hash)
+        if live is not None:
+            return live
         body: dict[str, Any] = {
             "transaction_id": tx.id,
             "tx_hash": tx.tx_hash,
@@ -1436,16 +1481,9 @@ def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None)
         # Apply-time rejections carry their reason in tx_metadata (#669);
         # surface it so callers (e.g. the agent-coordinator escrow reconcile,
         # #2744) can tell *why* a hash will never seal instead of seeing a
-        # bare "rejected".
-        if tx.tx_metadata:
-            try:
-                meta = json.loads(tx.tx_metadata)
-            except (TypeError, ValueError):
-                meta = None
-            if isinstance(meta, dict):
-                for key in ("rejected_reason", "rejected_at_height", "rejected_at"):
-                    if key in meta:
-                        body[key] = meta[key]
+        # bare "rejected". Gated on status so a resurrected confirmed row
+        # never advertises its earlier rejection (#2745).
+        body.update(_rejection_metadata_fields(tx))
         if finality_fields_enabled():
             body.update(finality_view(tx.block_height, head_height_in_session(session, resolved_chain_id)))
         return body

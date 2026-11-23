@@ -274,6 +274,22 @@ def _submit_liquidity_transaction(
     warning = result.get("warning")
     if warning:
         click.echo(f"Warning: {warning}", err=True)
+    # #2745: the tx hash is content-deterministic — resubmitting a tx the
+    # chain already rejected rebuilds the identical hash, and the node now
+    # reports a live pending resubmission ahead of the stale rejected row.
+    # A bare status="rejected" answer therefore means this exact transaction
+    # is dead; fail loudly instead of letting the caller echo it as submitted.
+    try:
+        record = http_client.get(f"/rpc/transaction/{tx_hash}?chain_id={chain_id}")
+    except Exception as e:  # noqa: BLE001 - status probe is advisory; admission already succeeded
+        logger.debug("post-submit tx status probe failed for %s: %s", tx_hash, e)
+        record = None
+    if isinstance(record, dict) and record.get("status") == "rejected":
+        raise click.ClickException(
+            f"Transaction {tx_hash} was previously rejected on-chain and is not pending — "
+            "the resubmission did not take; check `aitbc transactions status "
+            f"{tx_hash}` before retrying"
+        )
     return str(tx_hash)
 
 
