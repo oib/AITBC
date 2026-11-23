@@ -224,13 +224,17 @@ class DeveloperPlatformService:
             .first()
         )
 
+    # Caller-writable profile fields. Scores, earnings, wallet, and lifecycle
+    # columns are server-owned and must never be mass-assignable (#2685).
+    _PROFILE_UPDATABLE_FIELDS = frozenset({"github_handle", "email", "skills"})
+
     def update_developer_profile(self, wallet_address: str, updates: dict) -> DeveloperProfile:
         """Update developer profile"""
         profile = self.get_developer_profile(wallet_address)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
         for key, value in updates.items():
-            if hasattr(profile, key):
+            if key in self._PROFILE_UPDATABLE_FIELDS:
                 setattr(profile, key, value)
         profile.updated_at = datetime.now(UTC)
         self.session.commit()
