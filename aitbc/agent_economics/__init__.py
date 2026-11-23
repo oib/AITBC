@@ -23,11 +23,6 @@ from .bonds import (
     StakeAccount,
     StakeStatus,
 )
-from .confidential_payments import (
-    ConfidentialPayment,
-    settle_payment,
-    validate_payment,
-)
 from .errors import (
     AgentEconomicsError,
     BondError,
@@ -121,7 +116,6 @@ __all__ = [
     "Budget",
     "BudgetError",
     "ChainHoldings",
-    "ConfidentialPayment",
     "ConstraintType",
     "CrossChainSwap",
     "Delegation",
@@ -180,9 +174,7 @@ __all__ = [
     "liquidate_bond",
     "offboard_provider",
     "quote_swap",
-    "settle_payment",
     "slash_bond",
     "slash_stake",
-    "validate_payment",
     "validate_slash_event",
 ]

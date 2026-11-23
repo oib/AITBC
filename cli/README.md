@@ -30,7 +30,6 @@ aitbc --help
 | `cluster` | Cluster management and operations | `balance`, `status`, `sync` |
 | `coin-requests` | Manage coin transfer requests. | `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `request`, `show` |
 | `compliance` | Compliance policy, classification, and audit commands. | `check`, `classify`, `export-audit` |
-| `confidential` | Confidential TEE-signed transaction commands. | `balance`, `send` |
 | `config` | Manage CLI configuration | `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate` |
 | `contract` | Smart contract operations | `call`, `deploy`, `list`, `messaging-messages`, `messaging-reputation`, `messaging-search`, `messaging-state`, `messaging-topics`, `verify` |
 | `crosschain` | Cross-chain trading operations | `bridge`, `bridge-status`, `confirm`, `pools`, `rates`, `stats`, `status`, `swap`, `swaps` |

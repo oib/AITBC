@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1531
+- **Markdown files under docs/**: 1529
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 604 | Command-line interface reference |
+| [cli](cli/) | 602 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -420,8 +420,6 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/compliance-check.md](cli/commands/compliance-check.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/compliance-classify.md](cli/commands/compliance-classify.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/compliance-export-audit.md](cli/commands/compliance-export-audit.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/confidential-balance.md](cli/commands/confidential-balance.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/confidential-send.md](cli/commands/confidential-send.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/config-check-keys.md](cli/commands/config-check-keys.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/config-check.md](cli/commands/config-check.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/config-edit.md](cli/commands/config-edit.md) | [cli/commands/README.md](cli/commands/README.md) |

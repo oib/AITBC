@@ -207,11 +207,6 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc compliance classify`](compliance-classify.md) — Normalize a data classification label to the canonical format.
 - [`aitbc compliance export-audit`](compliance-export-audit.md) — Export the compliance audit trail to a JSON file.
 
-## `confidential`
-
-- [`aitbc confidential balance`](confidential-balance.md) — Show a confidential wallet balance proof.
-- [`aitbc confidential send`](confidential-send.md) — Send a confidential amount from a wallet to a recipient.
-
 ## `config`
 
 - [`aitbc config check`](config-check.md) — Check configuration and environment API keys.

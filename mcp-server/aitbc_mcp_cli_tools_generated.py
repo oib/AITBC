@@ -24,7 +24,6 @@ import aitbc_mcp_cli_tools_generated_bridge  # noqa: F401
 import aitbc_mcp_cli_tools_generated_cluster  # noqa: F401
 import aitbc_mcp_cli_tools_generated_coin_requests  # noqa: F401
 import aitbc_mcp_cli_tools_generated_compliance  # noqa: F401
-import aitbc_mcp_cli_tools_generated_confidential  # noqa: F401
 import aitbc_mcp_cli_tools_generated_config  # noqa: F401
 import aitbc_mcp_cli_tools_generated_contract  # noqa: F401
 import aitbc_mcp_cli_tools_generated_crosschain  # noqa: F401
