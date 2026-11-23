@@ -10716,7 +10716,7 @@
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "Key storage failure / Internal server error",
             "content": {
               "application/json": {
                 "schema": {
