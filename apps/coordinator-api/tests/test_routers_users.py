@@ -449,3 +449,63 @@ def test_non_admin_wallet_is_denied_admin_route(client, monkeypatch):
         assert resp.status_code == 403
     finally:
         settings.admin_wallet_addresses = original
+
+
+def test_register_rejects_reserved_aitbc_local_email(client):
+    """#2705: @aitbc.local is reserved for wallet-login synthetic addresses."""
+    attacker = Account.create()
+    victim = Account.create()
+    victim_email = f"{victim.address.lower()}@aitbc.local"
+
+    nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": attacker.address.lower()})
+    nonce = nonce_resp.json()["nonce"]
+    signature = _sign_login(attacker.address.lower(), nonce, attacker.key.hex())
+    resp = client.post(
+        "/v1/register",
+        json={
+            "email": victim_email,
+            "username": "squatter",
+            "wallet_address": attacker.address.lower(),
+            "nonce": nonce,
+            "signature": signature,
+        },
+    )
+    assert resp.status_code == 400
+    assert "reserved" in resp.json()["detail"].lower()
+
+
+def test_wallet_login_survives_squatted_synthetic_email(client):
+    """#2705: a pre-existing squatter row on <wallet>@aitbc.local must not
+    500 the victim's first wallet login — the synthetic email is suffixed."""
+    from sqlmodel import select
+
+    from coordinator_api.contexts.infrastructure.domain.user import User
+    from coordinator_api.main import app
+    from coordinator_api.storage.db import get_session
+
+    victim = Account.create()
+    synthetic = f"{victim.address.lower()}@aitbc.local"
+
+    # Simulate a legacy squatter row holding the victim's synthetic email —
+    # insert through the same overridden session the app uses.
+    session_gen = app.dependency_overrides[get_session]()
+    session = next(session_gen)
+    try:
+        session.add(User(id="squatter-1", email=synthetic, username="squatter"))
+        session.commit()
+    finally:
+        session_gen.close()
+
+    resp = _login_user(client, victim)
+    assert resp.status_code == 200
+    data = resp.json()
+    # The victim got a working account — on a suffixed email, not the squatter's row.
+    assert data["user_id"] != "squatter-1"
+
+    session_gen = app.dependency_overrides[get_session]()
+    session = next(session_gen)
+    try:
+        users = session.execute(select(User).where(User.email.like(f"{victim.address.lower()}%@aitbc.local"))).scalars().all()
+        assert len(users) == 2  # squatter + victim's suffixed account
+    finally:
+        session_gen.close()
