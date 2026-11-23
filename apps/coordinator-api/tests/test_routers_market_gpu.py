@@ -1893,3 +1893,56 @@ def test_quote_binds_job_model_id_to_the_quote_profile(client, client_token, db_
     job = db_session.get(Job, data["job_id"])
     assert job.model_id == data["energy_quote"]["model_id"]
     assert job.model_id != MODEL
+
+
+@pytest.mark.unit
+def test_confirm_gpu_cannot_takeover_booking(client, miner_token, db_session):
+    """#2679: naming yourself in client_id is not owning the booking — an
+    unrelated caller must not overwrite the active booking's client_id."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+
+    gpu_id = _booked_gpu(client, miner_token, db_session, client_id="victim_client")
+    attacker = create_access_token("attacker", "client")
+    resp = client.post(
+        f"/v1/market/gpu/{gpu_id}/confirm",
+        headers={"Authorization": f"Bearer {attacker}"},
+        json={"client_id": "attacker"},
+    )
+    assert resp.status_code == 403
+    booking = db_session.execute(
+        select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
+    ).scalar_one()
+    assert booking.client_id == "victim_client"
+
+
+@pytest.mark.unit
+def test_confirm_gpu_booking_client_confirms(client, miner_token, db_session):
+    """#2679: the booking's own client may confirm (client_id == caller)."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, client_id="victim_client")
+    victim = create_access_token("victim_client", "client")
+    resp = client.post(
+        f"/v1/market/gpu/{gpu_id}/confirm",
+        headers={"Authorization": f"Bearer {victim}"},
+        json={"client_id": "victim_client"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "confirmed"
+
+
+@pytest.mark.unit
+def test_confirm_gpu_admin_may_reassign(client, miner_token, db_session):
+    """#2679: admin keeps the ops override, consistent with release."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+
+    gpu_id = _booked_gpu(client, miner_token, db_session, client_id="victim_client")
+    admin = create_access_token("admin-1", "admin")
+    resp = client.post(
+        f"/v1/market/gpu/{gpu_id}/confirm",
+        headers={"Authorization": f"Bearer {admin}"},
+        json={"client_id": "admin-1"},
+    )
+    assert resp.status_code == 200
+    booking = db_session.execute(
+        select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
+    ).scalar_one()
+    assert booking.client_id == "admin-1"

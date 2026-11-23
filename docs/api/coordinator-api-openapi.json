@@ -3015,7 +3015,7 @@
             }
           },
           "403": {
-            "description": "client_id must be the authenticated caller",
+            "description": "client_id must be the authenticated caller / only the booking client or an admin may confirm this booking",
             "content": {
               "application/json": {
                 "schema": {

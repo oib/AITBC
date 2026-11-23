@@ -441,6 +441,16 @@ def confirm_gpu_booking(
                 status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="client_id must be the authenticated caller",
             )
+        # #2679: naming yourself is not owning the booking — only the
+        # booking's client (or an admin) may rewrite client_id. Otherwise
+        # any caller could overwrite a victim's paid booking and strip the
+        # bound job's hold shield (residual of #1074).
+        is_admin = user.get("role") == "admin"
+        if not is_admin and booking.client_id not in (None, "", user.get("sub")):
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="only the booking client or an admin may confirm this booking",
+            )
         booking.client_id = request.client_id
         session.add(booking)
         session.commit()
