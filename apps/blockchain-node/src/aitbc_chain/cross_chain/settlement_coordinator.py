@@ -1,18 +1,4 @@
-"""Atomic settlement coordinator (v0.9.0 B8).
-
-Orchestrates the full cross-chain atomic settlement lifecycle as a
-background asyncio task. The coordinator wraps ``CrossChainSettlementService``
-(B3) and drives a trade through the complete happy path:
-
-    create_escrow → lock_escrow → verify_lock → execute_trade → settle
-
-If any step fails or the escrow times out, the coordinator triggers a
-refund on both chains. A background monitor loop runs every 10 seconds to
-check for timed-out escrows and refund them automatically.
-
-This is the integration layer between the trading service (which decides
-*what* to settle) and the settlement service (which knows *how* to settle).
-"""
+"""Background timeout monitor for legacy cross-chain settlement records."""
 
 from __future__ import annotations
 
@@ -48,113 +34,13 @@ _SERVICE_ERRORS = (
 
 
 class AtomicSettlementCoordinator:
-    """Orchestrates atomic cross-chain settlement lifecycle (v0.9.0 B8).
-
-    Runs as a background asyncio task that monitors pending escrows and
-    advances them through the lifecycle:
-    1. create_escrow → escrow_id
-    2. lock_escrow → source chain locked
-    3. verify_lock → destination verifies lock proof
-    4. execute_trade → trade executed on destination
-    5. settle (happy path) OR refund (timeout path)
-    """
+    """Run timeout checks for legacy cross-chain settlement records."""
 
     def __init__(self, chain_id: str):
         self.chain_id = chain_id
         self._service = CrossChainSettlementService(chain_id)
         self._running = False
         self._task: asyncio.Task | None = None
-
-    async def run_settlement(
-        self,
-        trade_id: str,
-        source_chain: str,
-        dest_chain: str,
-        sender: str,
-        recipient: str,
-        amount: int,
-        timeout_seconds: int | None = None,
-    ) -> dict:
-        """Run full settlement lifecycle for a trade.
-
-        Executes the happy path: create → lock → verify → execute → settle.
-        If any step fails, the escrow is left in its current state (the
-        background monitor will refund it on timeout) and a failure result
-        is returned.
-
-        Returns:
-            ``{"escrow_id": ..., "status": "completed", "secret": ...}`` on
-            success, or ``{"escrow_id": ..., "status": "failed", "error": ...}``
-            on failure.
-        """
-        escrow_id: str | None = None
-        secret: str = ""
-
-        try:
-            # Step 1: Create escrow
-            create_result = await self._service.create_escrow(
-                trade_id=trade_id,
-                source_chain=source_chain,
-                dest_chain=dest_chain,
-                sender=sender,
-                recipient=recipient,
-                amount=amount,
-                timeout_seconds=timeout_seconds,
-            )
-            escrow_id = create_result["escrow_id"]
-            secret = create_result.get("secret", "")
-            logger.info("Settlement %s: escrow created for trade %s", escrow_id, trade_id)
-
-            # Step 2: Lock funds on source chain
-            await self._service.lock_escrow(escrow_id)
-            logger.info("Settlement %s: locked on source chain", escrow_id)
-
-            # Step 3: Verify lock on destination chain
-            await self._service.verify_lock(escrow_id)
-            logger.info("Settlement %s: lock verified on destination", escrow_id)
-
-            # Step 4: Execute trade on destination chain
-            await self._service.execute_trade(escrow_id)
-            logger.info("Settlement %s: trade executed on destination", escrow_id)
-
-            # Step 5: Settle (reveal secret, release on both chains)
-            await self._service.settle(escrow_id, secret)
-            logger.info("Settlement %s: completed (secret revealed)", escrow_id)
-
-            return {
-                "escrow_id": escrow_id,
-                "status": "completed",
-                "secret": secret,
-            }
-
-        except _SERVICE_ERRORS as e:
-            logger.error("Settlement %s failed: %s", escrow_id or "?", e)
-            # Attempt refund if the escrow was created but not yet completed.
-            if escrow_id is not None:
-                try:
-                    await self._service.refund(escrow_id)
-                    logger.info("Settlement %s: refunded after failure", escrow_id)
-                except _SERVICE_ERRORS as refund_err:
-                    logger.error("Settlement %s: refund also failed: %s", escrow_id, refund_err)
-
-            return {
-                "escrow_id": escrow_id,
-                "status": "failed",
-                "error": str(e),
-            }
-
-    async def run_refund(self, escrow_id: str) -> dict:
-        """Trigger refund for an escrow (timeout or manual).
-
-        Delegates to ``CrossChainSettlementService.refund()``. Use this for
-        manual refund triggers (e.g., dispute resolution) — the background
-        monitor handles timeout refunds automatically.
-
-        Returns:
-            Refund result dict from the settlement service.
-        """
-        logger.info("Manual refund triggered for escrow %s", escrow_id)
-        return await self._service.refund(escrow_id)
 
     async def start_monitor(self) -> None:
         """Start background timeout monitor task.
