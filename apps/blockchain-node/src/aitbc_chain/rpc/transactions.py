@@ -689,6 +689,10 @@ def _fanout_response_fields(relay: dict[str, Any] | None) -> dict[str, Any]:
     in the local mempool — it occupies its nonce slot until mempool expiry
     and rejects same-nonce replacements. Say so in the response instead of
     letting "Submitted" imply the tx can seal.
+
+    Callers only invoke this after local mempool admission succeeded; a
+    ``pending`` summary means the bounded wait timed out — informational,
+    not confirmation and not proof of peer delivery.
     """
     if relay is None:
         return {}
@@ -696,7 +700,11 @@ def _fanout_response_fields(relay: dict[str, Any] | None) -> dict[str, Any]:
     status = relay.get("status")
     accepted = relay.get("accepted")
     if status == "pending":
-        out["warning"] = "transaction relay outcome unknown (wait timed out); verify the tx seals"
+        out["info"] = (
+            "transaction accepted into the local mempool; peer relay is still pending "
+            "(summary wait timed out), so peer delivery is unknown; "
+            "not confirmed - check transaction status for sealing"
+        )
     elif status in ("failed", "skipped") and accepted == 0 and not _proposes_blocks():
         out["warning"] = (
             "transaction relay reached no mesh peers; on this non-proposing host it "
