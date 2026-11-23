@@ -57,6 +57,8 @@ def patched(monkeypatch, engine, mgr) -> EscrowManager:
     # so ``fund_contract``'s hash check passes. Verification itself is covered
     # in test_escrow_funding_verify.py.
     monkeypatch.setattr(escrow_routes, "_verify_funding_lock", AsyncMock(side_effect=lambda h, **_: {"tx_hash": h}))
+    # No identical-binding lock pending unless a test says otherwise (#2673).
+    monkeypatch.setattr(escrow_routes, "_pending_identical_lock_hash", AsyncMock(return_value=None))
 
     @contextmanager
     def scope(chain_id: str = ""):
@@ -373,3 +375,41 @@ async def test_mismatched_settlement_address_refuses_create(patched, monkeypatch
 
     assert exc_info.value.status_code == 503
     assert submit.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_create_adopts_pending_identical_lock_instead_of_resubmitting(patched, engine, monkeypatch):
+    """#2673: a same-binding lock already pending in the mempool is adopted —
+    the retry's freshly signed envelope never broadcasts, so two
+    payload-equal locks can never both reach a block."""
+    mgr = patched
+    submit = AsyncMock(return_value="0xshould-not-be-used")
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    monkeypatch.setattr(escrow_routes, "_pending_identical_lock_hash", AsyncMock(return_value="0xpendinghash"))
+
+    result = await escrow_routes.create_escrow(_lock_body())
+
+    assert result["success"] is True
+    assert result["lock_tx_hash"] == "0xpendinghash"
+    assert submit.await_count == 0
+    contract = next(c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID)
+    assert contract.state is EscrowState.FUNDED
+    assert contract.lock_tx_hash == "0xpendinghash"
+    with Session(engine) as session:
+        row = session.get(Escrow, JOB_ID)
+        assert row is not None
+        assert row.lock_tx_hash == "0xpendinghash"
+
+
+@pytest.mark.asyncio
+async def test_create_submits_when_no_identical_lock_pending(patched, monkeypatch):
+    """Adoption returning None falls through to the normal submit path."""
+    submit = AsyncMock(return_value="0xlockhash")
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    monkeypatch.setattr(escrow_routes, "_pending_identical_lock_hash", AsyncMock(return_value=None))
+
+    result = await escrow_routes.create_escrow(_lock_body())
+
+    assert result["success"] is True
+    assert result["lock_tx_hash"] == "0xlockhash"
+    assert submit.await_count == 1

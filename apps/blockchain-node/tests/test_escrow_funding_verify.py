@@ -246,7 +246,10 @@ async def test_create_drops_contract_when_lock_unverifiable(patched, engine, mon
     tx = _lock_tx()
     monkeypatch.setattr(escrow_routes, "_submit_lock_tx", AsyncMock(return_value="0x" + "ef" * 32))
     monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=None))
-    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=_mempool_response([tx])))
+    # Empty mempool: an identical-binding pending lock would now be adopted
+    # by create (#2673) instead of submitted, so the unverifiable-hash path
+    # needs a mempool that does not hold this lock at all.
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=_mempool_response([])))
 
     body = {
         "job_id": JOB_ID,
@@ -340,3 +343,82 @@ async def test_create_adopts_sealed_lock_hash_end_to_end(patched, engine, monkey
         row = session.get(Escrow, JOB_ID)
         assert row is not None
         assert row.lock_tx_hash == sealed["tx_hash"]
+
+
+# --- #2673: pending identical-binding lock adoption -------------------------
+
+
+def _pending_probe_tx(nonce: int, **overrides) -> dict:
+    """A mempool-held lock envelope: same binding as ``_lock_tx`` but a fresh
+    nonce — exactly the dead-envelope retry shape."""
+    tx = _resigned_lock_tx(nonce=nonce)
+    tx.update(overrides)
+    return tx
+
+
+@pytest.mark.asyncio
+async def test_pending_identical_lock_hash_adopts_matching_envelope(patched, monkeypatch):
+    """The probe returns the pending envelope's hash only when type, chain,
+    canonical from/to/amount and the full payload all match — nonce, fee and
+    signature are envelope mechanics and must not matter."""
+    pending = _pending_probe_tx(nonce=7, fee=999, signature="0xother")
+    other_job = _pending_probe_tx(nonce=8)
+    other_job["payload"]["job_id"] = "job-unrelated"
+    get = AsyncMock(return_value=_mempool_response([other_job, pending]))
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", get)
+
+    found = await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID)
+
+    assert found == compute_tx_hash(pending)
+
+
+@pytest.mark.asyncio
+async def test_pending_identical_lock_hash_ignores_different_binding(patched, monkeypatch):
+    """Different provider or amount is a different escrow — never adopted."""
+    pending = _pending_probe_tx(nonce=7)
+    pending["payload"]["provider"] = "0x" + "99" * 20
+    get = AsyncMock(return_value=_mempool_response([pending]))
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", get)
+
+    assert await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID) is None
+
+    pending2 = _pending_probe_tx(nonce=8, amount=ait_to_units(Decimal("2.0")))
+    get2 = AsyncMock(return_value=_mempool_response([pending2]))
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", get2)
+
+    assert await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID) is None
+
+
+@pytest.mark.asyncio
+async def test_pending_identical_lock_hash_empty_and_failed_probes(patched, monkeypatch):
+    """Empty mempool, non-200, truncated and transport-failed probes all mean
+    'submit normally' — never an error and never a guessed hash."""
+    get = AsyncMock(return_value=_mempool_response([]))
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", get)
+    assert await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID) is None
+
+    bad = MagicMock()
+    bad.status_code = 500
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=bad))
+    assert await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID) is None
+
+    truncated = _mempool_response([_lock_tx()] * escrow_routes._FUNDING_LOCK_MEMPOOL_LIMIT)
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=truncated))
+    assert await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID) is None
+
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(side_effect=ConnectionError("hub down")))
+    assert await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID) is None
+
+
+@pytest.mark.asyncio
+async def test_same_lock_binding_compares_canonical_fields(patched):
+    """Checksum/case differences in addresses must not break the match, and
+    payload dicts compare by value."""
+    a = _lock_tx()
+    b = _resigned_lock_tx(nonce=3)
+    b["from"] = b["from"].lower()
+    b["to"] = b["to"].lower()
+    b["payload"] = dict(b["payload"])
+    assert escrow_routes._same_lock_binding(a, b) is True
+    b["payload"]["job_id"] = "job-other"
+    assert escrow_routes._same_lock_binding(a, b) is False

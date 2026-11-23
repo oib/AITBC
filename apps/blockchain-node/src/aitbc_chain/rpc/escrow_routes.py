@@ -157,8 +157,10 @@ from .escrow_routes_lock import (
     _build_lock_tx as _build_lock_tx,
     _canonical_lock_fields as _canonical_lock_fields,
     _ensure_lock_sealed as _ensure_lock_sealed,
+    _pending_identical_lock_hash as _pending_identical_lock_hash,
     _pending_lock_tx_hashes as _pending_lock_tx_hashes,
     _refuse_v2_lock as _refuse_v2_lock,
+    _same_lock_binding as _same_lock_binding,
     _submit_lock_tx as _submit_lock_tx,
     _verify_funding_lock as _verify_funding_lock,
 )
@@ -798,7 +800,12 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     # same-job_id retry died on "Invalid contract inputs" with nothing on-chain.
     # A submit whose response is lost after the tx landed stays safe -- the next
     # create sees the settled lock via ``_find_existing_lock`` above.
-    lock_tx_hash = await _submit_lock_tx(tx_to_submit)
+    # A same-binding lock already pending in the mempool is adopted rather
+    # than duplicated: the retry's freshly signed envelope would otherwise
+    # put two payload-equal locks in flight and both could seal,
+    # double-funding the escrow (#2673). The pending hash flows into
+    # ``_verify_funding_lock`` exactly like a submitted one.
+    lock_tx_hash = await _pending_identical_lock_hash(tx_to_submit, job_id) or await _submit_lock_tx(tx_to_submit)
 
     success, message, contract_id = await mgr.create_contract(
         job_id=job_id,

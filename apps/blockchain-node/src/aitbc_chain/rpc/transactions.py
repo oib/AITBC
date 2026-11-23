@@ -273,6 +273,48 @@ def _admission_escrow_fee_sweep_gate(session: Any, chain_id: str, tx_data: dict[
         raise ValueError("ESCROW_FEE_SWEEP is not active on this chain yet (state_transition_v11_height)")
 
 
+def _admission_escrow_lock_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str, mempool: Any) -> None:
+    """Refuse a second ESCROW_LOCK for a job that already has one pending or sealed.
+
+    Every intake door shares this admission path, so the check covers REST,
+    market, gossip and p2p submits alike. A job_id names one escrow: a second
+    lock — even payload-identical, since a re-signed retry carries a new nonce
+    and hash — would double-fund the custody account or leave an ambiguous
+    beneficiary set (CHAIN-ESCROW-DOUBLE-LOCK-IDENTICAL-BINDING-1, #2673:
+    job 97ac1ec8… locked 1.0 AIT against a 0.5 AIT job when both envelopes
+    sealed on consecutive blocks). The first lock stands until it seals or
+    expires; the create route adopts a pending identical-binding lock before
+    it ever reaches this gate, so legitimate retries converge instead of
+    erroring here.
+    """
+    if tx_type != "ESCROW_LOCK":
+        return
+    payload = tx_data.get("payload")
+    job_id = payload.get("job_id") if isinstance(payload, dict) else None
+    if not job_id:
+        return
+    from ..mempool import compute_tx_hash
+    from ..state.state_transition_escrow import _escrow_lock_rows
+
+    own_hash = compute_tx_hash(tx_data)
+    if mempool is not None:
+        for pending in mempool.list_transactions(chain_id):
+            content = pending.content
+            if not isinstance(content, dict) or content.get("type") != "ESCROW_LOCK":
+                continue
+            pending_payload = content.get("payload")
+            if not isinstance(pending_payload, dict) or pending_payload.get("job_id") != job_id:
+                continue
+            if pending.tx_hash == own_hash:
+                continue  # identical resubmit — mempool.add's hash dedup owns it
+            raise ValueError(
+                f"ESCROW_LOCK for job_id={job_id} already pending in mempool (tx {pending.tx_hash}); "
+                "a job funds exactly one lock — wait for it to seal or expire"
+            )
+    for lock in _escrow_lock_rows(session, chain_id, str(job_id)):
+        raise ValueError(f"ESCROW_LOCK for job_id={job_id} already sealed (tx {lock.tx_hash}); a job funds exactly one lock")
+
+
 def _admission_gpu_deregister_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
     if tx_type != "GPU_DEREGISTER":
         return
@@ -484,6 +526,7 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
         _admission_governance_propose_gate(session, chain_id, tx_data, tx_type)
         _admission_bridge_lock_gate(session, chain_id, tx_data, tx_type)
         _admission_escrow_fee_sweep_gate(session, chain_id, tx_data, tx_type)
+        _admission_escrow_lock_gate(session, chain_id, tx_data, tx_type, mempool)
         _admission_gpu_deregister_gate(session, chain_id, tx_data, tx_type)
         _admission_gpu_deallocate_gate(session, chain_id, tx_data, tx_type)
         _admission_gpu_allocate_gate(session, chain_id, tx_data, tx_type)

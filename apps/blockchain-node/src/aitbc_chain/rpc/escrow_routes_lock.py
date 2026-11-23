@@ -254,6 +254,78 @@ async def _verify_funding_lock(
     )
 
 
+def _same_lock_binding(pending_tx: dict[str, _er.Any], submitted_tx: dict[str, _er.Any]) -> bool:
+    """True when two lock envelopes carry the identical escrow binding.
+
+    The escrow's identity is ``type`` + ``chain_id`` + canonical ``from`` /
+    ``to`` / ``amount`` + the full ``payload`` dict (action, job_id, provider,
+    energy quote and market binding). ``nonce``, ``fee``, ``signature`` and
+    ``tx_hash`` are envelope mechanics — a re-signed retry differs only in
+    those, which is exactly the drift this comparison must ignore
+    (CHAIN-ESCROW-DOUBLE-LOCK-IDENTICAL-BINDING-1, #2673).
+    """
+    pending_fields = _canonical_lock_fields(pending_tx)
+    submitted_fields = _canonical_lock_fields(submitted_tx)
+    if pending_fields["type"] != submitted_fields["type"]:
+        return False
+    pending_payload = _sealed_lock_payload(pending_tx)
+    submitted_payload = submitted_tx.get("payload")
+    if not isinstance(submitted_payload, dict) or pending_payload != submitted_payload:
+        return False
+    if _er._to_canonical(str(pending_fields["from"] or "")) != _er._to_canonical(str(submitted_fields["from"] or "")):
+        return False
+    if _er._to_canonical(str(pending_fields["to"] or "")) != _er._to_canonical(str(submitted_fields["to"] or "")):
+        return False
+    try:
+        if int(pending_fields["amount"] or 0) != int(submitted_fields["amount"] or 0):
+            return False
+    except (TypeError, ValueError):
+        return False
+    return pending_tx.get("chain_id") == submitted_tx.get("chain_id")
+
+
+async def _pending_identical_lock_hash(tx_to_submit: dict[str, _er.Any], job_id: str) -> str | None:
+    """Hash of a mempool-held ESCROW_LOCK carrying this create's exact binding.
+
+    Dead-envelope retries re-sign a fresh lock each attempt; while the earlier
+    envelope is still pending, submitting the retry's lock puts two
+    payload-equal locks in the mempool and both can seal — double-funding the
+    escrow (#2673). Adopting the pending hash lets ``_verify_funding_lock``
+    fund against the envelope already in flight, and the create's own signed
+    envelope simply never broadcasts. Returns ``None`` when no identical
+    pending lock exists or the probe cannot answer — the caller then submits
+    normally and the admission dedup gate is the backstop.
+    """
+    from ..mempool import compute_tx_hash
+
+    try:
+        r = await _er.SharedHttpClient.get(
+            f"{_er._HUB_RPC_URL}/mempool?chain_id={_er._chain_id()}&limit={_er._FUNDING_LOCK_MEMPOOL_LIMIT}",
+            timeout=5.0,
+        )
+        if r.status_code != 200:
+            return None
+        body = r.json() or {}
+        count = body.get("count")
+        if isinstance(count, int) and count >= _er._FUNDING_LOCK_MEMPOOL_LIMIT:
+            return None
+        txs = body.get("transactions")
+        if not isinstance(txs, list):
+            return None
+    except _er._HTTP_PROBE_ERRORS as e:
+        _er._logger.warning("pending-lock adoption probe failed for job_id=%s: %s", job_id, e)
+        return None
+    for tx in txs:
+        if not isinstance(tx, dict) or tx.get("type") != "ESCROW_LOCK":
+            continue
+        payload = tx.get("payload")
+        if not isinstance(payload, dict) or payload.get("job_id") != job_id:
+            continue
+        if _same_lock_binding(tx, tx_to_submit):
+            return compute_tx_hash(tx)
+    return None
+
+
 async def _pending_lock_tx_hashes() -> set[str] | None:
     """Hashes of transactions still held in the hub mempool; ``None`` when the
     probe could not be answered completely.
