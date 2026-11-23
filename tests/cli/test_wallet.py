@@ -632,6 +632,77 @@ class TestWalletCommands:
         assert data["stake_id"] == "nonexistent"
         assert data["transaction_hash"] == "0xabc123"
 
+    def test_liquidity_unstake_records_principal_in_payload(self, runner, temp_wallet, mock_config, monkeypatch):
+        """#2734: the sealed record carries the withdrawing principal in payload.amount."""
+        from aitbc_cli.commands.wallet import staking as staking_mod
+
+        captured = {}
+
+        def fake_submit(ctx, wallet_data, tx):
+            captured["tx"] = tx
+            return "0xabc123"
+
+        class _StubClient:
+            def __init__(self, *a, **k):
+                pass
+
+            def get(self, path, **kwargs):
+                if "/liquidity/stakes/" in path:
+                    return {
+                        "stakes": [
+                            {"stake_id": "liq_x", "amount": 36000000, "status": "active"},
+                            {"stake_id": "liq_other", "amount": 1, "status": "active"},
+                        ]
+                    }
+                return {}
+
+        monkeypatch.setattr(staking_mod, "_submit_liquidity_transaction", fake_submit)
+        monkeypatch.setattr(staking_mod, "AITBCHTTPClient", lambda *a, **k: _StubClient())
+
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", temp_wallet, "liquidity-unstake", "--stake-id", "liq_x"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
+        )
+
+        assert result.exit_code == 0, result.output
+        tx = captured["tx"]
+        assert tx["payload"]["amount"] == 36000000
+        # sender pays fee only — value stays unset/zero (pool-state payout)
+        assert tx.get("value", 0) == 0
+        assert tx["amount"] == 0
+
+    def test_liquidity_unstake_amount_omitted_when_stake_not_listed(self, runner, temp_wallet, mock_config, monkeypatch):
+        """#2734: an unresolvable stake omits payload.amount rather than writing a false 0."""
+        from aitbc_cli.commands.wallet import staking as staking_mod
+
+        captured = {}
+
+        def fake_submit(ctx, wallet_data, tx):
+            captured["tx"] = tx
+            return "0xabc123"
+
+        class _StubClient:
+            def __init__(self, *a, **k):
+                pass
+
+            def get(self, path, **kwargs):
+                if "/liquidity/stakes/" in path:
+                    return {"stakes": []}
+                return {}
+
+        monkeypatch.setattr(staking_mod, "_submit_liquidity_transaction", fake_submit)
+        monkeypatch.setattr(staking_mod, "AITBCHTTPClient", lambda *a, **k: _StubClient())
+
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", temp_wallet, "liquidity-unstake", "--stake-id", "liq_missing"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "amount" not in captured["tx"]["payload"]
+
     def test_rewards_command(self, runner, temp_wallet, mock_config):
         """Test rewards summary command — CLI reads local file for reward tracking."""
         # v0.5.17 B6: Rewards are tracked locally in the wallet file; stake commands
