@@ -8,6 +8,8 @@
 
 breadcrumb: Home > Scenarios > Last Option Coverage
 
+**Legs**: 5
+
 ## Scenario Overview
 
 > **Option-coverage scenario (LASTOPTS-FINAL-1, issue #563).** Plays the

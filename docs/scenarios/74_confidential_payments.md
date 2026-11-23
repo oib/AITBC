@@ -6,6 +6,8 @@
 **Last Updated**: 2026-10-25
 **Version**: 1.0
 
+**Legs**: 2
+
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*

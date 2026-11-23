@@ -9,6 +9,8 @@
 > pub island. Hermes is not a default shop offer — omit `aitbc market hermes`
 > unless an operator explicitly restores that unit.
 
+**Legs**: 7
+
 ## Goal
 
 The shop (`<node2>`) can publish default software offers for Ollama inference

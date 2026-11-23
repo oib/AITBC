@@ -1,5 +1,7 @@
 # Scenario 43: Compliance, Plugins, and White-Label Expansion
 
+**Legs**: 11
+
 ## Goal
 
 Demonstrate that the canonical CLI supports white-label brand plugins,

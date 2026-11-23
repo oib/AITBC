@@ -6,6 +6,8 @@
 > Run the steps below only on a shop node where whisper/ffmpeg units exist, or
 > treat them as a design reference.
 
+**Legs**: 5
+
 ## Goal
 
 Run non-inference jobs on a GPU shop **when** Whisper and FFmpeg services are

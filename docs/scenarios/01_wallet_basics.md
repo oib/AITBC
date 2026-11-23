@@ -6,6 +6,8 @@
 **Last Updated**: 2026-11-21
 **Version**: 1.3
 
+**Legs**: 29 steps — chain-moving subset per the "Reality check" callout (local-only steps cannot satisfy a real-legs close)
+
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*

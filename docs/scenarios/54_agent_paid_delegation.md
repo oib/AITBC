@@ -6,6 +6,8 @@
 > Use an Ollama/`aitbc ai submit`-capable provider or a shop node where those
 > units exist; payment/escrow mechanics are unaffected.
 
+**Legs**: 4
+
 ## Goal
 
 A buyer agent hires a provider agent for a paid task without going through the
