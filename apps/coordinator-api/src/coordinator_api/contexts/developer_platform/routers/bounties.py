@@ -10,8 +10,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
+from ....auth import AdminOrClientDep
 from ....storage.db import get_session
-from ..domain.developer_platform import BountyStatus, BountyTask, DeveloperProfile
+from ....utils.ownership import require_identity_access
+from ..domain.developer_platform import BountyStatus, BountySubmission, BountyTask, DeveloperProfile
 from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate
 from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
@@ -41,8 +43,12 @@ async def create_bounty(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Create a new bounty task."""
+    # #2681: the caller names the creator — it must be an identity they
+    # control, not an arbitrary address.
+    require_identity_access(session, user, request.creator_address)
 
     try:
         bounty = await run_in_threadpool(dev_service.create_bounty, request)
@@ -181,8 +187,14 @@ async def submit_bounty_solution(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Submit a solution for a bounty."""
+    # #2681: the caller names the developer — it must resolve to a profile
+    # whose wallet they control. A missing profile still 404s in the service.
+    developer = await run_in_threadpool(session.get, DeveloperProfile, request.developer_id)
+    if developer is not None:
+        require_identity_access(session, user, developer.wallet_address)
 
     try:
         submission = await run_in_threadpool(dev_service.submit_bounty, bounty_id, request)
@@ -214,9 +226,18 @@ async def review_bounty_submission(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    user: AdminOrClientDep,
     approved: bool | None = None,
 ) -> dict[str, Any]:
     """Review and approve/reject a bounty submission."""
+    # #2681: the reviewer names themselves AND must be the bounty's creator
+    # (or admin) — otherwise any client JWT could reject any submission.
+    require_identity_access(session, user, reviewer_address)
+    submission_row = await run_in_threadpool(session.get, BountySubmission, submission_id)
+    if submission_row is not None:
+        bounty_row = await run_in_threadpool(session.get, BountyTask, submission_row.bounty_id)
+        if bounty_row is not None:
+            require_identity_access(session, user, bounty_row.creator_address)
 
     try:
         if approved:
