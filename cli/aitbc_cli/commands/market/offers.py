@@ -58,6 +58,17 @@ def _is_wallet_address(value: str | None) -> bool:
     return value.startswith("0x") or (value.startswith("aitbc1") and len(value) > 12)
 
 
+# Placeholder provider/node ids stress harnesses leave behind (#2435). They
+# can never have a reputation profile, so probing them only 404-spams the
+# coordinator on every `market list` (#2750). Same set as economics.py and
+# the market catalog's unservable-sentinel rule.
+_SENTINEL_IDENTITIES = {"default", "none", "n/a"}
+
+
+def _is_sentinel_identity(value: Any) -> bool:
+    return str(value or "").strip().lower() in _SENTINEL_IDENTITIES
+
+
 def _compute_plugin_id(service_type: str, model: str) -> str:
     """Derive the plugin_id used by the market service."""
     return f"{service_type}-{model.replace(':', '-')}"
@@ -112,7 +123,7 @@ def _reputation_for_offer(http_client: AITBCHTTPClient, coordinator_url: str, of
     if not agent_id or _is_wallet_address(agent_id):
         return
     for candidate in (agent_id, offer.get("node_id", "")):
-        if not candidate or _is_wallet_address(candidate):
+        if not candidate or _is_wallet_address(candidate) or _is_sentinel_identity(candidate):
             continue
         if candidate in ("aitbc3", "aitbc3-provider") or "-provider" in candidate:
             continue
