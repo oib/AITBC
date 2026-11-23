@@ -124,6 +124,35 @@ def test_create_enhanced_wallet_requires_encryption_password(client, cross_chain
     assert "encryption password" in response.json()["detail"].lower()
 
 
+def test_create_enhanced_wallet_duplicate_returns_409_not_500(client, cross_chain_db, admin_token, monkeypatch):
+    """A second create for the same agent answers 409, not an opaque 500 (#2721).
+
+    The ignored `security_config` body is also optional now: the first call
+    omits it entirely.
+    """
+    from coordinator_api.contexts.cross_chain.routers import cross_chain_integration
+
+    monkeypatch.setattr(cross_chain_integration, "WalletAdapterFactory", _mock_factory())
+
+    account = Account.create()
+    params = {"owner_address": account.address, "chain_id": 1}
+    first = client.post(
+        "/v1/cross-chain/wallets/create",
+        params=params,
+        headers=_auth_header(admin_token),
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        "/v1/cross-chain/wallets/create",
+        params=params,
+        json={"security_config": {}},
+        headers=_auth_header(admin_token),
+    )
+    assert second.status_code == 409
+    assert "already has an active" in second.json()["detail"]
+
+
 def test_durable_wallet_recovery(client, cross_chain_db, admin_token, monkeypatch):
     """A created wallet can be recovered from encrypted storage with the server password."""
     from coordinator_api.config import settings
