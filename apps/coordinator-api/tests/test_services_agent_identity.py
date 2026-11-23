@@ -161,3 +161,93 @@ async def test_import_agent_identity_rejects_existing(db_session: Session) -> No
     result = await mgr.import_agent_identity(exported)
     assert result["import_successful"] is False
     assert "already exists" in result["error"]
+
+
+async def test_cleanup_expired_verifications_resets_stale_mapping(db_session: Session) -> None:
+    """#2724: an expired verification must reset a mapping verified at/before
+    its expiry, and delete the verification row."""
+    from datetime import UTC, datetime, timedelta
+
+    from coordinator_api.agent_identity.registry import CrossChainRegistry
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import IdentityVerification, VerificationType
+
+    agent_id = "agent_cleanup1"
+    now = datetime.now(UTC)
+    db_session.add(AgentIdentity(agent_id=agent_id, owner_address=OWNER))
+    db_session.add(
+        CrossChainMapping(
+            agent_id=agent_id,
+            chain_id=1,
+            chain_address="0x" + "cd" * 20,
+            is_verified=True,
+            verified_at=now - timedelta(days=10),
+            verification_proof={"sig": "abc"},
+        )
+    )
+    db_session.add(
+        IdentityVerification(
+            agent_id=agent_id,
+            chain_id=1,
+            verification_type=VerificationType.BASIC,
+            verifier_address="0x" + "ef" * 20,
+            proof_hash="deadbeef",
+            expires_at=now - timedelta(days=1),
+            verification_result="approved",
+        )
+    )
+    db_session.commit()
+
+    cleaned = await CrossChainRegistry(db_session).cleanup_expired_verifications()
+    assert cleaned == 1
+
+    mapping = await CrossChainRegistry(db_session).get_cross_chain_mapping_by_agent_chain(agent_id, 1)
+    assert mapping is not None
+    assert mapping.is_verified is False
+    assert mapping.verified_at is None
+    assert mapping.verification_proof is None
+    assert db_session.exec(select(IdentityVerification).where(IdentityVerification.agent_id == agent_id)).first() is None
+
+
+async def test_cleanup_expired_verifications_keeps_newer_mapping(db_session: Session) -> None:
+    """#2724 negative pin: a mapping verified *after* the verification's
+    expiry is newer evidence — cleanup must not strip it."""
+    from datetime import UTC, datetime, timedelta
+
+    from coordinator_api.agent_identity.registry import CrossChainRegistry
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import IdentityVerification, VerificationType
+
+    agent_id = "agent_cleanup2"
+    now = datetime.now(UTC)
+    expired_at = now - timedelta(days=5)
+    db_session.add(AgentIdentity(agent_id=agent_id, owner_address=OWNER))
+    db_session.add(
+        CrossChainMapping(
+            agent_id=agent_id,
+            chain_id=1,
+            chain_address="0x" + "cd" * 20,
+            is_verified=True,
+            verified_at=now - timedelta(days=1),  # after expires_at
+            verification_proof={"sig": "new"},
+        )
+    )
+    db_session.add(
+        IdentityVerification(
+            agent_id=agent_id,
+            chain_id=1,
+            verification_type=VerificationType.BASIC,
+            verifier_address="0x" + "ef" * 20,
+            proof_hash="deadbeef",
+            expires_at=expired_at,
+            verification_result="approved",
+        )
+    )
+    db_session.commit()
+
+    cleaned = await CrossChainRegistry(db_session).cleanup_expired_verifications()
+    assert cleaned == 1  # the expired verification row is still deleted
+
+    mapping = await CrossChainRegistry(db_session).get_cross_chain_mapping_by_agent_chain(agent_id, 1)
+    assert mapping is not None
+    assert mapping.is_verified is True
+    assert mapping.verified_at is not None
+    assert mapping.verification_proof == {"sig": "new"}
