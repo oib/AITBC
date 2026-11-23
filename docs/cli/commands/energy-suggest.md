@@ -30,6 +30,7 @@ aitbc energy suggest [OPTIONS]
 | `--model-id` | text | — | no | Model ID for registration (default: detected model) |
 | `--wallet` | text | — | no | Wallet name for signing (with --register) |
 | `--wallet-path` | text | — | no | Direct wallet file path (with --register) |
+| `--miner-id` | text | — | no | Miner identity sent as X-Miner-ID on the native rail (with --register; default: MINER_ID env / miner env files) |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |

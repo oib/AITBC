@@ -227,6 +227,10 @@ def aitbc_energy_provider_register(
     eur_per_kwh: Annotated[float, Field(description="EUR per kWh tariff")],
     wallet: Annotated[str | None, Field(description="Wallet name for signing")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path")] = None,
+    miner_id: Annotated[
+        str | None,
+        Field(description="Miner identity sent as X-Miner-ID on the native rail (default: MINER_ID env / miner env files)"),
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -249,6 +253,7 @@ def aitbc_energy_provider_register(
             "eur_per_kwh": "eur-per-kwh",
             "wallet": "wallet",
             "wallet_path": "wallet-path",
+            "miner_id": "miner-id",
             "password_file": "password-file",
         },
     )
@@ -314,6 +319,12 @@ def aitbc_energy_suggest(
     model_id: Annotated[str | None, Field(description="Model ID for registration (default: detected model)")] = None,
     wallet: Annotated[str | None, Field(description="Wallet name for signing (with --register)")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path (with --register)")] = None,
+    miner_id: Annotated[
+        str | None,
+        Field(
+            description="Miner identity sent as X-Miner-ID on the native rail (with --register; default: MINER_ID env / miner env files)"
+        ),
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -346,6 +357,7 @@ def aitbc_energy_suggest(
             "model_id": "model-id",
             "wallet": "wallet",
             "wallet_path": "wallet-path",
+            "miner_id": "miner-id",
             "password_file": "password-file",
         },
     )
