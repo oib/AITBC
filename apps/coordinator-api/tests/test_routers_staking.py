@@ -36,3 +36,22 @@ class TestStakingRouter:
         assert response.status_code == 503
         assert "0x1234567890123456789012345678901234567890" not in response.text
         assert "Fallback" not in response.text
+
+
+class TestStakeCreateRequestValidation:
+    """amount is AIT — bounds are 100..100000 AIT, not compute units (#2695)."""
+
+    def test_min_boundary_accepted(self):
+        from decimal import Decimal
+
+        from pydantic import ValidationError
+
+        from coordinator_api.contexts.staking.routers.staking import StakeCreateRequest
+
+        req = StakeCreateRequest(agent_wallet="0x" + "11" * 20, amount=Decimal("100"))
+        assert req.amount == Decimal("100")
+
+        with pytest.raises(ValidationError):
+            StakeCreateRequest(agent_wallet="0x" + "11" * 20, amount=Decimal("99.99"))
+        with pytest.raises(ValidationError):
+            StakeCreateRequest(agent_wallet="0x" + "11" * 20, amount=Decimal("100001"))
