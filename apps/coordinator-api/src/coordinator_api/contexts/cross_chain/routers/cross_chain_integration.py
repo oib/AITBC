@@ -165,10 +165,10 @@ async def create_enhanced_wallet(
     request: Request,
     owner_address: str,
     chain_id: int,
-    security_config: dict[str, Any],  # noqa: ARG001
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
     security_level: SecurityLevel = SecurityLevel.MEDIUM,  # noqa: ARG001
+    security_config: dict[str, Any] | None = None,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Create an enhanced multi-chain wallet with encrypted key material persisted server-side."""
     if not settings.wallet_encryption_password:
@@ -176,11 +176,17 @@ async def create_enhanced_wallet(
 
     wallet_type = WalletType.EOA
     metadata = {"owner_address": owner_address, "chain_id": str(chain_id)}
-    wallet = await run_in_threadpool(
-        _wallet_service(session).create_wallet,
-        WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
-        settings.wallet_encryption_password,
-    )
+    try:
+        wallet = await run_in_threadpool(
+            _wallet_service(session).create_wallet,
+            WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
+            settings.wallet_encryption_password,
+        )
+    except ValueError as e:
+        # Duplicate active wallet is a conflict; a weak configured password is
+        # a server-side 422 — never an opaque 500 (#2721).
+        status_code = 409 if "already has an active" in str(e) else 422
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
     return WalletResponse.model_validate(wallet).model_dump()
 
 
