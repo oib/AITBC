@@ -6,15 +6,20 @@ REST API for unified portfolio management across AITBC services
 from collections.abc import Awaitable, Callable
 from datetime import UTC
 from decimal import InvalidOperation
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import AdminOrClientDep
 from aitbc.rate_limiting import rate_limit
 
+from ....storage.db import get_session
+from ....utils.ownership import caller_identities, is_admin
 from ..services.portfolio_aggregation_service import PortfolioAggregationService
 
 logger = get_logger(__name__)
@@ -70,10 +75,29 @@ async def _probe_portfolio_dependency(fetch: Callable[[], Awaitable[dict[str, An
     return "healthy", False
 
 
+async def _caller_wallet_scope(session: Session, user: dict[str, Any], agent_address: str | None) -> set[str] | None:
+    """#2697: non-admin callers may only see wallets they control.
+
+    Returns the caller's identity set (sub + registered wallet addresses) for
+    filtering, or None for admins (unfiltered view). An explicit
+    agent_address outside the caller's identities is a 403, not an empty
+    list — silently returning nothing would hide the authorization failure.
+    """
+    if is_admin(user):
+        return None
+    identities = await run_in_threadpool(caller_identities, session, user)
+    if agent_address and agent_address.lower() not in identities:
+        raise HTTPException(status_code=403, detail="agent_address is not one of your wallets")
+    return identities
+
+
 @router.get("/unified", response_model=PortfolioSummaryResponse)
 @rate_limit(rate=100, per=60)
 async def get_unified_portfolio(
-    request: Request, agent_address: str | None = Query(default=None, description="Filter by agent address")
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+    agent_address: str | None = Query(default=None, description="Filter by agent address"),
 ) -> PortfolioSummaryResponse:
     """
     Get unified portfolio view aggregating data from all AITBC services
@@ -86,7 +110,8 @@ async def get_unified_portfolio(
     - AI service (8005): AI trade signals (simulation-labelled)
     """
     try:
-        portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)
+        allowed = await _caller_wallet_scope(session, user, agent_address)
+        portfolio_data = await portfolio_service.get_unified_portfolio(agent_address, allowed_addresses=allowed)
         return PortfolioSummaryResponse(**portfolio_data)
     except _OPS_ERRORS as e:
         logger.error("Error getting unified portfolio: %s", str(e))
@@ -121,11 +146,15 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
 @router.get("/summary")
 @rate_limit(rate=200, per=60)
 async def get_portfolio_summary_only(
-    request: Request, agent_address: str | None = Query(default=None, description="Filter by agent address")
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+    agent_address: str | None = Query(default=None, description="Filter by agent address"),
 ) -> dict[str, Any]:
     """Get only the portfolio summary metrics without full details"""
     try:
-        portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)
+        allowed = await _caller_wallet_scope(session, user, agent_address)
+        portfolio_data = await portfolio_service.get_unified_portfolio(agent_address, allowed_addresses=allowed)
         return {"timestamp": portfolio_data["timestamp"], "agent_address": agent_address, "summary": portfolio_data["summary"]}
     except _OPS_ERRORS as e:
         logger.error("Error getting portfolio summary: %s", str(e))
