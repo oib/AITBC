@@ -10,17 +10,18 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from sqlalchemy.exc import OperationalError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.market.energy_pricing import NATIVE_UNITS_PER_AIT
 from aitbc.market.energy_oracle import EnergyOracleError
 from aitbc.rate_limiting import rate_limit
 
-from ....auth import MinerDep
+from ....auth import AdminDep, MinerDep
 from ....config import settings
 from ....storage.db import get_session
 from ..domain.energy import NativeEnergyProfile, NativeEnergyRate
+from ..domain.gpu_market import GPURegistry
 from ..services.native_energy import NativeEnergyOracle
 
 logger = get_logger(__name__)
@@ -50,15 +51,29 @@ def register_native_energy_profile(
     except (InvalidOperation, TypeError, ValueError):
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh is not a valid number") from None
 
-    tbp = int(data.get("tbp_watts", 0))
+    try:
+        tbp = int(data.get("tbp_watts", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="tbp_watts must be an integer") from None
     if tbp <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="tbp_watts must be positive")
     if eur_scaled <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh must be positive")
 
+    # #2704: the profile's energy floor feeds protected-funding quotes, so it
+    # is owner-scoped. ``provider`` is the creator's miner id (the token sub),
+    # never a caller-supplied string; updates require the same sub. On create
+    # the caller must own a GPURegistry row carrying this resource_id — the
+    # oracle only reads profiles for registered GPUs, and the registry row is
+    # the only miner↔resource binding the coordinator can check.
+    caller = str(user.get("sub") or "")
     existing = session.get(NativeEnergyProfile, resource_id)
     if existing:
-        existing.provider = data.get("provider", existing.provider)
+        if existing.provider != caller:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="native energy profile belongs to a different miner",
+            )
         existing.model_id = data.get("model_id", existing.model_id)
         existing.tbp_watts = tbp
         existing.eur_per_kwh_scaled = eur_scaled
@@ -67,9 +82,20 @@ def register_native_energy_profile(
         existing.updated_at = datetime.now(UTC)
         session.add(existing)
     else:
+        owns_resource = session.execute(
+            select(GPURegistry.id).where(
+                GPURegistry.resource_id == resource_id,
+                GPURegistry.miner_id == caller,
+            )
+        ).first()
+        if owns_resource is None:
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="resource_id is not registered to your miner id",
+            )
         profile = NativeEnergyProfile(
             resource_id=resource_id,
-            provider=data.get("provider", user.get("sub", "")),
+            provider=caller,
             model_id=data.get("model_id", resource_id),
             tbp_watts=tbp,
             eur_per_kwh_scaled=eur_scaled,
@@ -92,11 +118,16 @@ def register_native_energy_profile(
 def publish_native_energy_rate(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
-    user: MinerDep,
+    user: AdminDep,
     *,
     http_request: Request,
 ) -> dict[str, Any]:
-    """Publish or update the global AIT/EUR rate for native energy quotes."""
+    """Publish or update the global AIT/EUR rate for native energy quotes.
+
+    #2704: the rate row is a single global value feeding every protected
+    floor on the node — a miner-writable rate let any key move all floors
+    inside the band, so publication is admin-only now.
+    """
     data = request.get("rate") or request
     scale = 10**18
     ait_per_eur = data.get("ait_per_eur")

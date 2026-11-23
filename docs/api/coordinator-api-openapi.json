@@ -3431,7 +3431,17 @@
             }
           },
           "400": {
-            "description": "resource_id is required / eur_per_kwh is not a valid number / tbp_watts must be positive / eur_per_kwh must be positive",
+            "description": "resource_id is required / eur_per_kwh is not a valid number / tbp_watts must be an integer / tbp_watts must be positive / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "native energy profile belongs to a different miner / resource_id is not registered to your miner id",
             "content": {
               "application/json": {
                 "schema": {
@@ -3444,56 +3454,42 @@
       }
     },
     "/v1/market/native-energy/rate": {
-      "get": {
-        "tags": [
-          "market-gpu"
-        ],
-        "summary": "Get Native Energy Rate",
-        "description": "Read the published global AIT/EUR rate for native energy quotes.",
-        "operationId": "get_native_energy_rate_v1_market_native_energy_rate_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Native Energy Rate V1 Market Native Energy Rate Get"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "no native energy rate configured",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "tags": [
           "market-gpu"
         ],
         "summary": "Publish Native Energy Rate",
-        "description": "Publish or update the global AIT/EUR rate for native energy quotes.",
+        "description": "Publish or update the global AIT/EUR rate for native energy quotes.\n\n#2704: the rate row is a single global value feeding every protected\nfloor on the node \u2014 a miner-writable rate let any key move all floors\ninside the band, so publication is admin-only now.",
         "operationId": "publish_native_energy_rate_v1_market_native_energy_rate_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
                 "type": "object",
+                "additionalProperties": true,
                 "title": "Request"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -3501,8 +3497,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Publish Native Energy Rate V1 Market Native Energy Rate Post"
                 }
               }
@@ -3520,6 +3516,38 @@
           },
           "400": {
             "description": "ait_per_eur is not a valid number / ait_per_eur must be positive / ait_per_eur exceeds the int64 scaled range / ait_per_eur {rate_ait} outside the plausible band [{settings.energy_rate_min_ait_per_eur}, {settings.energy_rate_max_ait_per_eur}]",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "market-gpu"
+        ],
+        "summary": "Get Native Energy Rate",
+        "description": "Read the published global AIT/EUR rate for native energy quotes.",
+        "operationId": "get_native_energy_rate_v1_market_native_energy_rate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Native Energy Rate V1 Market Native Energy Rate Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no native energy rate configured",
             "content": {
               "application/json": {
                 "schema": {
