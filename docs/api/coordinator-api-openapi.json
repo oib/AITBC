@@ -25137,6 +25137,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "subject/actor does not match the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -25198,8 +25208,18 @@
               }
             }
           },
+          "403": {
+            "description": "subject/actor does not match the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "consent record not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -25296,7 +25316,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "subject/actor does not match the caller",
             "content": {
               "application/json": {
                 "schema": {
@@ -25375,6 +25395,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "subject/actor does not match the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -38979,6 +39009,8 @@
           },
           "expires_in_days": {
             "type": "integer",
+            "maximum": 3650.0,
+            "minimum": 1.0,
             "title": "Expires In Days",
             "default": 365
           },
