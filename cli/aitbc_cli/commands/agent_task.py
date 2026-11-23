@@ -379,17 +379,8 @@ def _buyer_signing(
 _SHOP_GATED_SERVICE_TYPES = frozenset({"whisper", "ffmpeg"})
 
 
-def _agent_task_shop_access(
-    ctx: click.Context,
-    service_type: str,
-    task_id: str,
-    buyer_address: str,
-    provider_wallet: str,
-    amount: Decimal,
-    model: str | None,
-    private_key: str,
-) -> dict[str, str]:
-    """Mint + register the shop-gate credential triple for gated service types (#2743).
+def _agent_task_shop_token(service_type: str) -> dict[str, str]:
+    """Mint the shop-gate credential triple for gated service types (#2743).
 
     Paid shop endpoints verify ``X-Access-Key``/``X-Access-Secret`` against
     ``GET /v1/market/access/{key}`` and bind ``X-Job-Id`` to that market job
@@ -398,41 +389,66 @@ def _agent_task_shop_access(
     agent-task TaskRequest needs the identical triple in its content or the
     provider's whisper/ffmpeg call 401s and the paid task fails.
 
-    The market job id stays distinct from ``task_id`` (the on-chain
-    ESCROW_LOCK key) exactly like ``ai submit``: it is a pure token record
-    whose ``payload.escrow_job_id`` alias binds it to the atask escrow —
-    the #2326 buyer-wallet signature covers that binding. Returns the
-    content fields to merge into the TaskRequest, or ``{}`` for ungated
-    types / registration failure (the shop's own 401 remains the refusal).
+    The market job id must be minted *before* the ESCROW_LOCK is signed:
+    the #2326 alias binding requires the lock payload to name the market
+    job (``payload.market_job_id``), so the id is generated here and
+    threaded into ``create_signed_escrow_lock`` — the same ordering
+    ``ai submit`` uses (#2322). Returns ``{}`` for ungated types.
     """
     if service_type not in _SHOP_GATED_SERVICE_TYPES:
         return {}
     import secrets
 
+    return {
+        "market_job_id": f"ataskmkt_{uuid.uuid4().hex[:16]}",
+        "access_key": secrets.token_urlsafe(16),
+        "access_secret": secrets.token_urlsafe(32),
+    }
+
+
+def _register_agent_task_shop_token(
+    ctx: click.Context,
+    token: dict[str, str],
+    service_type: str,
+    task_id: str,
+    buyer_address: str,
+    provider_wallet: str,
+    amount: Decimal,
+    model: str | None,
+    private_key: str,
+) -> dict[str, str]:
+    """Register the minted token as a market job bound to the task escrow (#2743).
+
+    The market job id stays distinct from ``task_id`` (the on-chain
+    ESCROW_LOCK key) exactly like ``ai submit``: it is a pure token record
+    whose ``payload.escrow_job_id`` alias binds it to the atask escrow —
+    the #2326 buyer-wallet signature covers that binding. Returns the
+    content fields to merge into the TaskRequest, or ``{}`` when ``token``
+    is empty / registration fails (the shop's own 401 remains the refusal).
+    """
+    if not token:
+        return {}
     from .market.jobs import _register_paid_market_job
 
-    market_job_id = f"ataskmkt_{uuid.uuid4().hex[:16]}"
-    access_key = secrets.token_urlsafe(16)
-    access_secret = secrets.token_urlsafe(32)
     registered = _register_paid_market_job(
         ctx,
-        market_job_id,
+        token["market_job_id"],
         {"model": model or ""},
         buyer_address,
         provider_wallet,
         service_type,
         amount,
-        access_key=access_key,
-        access_secret=access_secret,
+        access_key=token["access_key"],
+        access_secret=token["access_secret"],
         escrow_job_id=task_id,
         signer_key=private_key,
     )
     if registered is None:
         return {}
     return {
-        "access_key": access_key,
-        "access_secret": access_secret,
-        "access_job_id": market_job_id,
+        "access_key": token["access_key"],
+        "access_secret": token["access_secret"],
+        "access_job_id": token["market_job_id"],
     }
 
 
@@ -453,6 +469,7 @@ def _submit_task(
     settlement_wallet: str,
     timeout_seconds: float,
     signing_key: str | None = None,
+    market_job_id: str | None = None,
 ) -> str:
     """Build the signed escrow lock and POST /v1/tasks/submit; return the escrow id."""
     from ..utils.escrow import create_signed_escrow_lock
@@ -467,6 +484,7 @@ def _submit_task(
             max_price_ait,
             private_key,
             node_wallet=settlement_wallet,
+            market_job_id=market_job_id,
         )
     except _OPS_ERRORS as e:
         error(f"Failed to build escrow lock transaction: {e}")
@@ -712,6 +730,13 @@ def hire(
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
+    # 5a. Shop-gate token for gated service types (#2743): the market job id
+    # must be minted before the ESCROW_LOCK is signed — the #2326 alias
+    # binding requires the lock payload to name it (``payload.market_job_id``),
+    # same ordering ``ai submit`` uses (#2322). Registration happens after the
+    # escrow locks; a failure degrades to the shop's own 401.
+    shop_token = _agent_task_shop_token(service_type)
+
     # 5. Submit task + payment: the coordinator locks the escrow on-chain.
     escrow_id = _submit_task(
         ctx,
@@ -730,15 +755,23 @@ def hire(
         settlement_wallet,
         timeout_seconds,
         signing_key,
+        market_job_id=shop_token.get("market_job_id"),
     )
     success(f"Task {task_id} submitted — escrow {escrow_id} locked on-chain ({max_price_ait} AIT)")
 
-    # 5b. Shop-gate credentials for gated service types (#2743): the
-    # provider's whisper/ffmpeg endpoints verify the access triple against
-    # a market job token — register it bound to this task's on-chain escrow
-    # and carry the triple in the TaskRequest content.
-    shop_access = _agent_task_shop_access(
-        ctx, service_type, task_id, buyer_address, provider_wallet, max_price_ait, model, private_key
+    # 5b. Register the market job token bound to this task's on-chain escrow
+    # (``payload.escrow_job_id`` alias + #2326 buyer signature) and carry the
+    # credential triple in the TaskRequest content.
+    shop_access = _register_agent_task_shop_token(
+        ctx,
+        shop_token,
+        service_type,
+        task_id,
+        buyer_address,
+        provider_wallet,
+        max_price_ait,
+        model,
+        private_key,
     )
 
     # 6. Send the TaskRequest negotiation message.
