@@ -20123,9 +20123,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Request"
+                "$ref": "#/components/schemas/AgentSpendSessionCreate"
               }
             }
           }
@@ -36950,6 +36948,52 @@
         ],
         "title": "AgentSecurityPolicy",
         "description": "Security policies for agent operations"
+      },
+      "AgentSpendSessionCreate": {
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "title": "Chain Id",
+            "default": 1000
+          },
+          "cap_ait": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Cap Ait"
+          },
+          "allowed_ops": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Ops"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cap_ait"
+        ],
+        "title": "AgentSpendSessionCreate"
       },
       "AgentStatus": {
         "type": "string",
