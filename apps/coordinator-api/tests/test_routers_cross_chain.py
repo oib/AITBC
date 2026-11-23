@@ -9,10 +9,24 @@ validation, health/config/chain reads, and wallet ownership binding.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from decimal import Decimal
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
+from coordinator_api.contexts.cross_chain.domain.cross_chain_bridge import BridgeRequestStatus
+from coordinator_api.contexts.cross_chain.routers import cross_chain_integration
+from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_client_adapter import (
+    BridgeClientAdapter,
+    BridgeHTLCRetired,
+    BridgeProtocolRequired,
+)
+from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_types import BridgeProtocol
 
 BASE = "/v1/cross-chain"
 
@@ -48,6 +62,10 @@ class TestCrossChainReads:
     def test_config_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/config", headers=_headers())
         assert resp.status_code == 200
+        protocols = resp.json()["bridge_protocols"]
+        assert "htlc" not in protocols
+        assert "atomic_swap" in protocols
+        assert "liquidity_pool" in protocols
 
     def test_supported_chains_empty_or_list(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/chains/supported", headers=_headers())
@@ -165,3 +183,174 @@ class TestTransactionHistory:
         fake_tx_manager.error = RuntimeError("db gone")
         resp = client.get(f"{BASE}/transactions/history", headers=_headers())
         assert resp.status_code == 502
+
+
+class TestBridgeHTLCRetirement:
+    """#2761 — HTLC bridge protocol retired.
+
+    Explicit HTLC requests are refused with HTTP 410 before the adapter is
+    constructed; a configured HTLC default requires an explicit supported
+    protocol (HTTP 400); historical HTLC rows are skipped by dispatch but
+    remain readable.
+    """
+
+    _CREATE_PARAMS = {
+        "user_address": "0x" + "11" * 20,
+        "source_chain_id": 1,
+        "target_chain_id": 2,
+        "amount": "100",
+    }
+
+    @staticmethod
+    def _wallet() -> Any:
+        wallet = MagicMock()
+        wallet.validate_address = AsyncMock(return_value=True)
+        return wallet
+
+    @staticmethod
+    def _protocol_config(protocol: BridgeProtocol) -> dict[str, Any]:
+        return {
+            "1": {
+                "protocol": protocol,
+                "enabled": True,
+                "min_amount": "0",
+                "max_amount": "1000000",
+                "fee_rate": "0.01",
+                "confirmation_blocks": 1,
+            }
+        }
+
+    def _adapter(self, session: Any, protocol: BridgeProtocol) -> BridgeClientAdapter:
+        adapter = BridgeClientAdapter(session=session)
+        adapter.configure_allowed_transfers([(1, 2)])
+        adapter.wallet_adapters[1] = self._wallet()
+        adapter.wallet_adapters[2] = self._wallet()
+        adapter.bridge_protocols = self._protocol_config(protocol)
+        return adapter
+
+    def test_explicit_htlc_is_410_before_adapter(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[object] = []
+
+        def spy(*args: object, **kwargs: object) -> None:
+            calls.append((args, kwargs))
+            raise AssertionError("BridgeClientAdapter must not be constructed for retired HTLC")
+
+        monkeypatch.setattr(cross_chain_integration, "BridgeClientAdapter", spy)
+        resp = client.post(
+            f"{BASE}/bridge/create-request",
+            params={**self._CREATE_PARAMS, "protocol": "htlc"},
+            headers=_headers(),
+        )
+        assert resp.status_code == 410
+        assert resp.json()["detail"]["code"] == "htlc_retired"
+        assert calls == []
+
+    def test_configured_htlc_default_is_400(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        adapter = MagicMock()
+        adapter.initialize_bridge = AsyncMock()
+        adapter.create_bridge_request = AsyncMock(
+            side_effect=BridgeProtocolRequired(
+                "The configured HTLC default is retired; supply a supported protocol explicitly."
+            )
+        )
+        monkeypatch.setattr(cross_chain_integration, "BridgeClientAdapter", MagicMock(return_value=adapter))
+        resp = client.post(
+            f"{BASE}/bridge/create-request",
+            params=self._CREATE_PARAMS,
+            headers=_headers(),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["code"] == "protocol_required"
+        adapter.create_bridge_request.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_configured_htlc_default_rejected_without_session_or_wallet_work(self) -> None:
+        session = MagicMock()
+        adapter = self._adapter(session, BridgeProtocol.HTLC)
+
+        with pytest.raises(BridgeProtocolRequired):
+            await adapter.create_bridge_request(
+                user_address="0x" + "11" * 20,
+                source_chain_id=1,
+                target_chain_id=2,
+                amount=Decimal("100"),
+            )
+
+        session.add.assert_not_called()
+        session.commit.assert_not_called()
+        session.rollback.assert_not_called()
+        adapter.wallet_adapters[1].validate_address.assert_not_awaited()
+        adapter.wallet_adapters[2].validate_address.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_explicit_htlc_rejected_before_session_check(self) -> None:
+        adapter = BridgeClientAdapter(session=None)
+
+        with pytest.raises(BridgeHTLCRetired):
+            await adapter.create_bridge_request(
+                user_address="0x" + "11" * 20,
+                source_chain_id=1,
+                target_chain_id=2,
+                amount=Decimal("100"),
+                protocol=BridgeProtocol.HTLC,
+            )
+
+    @pytest.mark.asyncio
+    async def test_supported_default_protocol_still_creates_request(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        session = MagicMock()
+        adapter = self._adapter(session, BridgeProtocol.ATOMIC_SWAP)
+        monkeypatch.setattr(adapter, "_estimate_network_fee", AsyncMock(return_value=Decimal("0.01")))
+        dispatch = AsyncMock()
+        monkeypatch.setattr(adapter, "_process_bridge_request", dispatch)
+
+        result = await adapter.create_bridge_request(
+            user_address="0x" + "11" * 20,
+            source_chain_id=1,
+            target_chain_id=2,
+            amount=Decimal("100"),
+        )
+
+        session.add.assert_called_once()
+        stored = session.add.call_args.args[0]
+        assert stored.protocol == BridgeProtocol.ATOMIC_SWAP.value
+        dispatch.assert_awaited_once()
+        assert dispatch.await_args.args[0] == stored.id
+        assert result["bridge_request_id"] == stored.id
+
+    @pytest.mark.asyncio
+    async def test_historical_htlc_request_skipped_by_dispatch_but_still_readable(self) -> None:
+        session = MagicMock()
+        stamp = datetime(2024, 1, 1, tzinfo=UTC)
+        historical = SimpleNamespace(
+            id="req-htlc-1",
+            protocol=BridgeProtocol.HTLC.value,
+            status=BridgeRequestStatus.PENDING,
+            updated_at=stamp,
+            lock_tx_hash=None,
+            unlock_tx_hash=None,
+            source_chain_id=1,
+            target_chain_id=2,
+            sender_address="0x" + "11" * 20,
+            recipient_address="0x" + "11" * 20,
+            amount=Decimal("100"),
+            source_token="0x" + "0" * 40,
+            target_token="0x" + "0" * 40,
+            bridge_fee=Decimal("1"),
+            total_amount=Decimal("101"),
+            expires_at=stamp,
+            created_at=stamp,
+            completed_at=None,
+        )
+        session.execute.return_value.scalars.return_value.first.return_value = historical
+        adapter = BridgeClientAdapter(session=session)
+
+        await adapter._process_bridge_request("req-htlc-1")
+
+        session.commit.assert_not_called()
+        assert historical.status == BridgeRequestStatus.PENDING
+        assert historical.updated_at == stamp
+
+        status = await adapter.get_bridge_request_status("req-htlc-1")
+        assert status["bridge_request_id"] == "req-htlc-1"
+        assert status["protocol"] == "htlc"
+        assert status["status"] == BridgeRequestStatus.PENDING.value
