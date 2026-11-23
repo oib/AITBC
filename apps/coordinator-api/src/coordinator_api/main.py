@@ -66,7 +66,6 @@ from .routers import (
     agent_performance,
     agent_router,
     client,
-    confidential,
     developer_platform,
     edge_gpu,
     exchange,
@@ -1091,7 +1090,6 @@ def _register_routers(app: FastAPI) -> None:
     )
 
     # Core routers
-    app.include_router(confidential, prefix="/v1")
     app.include_router(swarm, prefix="/v1")
     app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
     app.include_router(media, prefix="/v1")

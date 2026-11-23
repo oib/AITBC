@@ -2,9 +2,10 @@
 JWT principal, not caller-supplied ids.
 
 Pre-fix: bonds slash/lock/release/create trusted any provider_id; trading
-mutations trusted body buyer_agent_id/initiator; confidential key/payment
-routes trusted participant_id/sender_id; exchange create-payment fell back
-to a body user_id and payment-status was readable by anyone holding the id.
+mutations trusted body buyer_agent_id/initiator; exchange create-payment
+fell back to a body user_id and payment-status was readable by anyone
+holding the id. (The confidential key/payment routes pinned here were
+removed with the simulated-only surface in #2767.)
 """
 
 from __future__ import annotations
@@ -181,36 +182,6 @@ class TestExchangeObjectBinding:
     def test_status_unauthenticated_401(self, client: TestClient, seeded) -> None:
         payment = self._create(client, "u")
         assert client.get(f"/v1/exchange/payment-status/{payment['payment_id']}").status_code == 401
-
-
-# --- confidential ---
-
-
-class TestConfidentialObjectBinding:
-    def test_register_foreign_participant_403(self, client: TestClient, seeded) -> None:
-        resp = client.post(
-            "/v1/confidential/keys/register",
-            json={"participant_id": "intruder", "public_key": "AAAA", "algorithm": "X25519"},
-            headers=_headers("owner1"),
-        )
-        assert resp.status_code == 403
-
-    def test_rotate_foreign_participant_403(self, client: TestClient, seeded) -> None:
-        resp = client.post(
-            "/v1/confidential/keys/rotate",
-            params={"participant_id": "intruder"},
-            headers=_headers("owner1"),
-        )
-        assert resp.status_code == 403
-
-    def test_admin_may_act_for_any_participant(self, client: TestClient, seeded) -> None:
-        resp = client.post(
-            "/v1/confidential/keys/rotate",
-            params={"participant_id": "intruder"},
-            headers=_headers("admin-a", "admin"),
-        )
-        # admin passes the binding; downstream key ops may still fail, but not 403
-        assert resp.status_code != 403
 
 
 # --- trading ---
