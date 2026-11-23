@@ -12,9 +12,9 @@ from urllib.parse import urlparse, urlunparse
 import click
 
 try:
-    from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils import error, output, success, warning
 except ImportError:
-    from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils import error, output, success, warning
 
 from .island import _load_validator_public_key
 
@@ -121,29 +121,32 @@ def register_hub_command(
 
         hub_manager = HubManager(node_id, local_address, local_port, island_id, island_name, redis_url)
 
-        # Register as hub (async)
+        # Register as hub (async). Returns "ok" | "partial" | "fail": the
+        # Redis registry row is the authoritative effect; DNS discovery is
+        # best-effort advertisement, so its failure is reported as partial
+        # success rather than a flat failure (#2760).
         async def register_hub():
             await _ping_redis(redis_url)
             success = await hub_manager.register_as_hub(public_address, public_port)
-            if success:
-                hub_discovery = HubDiscovery(hub_discovery_url, local_port)
-                hub_info_dict = {
-                    "node_id": node_id,
-                    "address": local_address,
-                    "port": local_port,
-                    "island_id": island_id,
-                    "island_name": island_name,
-                    "public_address": public_address,
-                    "public_port": public_port,
-                    "public_key_pem": public_key_pem,
-                }
-                dns_success = await hub_discovery.register_hub(hub_info_dict)
-                return success and dns_success
-            return False
+            if not success:
+                return "fail"
+            hub_discovery = HubDiscovery(hub_discovery_url, local_port)
+            hub_info_dict = {
+                "node_id": node_id,
+                "address": local_address,
+                "port": local_port,
+                "island_id": island_id,
+                "island_name": island_name,
+                "public_address": public_address,
+                "public_port": public_port,
+                "public_key_pem": public_key_pem,
+            }
+            dns_success = await hub_discovery.register_hub(hub_info_dict)
+            return "ok" if dns_success else "partial"
 
         result = asyncio.run(register_hub())
 
-        if result:
+        if result in ("ok", "partial"):
             hub_info = {
                 "Node ID": node_id,
                 "Hostname": hostname,
@@ -157,6 +160,12 @@ def register_hub_command(
             }
 
             output(hub_info, ctx.obj.get("output", "table"), title="Hub Registration")
+            if result == "partial":
+                warning(
+                    "Hub registry row persisted, but DNS discovery registration failed — "
+                    "the hub is listed by `node hub list` yet may not be discoverable "
+                    "until DNS registration succeeds (re-run or check hub-discovery connectivity)"
+                )
             success("Successfully registered as hub")
         else:
             error("Failed to register as hub")
@@ -192,18 +201,23 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password=Non
         async def unregister_hub():
             await _ping_redis(redis_url)
             success = await hub_manager.unregister_as_hub()
-            if success:
-                hub_discovery = HubDiscovery(hub_discovery_url, local_port)
-                dns_success = await hub_discovery.unregister_hub(node_id)
-                return success and dns_success
-            return False
+            if not success:
+                return "fail"
+            hub_discovery = HubDiscovery(hub_discovery_url, local_port)
+            dns_success = await hub_discovery.unregister_hub(node_id)
+            return "ok" if dns_success else "partial"
 
         result = asyncio.run(unregister_hub())
 
-        if result:
+        if result in ("ok", "partial"):
             hub_info = {"Node ID": node_id, "Status": "Unregistered"}
 
             output(hub_info, ctx.obj.get("output", "table"), title="Hub Unregistration")
+            if result == "partial":
+                warning(
+                    "Hub registry row removed, but DNS discovery unregistration failed — "
+                    "the node may still be advertised by hub-discovery until that call succeeds"
+                )
             success("Successfully unregistered as hub")
         else:
             error("Failed to unregister as hub")

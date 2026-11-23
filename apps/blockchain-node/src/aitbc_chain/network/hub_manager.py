@@ -290,15 +290,29 @@ class HubManager:
 
     async def unregister_as_hub(self) -> bool:
         """Unregister this node as a hub"""
+        persisted_node_id: str | None = None
         if not self.is_hub:
-            logger.warning("Not registered as hub")
-            return False
+            # A fresh CLI process never ran register_as_hub, so is_hub is
+            # False even when a persisted hub:<node_id> row exists (#2760).
+            # The Redis row is authoritative — load it and unregister by the
+            # stored identity instead of refusing on the in-memory flag.
+            persisted = await self._load_hub_registration()
+            if persisted is None:
+                logger.warning("Not registered as hub")
+                return False
+            persisted_node_id = persisted.node_id
+            self.is_hub = True
+            self.hub_status = HubStatus.REGISTERED
+            self.registered_at = persisted.registered_at
+            self.known_hubs[self.local_node_id] = persisted
+            logger.info("Loaded persisted hub registration for %s", self.local_node_id)
         self.is_hub = False
         self.hub_status = HubStatus.UNREGISTERED
         self.registered_at = None
         await self._remove_hub_registration(self.local_node_id)
-        if self.local_node_id in self.known_hubs:
-            del self.known_hubs[self.local_node_id]
+        self.known_hubs.pop(self.local_node_id, None)
+        if persisted_node_id and persisted_node_id != self.local_node_id:
+            self.known_hubs.pop(persisted_node_id, None)
         logger.info("Unregistered as hub for island %s", self.island_id)
         return True
 

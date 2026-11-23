@@ -3,7 +3,7 @@ Tests for Hub Manager with Redis persistence
 """
 
 import pytest
-from aitbc_chain.network.hub_manager import HubInfo, HubManager, PeerInfo
+from aitbc_chain.network.hub_manager import HubInfo, HubManager, HubStatus, PeerInfo
 
 
 class TestHubManager:
@@ -107,3 +107,81 @@ class TestHubManager:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+class TestUnregisterPersisted:
+    """#2760 — unregister must consult the persisted hub:<node_id> row; a fresh
+    CLI process always has is_hub=False even when the row exists."""
+
+    @pytest.fixture
+    def hub_manager(self):
+        return HubManager(
+            local_node_id="test-node-id",
+            local_address="127.0.0.1",
+            local_port=7070,
+            island_id="test-island-id",
+            island_name="test-island",
+            redis_url="redis://localhost:6379",
+        )
+
+    @pytest.mark.asyncio
+    async def test_unregister_removes_persisted_registration(self, hub_manager, monkeypatch):
+        persisted = HubInfo(
+            node_id="test-node-id",
+            address="127.0.0.1",
+            port=7070,
+            island_id="test-island-id",
+            island_name="test-island",
+            public_address="1.2.3.4",
+            public_port=26656,
+        )
+        removed: list[str] = []
+
+        async def fake_load():
+            return persisted
+
+        async def fake_remove(node_id):
+            removed.append(node_id)
+            return True
+
+        monkeypatch.setattr(hub_manager, "_load_hub_registration", fake_load)
+        monkeypatch.setattr(hub_manager, "_remove_hub_registration", fake_remove)
+
+        assert hub_manager.is_hub is False
+        assert await hub_manager.unregister_as_hub() is True
+        assert removed == ["test-node-id"]
+        assert hub_manager.is_hub is False
+        assert hub_manager.hub_status.value == "unregistered"
+        assert "test-node-id" not in hub_manager.known_hubs
+
+    @pytest.mark.asyncio
+    async def test_unregister_without_any_registration_still_refuses(self, hub_manager, monkeypatch):
+        async def fake_load():
+            return None
+
+        async def fake_remove(node_id):  # pragma: no cover - must not run
+            raise AssertionError("remove called with nothing persisted")
+
+        monkeypatch.setattr(hub_manager, "_load_hub_registration", fake_load)
+        monkeypatch.setattr(hub_manager, "_remove_hub_registration", fake_remove)
+
+        assert await hub_manager.unregister_as_hub() is False
+
+    @pytest.mark.asyncio
+    async def test_unregister_in_memory_registration_skips_load(self, hub_manager, monkeypatch):
+        hub_manager.is_hub = True
+        hub_manager.hub_status = HubStatus.REGISTERED
+        removed: list[str] = []
+
+        async def fake_load():  # pragma: no cover - must not run
+            raise AssertionError("persisted load ran for in-memory registration")
+
+        async def fake_remove(node_id):
+            removed.append(node_id)
+            return True
+
+        monkeypatch.setattr(hub_manager, "_load_hub_registration", fake_load)
+        monkeypatch.setattr(hub_manager, "_remove_hub_registration", fake_remove)
+
+        assert await hub_manager.unregister_as_hub() is True
+        assert removed == ["test-node-id"]
