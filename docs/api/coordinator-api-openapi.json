@@ -13893,7 +13893,7 @@
             }
           },
           "400": {
-            "description": "Invalid wallet address / Email already registered / Wallet already registered",
+            "description": "Invalid wallet address / This email domain is reserved for wallet login / Email already registered / Wallet already registered",
             "content": {
               "application/json": {
                 "schema": {
@@ -13976,6 +13976,16 @@
           },
           "404": {
             "description": "User not found for wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Could not allocate user email",
             "content": {
               "application/json": {
                 "schema": {

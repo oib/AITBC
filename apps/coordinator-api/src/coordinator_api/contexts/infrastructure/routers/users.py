@@ -373,6 +373,16 @@ async def register_user(
     if not _verify_wallet_signature(wallet_address, user_data.signature, user_data.nonce):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid wallet signature")
 
+    # @aitbc.local is the reserved domain for wallet-login synthetic
+    # addresses; letting a registrant claim <victim>@aitbc.local squats the
+    # victim's first-login email and 500s their login on the unique column
+    # (#2705).
+    if user_data.email.lower().endswith("@aitbc.local"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This email domain is reserved for wallet login",
+        )
+
     # Check for existing user or wallet
     existing_user = await run_in_threadpool(
         lambda: session.execute(select(User).where(User.email == user_data.email)).scalars().first()
@@ -440,9 +450,25 @@ async def login_user(
         user.last_login = datetime.now(UTC)
         await run_in_threadpool(session.commit)
     else:
+        # The synthetic <wallet>@aitbc.local email may already exist — a
+        # squatter can register it because the domain was not reserved at
+        # /register (#2705). Suffix until free instead of IntegrityError.
+        base_email = f"{wallet_address.lower()}@aitbc.local"
+        email = base_email
+
+        def _email_taken(e: str) -> bool:
+            return session.execute(select(User).where(User.email == e)).scalars().first() is not None
+
+        for _ in range(5):
+            if not await run_in_threadpool(_email_taken, email):
+                break
+            local, _, domain = base_email.partition("@")
+            email = f"{local}+{uuid.uuid4().hex[:8]}@{domain}"
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not allocate user email")
         user = User(
             id=str(uuid.uuid4()),
-            email=f"{wallet_address.lower()}@aitbc.local",
+            email=email,
             username=f"user_{wallet_address.lower()[-8:]}_{str(uuid.uuid4())[:8]}",
             created_at=datetime.now(UTC),
             last_login=datetime.now(UTC),
