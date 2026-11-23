@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from aitbc.auth import create_access_token
 
-from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity
+from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity, CrossChainMapping
 from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
 
 OWNER_ADDR = "0x08aB801150eF3496344cFA78fe025c3B48Caf435"
@@ -71,6 +71,59 @@ def test_owner_can_update(client, seeded_identity):
         json={"display_name": "mine"},
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.unit
+def test_owner_cannot_self_verify_identity(client, db_session, seeded_identity):
+    """#2710: verification is an operator action — even the identity owner
+    (with their own verifier wallet) gets 403."""
+    db_session.add(CrossChainMapping(agent_id=AGENT_ID, chain_id=1, chain_address="0x" + "11" * 20))
+    db_session.commit()
+    resp = client.post(
+        f"/v1/agent-identity/identities/{AGENT_ID}/cross-chain/1/verify",
+        headers=_token("owner1", "client"),
+        json={"verifier_address": OWNER_ADDR, "proof_hash": "0x00"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.unit
+def test_admin_can_verify_identity(client, db_session, seeded_identity):
+    db_session.add(CrossChainMapping(agent_id=AGENT_ID, chain_id=1, chain_address="0x" + "11" * 20))
+    db_session.commit()
+    resp = client.post(
+        f"/v1/agent-identity/identities/{AGENT_ID}/cross-chain/1/verify",
+        headers=_token("admin1", "admin"),
+        json={
+            "verifier_address": OWNER_ADDR,
+            "proof_hash": "0x00",
+            "verification_type": "multi-signature",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["verified"] is True
+
+
+@pytest.mark.unit
+def test_verify_rejects_unknown_verification_type(client, db_session, seeded_identity):
+    db_session.add(CrossChainMapping(agent_id=AGENT_ID, chain_id=1, chain_address="0x" + "11" * 20))
+    db_session.commit()
+    resp = client.post(
+        f"/v1/agent-identity/identities/{AGENT_ID}/cross-chain/1/verify",
+        headers=_token("admin1", "admin"),
+        json={"verifier_address": OWNER_ADDR, "proof_hash": "0x00", "verification_type": "bogus"},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.unit
+def test_batch_verify_requires_admin(client, seeded_identity):
+    resp = client.post(
+        "/v1/agent-identity/identities/batch-verify",
+        headers=_token("owner1", "client"),
+        json=[{"identity_id": "id1", "chain_id": 1, "verifier_address": OWNER_ADDR, "proof_hash": "0x00"}],
+    )
+    assert resp.status_code == 403
 
 
 @pytest.mark.unit

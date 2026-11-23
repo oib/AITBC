@@ -329,12 +329,20 @@ async def verify_cross_chain_identity(
     http_request: Request,
 ) -> dict[str, Any]:
     """Verify identity on a specific blockchain"""
-    _require_address_or_admin(session, user, request.get("verifier_address"))
+    # #2710: verification is an operator action — any wallet holder could
+    # previously stamp is_verified/verification_level on anyone's identity.
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="admin only")
     try:
         # Get identity ID
         identity = await manager.core.get_identity_by_agent_id(agent_id)
         if not identity:
             raise HTTPException(status_code=404, detail="Agent identity not found")
+
+        try:
+            verification_type = VerificationType(request.get("verification_type", "basic"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid verification_type") from None
 
         verification = await manager.registry.verify_cross_chain_identity(
             identity.id,
@@ -342,7 +350,7 @@ async def verify_cross_chain_identity(
             request["verifier_address"],
             request["proof_hash"],
             request.get("proof_data", {}),
-            VerificationType(request.get("verification_type", "basic")),
+            verification_type,
         )
 
         return {
@@ -760,11 +768,9 @@ async def batch_verify_identities(
     request: Request,
 ) -> list[dict[str, Any]]:
     """Batch verify multiple identities"""
-    wallets = _caller_wallets(session, user)
+    # #2710: same operator-only gate as the single-identity verify route.
     if user.get("role") != "admin":
-        for v in verifications:
-            if str(v.get("verifier_address") or "").lower() not in wallets:
-                raise HTTPException(status_code=403, detail="verifier_address is not one of the caller's wallets")
+        raise HTTPException(status_code=403, detail="admin only")
     try:
         results = await manager.registry.batch_verify_identities(verifications)
         return results
