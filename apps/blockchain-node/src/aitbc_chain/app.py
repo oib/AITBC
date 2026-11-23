@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import time
@@ -982,7 +983,46 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(metrics_router)
+
+    @app.get(
+        "/agent/genesis.json",
+        tags=["bootstrap"],
+        summary="Canonical genesis document (public join bootstrap)",
+    )
+    def agent_genesis_json(chain_id: str | None = None) -> Response:
+        """Serve the genesis document advertised as ``genesis_json_url`` by
+        ``/rpc/network-info`` and ``/rpc/join`` — see ``_agent_genesis_document``
+        for the serving semantics (#2759)."""
+        return _agent_genesis_document(chain_id)
+
     return app
+
+
+def _agent_genesis_document(chain_id: str | None) -> Response:
+    """Read ``DATA_DIR/data/<chain_id>/genesis.json`` and return it as JSON.
+
+    Public bootstrap data by design — the document carries allocations and
+    claimed roots, no key material, and joining nodes fetch it before
+    holding any credential. Public hubs front this path in nginx with a
+    static ``/etc/aitbc/genesis.json`` copy; serving it from the app keeps
+    the advertised URL working on the raw RPC port and on hosts without
+    that vhost (#2759). ``?chain_id=`` selects a supported chain; the
+    default is the node's configured chain.
+    """
+    from aitbc.constants import DATA_DIR
+
+    cid = chain_id or resolve_chain_id()
+    if chain_id and cid not in get_supported_chains():
+        raise HTTPException(status_code=404, detail=f"unknown chain_id: {cid}")
+    genesis_path = DATA_DIR / "data" / cid / "genesis.json"
+    if not genesis_path.is_file():
+        raise HTTPException(status_code=404, detail=f"no genesis document for chain_id={cid}")
+    try:
+        document = json.loads(genesis_path.read_text())
+    except (OSError, ValueError) as exc:
+        _app_logger.error("genesis document unreadable at %s: %s", genesis_path, exc)
+        raise HTTPException(status_code=500, detail="genesis document unreadable") from exc
+    return JSONResponse(content=document)
 
 
 def _check_chain_db() -> None:
