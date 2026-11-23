@@ -57,6 +57,33 @@ class TestDeveloperProfile:
         resp = client.get(f"{BASE}/profile/{WALLET}", headers=_headers())
         assert resp.status_code == 200
 
+    def test_profile_update_ignores_server_owned_fields(self, client: TestClient) -> None:
+        """PUT profile must not let the caller write reputation/earnings (#2685)."""
+        client.post(
+            f"{BASE}/register",
+            json={"wallet_address": WALLET},
+            headers=_headers("admin"),
+        )
+        resp = client.put(
+            f"{BASE}/profile/{WALLET}",
+            json={
+                "github_handle": "newhandle",
+                "reputation_score": 1e9,
+                "total_earned_aitbc": "999999",
+                "wallet_address": WALLET2,
+                "is_active": False,
+            },
+            headers=_headers("admin"),
+        )
+        assert resp.status_code == 200
+
+        profile = client.get(f"{BASE}/profile/{WALLET}", headers=_headers()).json()
+        assert profile["github_handle"] == "newhandle"
+        assert profile["wallet_address"].lower() == WALLET
+        assert profile["is_active"] is True
+        assert profile["reputation_score"] == 0.0
+        assert float(profile["total_earned_aitbc"]) == 0.0
+
     def test_leaderboard_and_stats(self, client: TestClient) -> None:
         assert client.get(f"{BASE}/leaderboard", headers=_headers()).status_code == 200
         resp = client.get(f"{BASE}/stats/{WALLET}", headers=_headers())
