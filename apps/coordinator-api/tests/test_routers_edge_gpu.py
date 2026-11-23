@@ -129,8 +129,8 @@ class TestWrites:
                 "temperature": 40.0,
             },
         )
-        assert resp.status_code == 200
-        assert resp.json()["gpu_id"] == "0"
+        # #2719: no metrics store exists — the stub must not claim success.
+        assert resp.status_code == 501
 
     def test_discover_counts_edge_optimized(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch_smi(monkeypatch, "0, NVIDIA RTX 4090, 24564\n1, NVIDIA GTX 1660, 6144\n")
@@ -147,8 +147,8 @@ class TestWrites:
             params={"gpu_id": "0", "model_name": "llama"},
             json={"prompt": "hi"},
         )
-        assert resp.status_code == 200
-        assert resp.json()["optimized"] is True
+        # #2719: nothing is optimized — the stub must not claim a 15% gain.
+        assert resp.status_code == 501
 
     def test_no_dep_level_auth_documented(self, client: TestClient) -> None:
         """Same contract note as knowledge: no dep-level auth; prod floor is
