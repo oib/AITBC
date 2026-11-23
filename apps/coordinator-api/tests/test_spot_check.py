@@ -68,3 +68,40 @@ def test_spot_check_mismatch(db_session):
     shadow.state = "COMPLETED"
     record = svc.complete_spot_check(shadow)
     assert record["match"] is False
+
+
+def test_spot_check_flat_result_shape(db_session):
+    """submit_result stores job.result flat ({status, output}); the check
+    must read that shape, not only the nested fixture form (#2690)."""
+    original = _make_job(db_session)
+    original.result = {"status": "completed", "output": "world", "latency_ms": 12}
+    db_session.add(original)
+    db_session.commit()
+
+    svc = SpotCheckService(db_session)
+    shadow = svc.schedule_if_eligible(original)
+    shadow.result = {"status": "completed", "output": "world"}
+    shadow.state = "COMPLETED"
+    record = svc.complete_spot_check(shadow)
+    assert record["match"] is True
+
+    shadow2 = svc.schedule_if_eligible(original)
+    shadow2.result = {"status": "completed", "output": "tampered"}
+    shadow2.state = "COMPLETED"
+    record2 = svc.complete_spot_check(shadow2)
+    assert record2["match"] is False
+
+
+def test_spot_check_empty_output_fails_closed(db_session):
+    """Missing output on either side must not report a match (#2690)."""
+    original = _make_job(db_session)
+    original.result = {"status": "completed"}  # no output key at all
+    db_session.add(original)
+    db_session.commit()
+
+    svc = SpotCheckService(db_session)
+    shadow = svc.schedule_if_eligible(original)
+    shadow.result = {"status": "completed"}
+    shadow.state = "COMPLETED"
+    record = svc.complete_spot_check(shadow)
+    assert record["match"] is False
