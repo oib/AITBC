@@ -435,6 +435,28 @@ class TestMinerRouteAssignment:
         assert resp.status_code == 409
         assert db_session.get(Job, "job-rr1").result is None
 
+    def test_complete_job_holds_escrowed_payment_for_acceptance(self, miner_client, db_session, monkeypatch):
+        """#2700: /complete delegates to the /result pipeline — an escrowed
+        payment lands in pending_acceptance with a receipt of record instead
+        of wedging as COMPLETED+escrowed with no settlement leg."""
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "receipt_signing_key_hex", "11" * 32)
+        client, _ = miner_client
+        _make_escrowed(db_session, "job-cj3", "pay-cj3", job_state="RUNNING", miner_id="miner-b")
+        resp = client.post(
+            "/v1/miners/miner-b/jobs/job-cj3/complete",
+            json={"output": {"x": 1}, "receipt": {"price": "999"}},
+        )
+        assert resp.status_code == 200, resp.text
+        db_session.expire_all()
+        job = db_session.get(Job, "job-cj3")
+        assert job.state == "COMPLETED"
+        assert job.receipt_id
+        payment = db_session.get(JobPayment, "pay-cj3")
+        assert payment.status == "pending_acceptance"
+        assert job.payment_status == "pending_acceptance"
+
 
 # --------------------------------------------------------------------------
 # Route level: feedback is anchored to one completed job, once

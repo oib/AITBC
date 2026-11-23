@@ -106,8 +106,14 @@ def miner_client(db_session):
 
 
 @pytest.mark.unit
-def test_complete_endpoint_stores_no_verdict_and_the_gate_stays_closed(miner_client, db_session):
-    """End to end: a forged receipt posted to /complete cannot open the release gate."""
+def test_complete_endpoint_issues_coordinator_receipt(miner_client, db_session, monkeypatch):
+    """#2700: /complete now delegates to the /result pipeline — the job ends
+    COMPLETED with a coordinator-signed receipt of record, not the old
+    receipt-less state that wedged the escrow. A forged caller receipt is
+    still never trusted: verdict fields cannot come from the request body."""
+    from coordinator_api.config import settings
+
+    monkeypatch.setattr(settings, "receipt_signing_key_hex", "11" * 32)
     job = Job(
         id="job-e2e",
         client_id="client-1",
@@ -134,7 +140,12 @@ def test_complete_endpoint_stores_no_verdict_and_the_gate_stays_closed(miner_cli
     db_session.expire_all()
     stored = db_session.get(Job, "job-e2e")
     assert stored.state == "COMPLETED"
-    assert not (set(stored.receipt or {}) & set(_MINER_RECEIPT_VERDICT_FIELDS))
-    assert (stored.receipt or {}).get("price") == "0.01"
-    assert get_receipt_of_record(db_session, stored) is None
-    assert _computation_is_correct(get_receipt_of_record(db_session, stored), stored) is False
+    # The receipt of record is the coordinator-signed one — receipt_id set,
+    # backed by a JobReceipt row — and carries no caller-supplied verdicts.
+    assert stored.receipt_id
+    receipt_of_record = get_receipt_of_record(db_session, stored)
+    assert receipt_of_record is not None
+    # Verdict fields in the receipt of record are coordinator-computed — the
+    # caller's forged zk_proof must not appear verbatim.
+    assert receipt_of_record.get("signature")
+    assert receipt_of_record.get("zk_proof") != {"forged": True}

@@ -5284,7 +5284,7 @@
           "miner"
         ],
         "summary": "Complete job execution",
-        "description": "Complete a job by submitting execution results.\n\nThis endpoint allows miners to submit the results of AI job execution,\nincluding the output and a verification receipt.",
+        "description": "Complete a job by submitting execution results.\n\nDelegates to the ``/miners/{job_id}/result`` pipeline (#2700): the old\npath ran ``JobService.execute_job``, which marked the job COMPLETED with\nno receipt of record \u2014 no release (the gate needs a signed receipt), no\n``pending_acceptance`` hold, and the client's self-refund refused as\n\"delivered\", wedging the escrow until an operator intervened. The\nminer-supplied ``receipt`` body stays accepted for request compatibility\nbut is never trusted: the coordinator mints and signs the receipt of\nrecord itself, exactly as ``/result`` does.",
         "operationId": "complete_job_v1_miners__miner_id__jobs__job_id__complete_post",
         "parameters": [
           {
@@ -5339,28 +5339,8 @@
               }
             }
           },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "403": {
-            "description": "miner_id does not match authenticated miner / job is assigned to a different miner",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "job not found",
+            "description": "miner_id does not match authenticated miner",
             "content": {
               "application/json": {
                 "schema": {

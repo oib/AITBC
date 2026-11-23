@@ -15,7 +15,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ....auth import MinerDep
 from ....custom_types import job_state_filter_help, parse_job_state_filter
-from ....schemas import JobFailSubmit, MinerRegister
+from ....schemas import JobFailSubmit, JobResultSubmit, JobSubmitResultBody, MinerRegister
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
 from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE
@@ -355,60 +355,24 @@ async def complete_job(
     """
     Complete a job by submitting execution results.
 
-    This endpoint allows miners to submit the results of AI job execution,
-    including the output and a verification receipt.
+    Delegates to the ``/miners/{job_id}/result`` pipeline (#2700): the old
+    path ran ``JobService.execute_job``, which marked the job COMPLETED with
+    no receipt of record — no release (the gate needs a signed receipt), no
+    ``pending_acceptance`` hold, and the client's self-refund refused as
+    "delivered", wedging the escrow until an operator intervened. The
+    miner-supplied ``receipt`` body stays accepted for request compatibility
+    but is never trusted: the coordinator mints and signs the receipt of
+    record itself, exactly as ``/result`` does.
     """
     if miner_id != user["sub"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
+    # Deferred import: miner.py includes this router, so a top-level import
+    # of submit_result would be circular.
+    from .miner import submit_result
+
+    submit = JobResultSubmit(result=JobSubmitResultBody(output=complete_req.output))
     try:
-        job_service = JobService(session)
-        job = await run_in_threadpool(job_service.get_job, job_id)
-        if job.assigned_miner_id != user["sub"]:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
-        result = {"output": complete_req.output, "receipt": _strip_miner_receipt_verdicts(complete_req.receipt)}
-        job = await run_in_threadpool(job_service.execute_job, job_id, result)
-
-        # Record completion in the reputation service so dispatch can use it.
-        receipt = complete_req.receipt or {}
-        output = complete_req.output or {}
-        response_time = 0.0
-        if "execution_time" in output:
-            response_time = float(output["execution_time"]) * 1000.0
-        elif receipt.get("started_at") and receipt.get("completed_at"):
-            response_time = (float(receipt["completed_at"]) - float(receipt["started_at"])) * 1000.0
-        # Earnings come from the persisted payment row — the request body's
-        # receipt["price"] is caller-controlled and must not feed reputation.
-        payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
-        earnings = Decimal(str(payment.amount)) if payment is not None and payment.amount is not None else Decimal("0")
-        try:
-            reputation_service = ReputationService(session)
-            await reputation_service.record_job_completion(
-                agent_id=miner_id,
-                job_id=job_id,
-                success=True,
-                response_time=response_time,
-                earnings=earnings,
-            )
-        except _OPS_ERRORS as rep_err:
-            logger.warning("Failed to record reputation for job %s: %s", job_id, rep_err)
-
-        logger.info(
-            "Job %s completed by miner %s",
-            job_id,
-            miner_id,
-            extra={"job_id": job_id, "miner_id": miner_id, "output_size": len(str(complete_req.output))},
-        )
-        return {
-            "job_id": job_id,
-            "status": "completed",
-            "state": getattr(job.state, "value", job.state),
-            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-            "receipt_hash": complete_req.receipt.get("hash", "")[:16] if complete_req.receipt else None,
-        }
-    except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        result = await submit_result(request, job_id, submit, session, user)
     except HTTPException:
         raise
     except _OPS_ERRORS as e:
@@ -416,3 +380,4 @@ async def complete_job(
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
+    return {"job_id": job_id, **result}
