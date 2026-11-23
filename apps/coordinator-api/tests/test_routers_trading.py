@@ -189,6 +189,56 @@ class TestMatchesAndNegotiation:
     def test_find_matches_missing_request_404(self, client: TestClient) -> None:
         assert client.post(f"{BASE}/requests/req_ghost/matches", headers=_headers()).status_code == 404
 
+    def test_find_matches_no_real_offers_yields_zero(self, client: TestClient, db_session: Session) -> None:
+        """#2706: with no live GPU listings the matcher must return zero
+        matches — never the old hard-coded seller_001/seller_002."""
+        resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
+        rid = resp.json()["request_id"]
+        m = client.post(f"{BASE}/requests/{rid}/matches", headers=_headers())
+        assert m.status_code == 200, m.text
+        assert m.json() == []
+        matches = db_session.execute(select(TradeMatch).where(TradeMatch.request_id == rid)).scalars().all()
+        assert matches == []
+
+    def test_find_matches_uses_live_gpu_sellers(self, client: TestClient, db_session: Session) -> None:
+        """#2706: candidates come from GPURegistry — a real listing produces a
+        TradeMatch against its miner_id, scored by AgentReputation."""
+        from decimal import Decimal
+
+        from coordinator_api.contexts.market.domain.gpu_market import GPURegistry
+        from coordinator_api.contexts.reputation.domain.reputation import AgentReputation
+
+        db_session.add(
+            GPURegistry(
+                id="gpu_live1",
+                miner_id="miner-live-1",
+                model="RTX 4090",
+                memory_gb=24,
+                price_per_hour=Decimal("0.05"),
+                status="available",
+                region="us-east",
+            )
+        )
+        db_session.add(AgentReputation(agent_id="miner-live-1", trust_score=800.0))
+        db_session.commit()
+
+        resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
+        rid = resp.json()["request_id"]
+        m = client.post(f"{BASE}/requests/{rid}/matches", headers=_headers())
+        assert m.status_code == 200, m.text
+        sellers = m.json()
+        assert "seller_001" not in sellers and "seller_002" not in sellers
+        assert "miner-live-1" in sellers
+        match = (
+            db_session.execute(
+                select(TradeMatch).where(TradeMatch.request_id == rid, TradeMatch.seller_agent_id == "miner-live-1")
+            )
+            .scalars()
+            .first()
+        )
+        assert match is not None
+        assert match.seller_offer["terms"]["source"] == "gpu_registry"
+
     def test_negotiation_lifecycle(self, client: TestClient, db_session: Session) -> None:
         resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
         rid = resp.json()["request_id"]
