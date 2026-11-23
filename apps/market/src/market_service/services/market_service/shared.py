@@ -447,6 +447,21 @@ def public_job_view(job: dict[str, Any]) -> dict[str, Any]:
     return view
 
 
+def operator_job_view(job: dict[str, Any]) -> dict[str, Any]:
+    """Full ``_job_to_dict`` row for the operator tier minus ``payload.access_secret``.
+
+    The stored value is a sha256 digest today, but it is still credential
+    material — write-only, never read back (#2670). The rest of ``payload``
+    (cid, access_key, endpoints) stays for ops debugging; party-scoped
+    views (signed buyer/provider, access credential) keep the full record.
+    """
+    view = dict(job)
+    payload = view.get("payload")
+    if isinstance(payload, dict) and "access_secret" in payload:
+        view["payload"] = {key: value for key, value in payload.items() if key != "access_secret"}
+    return view
+
+
 def _isoformat(value: Any) -> str | None:
     """ISO-format a stored timestamp, tolerating legacy non-datetime values.
 

@@ -51,6 +51,7 @@ from .shared import (
     match_reservation_ttl_seconds,
     offer_listing_expired,
     offer_reservation_ttl_seconds,
+    operator_job_view,
     public_job_view,
 )
 
@@ -99,5 +100,6 @@ __all__ = [
     "match_reservation_ttl_seconds",
     "offer_listing_expired",
     "offer_reservation_ttl_seconds",
+    "operator_job_view",
     "public_job_view",
 ]

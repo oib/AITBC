@@ -371,6 +371,43 @@ def test_operator_key_gets_full_rows(client: TestClient, market_api_keys: dict[s
     assert rows and "payload" in rows[0]
 
 
+def test_operator_list_never_echoes_access_secret(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    """#2670: the operator tier gets the full row for ops debugging, but
+    ``payload.access_secret`` is credential material — write-only, never
+    read back. The rest of payload (cid, access_key, endpoints) stays."""
+    job = _seed_ipfs_job()
+    response = client.get("/v1/market/jobs", headers={"X-Api-Key": "test-operator-key"})
+    assert response.status_code == 200
+    rows = [row for row in response.json() if row["job_id"] == job["job_id"]]
+    assert rows
+    payload = rows[0]["payload"]
+    assert "access_secret" not in payload
+    assert payload["access_key"] == job["payload"]["access_key"]
+    assert payload["cid"] == "QmSec4"
+    assert "payload.access_secret" not in _walk_keys(rows[0])
+
+
+def test_operator_single_job_never_echoes_access_secret(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    job = _seed_ipfs_job()
+    response = client.get(f"/v1/market/jobs/{job['job_id']}", headers={"X-Api-Key": "test-operator-key"})
+    assert response.status_code == 200
+    row = response.json()
+    assert "access_secret" not in row["payload"]
+    assert row["payload"]["access_key"] == job["payload"]["access_key"]
+
+
+def test_signed_buyer_still_sees_own_access_secret(client: TestClient) -> None:
+    """#2670: the scrub is operator-tier only — a wallet-signed party keeps
+    the full record for its own jobs."""
+    job = _seed_ipfs_job()
+    buyer = _address(_OTHER_PRIVATE_KEY)
+    params = _signed_params(buyer, "/v1/market/jobs", private_key=_OTHER_PRIVATE_KEY)
+    response = client.get("/v1/market/jobs", params=params)
+    assert response.status_code == 200
+    rows = [row for row in response.json() if row["job_id"] == job["job_id"]]
+    assert rows and "access_secret" in rows[0]["payload"]
+
+
 def test_wrong_admin_key_stays_public(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     _seed_ipfs_job()
     monkeypatch.setattr(settings, "api_key", "test-admin-key")
