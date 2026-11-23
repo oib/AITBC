@@ -308,6 +308,11 @@ def test_await_peer_fanout_timeout_reports_pending(monkeypatch):
     monkeypatch.setenv("TX_FANOUT_WAIT_SECONDS", "0.01")
     out = txmod._await_peer_fanout(fut, "ait-test")
     assert out == {"status": "pending", "attempted": None, "accepted": None}
+    # The bounded wait must not cancel the relay — the fan-out keeps running
+    # and its result stays retrievable for whoever holds the future.
+    assert not fut.cancelled()
+    fut.set_result({"status": "ok", "attempted": 1, "accepted": 1})
+    assert fut.result(timeout=1) == {"status": "ok", "attempted": 1, "accepted": 1}
 
 
 def test_await_peer_fanout_none_and_task_report_nothing():
@@ -343,7 +348,31 @@ def test_fanout_response_fields_warns_on_stranded_tx(monkeypatch):
     fields = txmod._fanout_response_fields({"status": "skipped", "attempted": 0, "accepted": 0})
     assert "warning" in fields
 
+    # Partial relay warns on every host — some peers never saw the tx.
+    for proposes in (False, True):
+        monkeypatch.setattr(aitbc_settings, "enable_block_production", proposes)
+        fields = txmod._fanout_response_fields({"status": "partial", "attempted": 2, "accepted": 1})
+        assert "warning" in fields
+
     fields = txmod._fanout_response_fields({"status": "ok", "attempted": 2, "accepted": 2})
     assert fields == {"peer_relay": {"status": "ok", "attempted": 2, "accepted": 2}}
 
     assert txmod._fanout_response_fields(None) == {}
+
+
+@pytest.mark.parametrize("proposes", [True, False])
+def test_fanout_response_fields_pending_reports_info_not_warning(monkeypatch, proposes):
+    """#2735: a timed-out summary wait is informational on every host.
+
+    The tx is already in the local mempool; peer delivery is unknown, not
+    failed — so no warning (which would imply a known-bad outcome) on
+    proposer or follower alike.
+    """
+    monkeypatch.setattr(aitbc_settings, "enable_block_production", proposes)
+    relay = {"status": "pending", "attempted": None, "accepted": None}
+    fields = txmod._fanout_response_fields(relay)
+    assert fields["peer_relay"] == relay
+    assert "warning" not in fields
+    info = fields["info"]
+    for needle in ("local mempool", "pending", "unknown", "not confirmed"):
+        assert needle in info

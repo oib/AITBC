@@ -628,13 +628,15 @@ def _submit_signed_transaction(
     """POST the signed transaction to the blockchain RPC.
 
     Returns the node's response body (``transaction_hash`` plus any
-    ``peer_relay``/``warning`` fields, #2361) so callers can report the real
-    submit outcome; ``None`` on failure."""
+    ``peer_relay``/``warning``/``info`` fields, #2361) so callers can report
+    the real submit outcome; ``None`` on failure."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
         success(f"Transaction submitted, not confirmed: {tx_hash}")
+        if result.get("info"):
+            info(result["info"])
         logger.info("Transaction submitted (unconfirmed): %s from %s to %s", tx_hash, from_wallet, to_address)
         return result
     except NetworkError as e:
@@ -880,7 +882,7 @@ def _emit_send_json_document(
         "nonce": transaction.get("nonce"),
         "fee_units": transaction.get("fee"),
     }
-    for passthrough in ("peer_relay", "warning"):
+    for passthrough in ("peer_relay", "warning", "info"):
         if passthrough in submit:
             doc[passthrough] = submit[passthrough]
     if explorer_result is not None:
