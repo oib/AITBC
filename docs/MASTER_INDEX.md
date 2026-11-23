@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-21
+**Last Updated**: 2026-11-23
 
 ---
 
@@ -887,7 +887,7 @@ Inbound markdown links per document (top referrers).
 | [contracts/dispute-resolution.md](contracts/dispute-resolution.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/escrow.md](contracts/escrow.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/guardian.md](contracts/guardian.md) | [contracts/README.md](contracts/README.md) |
-| [contracts/htlc.md](contracts/htlc.md) | [contracts/README.md](contracts/README.md) |
+| [contracts/htlc.md](contracts/htlc.md) | [DESIGN_CYCLE.md](DESIGN_CYCLE.md), [contracts/README.md](contracts/README.md), [features/2-bridge-cross-chain.md](features/2-bridge-cross-chain.md) |
 | [contracts/upgrades.md](contracts/upgrades.md) | [contracts/README.md](contracts/README.md) |
 | [database/README.md](database/README.md) | — |
 | [decisions/2026-10-12-operator-decisions.md](decisions/2026-10-12-operator-decisions.md) | [decisions/README.md](decisions/README.md) |

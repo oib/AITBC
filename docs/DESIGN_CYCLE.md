@@ -75,7 +75,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 10. Govern | Token-weighted votes change params | `aitbc governance propose/vote/execute` live-validated end-to-end on hub; parameter changes are on-chain after timelock. | Done |
 | 11. Agent stake / bounty | Stake on agent wallets; bounty contracts with on-chain reward locks | V23-42 routes live on hub; operator-signed; `Account.balance` debits/credits on create/add/complete and deploy/verify/expire; memos for performance/distribute/claim. Live-validated 2026-08-24. | Done |
 | Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |
-| Cross-chain | ETH ↔ AIT, HTLC | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106 | Production bridge defaults |
+| Cross-chain | ETH ↔ AIT | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106. [Native HTLC settlement](contracts/htlc.md) is retired. | Production bridge defaults |
 
 ---
 

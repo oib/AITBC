@@ -112,15 +112,12 @@ the same values.
 | Merkle Proof Verification (`verify_merkle_proof`, `bridge_require_merkle_proof`) | In-process Merkle proof verification (opt-in; `bridge_require_merkle_proof` default `False`) | [docs/releases/v0.7/v0.7.2_change.log](../releases/v0.7/v0.7.2_change.log) | ✅ | v0.7.2 |
 | Bridge Oracle Status (`oracle_status`) | Bridge oracle/verification status | [docs/releases/v0.7/v0.7.2_change.log](../releases/v0.7/v0.7.2_change.log) | ✅ | v0.7.2 |
 
-### Atomic Settlement
+### Native HTLC Settlement (Retired)
 
-| Feature | Description | Documentation | Status | Release |
-|---------|-------------|---------------|--------|---------|
-| Create Escrow | Create cross-chain escrow for atomic settlement | [docs/releases/v0.9/v0.9.0_change.log](../releases/v0.9/v0.9.0_change.log) | ⚠️ | v0.9.0 |
-| Lock Escrow Funds | Lock escrow funds | [docs/releases/v0.9/v0.9.0_change.log](../releases/v0.9/v0.9.0_change.log) | ⚠️ | v0.9.0 |
-| Verify Lock Proof | Verify lock proof | [docs/releases/v0.9/v0.9.0_change.log](../releases/v0.9/v0.9.0_change.log) | ⚠️ | v0.9.0 |
-| Execute Trade | Execute trade on destination chain | [docs/releases/v0.9/v0.9.0_change.log](../releases/v0.9/v0.9.0_change.log) | ⚠️ | v0.9.0 |
-| HTLC Contract | Hashed timelock contract integration | [docs/releases/v0.9/v0.9.0_change.log](../releases/v0.9/v0.9.0_change.log) | ⚠️ | v0.9.0 |
+[Native HTLC settlement](../contracts/htlc.md) is retired (#2385). Node
+settlement writes and trading `lock-escrow` and `settle` return HTTP 410.
+Historical settlement reads remain available. This retirement does not remove
+the separate Solidity contract.
 
 ### Cross-Chain Reputation
 

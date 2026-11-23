@@ -15,7 +15,7 @@ These documents describe the Python contract implementations used by the blockch
 - [Dispute Resolution Contract](dispute-resolution.md)
 - [Escrow Contract](escrow.md)
 - [Guardian Contract](guardian.md)
-- [HTLC Contract](htlc.md)
+- [Retired native HTLC settlement](htlc.md) (historical reference)
 - [Upgrades Contract](upgrades.md)
 
 ### Solidity contracts
