@@ -11,7 +11,9 @@ from starlette.concurrency import run_in_threadpool
 
 from aitbc.rate_limiting import rate_limit
 
+from ....auth import AdminOrClientDep
 from ....storage.db import get_session
+from ....utils.ownership import require_identity_access
 from ..domain.developer import Developer
 from ..schemas.developer import DeveloperCreate, DeveloperResponse, DeveloperUpdate
 from ..services.developer_service import DeveloperService
@@ -105,8 +107,13 @@ async def update_developer(
     wallet_address: str,
     body: DeveloperUpdate,
     service: Annotated[DeveloperService, Depends(get_service)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> Developer:
     """Update a developer profile."""
+    # #2684: the caller must control the wallet (or be admin) — otherwise any
+    # client token could deactivate or rewrite any developer's record.
+    require_identity_access(session, user, wallet_address)
     try:
         return await run_in_threadpool(service.update, wallet_address, body)
     except ValueError as e:
