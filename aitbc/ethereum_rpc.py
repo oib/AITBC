@@ -270,6 +270,29 @@ class EthereumRPCClient:
         # returned HexBytes whose .hex() yields the same prefixed string.
         return data if isinstance(data, str) else data.hex()
 
+    def estimate_gas(self, transaction: dict[str, Any]) -> int:
+        """Estimate gas for a transaction via ``eth_estimateGas``.
+
+        Only ``from``/``to``/``data``/``value`` are forwarded; extra keys
+        (gas, gasPrice, chainId, nonce, ...) are ignored. ``from`` and
+        ``to`` are checksummed when non-empty strings.
+        """
+        from web3 import Web3
+
+        try:
+            estimate_tx: dict[str, Any] = {}
+            for key in ("from", "to", "data", "value"):
+                value = transaction.get(key)
+                if value is None:
+                    continue
+                if key in ("from", "to") and isinstance(value, str) and value:
+                    value = Web3.to_checksum_address(value)
+                estimate_tx[key] = value
+            w3 = self._get_web3()
+            return int(w3.eth.estimate_gas(estimate_tx))
+        except Exception as e:
+            raise ValueError(f"Failed to estimate gas: {e}") from e
+
     def sign_transaction(self, tx: dict[str, Any], private_key: str) -> str:
         """Sign an EVM transaction and return the raw signed hex string.
 

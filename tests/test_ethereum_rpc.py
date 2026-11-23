@@ -128,6 +128,41 @@ class TestEthereumRPCClient:
             result = client.get_block_number()
             assert result == 1000
 
+    def test_estimate_gas(self):
+        client = EthereumRPCClient()
+        with patch.object(client, "_get_web3") as mock_get:
+            mock_w3 = MagicMock()
+            mock_w3.eth.estimate_gas.return_value = 123456
+            mock_get.return_value = mock_w3
+            result = client.estimate_gas(
+                {
+                    "from": "0x0000000000000000000000000000000000000001",
+                    "to": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae",
+                    "data": "0x1234",
+                    "value": 0,
+                    "gas": 1,
+                }
+            )
+            assert result == 123456
+            from web3 import Web3
+
+            estimate_tx = mock_w3.eth.estimate_gas.call_args[0][0]
+            assert estimate_tx["from"] == "0x0000000000000000000000000000000000000001"
+            assert estimate_tx["to"] == Web3.to_checksum_address("0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae")
+            assert estimate_tx["to"] != "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae"
+            assert estimate_tx["data"] == "0x1234"
+            assert estimate_tx["value"] == 0
+            assert "gas" not in estimate_tx
+
+    def test_estimate_gas_failure(self):
+        client = EthereumRPCClient()
+        with patch.object(client, "_get_web3") as mock_get:
+            mock_w3 = MagicMock()
+            mock_w3.eth.estimate_gas.side_effect = Exception("revert")
+            mock_get.return_value = mock_w3
+            with pytest.raises(ValueError, match="Failed to estimate gas"):
+                client.estimate_gas({"from": "0x0", "to": "0x0", "data": "0x", "value": 0})
+
     def test_wait_for_transaction_timeout(self):
         client = EthereumRPCClient()
         with patch.object(client, "get_transaction_receipt", return_value=None):
