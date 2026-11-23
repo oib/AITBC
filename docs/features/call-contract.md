@@ -7,7 +7,6 @@ Call a contract method
 
 ## Implementation Details
 
-- `apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py` — Return the configured block time for a chain, falling back to the global default.
 - `apps/blockchain-node/src/aitbc_chain/rpc/contract_service.py` — Contract Service Module — queries deployed contracts from the database.
 - `Blockchain Node` exposes `POST /rpc/contracts/call` (operation `call_contract_route_rpc_contracts_call_post`) — Call a contract method
 - `Blockchain Node` exposes `POST /rpc/contracts/deploy/messaging` (operation `deploy_messaging_contract_route_rpc_contracts_deploy_messaging_post`) — Deploy messaging contract

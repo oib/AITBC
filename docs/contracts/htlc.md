@@ -1,27 +1,9 @@
-# Htlc Contract
+# HTLC Settlement
 
-> **Skeleton stub** — the source file it points to is
-> authoritative; internal helper lists were removed because they drift.
+The Python-native HTLC wrapper was removed after the inter-chain settlement
+rail was retired in #2385. Node settlement mutations and the trading
+`lock-escrow` and `settle` endpoints still return HTTP 410. Legacy settlement
+reads and historical replay remain supported.
 
-Python-native HTLC contract implementation (v0.9.0 B4).
-
-> **Retired (#2385):** `initiate_swap`/`complete_swap`/`refund_swap` raise
-> `RetiredProtocolTransfer` unconditionally — HTLC emissions carry no
-> `payload.auth` and cannot seal at block version 9. The inter-chain
-> settlement surface built on it (`/rpc/bridge/settlement/*` mutations,
-> trading `lock-escrow`/`settle`) answers 410 Gone; reads remain.
-
-## Implementation Details
-
-- `SwapStatus`
-- `HTLCSwapRecord` — In-memory representation of a swap (persisted via DB).
-- `HTLCContract` — Python-native HTLC contract that manages swap state and fund movement.
-
-## Examples
-
-Python contract source: [`apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py`](../../apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py)
-
-## Operational Notes
-
-- This is an in-memory Python implementation used by the blockchain-node RPC layer.
-- See [`docs/api/blockchain-node-openapi.json`](../../docs/api/blockchain-node-openapi.json) for related RPC endpoints.
+The separate [CrossChainAtomicSwap Solidity contract](../../contracts/contracts/CrossChainAtomicSwap.sol)
+remains in the repository.

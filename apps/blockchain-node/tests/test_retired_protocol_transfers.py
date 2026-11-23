@@ -31,11 +31,9 @@ from sqlmodel.pool import StaticPool
 
 from aitbc_chain.base_models import BountyContract, BountySubmissionRecord, HTLCSwapState
 from aitbc_chain.config import settings
-from aitbc_chain.contracts.htlc_contract import HTLCContract
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import AgentStakeRecord, Stake, Transaction
 from aitbc_chain.rpc import agent_staking, bounty, escrow_routes, staking
-from aitbc_chain.rpc.retired import RetiredProtocolTransfer
 
 CHAIN = "test"  # whitelisted by the conftest _allow_test_chain_ids fixture
 
@@ -310,18 +308,6 @@ async def test_bounty_verify_payout_requires_signed_bounty_id(rpc_db, monkeypatc
             Mock(), "b-1", _signed_operator_body({"bounty_id": "b-1", "submission_id": "sub-1", "verified": True})
         )
     assert exc.value.status_code == 410
-
-
-def test_htlc_mutators_raise_retired(rpc_db):
-    """HTLC stays dead at every version — it carries no auth at all."""
-    htlc = HTLCContract(chain_id=CHAIN)
-    with Session(rpc_db) as session:
-        with pytest.raises(RetiredProtocolTransfer):
-            htlc.initiate_swap(session, "0xa", "0xb", 1, "0x" + "ab" * 32, 100)
-        with pytest.raises(RetiredProtocolTransfer):
-            htlc.complete_swap(session, "sw-1", "secret")
-        with pytest.raises(RetiredProtocolTransfer):
-            htlc.refund_swap(session, "sw-1")
 
 
 @pytest.mark.asyncio
