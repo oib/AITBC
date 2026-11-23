@@ -32,6 +32,27 @@ from ..domain import Job, JobReceipt
 
 logger = get_logger(__name__)
 
+# Keys inside receipt ``metadata`` that carry job internals: the client's
+# payload/constraints and the miner's raw result. They belong to the
+# owner-gated receipt route (/v1/jobs/{id}/receipts), not the public
+# explorer listing (AUDIT-COORD-EXPLORER-RECEIPTS-PUBLIC-JOB-PAYLOAD-AND-RESULT-1).
+_RECEIPT_PRIVATE_METADATA_KEYS = frozenset({"job_payload", "job_constraints", "result"})
+
+
+def _public_receipt_payload(payload: dict) -> dict:
+    """Receipt payload safe for the unauthenticated explorer listing.
+
+    Returns a copy — the stored ``JobReceipt.payload`` must not be mutated
+    (SQLModel would dirty-track it). ``metadata.metrics`` stays: it is the
+    billing/units data receipts exist to prove.
+    """
+    public = dict(payload)
+    metadata = public.get("metadata")
+    if isinstance(metadata, dict):
+        public["metadata"] = {k: v for k, v in metadata.items() if k not in _RECEIPT_PRIVATE_METADATA_KEYS}
+    return public
+
+
 # Expected failure surface for the explorer read paths: filesystem/JSON,
 # data-shape, runtime, sqlite3 chain.db errors, SQLAlchemy session errors
 # (the list_blocks fallback queries the DB) and the aitbc error hierarchy
@@ -271,7 +292,7 @@ class ExplorerService:
                     coordinator=coordinator,
                     issuedAt=row.created_at,
                     status=status,
-                    payload=payload,
+                    payload=_public_receipt_payload(payload),
                     jobId=job_id_from_payload,
                 )
             )
