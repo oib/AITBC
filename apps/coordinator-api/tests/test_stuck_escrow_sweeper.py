@@ -145,6 +145,31 @@ class TestStuckEscrowSweeper:
         mock_service.refund_payment.assert_called_once()
 
     @patch("coordinator_api.contexts.payments.services.stuck_escrow_sweeper.PaymentService")
+    def test_sweeper_pages_past_ineligible_head_rows(self, mock_service_cls, sweep_session):
+        """#2699: batch_size ineligible rows ahead of an eligible one must not
+        starve it — the sweeper pages until a short page."""
+        recent = datetime.now(UTC)
+        old = datetime.now(UTC) - timedelta(seconds=7200)
+        for i in range(3):
+            _make_job_and_payment(
+                sweep_session,
+                f"job-a-inel-{i}",
+                f"pay-a-inel-{i}",
+                state="CANCELED",
+                updated_at=recent,
+            )
+        _make_job_and_payment(sweep_session, "job-z-eligible", "pay-z-eligible", state="CANCELED", updated_at=old)
+
+        mock_service = MagicMock()
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(StuckEscrowSweeper(batch_size=2, session_factory=lambda: sweep_session).run_once())
+
+        assert counts["refunded"] == 1
+        mock_service.refund_payment.assert_called_once()
+
+    @patch("coordinator_api.contexts.payments.services.stuck_escrow_sweeper.PaymentService")
     def test_sweeper_refunds_failed_job(self, mock_service_cls, sweep_session):
         """A failed job with an escrowed payment is refunded."""
         _make_job_and_payment(sweep_session, "job-fail-1", "pay-fail-1", state="FAILED")
