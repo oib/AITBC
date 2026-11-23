@@ -2015,3 +2015,40 @@ def test_confirm_gpu_admin_may_reassign(client, miner_token, db_session):
         select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
     ).scalar_one()
     assert booking.client_id == "admin-1"
+
+
+@pytest.mark.unit
+def test_pricing_get_is_read_only_no_price_rows(client, client_token, miner_token, db_session):
+    """#2707: the unauthenticated GET /market/pricing/{model} must not persist
+    PricingHistory/PricingAuditLog rows — the engine is called with
+    persist=False so the quote is computed read-only."""
+    from types import SimpleNamespace
+    from urllib.parse import quote
+
+    from coordinator_api.contexts.market.routers.market_gpu import get_pricing_engine
+
+    calls: list[dict] = []
+
+    async def _fake_price(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            recommended_price=Decimal("1.5"),
+            confidence_score=0.9,
+            price_trend=SimpleNamespace(value="stable"),
+            reasoning=["test"],
+        )
+
+    engine = type("FakeEngine", (), {"calculate_dynamic_price": staticmethod(_fake_price)})()
+    app.dependency_overrides[get_pricing_engine] = lambda: engine
+    try:
+        _register_gpu(client, miner_token)
+        resp = client.get(
+            f"/v1/market/pricing/{quote(MODEL)}",
+            headers={"Authorization": f"Bearer {client_token}"},
+        )
+        assert resp.status_code == 200, resp.text
+    finally:
+        app.dependency_overrides.pop(get_pricing_engine, None)
+
+    assert calls, "dynamic pricer was not invoked"
+    assert all(c.get("persist") is False for c in calls)
