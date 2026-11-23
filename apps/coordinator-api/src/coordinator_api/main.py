@@ -611,6 +611,13 @@ class SecurityGateMiddleware:
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
+        # #2713: the envelope cap is the configured app body limit, and the
+        # configured exempt prefixes (e.g. /v1/media/) are skipped — their
+        # handlers enforce their own size governance. The previous literal
+        # 10 MiB both over-capped non-exempt paths vs the 5 MiB
+        # max_request_body_bytes and under-capped media vs its 100 MiB.
+        self._max_body_bytes = settings.max_request_body_bytes
+        self._exempt_prefixes = tuple(p.strip() for p in settings.max_request_body_exempt_prefixes.split(",") if p.strip())
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -620,7 +627,11 @@ class SecurityGateMiddleware:
         client_ip = get_client_ip(request)
         scope.setdefault("state", {})["client_ip"] = client_ip
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > 10 * 1024 * 1024:
+        if (
+            content_length
+            and int(content_length) > self._max_body_bytes
+            and not request.url.path.startswith(self._exempt_prefixes)
+        ):
             logger.warning("Request too large from %s: %s bytes", client_ip, content_length)
             await JSONResponse(status_code=413, content={"detail": "Request entity too large"})(scope, receive, send)
             return
