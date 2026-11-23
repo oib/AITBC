@@ -286,6 +286,20 @@ class EscrowReleaseRelayService(EscrowRelayService):
 
         chain_response = await self._post_release(client, job_id, forward)
 
+        if isinstance(chain_response, dict) and chain_response.get("success") is False:
+            # The chain rolled the release back (unsettled): recording a
+            # dedup row would replay success:true with a null tx_hash on
+            # every retry and wedge the escrow lock. Return the failure so
+            # a fresh request re-attempts the chain call.
+            logger.warning(
+                "Escrow release unsettled on-chain: client_id=%s job_id=%s; no relay row recorded",
+                client_id,
+                job_id,
+            )
+            failure: dict[str, Any] = dict(chain_response)
+            failure["duplicate"] = False
+            return failure
+
         tx_hash = chain_response.get("tx_hash") if isinstance(chain_response, dict) else None
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
         row = EscrowReleaseRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
