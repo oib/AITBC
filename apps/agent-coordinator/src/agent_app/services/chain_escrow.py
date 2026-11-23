@@ -21,7 +21,7 @@ from typing import Any
 import httpx
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.crypto.payment_escrow import EscrowCallback
+from aitbc.crypto.payment_escrow import EscrowCallback, EscrowStatus
 from aitbc.utils.units import units_to_ait
 
 logger = get_logger(__name__)
@@ -193,6 +193,27 @@ class ChainEscrowClient:
         logger.info("On-chain escrow refunded: job_id=%s tx=%s", job_id, tx_hash)
         return str(tx_hash) if tx_hash else None
 
+    def transaction_status(self, tx_hash: str, chain_id: str | None = None) -> dict[str, Any] | None:
+        """Return the chain's record for ``tx_hash``; ``None`` when unreadable.
+
+        The answer carries ``status`` (``confirmed`` / ``rejected`` / the
+        pending view) and, for apply-time rejections, ``rejected_reason`` /
+        ``rejected_at_height``. A lookup failure is ``None`` — callers must
+        treat unknown as "not proven dead", never as rejected.
+        """
+        params = {"chain_id": chain_id} if chain_id else None
+        try:
+            response = self._client.get(f"/rpc/transaction/{tx_hash}", params=params, timeout=5.0)
+        except httpx.HTTPError:
+            return None
+        if response.status_code != 200:
+            return None
+        try:
+            data = response.json()
+        except ValueError:
+            return None
+        return data if isinstance(data, dict) else None
+
     def node_wallet(self) -> str | None:
         """Return the settlement node's wallet address (escrow custodian).
 
@@ -272,6 +293,33 @@ def make_release_submitter(
 
     _submit.last_response = last_response  # type: ignore[attr-defined]
     return _submit
+
+
+def reconcile_rejected_lock(escrow_rpc: ChainEscrowClient | None, entry: Any) -> bool:
+    """Mark ``entry`` REJECTED when its lock transaction is dead on-chain (#2744).
+
+    ``PaymentEscrow.lock`` records LOCKED on mempool admission, not on seal —
+    an apply-time rejection (bad nonce, failed gate) leaves the bookkeeping
+    claiming funds that never moved. This probes the chain's tx record:
+    ``status == "rejected"`` flips the entry to the terminal REJECTED state
+    with the reason in ``metadata["lock_rejected_reason"]``. Unknown answers
+    (probe failure, still pending, confirmed) leave the entry untouched —
+    only a proven rejection reconciles. The caller persists the entry.
+    """
+    if escrow_rpc is None or getattr(entry, "status", None) != EscrowStatus.LOCKED:
+        return False
+    tx_hash = getattr(entry, "tx_hash_lock", None)
+    if not tx_hash:
+        return False
+    info = escrow_rpc.transaction_status(str(tx_hash), chain_id=getattr(entry, "chain_id", None))
+    # The endpoint's mempool fallback tags pending views with state="pending";
+    # only a durable rejected row (no pending marker) proves the lock is dead.
+    if not isinstance(info, dict) or info.get("status") != "rejected" or info.get("state") == "pending":
+        return False
+    entry.status = EscrowStatus.REJECTED
+    reason = info.get("rejected_reason") or "lock transaction rejected on-chain"
+    entry.metadata["lock_rejected_reason"] = str(reason)
+    return True
 
 
 def make_refund_submitter(client: ChainEscrowClient, task_id: str, reason: str = "timeout") -> EscrowCallback:

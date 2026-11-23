@@ -41,6 +41,7 @@ class EscrowStatus(StrEnum):
     RELEASED = "released"  # Funds released to agent (task completed)
     REFUNDED = "refunded"  # Funds refunded to requester (task failed/timeout)
     EXPIRED = "expired"  # Escrow expired without completion
+    REJECTED = "rejected"  # Lock tx was apply-rejected on-chain; nothing ever moved (#2744)
 
 
 @dataclass
