@@ -200,7 +200,11 @@ async def vote_grant(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/{grant_id}/disburse", response_model=GrantProposalResponse)
+@router.post(
+    "/{grant_id}/disburse",
+    response_model=GrantProposalResponse,
+    responses={501: {"description": "Disbursement is not wired to a payout yet (#2677)"}},
+)
 @rate_limit(rate=20, per=60)
 def disburse_grant(
     request: Request,

@@ -24397,22 +24397,15 @@
               }
             }
           },
+          "501": {
+            "description": "Disbursement is not wired to a payout yet (#2677)"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "grant disbursement is not yet wired to a payout \u2014 refusing rather than record a disbursement that moves no funds",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
