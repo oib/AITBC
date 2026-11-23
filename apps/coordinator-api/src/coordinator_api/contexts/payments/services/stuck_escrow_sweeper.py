@@ -41,6 +41,7 @@ from .escrow_relay_metrics import (
     record_stuck_escrow_refund_failure,
 )
 from .payments import PaymentService, _find_http_status_error, _is_settlement_underfunded, _lookup_chain_lock
+from .payments_refund import _result_is_delivered
 
 logger = get_logger(__name__)
 
@@ -176,6 +177,17 @@ class StuckEscrowSweeper:
 
         # Terminal non-completable job states.
         if job.state in {"CANCELED", "FAILED", "EXPIRED"}:
+            # #2680: once usable output is delivered, any refund is an
+            # arbiter call — the non-admin delivered-work gate in
+            # refund_payment does not apply here because the sweeper passes
+            # is_admin=True. Without this check a client could cancel a
+            # RUNNING job after the miner delivered and collect the work
+            # AND the refund. Leave the payment held for an operator.
+            # (The disputed branch is untouched: a COMPLETED job always
+            # reads as delivered there, and its 24h auto-refund is the
+            # designed operator-timeout fallback.)
+            if _result_is_delivered(job):
+                return False, ""
             updated_at = _to_utc(payment.updated_at)
             if updated_at and updated_at < now - timedelta(seconds=self.min_age_seconds):
                 return True, f"job {job.state.lower()} and escrow not released"
