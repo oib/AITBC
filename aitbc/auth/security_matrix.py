@@ -103,11 +103,14 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/market/gpu/register": AuthLevel.MINER,
     "/v1/market/native-energy/profile": AuthLevel.MINER,
     # Public reads: GET profile/{id} and GET floor share no path with a write
-    # route, so they can stay NONE. GET /rate shares its path with the MINER
-    # POST, so it stays miner-gated (the CLI sends miner creds regardless).
+    # route, so they can stay NONE. GET /rate shares its path with the POST,
+    # which is AdminDep since #2704 — the matrix is path-level only, so ANY is
+    # the honest floor: middleware admits any authenticated role and the
+    # route's AdminDep still rejects non-admin writes (#2740: MINER here made
+    # every admin JWT 403 in middleware before the handler ran).
     "/v1/market/native-energy/profile/*": AuthLevel.NONE,
     "/v1/market/native-energy/floor": AuthLevel.NONE,
-    "/v1/market/native-energy/rate": AuthLevel.MINER,
+    "/v1/market/native-energy/rate": AuthLevel.ANY,
     "/v1/market/gpu/sell": AuthLevel.MINER,
     "/v1/market/gpu/*/release": AuthLevel.MINER,
     "/v1/market/gpu/*/confirm": AuthLevel.MINER,
