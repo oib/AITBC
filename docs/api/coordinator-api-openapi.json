@@ -21301,17 +21301,35 @@
           "Developer Platform"
         ],
         "summary": "Grant Certification",
-        "description": "Grant a certification to a developer.",
+        "description": "Grant a certification to a developer.\n\nAdmin-only (#2682): a certification is a credential \u2014 letting any\nclient JWT self-grant EXPERT minted unbounded reputation.",
         "operationId": "grant_certification_v1_developer_platform_certifications_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CertificationGrant"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -21319,8 +21337,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Grant Certification V1 Developer Platform Certifications Post"
                 }
               }

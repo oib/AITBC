@@ -78,6 +78,22 @@ class DeveloperPlatformService:
             CertificationLevel.ADVANCED: 50.0,
             CertificationLevel.EXPERT: 100.0,
         }.get(request.level, 0.0)
+        # #2682: the boost applies once per (developer, name, level) — repeat
+        # grants of the same certification record the cert but must not
+        # inflate reputation without bound.
+        already_granted = (
+            self.session.execute(
+                select(DeveloperCertification).where(
+                    DeveloperCertification.developer_id == request.developer_id,
+                    DeveloperCertification.certification_name == request.certification_name,
+                    DeveloperCertification.level == request.level,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if already_granted is not None:
+            reputation_boost = 0.0
         profile.reputation_score += reputation_boost
         self.session.add(cert)
         self.session.commit()

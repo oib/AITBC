@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
+from ....auth import AdminDep
 from ....storage.db import get_session
 from ..domain.developer_platform import CertificationLevel, DeveloperCertification
 from ..schemas.developer_platform import CertificationGrant
@@ -41,8 +42,13 @@ async def grant_certification(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    user: AdminDep,
 ) -> dict[str, Any]:
-    """Grant a certification to a developer."""
+    """Grant a certification to a developer.
+
+    Admin-only (#2682): a certification is a credential — letting any
+    client JWT self-grant EXPERT minted unbounded reputation.
+    """
 
     try:
         certification = await run_in_threadpool(dev_service.grant_certification, request)
