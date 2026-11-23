@@ -254,3 +254,54 @@ class TestRpcUrlRedaction:
 
         _assert_no_key_leaks(caplog)
         assert sum("Connected to Ethereum RPC" in r.getMessage() for r in caplog.records) == 2
+
+
+class TestEncodeFunctionCall:
+    """#2752: web3 >=7 returns HexStr (str) from _encode_transaction_data;
+    older versions returned HexBytes. Both must yield 0x-prefixed calldata."""
+
+    _ABI = [
+        {
+            "inputs": [
+                {"internalType": "address", "name": "a", "type": "address"},
+                {"internalType": "uint256", "name": "b", "type": "uint256"},
+            ],
+            "name": "f",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function",
+        }
+    ]
+
+    def test_real_web3_returns_hexstr(self):
+        from web3 import Web3
+
+        client = EthereumRPCClient()
+        with patch.object(client, "_get_web3", return_value=Web3()):
+            data = client.encode_function_call(self._ABI, "f", ["0x" + "11" * 20, 5])
+        assert isinstance(data, str)
+        assert data.startswith("0x")
+        # selector + 32-byte address word + 32-byte uint word
+        assert len(data) == 2 + 8 + 64 + 64
+
+    def test_hexbytes_return_still_works(self):
+        from hexbytes import HexBytes
+
+        class _Fn:
+            def _encode_transaction_data(self):
+                return HexBytes(b"\x12\x34")
+
+        class _Contract:
+            def __init__(self):
+                self.functions = self
+
+            def __getitem__(self, name):
+                return lambda *a: _Fn()
+
+        class _W3:
+            eth = type("E", (), {"contract": staticmethod(lambda abi: _Contract())})()
+
+        client = EthereumRPCClient()
+        with patch.object(client, "_get_web3", return_value=_W3()):
+            # HexBytes.hex() has no 0x prefix — same shape the old code produced.
+            assert client.encode_function_call(self._ABI, "f") == "1234"

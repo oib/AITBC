@@ -265,7 +265,10 @@ class EthereumRPCClient:
         w3 = self._get_web3()
         contract = w3.eth.contract(abi=abi)
         fn = contract.functions[function_name]
-        return str(fn(*(args or []))._encode_transaction_data().hex())
+        data = fn(*(args or []))._encode_transaction_data()
+        # web3 >=7 returns an already-0x-prefixed HexStr; older releases
+        # returned HexBytes whose .hex() yields the same prefixed string.
+        return data if isinstance(data, str) else data.hex()
 
     def sign_transaction(self, tx: dict[str, Any], private_key: str) -> str:
         """Sign an EVM transaction and return the raw signed hex string.
