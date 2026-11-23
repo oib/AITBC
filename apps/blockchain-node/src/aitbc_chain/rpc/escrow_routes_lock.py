@@ -153,7 +153,46 @@ def _assert_lock_matches_contract(
         )
 
 
-async def _verify_funding_lock(tx_hash: str, *, job_id: str, buyer: str, amount_units: int) -> dict[str, _er.Any]:
+def _sealed_lock_payload(lock_tx: dict[str, _er.Any]) -> dict[str, _er.Any] | None:
+    """The payload of a sealed ``transactions`` row, parsed when stored as JSON text."""
+    payload = lock_tx.get("payload")
+    if isinstance(payload, str):
+        try:
+            payload = _er.json.loads(payload)
+        except ValueError:
+            return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _is_same_escrow_lock(sealed: dict[str, _er.Any], submitted_tx: dict[str, _er.Any] | None) -> bool:
+    """True when the sealed lock carries the identical escrow binding as the
+    lock this create submitted.
+
+    Dead-envelope retries sign a fresh ESCROW_LOCK each attempt (new nonce →
+    new hash), so the first-sealed envelope is rarely the submitted one. The
+    payload is the escrow's identity — action, job_id, provider, energy
+    quote and market binding — while ``from``/``to``/``amount`` are checked
+    separately by ``_assert_lock_matches_contract``. Identical payload plus
+    those fields means the sealed lock funds exactly this escrow; anything
+    else is a genuinely different lock and stays a 409.
+    """
+    if not submitted_tx:
+        return False
+    sealed_payload = _sealed_lock_payload(sealed)
+    submitted_payload = submitted_tx.get("payload")
+    if not isinstance(submitted_payload, dict) or sealed_payload != submitted_payload:
+        return False
+    return True
+
+
+async def _verify_funding_lock(
+    tx_hash: str,
+    *,
+    job_id: str,
+    buyer: str,
+    amount_units: int,
+    submitted_tx: dict[str, _er.Any] | None = None,
+) -> dict[str, _er.Any]:
     """Return the ESCROW_LOCK this create's hash points at; refuse if unverifiable.
 
     ``_submit_lock_tx`` returns the hash mempool admission computed — a mempool
@@ -163,11 +202,19 @@ async def _verify_funding_lock(tx_hash: str, *, job_id: str, buyer: str, amount_
     sufficient because admission already verified its signature and the
     settlement gates re-check the sealed row before any payout. Absence
     everywhere is retryable (HTTP 425, like ``_ensure_lock_sealed``); a field
-    mismatch or a different sealed hash for the same job is permanent (409).
+    mismatch is permanent (409).
+
+    A *different* sealed hash for the same job is adopted, not refused, when
+    it carries the identical escrow binding (``_is_same_escrow_lock``): the
+    retry's own envelope died in the mempool while an earlier same-escrow
+    lock sealed, and 409ing here strands the sealed funds with no escrow
+    row — the funding-side twin of the release hash drift the settlement
+    reconciler already re-adopts (AUDIT-COORD-LOCK-HASH-DIVERGENCE-STRANDS-ESCROW-1).
     """
     sealed = await _er._find_existing_lock_tx(job_id)
     if sealed is not None:
-        if str(sealed.get("tx_hash")) != tx_hash:
+        sealed_hash = str(sealed.get("tx_hash") or "")
+        if sealed_hash != tx_hash and not _is_same_escrow_lock(sealed, submitted_tx):
             raise _er.HTTPException(
                 status_code=409,
                 detail=(

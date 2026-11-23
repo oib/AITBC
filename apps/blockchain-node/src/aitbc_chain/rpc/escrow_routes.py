@@ -597,9 +597,22 @@ def _drop_created_contract(mgr: Any, contract_id: str) -> None:
 
 
 async def _fund_created_contract(
-    mgr: Any, contract_id: str, lock_tx_hash: str, job_id: str, buyer: str, amount_units: int
-) -> None:
-    """Verify the lock still exists and carries this contract's facts before marking FUNDED."""
+    mgr: Any,
+    contract_id: str,
+    lock_tx_hash: str,
+    job_id: str,
+    buyer: str,
+    amount_units: int,
+    submitted_tx: dict[str, Any] | None = None,
+) -> str:
+    """Verify the lock still exists and carries this contract's facts before marking FUNDED.
+
+    Returns the hash the contract was actually funded against — the submitted
+    hash, or the sealed same-escrow lock ``_verify_funding_lock`` adopted when
+    the submitted envelope died and an earlier identical-binding lock sealed
+    (AUDIT-COORD-LOCK-HASH-DIVERGENCE-STRANDS-ESCROW-1). The row and the
+    response must record the funded hash, not the dead envelope's.
+    """
     # Verify the lock still exists and carries this contract's facts before
     # marking FUNDED. Admission's hash is not proof: a mempool-evicted lock
     # would leave the job funded with nothing locked, and the settlement gates
@@ -607,14 +620,18 @@ async def _fund_created_contract(
     # just-created contract is dropped, mirroring the stale-cleanup above, so
     # the retry starts clean.
     try:
-        verified_lock = await _verify_funding_lock(lock_tx_hash, job_id=job_id, buyer=buyer, amount_units=amount_units)
-        funded, fund_message = await mgr.fund_contract(contract_id, lock_tx_hash, verified_lock)
+        verified_lock = await _verify_funding_lock(
+            lock_tx_hash, job_id=job_id, buyer=buyer, amount_units=amount_units, submitted_tx=submitted_tx
+        )
+        funded_hash = str(verified_lock.get("tx_hash") or verified_lock.get("hash") or lock_tx_hash)
+        funded, fund_message = await mgr.fund_contract(contract_id, funded_hash, verified_lock)
     except HTTPException:
         _drop_created_contract(mgr, contract_id)
         raise
     if not funded:
         _drop_created_contract(mgr, contract_id)
         raise HTTPException(status_code=425, detail=fund_message, headers={"Retry-After": "5"}) from None
+    return funded_hash
 
 
 def _create_state_columns(mgr: Any, contract_id: str) -> dict[str, Any]:
@@ -797,7 +814,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
 
     amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
 
-    await _fund_created_contract(mgr, contract_id, lock_tx_hash, job_id, buyer, amount_units)
+    funded_lock_hash = await _fund_created_contract(
+        mgr, contract_id, lock_tx_hash, job_id, buyer, amount_units, submitted_tx=tx_to_submit
+    )
 
     # #780 (b): the contract's lifecycle columns, taken from the contract just funded so
     # the row carries what the in-memory object does. The id is the one create_contract
@@ -815,7 +834,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             buyer,
             provider,
             amount_units,
-            lock_tx_hash,
+            funded_lock_hash,
             state_columns,
             buyer_agent_id,
             provider_agent_id,
@@ -826,7 +845,11 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Failed to persist escrow") from e
 
     _logger.info(
-        "Escrow created and locked: contract_id=%s job_id=%s amount=%s tx=%s", contract_id, job_id, amount, lock_tx_hash
+        "Escrow created and locked: contract_id=%s job_id=%s amount=%s tx=%s",
+        contract_id,
+        job_id,
+        amount,
+        funded_lock_hash,
     )
     return {
         "success": True,
@@ -835,7 +858,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         "buyer": buyer,
         "provider": provider,
         "amount": str(amount_dec),
-        "lock_tx_hash": lock_tx_hash,
+        "lock_tx_hash": funded_lock_hash,
         "message": message,
         **({"buyer_agent_id": buyer_agent_id} if buyer_agent_id else {}),
         **({"provider_agent_id": provider_agent_id} if provider_agent_id else {}),
