@@ -15,6 +15,7 @@ from __future__ import annotations
 import inspect
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -136,6 +137,31 @@ async def test_an_apply_rejected_tx_surfaces_its_reason(chain) -> None:
     assert result["block_height"] is None
     assert "expected 187, got 189" in result["rejected_reason"]
     assert result["rejected_at_height"] == 36068
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_row_does_not_mask_a_live_resubmission(chain, monkeypatch) -> None:
+    """#2745: resubmitting rejected content rebuilds the identical hash — the
+    mempool's pending entry must win over the stale rejected row, or every
+    status read reports a dead letter while a valid retry waits to seal."""
+    import aitbc_chain.mempool as mempool_module
+
+    pending_entry = SimpleNamespace(
+        tx_hash=REJECTED_TX_HASH,
+        content={"from": "0x08aB801150eF3496344cFA78fe025c3B48Caf435", "nonce": 188},
+    )
+    monkeypatch.setattr(
+        mempool_module,
+        "get_mempool",
+        lambda: SimpleNamespace(list_transactions=lambda _chain_id: [pending_entry]),
+    )
+
+    result = await _get(chain, REJECTED_TX_HASH)
+
+    assert result["state"] == "pending"
+    assert result["previously_rejected"] is True
+    assert result["tx_hash"] == REJECTED_TX_HASH
+    assert "status" not in result
 
 
 @pytest.mark.parametrize("omitted", [None, ""])
