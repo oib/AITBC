@@ -36,12 +36,27 @@ def _spot_check_log_path() -> Path:
     return base / "spot_checks.jsonl"
 
 
-def _output_text(result: dict[str, Any] | None) -> str:
-    """Extract the canonical output string from a job result payload."""
+def _output_text(result: dict[str, Any] | str | None) -> str:
+    """Extract the canonical output string from a job result payload.
+
+    Stored shapes differ by writer: ``submit_result`` keeps the flat result
+    payload (``{"status": ..., "output": ...}``), ``JobService.execute_job``
+    stores the miner's output payload itself, and the nested
+    ``{"result": {"output": ...}}`` form is the legacy/test shape (#2690).
+    """
     if not result:
         return ""
-    inner = result.get("result") or {}
-    return str(inner.get("output", "")).strip()
+    if isinstance(result, str):
+        return result.strip()
+    flat = result.get("output")
+    if flat is not None:
+        return str(flat).strip()
+    inner = result.get("result")
+    if isinstance(inner, dict):
+        nested = inner.get("output")
+        if nested is not None:
+            return str(nested).strip()
+    return ""
 
 
 def _hash_output(text: str) -> str:
@@ -128,7 +143,9 @@ class SpotCheckService:
 
         spot_output = _output_text(job.result)
         original_output = _output_text(original.result)
-        match = spot_output == original_output
+        # Fail closed: an empty extraction on either side is not a match —
+        # otherwise every spot check silently passes (#2690).
+        match = bool(spot_output) and spot_output == original_output
 
         spot_hash = _hash_output(spot_output)
         original_hash = _hash_output(original_output)
