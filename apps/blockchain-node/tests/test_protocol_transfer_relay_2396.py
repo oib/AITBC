@@ -67,3 +67,35 @@ def test_queue_protocol_transfer_survives_fanout_failure(monkeypatch):
     # The local mempool entry still stands — this host may be the proposer.
     assert tx_hash == "0x" + "ab" * 32
     assert len(mempool.added) == 1
+
+
+def test_queue_protocol_transfer_hash_matches_peer_normalized(monkeypatch):
+    """#2728: the hash returned to the caller must equal the hash a gossip
+    peer computes. Every remote intake runs normalize_transaction_data
+    (adds the ``value`` alias and an explicit ``signature`` key) before
+    mempool admission; this path used to hash the raw dict, so the sealed
+    tx hash differed and the reported transaction_hash 404'd forever."""
+    from aitbc_chain.mempool_common import compute_tx_hash
+    from aitbc_chain.rpc.utils import normalize_transaction_data
+
+    mempool = _FakeMempool()
+    monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: mempool)
+    monkeypatch.setattr("aitbc_chain.rpc.transactions._queue_peer_fanout", lambda chain_id, tx_data: None)
+
+    protocol_escrow.queue_protocol_transfer(
+        sender="0x" + "11" * 20,
+        recipient="0x" + "22" * 20,
+        amount=100,
+        chain_id="bc-2",
+        tx_type="STAKE_UNBOND",
+        payload={"agent_stake_id": "s1"},
+    )
+
+    added = mempool.added[0]
+    # The admitted content is the normalized shape every other intake stores.
+    assert added["value"] == added["amount"]
+    assert "signature" in added
+    # A peer re-normalizing the relayed dict gets byte-identical content,
+    # hence the identical tx hash that seals into the Transaction record.
+    peer_view = normalize_transaction_data(dict(added), "bc-2")
+    assert compute_tx_hash(peer_view) == compute_tx_hash(added)

@@ -267,7 +267,9 @@ def test_queue_protocol_transfer_embeds_auth_in_payload():
     assert queued["payload"]["auth"] == auth
     assert queued["payload"]["stake_id"] == "9"
     # Unsigned at the top level by design — authorization lives in the payload.
-    assert "signature" not in queued
+    # #2728: normalize_transaction_data emits an explicit ``signature: None``
+    # key (same shape every peer stores); the value must stay empty.
+    assert not queued.get("signature")
 
 
 def test_queue_protocol_transfer_without_auth_unchanged():
