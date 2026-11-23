@@ -4190,62 +4190,6 @@
           ]
         },
         {
-          "public": "/api/v2/coordinator/v1/confidential/access/logs",
-          "upstream": "/v1/confidential/access/logs",
-          "methods": [
-            "GET"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/keys/register",
-          "upstream": "/v1/confidential/keys/register",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/keys/rotate",
-          "upstream": "/v1/confidential/keys/rotate",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/status",
-          "upstream": "/v1/confidential/status",
-          "methods": [
-            "GET"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/transactions",
-          "upstream": "/v1/confidential/transactions",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/transactions/{transaction_id}",
-          "upstream": "/v1/confidential/transactions/{transaction_id}",
-          "methods": [
-            "GET"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/transactions/{transaction_id}/access",
-          "upstream": "/v1/confidential/transactions/{transaction_id}/access",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/confidential/transactions/{transaction_id}/audit",
-          "upstream": "/v1/confidential/transactions/{transaction_id}/audit",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/coordinator/v1/cross-chain/bridge/create-request",
           "upstream": "/v1/cross-chain/bridge/create-request",
           "methods": [

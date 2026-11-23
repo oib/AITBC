@@ -104,8 +104,8 @@ from ..contexts.agent_coordination.routers.swarm import router as swarm  # noqa:
 # community.routers.community were imported here but never mounted; the
 # modules have been deleted.
 
-# Confidential router moved to contexts/confidential
-from ..contexts.confidential.routers.confidential import router as confidential  # noqa: E402
+# Confidential router removed in #2767 — the simulated-only payments
+# surface was retired with the TEE rail (#2375).
 
 # Developer platform router moved to contexts/developer_platform
 from ..contexts.developer_platform.routers.developer_platform import router as developer_platform  # noqa: E402
@@ -165,7 +165,6 @@ __all__ = [
     "agent",
     "agent_security_router",
     "multi_modal_rl",
-    "confidential",
     "ml_zk_proofs",
     "agent_router",
     "agent_integration_router",
