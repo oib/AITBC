@@ -75,12 +75,19 @@ class TestDeveloperLifecycle:
     def test_get_missing_404(self, client: TestClient) -> None:
         assert client.get(f"{BASE}/{WALLET2}", headers=_headers()).status_code == 404
 
-    def test_list_and_update(self, client: TestClient) -> None:
+    def test_list_and_update(self, client: TestClient, db_session) -> None:
+        from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
+
         client.post(BASE, json=_body(), headers=_headers())
         client.post(BASE, json=_body(wallet_address=WALLET2, name="dev-two"), headers=_headers())
 
         rows = client.get(BASE, headers=_headers()).json()
         assert {r["wallet_address"].lower() for r in rows} >= {WALLET.lower(), WALLET2.lower()}
+
+        # #2684: PUT requires the caller to control the wallet — bind it.
+        db_session.add(User(id="u-client", email="u-client@example.com", username="u-client"))
+        db_session.add(Wallet(user_id="u-client", address=WALLET.lower()))
+        db_session.commit()
 
         upd = client.put(f"{BASE}/{WALLET}", json={"name": "renamed"}, headers=_headers())
         assert upd.status_code == 200
@@ -135,3 +142,39 @@ class TestRegisterSignatureGate:
         proof = _sign(WALLET, "attacker", "evil", _KEY)  # signed by the wrong key AND wrong wallet fields
         body.update(proof)
         assert client.post(BASE, json=body, headers=_headers()).status_code == 401
+
+
+class TestUpdateOwnership:
+    """#2684: PUT /v1/developers/{wallet} requires caller ownership or admin."""
+
+    def _register(self, client: TestClient) -> None:
+        client.post(BASE, json=_body(), headers=_headers())
+
+    def test_foreign_caller_cannot_update(self, client: TestClient) -> None:
+        self._register(client)
+        stranger = {"Authorization": f"Bearer {create_access_token('stranger-2684', 'client')}"}
+        resp = client.put(f"{BASE}/{WALLET}", json={"is_active": False, "name": "hijacked"}, headers=stranger)
+        assert resp.status_code == 403
+        got = client.get(f"{BASE}/{WALLET}", headers=_headers()).json()
+        assert got["is_active"] is True
+        assert got["name"] == "dev-one"
+
+    def test_wallet_owner_can_update(self, client: TestClient, db_session) -> None:
+        from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
+
+        self._register(client)
+        owner_sub = "owner-2684"
+        db_session.add(User(id=owner_sub, email="o@x.com", username=owner_sub))
+        db_session.add(Wallet(user_id=owner_sub, address=WALLET.lower()))
+        db_session.commit()
+        headers = {"Authorization": f"Bearer {create_access_token(owner_sub, 'client')}"}
+        resp = client.put(f"{BASE}/{WALLET}", json={"name": "owner-renamed"}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "owner-renamed"
+
+    def test_admin_can_update_any(self, client: TestClient) -> None:
+        self._register(client)
+        admin = {"Authorization": f"Bearer {create_access_token('admin-2684', 'admin')}"}
+        resp = client.put(f"{BASE}/{WALLET}", json={"is_active": False}, headers=admin)
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is False
