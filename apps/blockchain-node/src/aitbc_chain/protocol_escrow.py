@@ -137,6 +137,17 @@ def queue_protocol_transfer(
     }
     if auth is not None:
         tx_data["payload"]["auth"] = dict(auth)
+    # #2728: every other intake (REST, ai_services, P2P relay) runs
+    # normalize_transaction_data before mempool admission — it adds the
+    # "value" alias and an explicit "signature": null, both of which feed
+    # compute_tx_hash. This path used to hash the raw dict, so the hash it
+    # returned matched only a local seal: any peer sealed the normalized
+    # content under a different hash and the reported transaction_hash
+    # 404'd forever. Normalize first so local and peer envelopes — and
+    # therefore the sealed tx hash — are identical everywhere.
+    from .rpc.utils import normalize_transaction_data
+
+    tx_data = normalize_transaction_data(tx_data, chain_id)
     tx_hash = get_mempool().add(tx_data, chain_id=chain_id)
     _relay_protocol_transfer(chain_id, tx_data)
     return tx_hash
