@@ -879,6 +879,25 @@ class _PoaBaseMixin:
                 # after signing stays valid.
                 block.signature = self._sign_block_hash_for(proposer, block)
                 metadata_dict: dict[str, Any] = {}
+                # #2749: seed the deterministic stamps BEFORE the gates. The
+                # PBFT pre-prepare body carries ``block.block_metadata`` and
+                # every validator's commit-quorum re-seal rebuilds its gossip
+                # payload from that persisted body — stamps added only after
+                # the gates never left the proposer, so followers stored
+                # certificate-only metadata, wrote no ``rejected`` rows, and
+                # kept apply-rejected txs in their mempools until TTL.
+                # block_metadata is outside the signed header and the block
+                # hash, so early stamping cannot affect consensus; the
+                # post-gates dump below still adds the gate-time keys
+                # (pbft_certificate, attestations, unlock_justification).
+                # v0.25.7: state-transition rule version so followers replay
+                # this block with the same rules that produced its state_root.
+                metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
+                # R14-M1 (#1248): apply-rejected identities so followers
+                # release the dead (sender, nonce) slots instead of letting
+                # them squat until mempool_entry_ttl.
+                self._stamp_rejected_tx_metadata(metadata_dict, rejected_txs)
+                block.block_metadata = json.dumps(metadata_dict)
                 _t4 = time.time()
                 self._propose_phase = "consensus_gates"
                 self._logger.info(
@@ -909,14 +928,6 @@ class _PoaBaseMixin:
                     self._evict_mempool_txs(mempool, [tx for tx, _ in rejected_txs])
                     return False
                 self._logger.debug("[PROPOSE:%s] phase=consensus_gates done %.3fs", chain, time.time() - _t4)
-                # v0.25.7: stamp the state-transition rule version so followers can
-                # replay this block with the same rules that produced its state_root.
-                metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
-                # R14-M1 (#1248): publish the apply-rejected identities so followers
-                # can release the dead (sender, nonce) slots instead of letting them
-                # squat until mempool_entry_ttl. block_metadata is outside the
-                # signed header and the block hash, so this cannot affect consensus.
-                self._stamp_rejected_tx_metadata(metadata_dict, rejected_txs)
                 # #1281: the sealed block carries its unlock justification so
                 # late validators and auditors can verify the valve release
                 # post-hoc. Additive field; absent for ordinary proposals.
