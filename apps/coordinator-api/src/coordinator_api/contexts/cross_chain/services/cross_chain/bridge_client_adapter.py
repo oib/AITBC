@@ -83,6 +83,14 @@ _OPS_ERRORS += _eth_sig_errors
 __all__ = ["BridgeClientAdapter", "BridgeProtocol", "BridgeSecurityLevel", "HTLC_CONTRACT_ADDRESS"]
 
 
+class BridgeHTLCRetired(ValueError):
+    """An explicitly requested bridge protocol is retired."""
+
+
+class BridgeProtocolRequired(ValueError):
+    """The configured default is retired; the caller must choose a protocol."""
+
+
 class BridgeClientAdapter:
     """Adapter that wraps ``aitbc.bridge.BridgeClient`` for coordinator-api use.
 
@@ -166,6 +174,17 @@ class BridgeClientAdapter:
             logger.error("Error initializing bridge service: %s", e)
             raise
 
+    def _validate_bridge_request_chains(self, source_chain_id: int, target_chain_id: int) -> None:
+        if (source_chain_id, target_chain_id) not in self.allowed_transfers:
+            logger.warning("Chain pair %s->%s not in whitelist", source_chain_id, target_chain_id)
+            raise ValueError(
+                f"Cross-chain transfer from chain {source_chain_id} to {target_chain_id} is not permitted (chain isolation policy)"
+            )
+        if source_chain_id not in self.wallet_adapters or target_chain_id not in self.wallet_adapters:
+            raise ValueError("Unsupported chain ID")
+        if source_chain_id == target_chain_id:
+            raise ValueError("Source and target chains must be different")
+
     async def create_bridge_request(
         self,
         user_address: str,
@@ -179,31 +198,17 @@ class BridgeClientAdapter:
         deadline_minutes: int = 30,
     ) -> dict[str, Any]:
         """Create a new cross-chain bridge request"""
+        if protocol == BridgeProtocol.HTLC:
+            raise BridgeHTLCRetired("HTLC bridge requests are retired (#2761).")
         if self.session is None:
             raise RuntimeError("BridgeClientAdapter requires a Session to create bridge requests")
         try:
-            if (source_chain_id, target_chain_id) not in self.allowed_transfers:
-                logger.warning("Chain pair %s->%s not in whitelist", source_chain_id, target_chain_id)
-                raise ValueError(
-                    f"Cross-chain transfer from chain {source_chain_id} to {target_chain_id} is not permitted (chain isolation policy)"
-                )
-            if source_chain_id not in self.wallet_adapters or target_chain_id not in self.wallet_adapters:
-                raise ValueError("Unsupported chain ID")
-            if source_chain_id == target_chain_id:
-                raise ValueError("Source and target chains must be different")
-            transfer_key = (source_chain_id, target_chain_id)
-            if transfer_key not in self.allowed_transfers:
-                logger.warning(
-                    "Chain isolation violation: Bridge request from chain %s to chain %s not in allowed_transfers whitelist. Rejecting cross-chain transfer for address %s",
-                    source_chain_id,
-                    target_chain_id,
-                    user_address,
-                )
-                raise ValueError(
-                    f"Cross-chain transfer from chain {source_chain_id} to {target_chain_id} is not permitted (chain isolation policy)"
-                )
-            amount_dec = parse_decimal(amount)
+            self._validate_bridge_request_chains(source_chain_id, target_chain_id)
             source_config = self.bridge_protocols[str(source_chain_id)]
+            protocol = protocol or BridgeProtocol(source_config["protocol"])
+            if protocol == BridgeProtocol.HTLC:
+                raise BridgeProtocolRequired("The configured HTLC default is retired; supply a supported protocol explicitly.")
+            amount_dec = parse_decimal(amount)
             min_amount = parse_decimal(source_config["min_amount"])
             max_amount = parse_decimal(source_config["max_amount"])
             if amount_dec < min_amount or amount_dec > max_amount:
@@ -219,7 +224,6 @@ class BridgeClientAdapter:
             bridge_fee = amount_dec * fee_rate
             network_fee = await self._estimate_network_fee(source_chain_id, amount_dec, token_address)
             total_fee = bridge_fee + network_fee
-            protocol = protocol or BridgeProtocol(source_config["protocol"])
             default_token = "0x0000000000000000000000000000000000000000"
             source_token = token_address or default_token
             target_token = token_address or default_token
@@ -237,7 +241,7 @@ class BridgeClientAdapter:
                 status=BridgeRequestStatus.PENDING,
                 created_at=datetime.now(UTC),
                 expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes),
-                protocol=protocol.value if protocol else BridgeProtocol.HTLC.value,
+                protocol=protocol.value,
             )
             self.session.add(bridge_request)
             (await run_in_threadpool(self.session.commit))
@@ -259,6 +263,8 @@ class BridgeClientAdapter:
                 "status": bridge_request.status.value,
                 "created_at": bridge_request.created_at.isoformat(),
             }
+        except BridgeProtocolRequired:
+            raise
         except Exception as e:
             logger.error("Error creating bridge request: %s", e)
             (await run_in_threadpool(self.session.rollback))
@@ -562,6 +568,9 @@ class BridgeClientAdapter:
             if not bridge_request:
                 logger.error("Bridge request %s not found", bridge_request_id)
                 return
+            if bridge_request.protocol == BridgeProtocol.HTLC.value:
+                logger.warning("Skipping retired HTLC bridge request %s (#2761)", bridge_request_id)
+                return
             bridge_request.status = BridgeRequestStatus.CONFIRMED
             bridge_request.updated_at = datetime.now(UTC)
             (await run_in_threadpool(self.session.commit))
@@ -569,8 +578,6 @@ class BridgeClientAdapter:
                 await self._execute_atomic_swap(bridge_request)
             elif bridge_request.protocol == BridgeProtocol.LIQUIDITY_POOL.value:
                 await self._execute_liquidity_pool_swap(bridge_request)
-            elif bridge_request.protocol == BridgeProtocol.HTLC.value:
-                await self._execute_htlc_swap(bridge_request)
             else:
                 raise ValueError(f"Unsupported protocol: {bridge_request.protocol}")
         except _OPS_ERRORS as e:
@@ -650,104 +657,6 @@ class BridgeClientAdapter:
             logger.error("Error executing liquidity pool swap: %s", e)
             raise
 
-    async def _execute_htlc_swap(self, bridge_request: BridgeRequest) -> None:
-        """Execute HTLC (Hashed Timelock Contract) swap.
-
-        Uses the shared HTLC utilities (``aitbc.settlement.htlc``) to generate
-        a cryptographically random secret, compute its SHA256 hashlock, and
-        calculate source/destination timelocks. The source timelock expires
-        AFTER the destination timelock so the buyer has time to claim on the
-        source chain after the seller reveals the secret on the destination
-        chain.
-        """
-        if self.session is None:
-            return
-        try:
-            from aitbc.settlement.htlc import (
-                calculate_dest_timelock,
-                calculate_source_timelock,
-                compute_hashlock,
-                generate_secret,
-                validate_timelocks,
-            )
-
-            # Generate a cryptographically random 32-byte secret and compute
-            # its SHA256 hash (the hashlock published on-chain).
-            secret = generate_secret()
-            secret_hash = compute_hashlock(secret)
-            bridge_request.secret_hash = secret_hash
-            (await run_in_threadpool(self.session.commit))
-
-            # Timelocks are computed relative to a base height of 0, i.e. as
-            # offsets, because no wallet adapter here exposes a chain head --
-            # the real height is applied at contract creation time. Both chains
-            # therefore use the same base, which keeps the relative ordering
-            # meaningful. This is a known gap rather than a fix: if a real
-            # height is ever substituted into one leg and not the other, the
-            # ordering breaks silently. The validation below is what would
-            # catch that.
-            block_time_seconds = 5
-            base_height = 0
-            timeout_seconds = 3600  # 1 hour default
-            source_timelock = calculate_source_timelock(
-                current_block_height=base_height,
-                timeout_seconds=timeout_seconds,
-                block_time_seconds=block_time_seconds,
-            )
-            dest_timelock = calculate_dest_timelock(
-                source_timelock=source_timelock,
-                source_current_height=base_height,
-                source_block_time=block_time_seconds,
-                dest_current_height=base_height,
-                dest_block_time=block_time_seconds,
-            )
-
-            timelock_errors = validate_timelocks(
-                source_timelock=source_timelock,
-                dest_timelock=dest_timelock,
-                source_current_height=base_height,
-                dest_current_height=base_height,
-                source_block_time=block_time_seconds,
-                dest_block_time=block_time_seconds,
-            )
-            if timelock_errors:
-                raise ValueError(f"refusing to initiate HTLC swap with unsafe timelocks: {'; '.join(timelock_errors)}")
-            logger.info(
-                "HTLC swap initiated for bridge request %s: hashlock=%s source_timelock=%d dest_timelock=%d timeout=%ds",
-                bridge_request.id,
-                secret_hash,
-                source_timelock,
-                dest_timelock,
-                timeout_seconds,
-            )
-
-            source_htlc_data = await self._create_htlc_contract(bridge_request, secret_hash, "source")
-            source_adapter = self.wallet_adapters[bridge_request.source_chain_id]
-            source_tx = await source_adapter.execute_transaction(
-                from_address=bridge_request.sender_address,
-                to_address=source_htlc_data["contract_address"],
-                amount=bridge_request.amount,
-                token_address=bridge_request.source_token,
-                data=source_htlc_data["contract_data"],
-            )
-            bridge_request.lock_tx_hash = source_tx["transaction_hash"]
-            bridge_request.updated_at = datetime.now(UTC)
-            (await run_in_threadpool(self.session.commit))
-            target_htlc_data = await self._create_htlc_contract(bridge_request, secret_hash, "target")
-            target_adapter = self.wallet_adapters[bridge_request.target_chain_id]
-            await target_adapter.execute_transaction(
-                from_address=bridge_request.recipient_address,
-                to_address=target_htlc_data["contract_address"],
-                amount=bridge_request.amount * Decimal("0.99"),
-                token_address=bridge_request.target_token,
-                data=target_htlc_data["contract_data"],
-            )
-            await self._complete_htlc(bridge_request, secret)
-            logger.info("Completed HTLC swap for bridge request %s", bridge_request.id)
-        except Exception as e:
-            logger.error("Error executing HTLC swap: %s", e)
-            raise
-
     async def _create_atomic_swap_contract(self, bridge_request: BridgeRequest, direction: str) -> dict[str, Any]:
         """Create atomic swap contract data (B4: uses real contract address)."""
         contract_address = HTLC_CONTRACT_ADDRESS
@@ -762,122 +671,6 @@ class BridgeClientAdapter:
         )
         swap_data = f"0x{hashlib.sha256(f'swap_{bridge_request.id}'.encode()).hexdigest()}"
         return {"pool_address": pool_address, "swap_data": swap_data}
-
-    async def _create_htlc_contract(self, bridge_request: BridgeRequest, secret_hash: str, direction: str) -> dict[str, Any]:
-        """Create HTLC contract data with real HTLC parameters.
-
-        Returns a dict containing the on-chain HTLC contract parameters
-        (``secret_hash``, ``timelock``, ``sender``, ``recipient``, ``amount``,
-        ``asset``, ``direction``) plus ``contract_address`` / ``contract_data``
-        used by the wallet adapter to submit the funding transaction.
-
-        B4: Uses the real HTLC contract address from config
-        (``escrow_htlc_contract_address``) instead of fabricating one via
-        SHA256. If no address is configured, falls back to the well-known
-        Python-native HTLC contract address.
-
-        The source timelock is calculated with ``calculate_source_timelock``
-        and the destination timelock with ``calculate_dest_timelock`` (which
-        must expire before the source timelock). ``block_time_seconds`` defaults
-        to 5 and ``current_block_height`` defaults to 0.
-        """
-        from aitbc.settlement.htlc import calculate_dest_timelock, calculate_source_timelock
-
-        # NOTE (V23-46): these are placeholders, not chain parameters. Both chains are
-        # assumed to produce blocks every 5 seconds and to be at height 0, which is true of
-        # neither. Every timelock computed here is therefore nominal. Fixing it means
-        # querying each chain for its head, which this adapter has no client for -- so it is
-        # named rather than guessed at. calculate_dest_timelock's docstring is explicit that
-        # "block heights on two chains are independent quantities".
-        block_time_seconds = 5
-        current_block_height = 0
-        timeout_seconds = 3600  # 1 hour default
-
-        # Calculate the source timelock first (needed for dest timelock).
-        source_timelock = calculate_source_timelock(
-            current_block_height=current_block_height,
-            timeout_seconds=timeout_seconds,
-            block_time_seconds=block_time_seconds,
-        )
-
-        if direction == "source":
-            timelock = source_timelock
-            sender = bridge_request.sender_address
-            recipient = bridge_request.recipient_address
-        else:
-            # V23-46: source_current_height and dest_current_height were missing, so this
-            # call raised TypeError every time -- the whole `direction != "source"` branch
-            # has never completed. They are passed as the same placeholder the rest of this
-            # method uses; see the note above about that placeholder being the real problem.
-            timelock = calculate_dest_timelock(
-                source_timelock=source_timelock,
-                source_current_height=current_block_height,
-                source_block_time=block_time_seconds,
-                dest_current_height=current_block_height,
-                dest_block_time=block_time_seconds,
-            )
-            sender = bridge_request.recipient_address
-            recipient = bridge_request.sender_address
-
-        # B4: Use real contract address from config instead of SHA256-fabricated address
-        try:
-            from .....config import settings as _settings
-
-            contract_address = getattr(_settings, "escrow_htlc_contract_address", "") or HTLC_CONTRACT_ADDRESS
-        except _OPS_ERRORS:
-            contract_address = HTLC_CONTRACT_ADDRESS
-
-        # Build calldata encoding the HTLC parameters (function selector + args)
-        # In a real EVM deployment this would be ABI-encoded initiateSwap() calldata;
-        # for the Python-native contract it's a JSON payload the node interprets.
-        contract_data = (
-            f'{{"method":"initiateSwap","hashlock":"{secret_hash}",'
-            f'"timelock":{timelock},"sender":"{sender}",'
-            f'"recipient":"{recipient}","direction":"{direction}"}}'
-        )
-
-        return {
-            "contract_address": contract_address,
-            "contract_data": contract_data,
-            "secret_hash": secret_hash,
-            "timelock": timelock,
-            "sender": sender,
-            "recipient": recipient,
-            "amount": bridge_request.amount,
-            "asset": bridge_request.source_token,
-            "direction": direction,
-        }
-
-    async def _complete_htlc(self, bridge_request: BridgeRequest, secret: str) -> None:
-        """Complete HTLC by revealing and verifying the secret.
-
-        Verifies that the revealed secret matches the hashlock stored on the
-        bridge request (set during ``_execute_htlc_swap``), logs the
-        completion, and updates the bridge request status to COMPLETED.
-        """
-        if self.session is None:
-            return
-        from aitbc.settlement.htlc import verify_secret
-
-        stored_hashlock = getattr(bridge_request, "secret_hash", "")
-        if not stored_hashlock or not verify_secret(secret, stored_hashlock):
-            logger.error(
-                "HTLC completion failed for bridge request %s: secret does not match stored hashlock",
-                bridge_request.id,
-            )
-            raise ValueError("HTLC secret verification failed: secret does not match stored hashlock")
-
-        logger.info(
-            "HTLC secret verified for bridge request %s, completing swap",
-            bridge_request.id,
-        )
-        bridge_request.unlock_tx_hash = (
-            f"0x{hashlib.sha256(f'htlc_complete_{bridge_request.id}_{secret}'.encode()).hexdigest()}"
-        )
-        bridge_request.status = BridgeRequestStatus.COMPLETED
-        bridge_request.completed_at = datetime.now(UTC)
-        bridge_request.updated_at = datetime.now(UTC)
-        (await run_in_threadpool(self.session.commit))
 
     async def _estimate_network_fee(self, chain_id: int, amount: Decimal, token_address: str | None) -> Decimal:
         """Estimate network fee for transaction"""

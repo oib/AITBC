@@ -21,7 +21,9 @@ from coordinator_api.contexts.wallet.services.secure_wallet_service import Secur
 
 from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_client_adapter import (
     BridgeClientAdapter,
+    BridgeHTLCRetired,
     BridgeProtocol,
+    BridgeProtocolRequired,
     BridgeSecurityLevel,
 )
 from ..domain.chain_transaction import TransactionStatus, TransactionType
@@ -392,6 +394,8 @@ async def create_bridge_request(
             raise HTTPException(status_code=400, detail="source_chain_id and target_chain_id are required")
         if amount is None:
             raise HTTPException(status_code=400, detail="amount is required")
+        if protocol == BridgeProtocol.HTLC:
+            raise BridgeHTLCRetired("HTLC bridge requests are retired (#2761).")
         bridge_service = BridgeClientAdapter(session=session)
         chain_configs = {
             source_chain_id: {"rpc_url": settings.blockchain_rpc_url},
@@ -415,6 +419,10 @@ async def create_bridge_request(
         return bridge_request
     except HTTPException:
         raise
+    except BridgeHTLCRetired as exc:
+        raise HTTPException(status_code=410, detail={"code": "htlc_retired", "message": str(exc)}) from exc
+    except BridgeProtocolRequired as exc:
+        raise HTTPException(status_code=400, detail={"code": "protocol_required", "message": str(exc)}) from exc
     except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error creating bridge request") from None
 
@@ -704,10 +712,10 @@ def get_cross_chain_config(request: Request, session: Annotated[Session, Depends
                 "security_levels": [level.value for level in BridgeSecurityLevel],
                 "recommended_for": protocol.value == BridgeProtocol.ATOMIC_SWAP.value
                 and "small_transfers"
-                or (protocol.value == BridgeProtocol.LIQUIDITY_POOL.value and "large_transfers")
-                or (protocol.value == BridgeProtocol.HTLC.value and "high_security"),
+                or (protocol.value == BridgeProtocol.LIQUIDITY_POOL.value and "large_transfers"),
             }
             for protocol in BridgeProtocol
+            if protocol != BridgeProtocol.HTLC
         }
         transaction_priorities = {
             priority.value: {
