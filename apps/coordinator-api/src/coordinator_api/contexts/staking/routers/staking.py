@@ -640,40 +640,10 @@ async def get_staking_leaderboard(
             }  # type: ignore[assignment]
         return leaderboard  # type: ignore[return-value]
     except _OPS_ERRORS as e:
+        # Never answer invented stake data on failure — clients render the
+        # leaderboard as real; a service fault is a 503, not a fallback (#2717).
         logger.error("Failed to get staking leaderboard: %s", e)
-        return {
-            "period": period,
-            "metric": metric,
-            "leaderboard": [
-                {  # not-money: ratio, threshold or configuration default — not an amount of money
-                    "rank": 1,
-                    "agent_wallet": "0x1234567890123456789012345678901234567890",
-                    "total_staked": 50000.0,
-                    "total_rewards": 12500.0,
-                    "apy": 12.5,
-                    "tier": "gold",
-                },
-                {  # not-money: ratio, threshold or configuration default — not an amount of money
-                    "rank": 2,
-                    "agent_wallet": "0x4567890123456789012345678901234567890123",
-                    "total_staked": 35000.0,
-                    "total_rewards": 8750.0,
-                    "apy": 11.8,
-                    "tier": "silver",
-                },
-                {  # not-money: ratio, threshold or configuration default — not an amount of money
-                    "rank": 3,
-                    "agent_wallet": "0x7890123456789012345678901234567890123456",
-                    "total_staked": 25000.0,
-                    "total_rewards": 6250.0,
-                    "apy": 11.2,
-                    "tier": "bronze",
-                },
-            ],
-            "total": 3,
-            "generated_at": datetime.now(UTC).isoformat(),
-            "note": "Fallback data returned due to service error",
-        }
+        raise HTTPException(status_code=503, detail="Staking leaderboard unavailable") from e
 
 
 @router.get("/staking/my-positions", response_model=list[StakeResponse])
