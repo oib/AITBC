@@ -9,13 +9,14 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from ....auth import AdminOrClientDep
 from ....config import settings
 from ....storage import get_session
 from ....utils.ownership import require_agent_access
-from ..services.ipfs_service import IPFSService
+from ..domain.ipfs_memory_owner import IPFSMemoryOwner
+from ..services.ipfs_service import IPFSService, MemoryMetadata
 from ..services.island_ipfs_access import get_member_swarm_key, issue_swarm_key_nonce
 from aitbc.rate_limiting import rate_limit
 
@@ -119,6 +120,32 @@ def get_ipfs_service() -> IPFSService:
     return _ipfs_service_instance
 
 
+def _record_memory_owners(session: Session, agent_id: str, cids: list[str]) -> None:
+    """Persist cid -> agent ownership so restarts/evictions keep the #1882 bind.
+
+    First writer wins: a CID already owned is never reassigned, so a later
+    upload of the same content by another agent cannot hijack the binding.
+    """
+    cids = [c for c in dict.fromkeys(cids) if c]
+    if not cids:
+        return
+    existing = {row.cid for row in session.exec(select(IPFSMemoryOwner).where(col(IPFSMemoryOwner.cid).in_(cids))).all()}
+    for cid in cids:
+        if cid not in existing:
+            session.add(IPFSMemoryOwner(cid=cid, agent_id=agent_id))
+    session.commit()
+
+
+def _resolve_memory_owner(session: Session, cid: str, metadata: MemoryMetadata) -> MemoryMetadata:
+    """Backfill the owning agent from the durable mapping on a registry miss."""
+    if metadata.agent_id != "unknown":
+        return metadata
+    row = session.exec(select(IPFSMemoryOwner).where(IPFSMemoryOwner.cid == cid)).first()
+    if row is not None:
+        metadata.agent_id = row.agent_id
+    return metadata
+
+
 @router.post("/upload")
 @rate_limit(rate=20, per=60)
 async def upload_memory(
@@ -142,6 +169,7 @@ async def upload_memory(
             compress=request.compress,
             pin=request.pin,
         )
+        _record_memory_owners(session, request.agent_id, [result.cid])
 
         return {
             "success": True,
@@ -178,7 +206,9 @@ async def retrieve_memory(
             cid=request.cid,
             verify_integrity=request.verify_integrity,
         )
-        # Bind the cid's owning agent before disclosing its contents (#1882).
+        # Bind the cid's owning agent before disclosing its contents (#1882);
+        # on a registry miss the durable owner row still identifies it (#2711).
+        _resolve_memory_owner(session, request.cid, metadata)
         require_agent_access(session, user, metadata.agent_id)
 
         return {
@@ -228,6 +258,7 @@ async def batch_upload_memories(
             memories=memory_tuples,
             batch_size=request.batch_size,
         )
+        _record_memory_owners(session, request.agent_id, [r.cid for r in results])
 
         return {
             "success": True,
@@ -295,6 +326,20 @@ async def list_agent_memories(
 
         cids = await service.list_agent_memories(agent_id=agent_id, limit=limit)
 
+        # Registry misses (restart/eviction, #2711): union the durable owner
+        # rows so the owner's CID list survives a fresh service instance.
+        seen = {entry["cid"] for entry in cids}
+        owner_rows = session.exec(select(IPFSMemoryOwner).where(IPFSMemoryOwner.agent_id == agent_id)).all()
+        for row in owner_rows:
+            if row.cid not in seen and len(cids) < limit:
+                cids.append(
+                    {
+                        "cid": row.cid,
+                        "memory_type": "unknown",
+                        "timestamp": row.created_at.isoformat(),
+                    }
+                )
+
         return {
             "success": True,
             "agent_id": agent_id,
@@ -322,8 +367,10 @@ async def delete_memory(
         await service.initialize()
 
         # The request carries only a cid — resolve its owning agent from the
-        # stored metadata and bind before unpinning (#1882).
+        # stored metadata (durable owner row on a registry miss, #2711) and
+        # bind before unpinning (#1882).
         _, metadata = await service.retrieve_memory(cid=request.cid, verify_integrity=False)
+        _resolve_memory_owner(session, request.cid, metadata)
         require_agent_access(session, user, metadata.agent_id)
 
         success = await service.delete_memory(cid=request.cid)
