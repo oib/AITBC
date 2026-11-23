@@ -10,6 +10,8 @@
 
 > Payment ≥10 fires the default ZK+TEE gates — the shop model is unregistered → refund, not release.
 
+**Legs**: 7
+
 ## Goal
 
 Require an active provider performance bond for high-value AI jobs and verify that

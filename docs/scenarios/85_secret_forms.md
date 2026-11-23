@@ -8,6 +8,8 @@
 
 breadcrumb: Home > Scenarios > Secret-Form Coverage
 
+**Legs**: 4 password-file/stdin refusal forms (A, A', B, B')
+
 ## Scenario Overview
 
 > **COVERAGE-FINAL-1 (issue #554).** Exercises the `--password-file` and

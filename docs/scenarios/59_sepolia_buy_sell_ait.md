@@ -7,6 +7,8 @@
 **Last Updated**: 2026-11-21
 **Version**: 1.0
 
+**Legs**: 15 (A×3 buy, B×3 sell, C×2 escrowed sell, D×2 signed orders, E×5 funded orders)
+
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*

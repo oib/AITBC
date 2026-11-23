@@ -10,6 +10,8 @@
 
 > **Deployment note (#2208):** the local `aitbc gpu` commands (`discover`, `register`, `list-gpus`, `update`, `unregister`) talk to the GPU service (`gpu_service_url`, default `http://localhost:8101`). **No GPU service unit is deployed on the current fleet** (#1549) — those steps fail with connection-refused until a node runs the service. The `aitbc gpu-onchain` steps work against the chain RPC on any node with island credentials.
 
+**Legs**: 10
+
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*

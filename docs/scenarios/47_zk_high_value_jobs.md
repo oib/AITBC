@@ -7,6 +7,8 @@
 > corrected refund flow.
 
 
+**Legs**: 5
+
 ## Goal
 
 Submit a high-value AI job that requires a verifiable ZK receipt proof. Confirm the

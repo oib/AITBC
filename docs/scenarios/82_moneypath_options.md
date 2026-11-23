@@ -8,6 +8,8 @@
 
 breadcrumb: Home > Scenarios > Moneypath Option Coverage
 
+**Legs**: 4
+
 ## Scenario Overview
 
 > **Option-coverage scenario (issue #548).** Exercises the 25 non-secret
