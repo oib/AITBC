@@ -225,7 +225,7 @@ async def _verify_funding_lock(
         _er._assert_lock_matches_contract(sealed, job_id=job_id, buyer=buyer, amount_units=amount_units, tx_hash=tx_hash)
         return sealed
 
-    from ..mempool import compute_tx_hash
+    from ..mempool import compute_mempool_entry_hash
 
     try:
         r = await _er.SharedHttpClient.get(
@@ -233,7 +233,7 @@ async def _verify_funding_lock(
         )
         if r.status_code == 200:
             for tx in r.json().get("transactions") or []:
-                if isinstance(tx, dict) and compute_tx_hash(tx) == tx_hash:
+                if isinstance(tx, dict) and compute_mempool_entry_hash(tx) == tx_hash:
                     verified = dict(tx)
                     verified["tx_hash"] = tx_hash
                     _er._assert_lock_matches_contract(
@@ -296,7 +296,7 @@ async def _pending_identical_lock_hash(tx_to_submit: dict[str, _er.Any], job_id:
     pending lock exists or the probe cannot answer — the caller then submits
     normally and the admission dedup gate is the backstop.
     """
-    from ..mempool import compute_tx_hash
+    from ..mempool import compute_mempool_entry_hash
 
     try:
         r = await _er.SharedHttpClient.get(
@@ -322,7 +322,7 @@ async def _pending_identical_lock_hash(tx_to_submit: dict[str, _er.Any], job_id:
         if not isinstance(payload, dict) or payload.get("job_id") != job_id:
             continue
         if _same_lock_binding(tx, tx_to_submit):
-            return compute_tx_hash(tx)
+            return compute_mempool_entry_hash(tx)
     return None
 
 
@@ -336,7 +336,7 @@ async def _pending_lock_tx_hashes() -> set[str] | None:
     limit) is a failure too, since the unseen tail could hold the hash being
     judged.
     """
-    from ..mempool import compute_tx_hash
+    from ..mempool import compute_mempool_entry_hash
 
     try:
         r = await _er.SharedHttpClient.get(
@@ -352,7 +352,7 @@ async def _pending_lock_tx_hashes() -> set[str] | None:
         txs = body.get("transactions")
         if not isinstance(txs, list):
             return None
-        return {compute_tx_hash(tx) for tx in txs if isinstance(tx, dict)}
+        return {compute_mempool_entry_hash(tx) for tx in txs if isinstance(tx, dict)}
     except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("pending-lock mempool probe failed: %s", e)
         return None

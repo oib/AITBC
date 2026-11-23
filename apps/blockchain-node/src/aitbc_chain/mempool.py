@@ -56,6 +56,7 @@ from .mempool_common import (
     _tx_nonce as _tx_nonce,
     _tx_sender as _tx_sender,
     _tx_slot_key as _tx_slot_key,
+    compute_mempool_entry_hash as compute_mempool_entry_hash,
     compute_tx_hash as compute_tx_hash,
     mempool_metadata as mempool_metadata,
 )

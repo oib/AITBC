@@ -160,6 +160,49 @@ async def test_verify_mempool_lock_verifies_and_injects_hash(patched, monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_verify_mempool_lock_state_tagged_still_verifies(patched, monkeypatch):
+    """#2741: the live /mempool response tags entries ``state: "pending"``;
+    the pending-match must hash the admitted body, not the decoration —
+    otherwise a genuinely pending lock reads as absent and 425s."""
+    tx = _lock_tx()
+    tx_hash = compute_tx_hash(tx)
+    monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=None))
+    tagged = {**tx, "state": "pending"}
+    get = AsyncMock(return_value=_mempool_response([tagged]))
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", get)
+
+    found = await escrow_routes._verify_funding_lock(tx_hash, **_verify_kwargs())
+
+    assert found["tx_hash"] == tx_hash
+
+
+@pytest.mark.asyncio
+async def test_pending_lock_hashes_ignore_state_tag(patched, monkeypatch):
+    """#2741: pending-set membership must use sealable hashes — a decorated
+    entry hashed verbatim produces a phantom that reads as 'not pending'."""
+    tagged = {**_lock_tx(), "state": "pending"}
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=_mempool_response([tagged])))
+
+    hashes = await escrow_routes._pending_lock_tx_hashes()
+
+    assert hashes == {compute_tx_hash(_lock_tx())}
+
+
+@pytest.mark.asyncio
+async def test_pending_identical_lock_hash_state_tagged(patched, monkeypatch):
+    """#2741: the adopted pending hash must be the sealable one, not the
+    hash of the /mempool-decorated body."""
+    pending = _pending_probe_tx(nonce=7, fee=999, signature="0xother")
+    tagged = {**pending, "state": "pending"}
+    monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=_mempool_response([tagged])))
+
+    found = await escrow_routes._pending_identical_lock_hash(_lock_tx(), JOB_ID)
+
+    assert found == compute_tx_hash(pending)
+    assert found != compute_tx_hash(tagged)
+
+
+@pytest.mark.asyncio
 async def test_verify_mempool_lock_wrong_field_refuses(patched, monkeypatch):
     tx = _lock_tx()
     tx["payload"]["job_id"] = "other-job"  # wrong job in an otherwise well-formed lock

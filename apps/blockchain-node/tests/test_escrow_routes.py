@@ -1740,6 +1740,41 @@ async def test_find_pending_escrow_tx_ignores_other_jobs_and_types(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_find_pending_escrow_tx_hash_ignores_state_tag(monkeypatch):
+    """#2741: /mempool decorates entries with ``state: "pending"`` (#2457).
+    The returned hash must cover the admitted body only — hashing the
+    decoration yields a phantom hash that can never seal."""
+    from aitbc_chain.mempool_common import compute_tx_hash
+
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    body = {
+        "type": "ESCROW_REFUND",
+        "payload": {"job_id": "job-123", "action": "escrow_refund"},
+        "from": "0x1111111111111111111111111111111111111111",
+        "to": "0x2222222222222222222222222222222222222222",
+        "amount": 100,
+        "value": 100,
+        "fee": 1,
+        "nonce": 3,
+        "chain_id": "test-chain",
+        "signature": "0xsig",
+    }
+    decorated = {**body, "state": "pending"}
+    mempool_response = MagicMock()
+    mempool_response.status_code = 200
+    mempool_response.json.return_value = {"transactions": [decorated], "count": 1}
+
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=mempool_response):
+        found = await escrow_routes._find_pending_escrow_tx("job-123", "ESCROW_REFUND")
+
+    assert found == compute_tx_hash(body)
+    assert found != compute_tx_hash(decorated)
+
+
+@pytest.mark.asyncio
 async def test_find_pending_escrow_tx_quiet_on_probe_failure(monkeypatch):
     """A mempool probe failure degrades to 'not pending', never to a wrong hash."""
     monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
