@@ -1,20 +1,8 @@
-"""Shared atomic cross-chain settlement types (v0.9.0 §A1).
+"""Shared types for historical native HTLC settlement records.
 
-These are the canonical shared SDK types for HTLC-based atomic cross-chain
-settlement between AITBC blockchain networks (islands). They define the
-escrow lifecycle, HTLC state, proof chain structure, and settlement
-configuration used by the settlement service (Agent B B3) and CLI.
-
-The settlement layer builds on top of:
-- Bridge SDK (``aitbc.bridge``) — lock/confirm/unlock, proof verification
-- Trading SDK (``aitbc.trading``) — inter-chain trade lifecycle
-- HTLC smart contract (``contracts/contracts/CrossChainAtomicSwap.sol``)
-
-Design rationale: HTLC (Hashed Timelock Contract) is chosen over
-two-phase commit because HTLC has existing partial implementation, is
-the industry standard for cross-chain atomic swaps, and has a simpler
-failure model (timeout-based refund vs distributed abort coordination).
-See ``docs/releases/v0.9/v0.9.0_change.log`` §"HTLC vs Two-Phase Commit".
+These types describe the escrow lifecycle, HTLC state, proof chain, and
+client configuration retained for compatibility after native settlement
+writes were retired (#2385).
 """
 
 from __future__ import annotations
