@@ -146,3 +146,36 @@ class TestReputationConsistency:
         profile = client.get(f"{BASE}/profile/{AGENT}").json()
         assert profile["average_response_time"] == pytest.approx(1234.5)
         assert profile["average_response_time_unit"] == "ms"
+
+
+class TestFeedbackRatingBounds:
+    """#2693: CommunityFeedback is a table=True model so its Field(ge/le) is
+    never enforced — the request model must bound ratings itself, and
+    non-finite values must not reach SQLite as Infinity/NULL."""
+
+    def _post(self, client: TestClient, ratings: dict) -> int:
+        resp = client.post(
+            f"{BASE}/feedback/{AGENT}",
+            json={"ratings": ratings, "feedback_text": "bounds pin"},
+            headers=_headers(role="admin"),
+        )
+        return resp.status_code
+
+    def test_huge_rating_422(self, client: TestClient) -> None:
+        assert self._post(client, {"overall": 1e300, "performance": 3.0}) == 422
+
+    def test_infinite_rating_422(self, client: TestClient) -> None:
+        # httpx's json= is strict — send the literal non-standard Infinity token.
+        resp = client.post(
+            f"{BASE}/feedback/{AGENT}",
+            content=b'{"ratings": {"overall": Infinity, "performance": 3.0}}',
+            headers={**_headers(role="admin"), "Content-Type": "application/json"},
+        )
+        assert resp.status_code == 422
+
+    def test_out_of_range_rating_422(self, client: TestClient) -> None:
+        assert self._post(client, {"overall": 0.0, "performance": 3.0}) == 422
+        assert self._post(client, {"overall": 5.5, "performance": 3.0}) == 422
+
+    def test_valid_rating_accepted(self, client: TestClient) -> None:
+        assert self._post(client, {"overall": 4.5}) == 200

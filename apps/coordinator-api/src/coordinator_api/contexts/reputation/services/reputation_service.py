@@ -3,6 +3,7 @@ Agent Reputation and Trust Service
 Implements reputation management, trust score calculations, and economic profiling
 """
 
+import math
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -387,6 +388,13 @@ class ReputationService:
         job_id: str | None = None,
     ) -> CommunityFeedback:
         """Add community feedback for an agent"""
+        # #2693: CommunityFeedback is table=True — its Field(ge/le) is never
+        # enforced — so bound the values here too; the HTTP layer validates
+        # first, this guards any other caller.
+        for key in ("overall", "performance", "communication", "reliability", "value"):
+            value = ratings.get(key, 3.0)
+            if not math.isfinite(value) or not 1.0 <= value <= 5.0:
+                raise ValueError(f"rating '{key}' must be finite and within 1..5")
         feedback = CommunityFeedback(
             agent_id=agent_id,
             reviewer_id=reviewer_id,
