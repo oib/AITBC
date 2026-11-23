@@ -156,9 +156,19 @@ class ZkRefundSweeper:
             .where(col(JobPayment.refund_transaction_hash).is_(None))
             .where(col(Job.completed_at).is_not(None))
             .where(col(Job.completed_at) < cutoff)
-            .limit(self.batch_size)
         )
-        rows = list(session.execute(stmt).all())
+        # Page with OFFSET until a short page: the Python-side eligibility
+        # filters below (acceptance window, ZK requirement, valid receipt)
+        # would otherwise let a head of ineligible rows starve eligible ones
+        # behind them (#2699).
+        rows = []
+        offset = 0
+        while True:
+            page = list(session.execute(stmt.order_by(Job.id).offset(offset).limit(self.batch_size)).all())
+            rows.extend(page)
+            if len(page) < self.batch_size:
+                break
+            offset += self.batch_size
         out = []
         for job, payment in rows:
             if not job.payment_id:

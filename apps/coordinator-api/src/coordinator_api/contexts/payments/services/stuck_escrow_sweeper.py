@@ -212,9 +212,18 @@ class StuckEscrowSweeper:
             .where(col(JobPayment.escrowed_at).is_not(None))
             .where(col(Job.payment_id).is_not(None))
             .where(col(Job.state).in_({"CANCELED", "FAILED", "EXPIRED"}))
-            .limit(self.batch_size)
         )
-        jobs = list(session.execute(stmt).all())
+        # Page with OFFSET until a short page on BOTH queries: _is_stuck
+        # filters in Python (min-age, dispute grace), so a single LIMIT
+        # batch lets ineligible head rows starve eligible ones (#2699).
+        jobs = []
+        offset = 0
+        while True:
+            page = list(session.execute(stmt.order_by(Job.id).offset(offset).limit(self.batch_size)).all())
+            jobs.extend(page)
+            if len(page) < self.batch_size:
+                break
+            offset += self.batch_size
 
         # Disputed payments may keep state==COMPLETED, so query them separately.
         dispute_stmt = (
@@ -224,9 +233,14 @@ class StuckEscrowSweeper:
             .where(col(JobPayment.escrowed_at).is_not(None))
             .where(col(Job.payment_id).is_not(None))
             .where(col(Job.state) == "COMPLETED")
-            .limit(self.batch_size)
         )
-        jobs.extend(session.execute(dispute_stmt).all())
+        offset = 0
+        while True:
+            page = list(session.execute(dispute_stmt.order_by(Job.id).offset(offset).limit(self.batch_size)).all())
+            jobs.extend(page)
+            if len(page) < self.batch_size:
+                break
+            offset += self.batch_size
 
         out = []
         for job, payment in jobs:

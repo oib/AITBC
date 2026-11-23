@@ -103,9 +103,18 @@ class AcceptanceSweeper:
             select(Job)
             .join(JobPayment, Job.payment_id == JobPayment.id)  # type: ignore[arg-type]
             .where(JobPayment.status == PENDING_ACCEPTANCE)
-            .limit(self.batch_size)
         )
-        return list(session.execute(stmt).scalars().all())
+        # Page with OFFSET until a short page: eligibility (deadline_passed)
+        # is evaluated in Python, so a single LIMIT batch lets a head of
+        # not-yet-eligible rows starve the expired ones behind them (#2699).
+        out: list[Job] = []
+        offset = 0
+        while True:
+            page = list(session.execute(stmt.order_by(JobPayment.id).offset(offset).limit(self.batch_size)).scalars().all())
+            out.extend(page)
+            if len(page) < self.batch_size:
+                return out
+            offset += self.batch_size
 
     async def run_once(self) -> dict[str, int]:
         """One sweep. Returns counts for logging and tests."""
