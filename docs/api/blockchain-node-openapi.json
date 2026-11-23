@@ -25725,6 +25725,74 @@
           }
         }
       }
+    },
+    "/agent/genesis.json": {
+      "get": {
+        "tags": [
+          "bootstrap"
+        ],
+        "summary": "Canonical genesis document (public join bootstrap)",
+        "description": "Serve the genesis document advertised as ``genesis_json_url`` by\n``/rpc/network-info`` and ``/rpc/join`` \u2014 see ``_agent_genesis_document``\nfor the serving semantics (#2759).",
+        "operationId": "agent_genesis_json_agent_genesis_json_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "unknown chain_id: {cid} / no genesis document for chain_id={cid}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "genesis document unreadable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

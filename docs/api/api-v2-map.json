@@ -705,6 +705,13 @@
       "spec": "blockchain-node-openapi.json",
       "operations": [
         {
+          "public": "/api/v2/chain/agent/genesis.json",
+          "upstream": "/agent/genesis.json",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/health",
           "upstream": "/health",
           "methods": [
