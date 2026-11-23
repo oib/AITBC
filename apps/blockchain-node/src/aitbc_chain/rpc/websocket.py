@@ -473,6 +473,9 @@ class _GossipConnState:
         self.authorized_address: str | None = None
         # #1874: peer-key credential for public-topic publish (peer_auth frame).
         self.peer_authorized = False
+        # #2731: the client opted into explicit publish acks (?puback=1) —
+        # _gossip_handle_publish answers each publish with a puback frame.
+        self.puback_enabled = websocket.query_params.get("puback") == "1"
 
 
 async def _gossip_admit(websocket: WebSocket, topic: str) -> tuple[str, GossipBroker] | None:
@@ -721,7 +724,15 @@ async def _gossip_publish_denied(
 
 
 async def _gossip_handle_publish(state: _GossipConnState, data: dict[str, Any]) -> bool:
-    """Publish authorization gates, then broker.publish; False = socket closed."""
+    """Publish authorization gates, then broker.publish; False = socket closed.
+
+    #2731: for clients that opted in with ``?puback=1`` the handler answers
+    with ``{"type": "puback", "event_id", "ok"}`` after the broker call.
+    ``ok`` reports broker acceptance only — ``GossipBroker.publish`` returns
+    normally on a dedup skip or a priority-queue enqueue, so it is NOT a
+    durability or downstream-delivery guarantee, and carries no exception
+    detail. Clients that did not opt in get nothing extra.
+    """
     topic = state.topic
     # Publishing path.
     if is_restricted_topic(topic) and not state.authorized:
@@ -765,8 +776,10 @@ async def _gossip_handle_publish(state: _GossipConnState, data: dict[str, Any]) 
         queue_depth=queue_depth,
         **_rx_publish_extra_fields(data),
     )
+    accepted = False
     try:
         await state.broker.publish(topic, data)
+        accepted = True
         gossip_messages_published_total.labels(topic=bounded_topic_label(topic)).inc()
     except Exception as e:  # noqa: BLE001 - one bad publish must not close the socket
         # A broker-side failure (e.g. an ACL-denied topic) loses
@@ -784,6 +797,11 @@ async def _gossip_handle_publish(state: _GossipConnState, data: dict[str, Any]) 
             error=str(e)[:120],
             _level="warning",
         )
+    if state.puback_enabled:
+        # #2731: ack = broker.publish returned without raising. Deliberately
+        # no exception detail — the frame is a boolean receipt only. A send
+        # failure propagates into the forwarder's existing teardown.
+        await _gossip_ws_send_json(state.websocket, {"type": "puback", "event_id": event_id, "ok": accepted})
     return True
 
 

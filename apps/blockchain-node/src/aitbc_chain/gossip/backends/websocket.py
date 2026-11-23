@@ -85,6 +85,11 @@ class WebsocketGossipBackend(GossipBackend):
     v0.7.6+: publish() waits for the server echo (ack) before returning.
     This detects silent ``CLOSE-WAIT`` sockets where the OS accepts the send()
     but the peer is no longer reading, because the echo never comes back.
+
+    #2731: the dial URL carries ``puback=1`` so a peer that understands it
+    answers each publish with an explicit ``puback`` frame — broker acceptance
+    (dedup/enqueue success, not durability or downstream delivery). The echo
+    remains the fallback ack for peers that do not send one.
     """
 
     def __init__(
@@ -137,6 +142,10 @@ class WebsocketGossipBackend(GossipBackend):
         # #1308: msg_id -> (ack event, attempt number) for the in-flight wait.
         self._ack_events: dict[str, tuple[asyncio.Event, int]] = {}
         self._ack_lock = asyncio.Lock()
+        # #2731: msg_id -> broker-side rejection delivered by a ``puback``
+        # frame. The waiting publisher raises it as the attempt's error
+        # outcome — the same single-retry path as a transport failure.
+        self._ack_errors: dict[str, RuntimeError] = {}
         # #1308: msg_id -> (attempt that timed out, monotonic ts). Attempt
         # correlation is required because echoes carry no attempt nonce: an
         # echo that satisfies a *later* attempt's wait is that attempt's own
@@ -267,6 +276,44 @@ class WebsocketGossipBackend(GossipBackend):
             await self._record_late_ack(msg_id, topic, timed_out_attempt)
         return suppressed
 
+    async def _handle_puback(self, topic: str, message: dict[str, Any]) -> None:
+        """Resolve one in-flight publish wait from an explicit ``puback`` (#2731).
+
+        Only peers the dialer flagged with ``?puback=1`` send these frames.
+        ``ok`` reports whether the peer's ``GossipBroker.publish`` returned
+        without raising — a dedup skip or priority-queue enqueue counts as
+        accepted, so it is NOT a durability or downstream-delivery guarantee.
+        Malformed frames, unknown event ids and acks for other topics are
+        dropped here and never reach subscriber queues.
+        """
+        event_id = message.get("event_id")
+        ok = message.get("ok")
+        if not isinstance(event_id, str) or not event_id.startswith(f"{topic}:") or type(ok) is not bool:
+            return
+        # Same snapshot the echo path takes (_is_echo): entry plus any
+        # timed-out attempt marker, with the usual TTL pruning.
+        ack_entry, timed_out_attempt = await self._ack_wait_snapshot(event_id)
+        if ack_entry is None or ack_entry[0].is_set():
+            return
+        ack_event, waiting_attempt = ack_entry
+        if ok and timed_out_attempt is not None and timed_out_attempt < waiting_attempt:
+            # Explicit success supersedes the earlier attempt's timeout
+            # marker exactly like an echo would — the helper takes _ack_lock
+            # itself, so it runs outside the critical section below and
+            # before the event is set, keeping _ack_prior_timeout visible to
+            # the woken publisher's telemetry pop.
+            await self._supersede_timed_out(event_id, timed_out_attempt)
+        async with self._ack_lock:
+            # Re-validate: the waiter may have resolved or been replaced
+            # while the snapshot/supersede ran — never write an error or set
+            # an event for an entry that is no longer this waiter's.
+            entry = self._ack_events.get(event_id)
+            if entry is None or entry[0] is not ack_event or entry[0].is_set():
+                return
+            if not ok:
+                self._ack_errors[event_id] = RuntimeError("Peer gossip broker rejected publish")
+            entry[0].set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
+
     async def _ensure_connection(self, topic: str) -> None:
         """Acquire the per-topic lock and open/reopen the websocket."""
         async with self._connect_lock(topic):
@@ -291,7 +338,8 @@ class WebsocketGossipBackend(GossipBackend):
 
     def _build_url(self, topic: str) -> str:
         """Dial URL for ``topic`` — base query params preserved, ``chain``
-        included when the backend is chain-bound (#1159)."""
+        included when the backend is chain-bound (#1159), ``puback=1`` opts
+        the peer into explicit publish acks (#2731)."""
         from urllib.parse import parse_qsl, urlencode, urlunsplit
 
         query = dict(parse_qsl(self._base_parts.query))
@@ -299,6 +347,7 @@ class WebsocketGossipBackend(GossipBackend):
             query["chain"] = self._chain_id
         query["topic"] = topic
         query["client_id"] = self._client_id
+        query["puback"] = "1"
         return urlunsplit(
             (
                 self._base_parts.scheme,
@@ -474,6 +523,11 @@ class WebsocketGossipBackend(GossipBackend):
         try:
             message = json.loads(raw)
         except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+            return
+        # #2731: explicit publish acks are consumed here — never echoed,
+        # never delivered to subscriber queues.
+        if isinstance(message, dict) and message.get("type") == "puback":
+            await self._handle_puback(topic, message)
             return
         if isinstance(message, dict) and message.get("type") in _CONTROL_FRAME_TYPES:
             return
@@ -729,7 +783,13 @@ class WebsocketGossipBackend(GossipBackend):
         _attempt: int = 1,
         _publish_t0: float | None = None,
     ) -> None:
-        """Publish a message and wait for the server echo (ack).
+        """Publish a message and wait for its ack before returning.
+
+        The ack is an explicit ``puback`` frame when the peer negotiated
+        ``?puback=1`` (#2731), else the server echo — whichever resolves the
+        wait first. ``puback`` reports broker acceptance only (dedup/enqueue
+        success), not durability or downstream delivery; the echo remains
+        the fallback for peers that do not send one.
 
         If the ack does not arrive within ``_ack_timeout`` seconds the send is
         considered lost, the connection is torn down and (for ``retry=True``)
@@ -751,14 +811,17 @@ class WebsocketGossipBackend(GossipBackend):
         msg_id = self._compute_message_id(topic, message)
         topic_class = bounded_topic_label(topic)
         ack_event = asyncio.Event()
-        async with self._ack_lock:
-            self._ack_events[msg_id] = (ack_event, _attempt)
         outcome = "error"
         ack_latency: float | None = None
         failure: BaseException | None = None
         ack_wait_reached = False
         try:
             async with self._connect_lock(topic):
+                # #2731: register INSIDE the connect lock — a concurrent
+                # publish of the identical message must not overwrite this
+                # waiter's entry while it is still in flight.
+                async with self._ack_lock:
+                    self._ack_events[msg_id] = (ack_event, _attempt)
                 await self._ensure_connection_unsafe(topic)
                 await self._record_sent(topic, message)
                 ws = self._websockets[topic]
@@ -767,6 +830,10 @@ class WebsocketGossipBackend(GossipBackend):
                 logger.debug("Published websocket message for %s; awaiting ack", topic)
                 ack_wait_reached = True
                 await asyncio.wait_for(ack_event.wait(), timeout=self._ack_timeout)
+                async with self._ack_lock:
+                    rejection = self._ack_errors.pop(msg_id, None)
+                if rejection is not None:
+                    raise rejection
                 ack_latency = time.monotonic() - send_t0
                 outcome = "ack"
         except asyncio.TimeoutError as e:
@@ -787,7 +854,13 @@ class WebsocketGossipBackend(GossipBackend):
             failure = e
         finally:
             async with self._ack_lock:
-                self._ack_events.pop(msg_id, None)
+                # Remove only THIS waiter's entry: a concurrent identical
+                # publish may already have registered its own after the
+                # connect lock was released — popping blindly would strand it.
+                entry = self._ack_events.get(msg_id)
+                if entry is not None and entry[0] is ack_event:
+                    del self._ack_events[msg_id]
+                    self._ack_errors.pop(msg_id, None)
 
         # --- telemetry (outside the connect lock; never blocks the send path).
         # Metric/event emission is wrapped defensively inside the helper: a
