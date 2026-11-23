@@ -23,10 +23,16 @@ def pending_nonce_floor(
     chain_id: str | None = None,
     limit: int = 500,
 ) -> int | None:
-    """Next free nonce: ``max(sealed, highest pending mempool nonce + 1)``.
+    """Lowest signable nonce: the first nonce at or above ``sealed_nonce``
+    that no pending mempool transaction occupies.
 
     The sealed account nonce ignores the sender's own in-flight transactions,
-    so two back-to-back submits collide on the same nonce slot (#2395).
+    so two back-to-back submits collide on the same nonce slot (#2395). The
+    floor fills the *lowest* gap rather than jumping past the highest
+    pending nonce (#2745): a stranded or dead entry ahead of a hole (e.g. a
+    consensus-rejected resubmission still parked in a follower's mempool)
+    must not push the next signature into future-nonce territory — apply
+    seals nonces sequentially, so the hole is the only slot that can land.
 
     Returns None when the mempool probe itself failed (non-200, unreachable,
     malformed answer) — distinct from a successful probe that found nothing
@@ -41,17 +47,18 @@ def pending_nonce_floor(
             query += f"&chain_id={chain_id}"
         data = client.get(f"/rpc/mempool?{query}")
         transactions = data.get("transactions") if isinstance(data, dict) else None
-        pending_nonces = [
+        occupied = {
             int(tx["nonce"])
             for tx in transactions or []
             if isinstance(tx, dict)
             and str(tx.get("from") or tx.get("sender") or "").lower() == sender_address.lower()
             and isinstance(tx.get("nonce"), int)
             and not isinstance(tx.get("nonce"), bool)
-        ]
-        if pending_nonces:
-            return max(sealed_nonce, max(pending_nonces) + 1)
-        return sealed_nonce
+        }
+        nonce = sealed_nonce
+        while nonce in occupied:
+            nonce += 1
+        return nonce
     except _MEMPOOL_PROBE_ERRORS:
         return None
 
