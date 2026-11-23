@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 47 ZK Proofs for High-Value Jobs
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-10-25
-**Version**: 1.0
+**Last Updated**: 2026-11-23
+**Version**: 1.1
 
 **Legs**: 2
 
@@ -25,11 +25,17 @@ breadcrumb: Home > Scenarios > Confidential Payments
 
 ## Scenario Overview
 
-> **Simulated path:** `aitbc confidential` builds a `ConfidentialWallet`
-> locally, constructs and validates the commitment transaction in-process,
-> and only then tries the API. There is no persistence layer behind it —
-> output is the simulated/confidential-compute path, not ledger state.
-> Label it `(Simulated)` — the `tee` group itself was removed in #2375.
+> **Simulated path — permanent, not a degraded mode:** `aitbc confidential`
+> builds a `ConfidentialWallet` locally, constructs and validates the
+> commitment transaction in-process, and only then tries the API. There is
+> no persistence layer behind it — output is the simulated/confidential-
+> compute path, not ledger state. Label it `(Simulated)`.
+>
+> This is the feature, not a fallback: the TEE/enclave rail was removed
+> entirely in #2375 (operator ruling — no enclave hardware will exist), so
+> no real confidential-settlement path is planned. If one is ever wanted it
+> would be a new design (the on-paper direction is the FHE service,
+> `docs/development/fhe-service.md`), not a revival of this one.
 >
 > The API leg falls back to the simulated result **only** when the
 > coordinator reports confidential settlement unavailable (HTTP 503).
@@ -44,8 +50,8 @@ query using amount commitments rather than plaintext values.
 ### Use Case
 
 A job payment where the amount itself should not be public: the CLI builds
-the commitment transaction and settles it through the confidential-payment
-path used by scenario 46/47 jobs.
+the commitment transaction and exercises the confidential-payment path used
+by scenario 46/47 jobs — on the permanent simulated rail described above.
 
 ### What You'll Learn
 
