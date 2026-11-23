@@ -6,7 +6,7 @@ Handles edge GPU management endpoints
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
@@ -146,8 +146,9 @@ async def get_all_metrics(request: Request) -> dict[str, Any]:
 @rate_limit(rate=20, per=60)
 def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any]:
     """Submit GPU metrics"""
-    # In a real implementation, this would store metrics in a database
-    return {"status": "success", "gpu_id": metrics.gpu_id}
+    # No metrics store exists — answering "success" dropped the payload
+    # silently. Honest 501 until one is implemented (#2719).
+    raise HTTPException(status_code=501, detail="GPU metrics ingestion is not implemented")
 
 
 @router.post("/discover")
@@ -170,11 +171,6 @@ async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
 @rate_limit(rate=20, per=60)
 def optimize_inference(request: Request, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
     """Optimize ML inference request for edge GPU"""
-    # In a real implementation, this would apply optimization techniques
-    return {
-        "gpu_id": gpu_id,
-        "model_name": model_name,
-        "optimized": True,
-        "latency_reduction": 15.0,  # Mock value
-        "note": "Optimization applied successfully",
-    }
+    # Nothing is optimized — the old body returned a mock 15.0% latency
+    # reduction. Honest 501 until real optimization exists (#2719).
+    raise HTTPException(status_code=501, detail="Edge inference optimization is not implemented")

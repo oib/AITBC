@@ -160,6 +160,13 @@ def verify_certification(
         if not certification:
             raise HTTPException(status_code=404, detail="Certification not found")
 
+        # is_valid must mean something: an expired certification is not valid.
+        # (There is no revocation field on the model yet.)
+        expires_at = certification.expires_at
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        is_valid = expires_at is None or expires_at > datetime.now(UTC)
+
         return {
             "certification_id": certification_id,
             "certification_name": certification.certification_name,
@@ -167,7 +174,8 @@ def verify_certification(
             "developer_id": certification.developer_id,
             "issued_by": certification.issued_by,
             "granted_at": certification.issued_at.isoformat(),
-            "is_valid": True,
+            "expires_at": expires_at.isoformat() if expires_at is not None else None,
+            "is_valid": is_valid,
             "verification_timestamp": datetime.now(UTC).isoformat(),
         }
 
