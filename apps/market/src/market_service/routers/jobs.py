@@ -34,7 +34,14 @@ from ..gates import (
     _signed_jobs_request,
     _warn_secret_query_transport,
 )
-from ..services.market_service import AccessKeyConflict, MarketService, _secret_matches, max_page_size, public_job_view
+from ..services.market_service import (
+    AccessKeyConflict,
+    MarketService,
+    _secret_matches,
+    max_page_size,
+    operator_job_view,
+    public_job_view,
+)
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
 # "market_service.main".
@@ -149,7 +156,9 @@ async def list_market_jobs(
         # "market admin" here. Full rows go to the operator credential,
         # signed parties, or the job's access credential only.
         if _has_operator_credential(request):
-            return jobs
+            # #2670: operator tooling gets the full row minus the job access
+            # secret — the digest is credential material and is write-only.
+            return [operator_job_view(job) for job in jobs]
         return [public_job_view(job) for job in jobs]
     except Exception as e:
         logger.error("Error in GET /v1/market/jobs: %s: %s", type(e).__name__, str(e))
@@ -202,7 +211,8 @@ async def get_market_job(
         # #2606: operator tier only — the distributed user key falls through
         # to the access-credential / party-signature / public-view paths.
         if _has_operator_credential(request):
-            return result
+            # #2670: same scrub as the list route — no access_secret echo.
+            return operator_job_view(result)
         auth_attempted = False
         if x_access_key or x_access_secret:
             auth_attempted = True
