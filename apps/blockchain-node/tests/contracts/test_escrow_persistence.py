@@ -148,7 +148,9 @@ class TestEscrowRefundRoute:
         """Refunding an active escrow updates the record with refunded_at and refund_tx_hash."""
         _insert_escrow(session, "job-route-refund-2")
 
-        monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value="0xlockhash"))
+        lock_row = {"tx_hash": "0xlockhash", "block_height": 10**9, "payload": {"job_id": "job-route-refund-2"}}
+        monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx_status", AsyncMock(return_value=(lock_row, True)))
+        monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=lock_row))
         monkeypatch.setattr(escrow_routes, "_find_existing_refund", AsyncMock(return_value=None))
         monkeypatch.setattr(escrow_routes, "_submit_refund_tx", AsyncMock(return_value="0xtestrefund"))
 
@@ -171,7 +173,7 @@ class TestEscrowRefundRoute:
 
         _insert_escrow(session, "job-route-refund-3")
 
-        monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value=None))
+        monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx_status", AsyncMock(return_value=(None, True)))
         submit = AsyncMock()
         monkeypatch.setattr(escrow_routes, "_submit_refund_tx", submit)
 
@@ -181,5 +183,24 @@ class TestEscrowRefundRoute:
         assert exc.value.status_code == 425
         submit.assert_not_called()
         record = session.get(Escrow, "job-route-refund-3")
+        assert record.refunded_at is None
+        assert record.refund_tx_hash is None
+
+    def test_refund_escrow_lock_probe_failure_is_503_not_425(self, manager, session, monkeypatch):
+        """A failed lock lookup is 'unknown', not 'absent': 503, no mutation (#2295)."""
+        from fastapi import HTTPException
+
+        _insert_escrow(session, "job-route-refund-4")
+
+        monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx_status", AsyncMock(return_value=(None, False)))
+        submit = AsyncMock()
+        monkeypatch.setattr(escrow_routes, "_submit_refund_tx", submit)
+
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(refund_escrow("job-route-refund-4", {}))
+
+        assert exc.value.status_code == 503
+        submit.assert_not_called()
+        record = session.get(Escrow, "job-route-refund-4")
         assert record.refunded_at is None
         assert record.refund_tx_hash is None
