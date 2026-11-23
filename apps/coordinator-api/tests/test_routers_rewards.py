@@ -57,3 +57,20 @@ class TestRewardTiers:
         resp = client.get("/v1/rewards/tiers")
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
+
+
+@pytest.mark.unit
+class TestRewardAnalytics:
+    def test_analytics_empty_branch_returns_full_shape(self, client: TestClient) -> None:
+        """No DISTRIBUTED rows must still satisfy RewardAnalyticsResponse (#2691)."""
+        resp = client.get("/v1/rewards/analytics", headers=_admin())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total_distributions"] == 0
+        assert body["tier_distribution"] == {}
+        assert float(body["total_rewards_distributed"]) == 0.0
+
+    @pytest.mark.parametrize("param", ["start_date", "end_date"])
+    def test_analytics_malformed_date_is_422_not_500(self, client: TestClient, param: str) -> None:
+        resp = client.get("/v1/rewards/analytics", params={param: "not-a-date"}, headers=_admin())
+        assert resp.status_code == 422
