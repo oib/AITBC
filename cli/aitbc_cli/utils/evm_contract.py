@@ -36,29 +36,30 @@ _AIPOWER_RENTAL_ABI: list[dict[str, Any]] = [
     {
         "inputs": [{"name": "_agreementId", "type": "uint256"}],
         "name": "getRentalAgreement",
+        # Flat outputs, not a single tuple: the deployed contract's struct
+        # contains a dynamic member (gpuModel string), and the chain returns
+        # the struct head inline without the outer tuple offset that
+        # eth_abi/web3 tuple decoding expects — a tuple-typed output dies
+        # with BadFunctionCallOutput on real return data (#2756 respin).
+        # The 12 fields and their order are identical either way; callers
+        # index positionally (1=provider, 2=consumer, 4=price, 7=platformFee).
         "outputs": [
-            {
-                "components": [
-                    {"name": "agreementId", "type": "uint256"},
-                    {"name": "provider", "type": "address"},
-                    {"name": "consumer", "type": "address"},
-                    {"name": "duration", "type": "uint256"},
-                    {"name": "price", "type": "uint256"},
-                    {"name": "startTime", "type": "uint256"},
-                    {"name": "endTime", "type": "uint256"},
-                    {"name": "platformFee", "type": "uint256"},
-                    {"name": "status", "type": "uint8"},
-                    # No `performance` field: the contract's getRentalAgreement
-                    # returns 12 values and omits PerformanceMetrics (split out
-                    # to getRentalPerformance — adf9d808b stack-too-deep fix).
-                    # Metrics come via getRentalPerformance, not this call.
-                    {"name": "gpuModel", "type": "string"},
-                    {"name": "computeUnits", "type": "uint256"},
-                    {"name": "performanceProof", "type": "bytes32"},
-                ],
-                "name": "",
-                "type": "tuple",
-            }
+            {"name": "agreementId", "type": "uint256"},
+            {"name": "provider", "type": "address"},
+            {"name": "consumer", "type": "address"},
+            {"name": "duration", "type": "uint256"},
+            {"name": "price", "type": "uint256"},
+            {"name": "startTime", "type": "uint256"},
+            {"name": "endTime", "type": "uint256"},
+            {"name": "platformFee", "type": "uint256"},
+            {"name": "status", "type": "uint8"},
+            # No `performance` field: getRentalAgreement returns 12 values;
+            # PerformanceMetrics was split to getRentalPerformance
+            # (adf9d808b stack-too-deep fix). Metrics come via
+            # getRentalPerformance, not this call.
+            {"name": "gpuModel", "type": "string"},
+            {"name": "computeUnits", "type": "uint256"},
+            {"name": "performanceProof", "type": "bytes32"},
         ],
         "stateMutability": "view",
         "type": "function",
