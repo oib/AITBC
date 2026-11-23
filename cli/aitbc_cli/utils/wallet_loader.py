@@ -22,8 +22,10 @@ import re
 
 from .wallet_paths import (
     WalletSearchResult,
+    env_wallet_dir_override_active,
     find_wallet_file,
     find_wallet_file_report,
+    read_scoped_active_wallet,
     service_dir_wallet_note,
     wallet_dir as resolve_wallet_dir,
     wallet_not_found_hint,
@@ -98,13 +100,18 @@ def _resolve_wallet_name_and_path(
     # Try environment and config in priority order
     wallet_name = os.environ.get("AITBC_MARKET_WALLET") or os.environ.get("AITBC_DEFAULT_WALLET")
     if not wallet_name:
-        config_file = Path.home() / ".aitbc" / "config.yaml"
-        if config_file.exists():
-            import yaml
+        # #2729: under AITBC_WALLET_DIR the active wallet lives in the
+        # env-scoped pointer; the global config.yaml is not consulted.
+        if env_wallet_dir_override_active():
+            wallet_name = read_scoped_active_wallet()
+        else:
+            config_file = Path.home() / ".aitbc" / "config.yaml"
+            if config_file.exists():
+                import yaml
 
-            with open(config_file) as f:
-                config = yaml.safe_load(f) or {}
-            wallet_name = config.get("active_wallet")
+                with open(config_file) as f:
+                    config = yaml.safe_load(f) or {}
+                wallet_name = config.get("active_wallet")
     if not wallet_name:
         wallet_name = "default"
 

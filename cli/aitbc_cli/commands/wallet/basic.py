@@ -22,13 +22,17 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import (
+    env_wallet_dir_override_active,
     find_wallet_file,
     find_wallet_file_report,
     multisig_recipient_refusal,
+    read_scoped_active_wallet,
+    scoped_active_wallet_path,
     service_dir_wallet_note,
     wallet_not_found_message,
     wallet_search_dirs,
     wallet_write_restricted_message,
+    write_scoped_active_wallet,
 )
 from aitbc.exceptions import AITBCError
 from aitbc.utils import ait_to_units, format_ait
@@ -249,22 +253,28 @@ def switch(ctx, name: str, password: str | None, password_file: str | None, pass
     if service_note:
         _info(service_note)
 
-    # Update config
-    config_file = Path.home() / ".aitbc" / "config.yaml"
-    config: dict[str, Any] = {}
+    # Update config — under AITBC_WALLET_DIR the pointer is env-scoped so a
+    # scratch wallet name never leaks into the global config (#2729).
+    if env_wallet_dir_override_active():
+        scoped = scoped_active_wallet_path()
+        write_scoped_active_wallet(name)
+        success(f"Switched to wallet '{name}' (active pointer: {scoped})")
+    else:
+        config_file = Path.home() / ".aitbc" / "config.yaml"
+        config: dict[str, Any] = {}
 
-    if config_file.exists():
-        with open(config_file) as f:
-            config = yaml.safe_load(f) or {}
+        if config_file.exists():
+            with open(config_file) as f:
+                config = yaml.safe_load(f) or {}
 
-    config["active_wallet"] = name
+        config["active_wallet"] = name
 
-    # Save config
-    config_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(config_file, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
+        # Save config
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_file, "w") as f:
+            yaml.dump(config, f, default_flow_style=False)
 
-    success(f"Switched to wallet '{name}'")
+        success(f"Switched to wallet '{name}'")
     # Load wallet to get address (will handle encryption)
     password = resolve_wallet_password(
         name,
@@ -317,18 +327,23 @@ def delete(ctx, name: str, confirm: bool):
     wallet_path.unlink()
     success(f"Wallet '{name}' deleted")
 
-    # If deleted wallet was active, reset to default
-    config_file = Path.home() / ".aitbc" / "config.yaml"
-    if config_file.exists():
-        import yaml
+    # If deleted wallet was active, reset to default — scoped pointer under
+    # AITBC_WALLET_DIR, global config otherwise (#2729).
+    if env_wallet_dir_override_active():
+        if read_scoped_active_wallet() == name:
+            write_scoped_active_wallet(None)
+    else:
+        config_file = Path.home() / ".aitbc" / "config.yaml"
+        if config_file.exists():
+            import yaml
 
-        with open(config_file) as f:
-            config = yaml.safe_load(f) or {}
+            with open(config_file) as f:
+                config = yaml.safe_load(f) or {}
 
-        if config.get("active_wallet") == name:
-            config["active_wallet"] = "default"
-            with open(config_file, "w") as f:
-                yaml.dump(config, f, default_flow_style=False)
+            if config.get("active_wallet") == name:
+                config["active_wallet"] = "default"
+                with open(config_file, "w") as f:
+                    yaml.dump(config, f, default_flow_style=False)
 
     # Audit the wallet/key-material deletion (#2421). Reached only after the
     # file is unlinked — a declined confirm or missing wallet returns early.
@@ -587,9 +602,12 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
     _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
-    # Get active wallet from config
+    # Get active wallet — env-scoped pointer under AITBC_WALLET_DIR (#2729),
+    # else the global config.yaml value.
     active_wallet = "default"
-    if config_file.exists():
+    if env_wallet_dir_override_active():
+        active_wallet = read_scoped_active_wallet() or "default"
+    elif config_file.exists():
         import yaml
 
         with open(config_file) as f:

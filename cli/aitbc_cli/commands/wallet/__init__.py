@@ -15,8 +15,10 @@ from ...utils import error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger
 from ...utils.wallet_paths import (
     ambiguous_wallet_note,
+    env_wallet_dir_override_active,
     find_wallet_file_report,
     is_service_wallet_path,
+    read_scoped_active_wallet,
     wallet_dir as resolve_wallet_dir,
 )
 
@@ -293,18 +295,24 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
     wallet_dir = resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set active wallet (priority: CLI arg > env var > config.yaml > 'default')
+    # Set active wallet (priority: CLI arg > env var > scoped/config > 'default')
     if not wallet_name:
         # 1. Check AITBC_DEFAULT_WALLET env var
         wallet_name = os.environ.get("AITBC_DEFAULT_WALLET")
-        # 2. Check config.yaml for active_wallet
+        # 2. Check the active-wallet pointer: env-scoped file under
+        #    AITBC_WALLET_DIR (#2729), else global config.yaml. Under the
+        #    env override the global config is not consulted — a scratch
+        #    scope must not inherit the node's real active wallet.
         if not wallet_name:
-            config_file = Path.home() / ".aitbc" / "config.yaml"
-            if config_file.exists():
-                with open(config_file) as f:
-                    config = yaml.safe_load(f)
-                    if config:
-                        wallet_name = config.get("active_wallet")
+            if env_wallet_dir_override_active():
+                wallet_name = read_scoped_active_wallet()
+            else:
+                config_file = Path.home() / ".aitbc" / "config.yaml"
+                if config_file.exists():
+                    with open(config_file) as f:
+                        config = yaml.safe_load(f)
+                        if config:
+                            wallet_name = config.get("active_wallet")
         # 3. Fall back to 'default'
         if not wallet_name:
             wallet_name = "default"

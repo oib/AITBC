@@ -28,7 +28,12 @@ from ..utils.agent_signing import (
     signed_request_headers,
 )
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
-from ..utils.wallet_paths import find_wallet_file, wallet_search_dirs
+from ..utils.wallet_paths import (
+    env_wallet_dir_override_active,
+    find_wallet_file,
+    read_scoped_active_wallet,
+    wallet_search_dirs,
+)
 from ..utils.wallet_secret import wallet_password_options
 from aitbc.utils.units import format_ait
 
@@ -167,12 +172,16 @@ def _ws_auth_token(
 def _default_wallet_name() -> str | None:
     """Resolve the configured default wallet name.
 
-    Checks the AITBC_DEFAULT_WALLET env var first, then ``active_wallet`` in
-    ~/.aitbc/config.yaml. Returns None when neither is set.
+    Checks the AITBC_DEFAULT_WALLET env var first, then the active-wallet
+    pointer — the env-scoped file under AITBC_WALLET_DIR (#2729) or
+    ``active_wallet`` in ~/.aitbc/config.yaml. Returns None when neither
+    is set.
     """
     wallet_name = os.environ.get("AITBC_DEFAULT_WALLET")
     if wallet_name:
         return wallet_name
+    if env_wallet_dir_override_active():
+        return read_scoped_active_wallet()
     config_file = Path.home() / ".aitbc" / "config.yaml"
     if not config_file.exists():
         return None

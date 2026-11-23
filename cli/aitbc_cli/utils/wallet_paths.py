@@ -133,6 +133,52 @@ def find_wallet_file(wallet_name: str) -> Path | None:
     return find_wallet_file_report(wallet_name).path
 
 
+# --- Env-scoped active wallet (#2729) ---------------------------------------
+#
+# ``wallet switch`` used to write ``active_wallet`` into the global
+# ``~/.aitbc/config.yaml`` even when the wallet only resolved through an
+# ``AITBC_WALLET_DIR`` override — leaking a scratch-dir-only name into
+# global config and breaking every later unscoped invocation. When the
+# override is active the active-wallet pointer lives in
+# ``<AITBC_WALLET_DIR>/.active_wallet`` instead, and the global config is
+# neither read nor written.
+
+
+def env_wallet_dir_override_active() -> bool:
+    """True when ``AITBC_WALLET_DIR`` is set (wallet resolution is scoped)."""
+    return bool(os.getenv("AITBC_WALLET_DIR"))
+
+
+def scoped_active_wallet_path() -> Path | None:
+    """Path of the env-scoped active-wallet pointer, or None when unscoped."""
+    env = os.getenv("AITBC_WALLET_DIR")
+    return Path(env) / ".active_wallet" if env else None
+
+
+def read_scoped_active_wallet() -> str | None:
+    """Active wallet name recorded under the ``AITBC_WALLET_DIR`` scope."""
+    path = scoped_active_wallet_path()
+    if path is None:
+        return None
+    try:
+        name = path.read_text().strip()
+    except OSError:
+        return None
+    return name or None
+
+
+def write_scoped_active_wallet(name: str | None) -> None:
+    """Record (or clear, with None) the env-scoped active wallet."""
+    path = scoped_active_wallet_path()
+    if path is None:
+        return
+    if name is None:
+        path.unlink(missing_ok=True)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(name + "\n")
+
+
 def is_service_wallet_path(path: Path) -> bool:
     """True when *path* sits inside one of the service wallet directories."""
     try:
