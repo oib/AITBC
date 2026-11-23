@@ -20,7 +20,7 @@
 | Merkle proof verification | `state/merkle_patricia_trie.py:verify_proof` | Trie inclusion proof for lock events |
 | Finality tracking | `BridgeBlockHeader.confirmation_count` + `_check_finality_for_transfer` | Confirmation counting, large-transfer finality gate |
 | Release fence | `bridge_release_enabled` config | Gates confirm/release path (default: `False` — trusted-custodian mode) |
-| HTLC settlement | `cross_chain/settlement.py` + `contracts/htlc_contract.py` | Fund locking, secret reveal, timelock enforcement, refund |
+| HTLC settlement (retired) | `cross_chain/settlement.py` and retired RPC handlers | Historical escrow reads; no new settlement writes |
 | Bridge enhanced (coordinator) | `coordinator-api/.../bridge_enhanced.py` | HTLC swap initiation, wallet adapter calls |
 | Bridge payout monitor | `apps/bridge-monitor/` | Sepolia deposit watch, AIT payout signing/submission, ledger row lifecycle, operator admin commands |
 
@@ -304,8 +304,7 @@ on the row for auditability.
 
 ### HTLC Settlement (v0.9.0)
 
-- `tests/test_htlc_contract.py` — 12 tests (initiate/complete/refund + settlement integration)
-- `tests/test_settlement.py` — 20+ tests (full escrow lifecycle, proof chain, timeout, refund)
+- `tests/test_settlement.py` — retirement refusals, legacy reads, proof chain, and timeout handling.
 
 ### Pending Test Coverage
 
@@ -339,5 +338,4 @@ Remaining:
 - [v0.7.1 Change Log](../releases/v0.7/v0.7.1_change.log) — Bridge security (multi-sig)
 - [General Threat Model](../security/threat-model.md) — Platform-wide threats
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` — Bridge implementation
-- `apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py` — HTLC contract
-- `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py` — Settlement service
+- `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py` — legacy escrow reads and retired settlement behavior
