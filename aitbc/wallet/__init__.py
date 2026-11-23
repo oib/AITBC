@@ -10,7 +10,6 @@ Provides:
 from __future__ import annotations
 
 from .agent_wallet import AgentWallet, WalletStatus
-from .confidential import ConfidentialTransaction, ConfidentialWallet
 from .errors import (
     AgentWalletError,
     AllowanceExceededError,
@@ -24,8 +23,6 @@ __all__ = [
     "AgentWallet",
     "AgentWalletError",
     "AllowanceExceededError",
-    "ConfidentialTransaction",
-    "ConfidentialWallet",
     "Escrow",
     "EscrowAllowance",
     "EscrowError",

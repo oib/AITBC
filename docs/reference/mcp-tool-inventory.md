@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**825 tools** across 142 modules.
+**823 tools** across 141 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 565 |
+| generated | 563 |
 | other | 8 |
 | rpc | 116 |
 
@@ -35,7 +35,6 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_cluster.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_coin_requests.py | 8 |
 | mcp-server/aitbc_mcp_cli_tools_generated_compliance.py | 3 |
-| mcp-server/aitbc_mcp_cli_tools_generated_confidential.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_config.py | 18 |
 | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | 9 |
 | mcp-server/aitbc_mcp_cli_tools_generated_crosschain.py | 5 |
@@ -408,8 +407,6 @@
 | `aitbc_compliance_check` | mcp-server/aitbc_mcp_cli_tools_generated_compliance.py | generated | `aitbc compliance check` |
 | `aitbc_compliance_classify` | mcp-server/aitbc_mcp_cli_tools_generated_compliance.py | generated | `aitbc compliance classify` |
 | `aitbc_compliance_export_audit` | mcp-server/aitbc_mcp_cli_tools_generated_compliance.py | generated | `aitbc compliance export-audit` |
-| `aitbc_confidential_balance` | mcp-server/aitbc_mcp_cli_tools_generated_confidential.py | generated | `aitbc confidential balance` |
-| `aitbc_confidential_send` | mcp-server/aitbc_mcp_cli_tools_generated_confidential.py | generated | `aitbc confidential send` |
 | `aitbc_config_check` | mcp-server/aitbc_mcp_cli_tools_generated_config.py | generated | `aitbc config check` |
 | `aitbc_config_check_keys` | mcp-server/aitbc_mcp_cli_tools_generated_config.py | generated | `aitbc config check-keys` |
 | `aitbc_config_edit` | mcp-server/aitbc_mcp_cli_tools_generated_config.py | generated | `aitbc config edit` |

@@ -32,7 +32,6 @@ tests/
 │   ├── test_wallet_daemon.py
 │   └── test_user_scenarios.py
 ├── security/               # Security tests
-│   ├── test_confidential_transactions.py
 │   └── test_security_comprehensive.py
 ├── load/                   # Load tests
 │   └── locustfile.py

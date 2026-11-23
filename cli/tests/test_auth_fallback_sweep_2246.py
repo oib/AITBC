@@ -5,7 +5,7 @@ credentials explicit ``--api-key`` > stored ``auth login`` JWT >
 
 Covers the sites swept in this row: market escrow relay/create/refund +
 payment lookup, market job tracking, market gpu auth headers, dispute
-coordinator client, confidential + economics API clients, and the ai
+coordinator client, economics API client, and the ai
 command auth-header helper's config fallback.
 """
 
@@ -19,7 +19,6 @@ from unittest.mock import MagicMock
 import click
 
 import aitbc_cli.commands.ai as ai_mod
-import aitbc_cli.commands.confidential as confidential_mod
 import aitbc_cli.commands.dispute as dispute_mod
 import aitbc_cli.commands.economics as economics_mod
 import aitbc_cli.commands.market.escrow as escrow_mod
@@ -174,30 +173,6 @@ def test_dispute_coordinator_client_explicit_key_wins(monkeypatch):
     dispute_mod._coordinator_client(cast(click.Context, SimpleNamespace(obj={"api_key": "explicit-key"})))
     assert ctor.call_args.kwargs["api_key"] == "explicit-key"
     assert "headers" not in ctor.call_args.kwargs
-
-
-# --- confidential.py ----------------------------------------------------------
-
-
-def test_confidential_api_client_uses_stored_jwt(monkeypatch):
-    _stub_store(monkeypatch, JWT)
-    config = SimpleNamespace(coordinator_api_url="http://coord:8203/v1", api_key=None, timeout=10)
-    monkeypatch.setattr(confidential_mod, "get_config", lambda: config)
-    ctor = MagicMock()
-    monkeypatch.setattr(confidential_mod, "AITBCHTTPClient", ctor)
-
-    client = confidential_mod._api_client()
-    assert client is ctor.return_value
-    assert ctor.call_args.kwargs["headers"] == {"Authorization": f"Bearer {JWT}"}
-    # Trailing /v1 is stripped — endpoints carry their own /v1 prefix.
-    assert ctor.call_args.kwargs["base_url"] == "http://coord:8203"
-
-
-def test_confidential_api_client_none_without_any_credential(monkeypatch):
-    _stub_store(monkeypatch, None)
-    config = SimpleNamespace(coordinator_api_url="http://coord:8203", api_key=None, timeout=10)
-    monkeypatch.setattr(confidential_mod, "get_config", lambda: config)
-    assert confidential_mod._api_client() is None
 
 
 # --- economics.py -------------------------------------------------------------
