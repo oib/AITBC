@@ -148,6 +148,7 @@ from .escrow_routes_helpers import (
     rpc_peer_key_accepted as rpc_peer_key_accepted,
     verify_rpc_api_key as verify_rpc_api_key,
     verify_rpc_export_key as verify_rpc_export_key,
+    verify_rpc_fleet_peer_key as verify_rpc_fleet_peer_key,
     verify_rpc_fleet_read_key as verify_rpc_fleet_read_key,
     verify_rpc_peer_key as verify_rpc_peer_key,
     verify_rpc_settlement_key as verify_rpc_settlement_key,
@@ -191,7 +192,7 @@ from .escrow_routes_refund import (
     _refund_settle_locked_impl as _refund_settle_locked_impl,
 )
 
-router = APIRouter(tags=["escrow"], dependencies=[Depends(verify_rpc_api_key)])
+router = APIRouter(tags=["escrow"])
 
 
 def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | None = None) -> str | None:
@@ -723,7 +724,11 @@ def _persist_escrow_row_sync(
         session.commit()
 
 
-@router.post("/escrow/create", summary="Create escrow for a job")
+@router.post(
+    "/escrow/create",
+    summary="Create escrow for a job",
+    dependencies=[Depends(verify_rpc_api_key)],
+)
 async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     """Create a new escrow contract after the buyer has signed an ESCROW_LOCK transaction.
 
@@ -875,7 +880,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
 @router.post(
     "/escrow/{job_id}/release",
     summary="Release escrow to provider",
-    dependencies=[Depends(verify_rpc_settlement_key)],
+    dependencies=[Depends(verify_rpc_fleet_peer_key), Depends(verify_rpc_settlement_key)],
 )
 async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]:
     """Release locked funds to the provider after job completion.
@@ -950,7 +955,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
 @router.post(
     "/escrow/{job_id}/refund",
     summary="Refund escrow to buyer",
-    dependencies=[Depends(verify_rpc_settlement_key)],
+    dependencies=[Depends(verify_rpc_fleet_peer_key), Depends(verify_rpc_settlement_key)],
 )
 async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     """Refund locked funds back to the buyer."""
@@ -976,7 +981,7 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
         raise _escrow_busy(job_id) from None
 
 
-@router.get("/escrow/{job_id}", summary="Get escrow state")
+@router.get("/escrow/{job_id}", summary="Get escrow state", dependencies=[Depends(verify_rpc_api_key)])
 async def get_escrow(job_id: str) -> dict[str, Any]:
     """Get current escrow state for a job."""
     mgr = get_escrow_manager()
