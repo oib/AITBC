@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 06 Basic Trading, Scenario 20 Cross-Chain Transfer
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-11-20
-**Version**: 1.1
+**Last Updated**: 2026-11-23
+**Version**: 1.2
 
 **Legs**: 4
 
@@ -121,31 +121,29 @@ aitbc trade match-all
 `--amount` and `--quantity` are integers; `--price` is the agreed price
 ratio. `create` opens a real inter-chain trade.
 
-### 4. Escrowed settlement — RETIRED (#2385)
+### 4. Settlement rail retired — refusal check (#2385)
 
 The HTLC inter-chain settlement rail is **retired**: HTLC emissions
 carry no `payload.auth` and cannot seal at block version 9, so no escrow
 could ever lock, verify, settle, or refund. The node's
 `/rpc/bridge/settlement/*` mutating endpoints and the trading service's
 `lock-escrow`/`settle` routes answer **410 Gone**; the CLI surfaces the
-retirement message. Only the read legs remain:
+retirement message. This step is played as a **refusal check** — the
+verified behavior is that the retired surface fails honestly while the
+read path stays live:
 
 ```bash
 aitbc trade settlement-status --trade-id <trade-id>   # read-only, still works
+aitbc trade lock-escrow --trade-id <trade-id> --node-url http://localhost:8202   # expect: retired message, non-zero exit
+aitbc trade settle      --trade-id <trade-id> --secret <secret>                  # expect: retired message, non-zero exit
+aitbc trade refund      --trade-id <trade-id>                                    # expect: retired message, non-zero exit
 ```
 
-The retired commands remain for interface compatibility and fail
-honestly:
-
-```bash
-aitbc trade lock-escrow --trade-id <trade-id> --node-url http://localhost:8202   # → retired
-aitbc trade settle      --trade-id <trade-id> --secret <secret>                  # → retired
-aitbc trade refund      --trade-id <trade-id>                                    # → retired
-```
-
-`settlement-status` reports the trade's local `settlement_phase` plus the
-live escrow status for any legacy escrow row. Escrow legs of this
-scenario are descoped; do not attempt them on a live island.
+Pass criteria: `settlement-status` answers (the trade's local
+`settlement_phase` plus the live escrow status for any legacy escrow
+row), and each retired command prints the retirement message and exits
+non-zero **before** any state change. Do not attempt real escrow legs on
+a live island — they are permanently descoped.
 
 ---
 
