@@ -21,7 +21,11 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from aitbc.auth import create_access_token
-from coordinator_api.contexts.agent_coordination.domain.agent import AIAgentWorkflow
+from coordinator_api.contexts.agent_coordination.domain.agent import (
+    AgentExecution,
+    AgentStatus,
+    AIAgentWorkflow,
+)
 
 ADMIN_A = "admin-a"
 ADMIN_B = "admin-b"
@@ -188,6 +192,48 @@ class TestWorkflowExecuteGate:
         )
         assert resp.status_code == 501
         assert "simulation" in resp.json()["detail"].lower()
+
+
+@pytest.mark.unit
+class TestWorkflowCancel:
+    """#2688: cancel called a method AIAgentOrchestrator does not have — every
+    request 500'd. It now goes through AgentStateManager and the execution
+    must belong to the path workflow."""
+
+    def _seed_execution(
+        self, db_session: Session, workflow_id: str, status: AgentStatus = AgentStatus.RUNNING
+    ) -> AgentExecution:
+        ex = AgentExecution(workflow_id=workflow_id, client_id="client1", status=status)
+        db_session.add(ex)
+        db_session.commit()
+        db_session.refresh(ex)
+        return ex
+
+    def test_cancel_execution_marks_cancelled(self, client: TestClient, db_session: Session) -> None:
+        wf_id = _seed_workflow(db_session, ADMIN_A)
+        ex = self._seed_execution(db_session, wf_id)
+        resp = client.post(f"/v1/agents/workflows/{wf_id}/cancel?execution_id={ex.id}", headers=_admin_a())
+        assert resp.status_code == 200
+        db_session.refresh(ex)
+        assert ex.status == AgentStatus.CANCELLED
+        assert ex.completed_at is not None
+
+    def test_cancel_foreign_workflow_execution_404(self, client: TestClient, db_session: Session) -> None:
+        wf_a = _seed_workflow(db_session, ADMIN_A, name="wf-a")
+        wf_b = _seed_workflow(db_session, ADMIN_A, name="wf-b")
+        ex = self._seed_execution(db_session, wf_b)
+        resp = client.post(f"/v1/agents/workflows/{wf_a}/cancel?execution_id={ex.id}", headers=_admin_a())
+        assert resp.status_code == 404
+        db_session.refresh(ex)
+        assert ex.status == AgentStatus.RUNNING
+
+    def test_cancel_other_users_workflow_403(self, client: TestClient, db_session: Session) -> None:
+        wf_id = _seed_workflow(db_session, ADMIN_A)
+        ex = self._seed_execution(db_session, wf_id)
+        resp = client.post(f"/v1/agents/workflows/{wf_id}/cancel?execution_id={ex.id}", headers=_admin_b())
+        assert resp.status_code == 403
+        db_session.refresh(ex)
+        assert ex.status == AgentStatus.RUNNING
 
 
 @pytest.mark.unit
