@@ -179,3 +179,14 @@ class TestFeedbackRatingBounds:
 
     def test_valid_rating_accepted(self, client: TestClient) -> None:
         assert self._post(client, {"overall": 4.5}) == 200
+
+    def test_service_valueerror_maps_to_400(self, client: TestClient, monkeypatch) -> None:
+        """#2725: a service-layer ValueError (the bounds guard for non-API
+        callers) is a client error, not a catch-all 500."""
+        from coordinator_api.contexts.reputation.services.reputation_service import ReputationService
+
+        async def _raise(*args, **kwargs):
+            raise ValueError("rating 'overall' must be finite and within 1..5")
+
+        monkeypatch.setattr(ReputationService, "add_community_feedback", _raise)
+        assert self._post(client, {"overall": 4.5}) == 400

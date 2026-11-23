@@ -213,23 +213,10 @@ async def create_reputation_profile(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/feedback/{agent_id}", response_model=FeedbackResponse)
-@rate_limit(rate=20, per=60)
-async def add_community_feedback(
-    request: Request,
-    agent_id: str,
-    feedback_request: FeedbackRequest,
-    session: Annotated[Session, Depends(get_session)],
-    user: AdminOrClientDep,
-) -> FeedbackResponse:
-    """Add community feedback for an agent.
-
-    The reviewer is always the authenticated caller — never the request body —
-    and a non-admin caller must name a completed job they paid this agent for,
-    so a rating is anchored to delivered work rather than free-floating — and
-    the unique (reviewer, job_id) constraint makes one job good for exactly one
-    review.
-    """
+async def _require_feedback_eligibility(
+    session: Session, user: dict[str, Any], agent_id: str, feedback_request: FeedbackRequest
+) -> None:
+    """Anchor feedback to delivered work and enforce the one-review-per-job rule."""
     if user.get("role") != "admin":
         if not feedback_request.job_id:
             raise HTTPException(status_code=422, detail="feedback requires a job_id anchoring it to completed work")
@@ -273,6 +260,26 @@ async def add_community_feedback(
         )
         if existing is not None:
             raise HTTPException(status_code=409, detail="you have already reviewed this job")
+
+
+@router.post("/feedback/{agent_id}", response_model=FeedbackResponse)
+@rate_limit(rate=20, per=60)
+async def add_community_feedback(
+    request: Request,
+    agent_id: str,
+    feedback_request: FeedbackRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> FeedbackResponse:
+    """Add community feedback for an agent.
+
+    The reviewer is always the authenticated caller — never the request body —
+    and a non-admin caller must name a completed job they paid this agent for,
+    so a rating is anchored to delivered work rather than free-floating — and
+    the unique (reviewer, job_id) constraint makes one job good for exactly one
+    review.
+    """
+    await _require_feedback_eligibility(session, user, agent_id, feedback_request)
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         feedback = await run_in_threadpool(
@@ -306,6 +313,10 @@ async def add_community_feedback(
         # Backstop for the pre-check above: a concurrent duplicate submission
         # hits the (reviewer_id, job_id) unique index.
         raise HTTPException(status_code=409, detail="you have already reviewed this job") from None
+    except ValueError as e:
+        # Service-layer validation (e.g. rating bounds for non-API callers)
+        # is a client error, not a server fault (#2725).
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("Error adding feedback for agent %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")

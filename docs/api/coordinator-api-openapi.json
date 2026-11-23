@@ -31434,6 +31434,16 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "403": {
             "description": "feedback requires a client account / feedback requires a completed job between you and this agent / Role required",
             "content": {
