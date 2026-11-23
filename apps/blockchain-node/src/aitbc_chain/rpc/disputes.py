@@ -396,7 +396,7 @@ def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResponse]:
         result = dispute_resolution_service.get_arbitration_votes(dispute_id)
         if not result.get("success"):
             _raise_for_failed_dispute_call(result, "Failed to get arbitration votes")
-        return [GetArbitrationVotesResponse(**v) for v in result["votes"]]
+        return [GetArbitrationVotesResponse(dispute_id=dispute_id, votes=[vote]) for vote in result["votes"]]
     except HTTPException:
         raise
     except Exception as e:
