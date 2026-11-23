@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 
 import click
@@ -75,6 +76,36 @@ def _coordinator_base() -> str:
     return url.rstrip("/")
 
 
+def _resolve_miner_id(explicit: str | None) -> str:
+    """Miner identity for ``X-Miner-ID``: explicit flag, ``MINER_ID`` env,
+    then the miner service env files (same sources the shop dashboard uses).
+    Empty string means "send no header" — the coordinator then derives its
+    ``miner_<hash>`` fallback for unbound keys."""
+    if explicit:
+        return explicit
+    env = os.environ.get("MINER_ID")
+    if env:
+        return env
+    try:
+        from .dashboard import _miner_env
+
+        return _miner_env().get("MINER_ID") or ""
+    except Exception:  # noqa: BLE001 - env-file parsing is best-effort identity resolution
+        return ""
+
+
+def _register_miner_id(miner_id: str | None) -> str | None:
+    """Resolve the X-Miner-ID for a native profile write, warning when nothing
+    resolves so the derived ``miner_<hash>`` fallback is a visible choice."""
+    resolved = _resolve_miner_id(miner_id)
+    if not resolved:
+        warning(
+            "No miner id resolved — the coordinator will derive miner_<hash> from the API key. "
+            "Pass --miner-id or set MINER_ID if the profile is owned by a specific miner (#2764)."
+        )
+    return resolved or None
+
+
 def _coordinator_client(ctx, *, miner: bool = False, timeout: int = 30) -> AITBCHTTPClient:
     """HTTP client for the coordinator, with miner-credential auth when needed."""
     explicit = ctx.obj.get("api_key") if ctx.obj else None
@@ -88,6 +119,7 @@ def _native_energy_request(
     path: str,
     *,
     miner: bool = False,
+    miner_id: str | None = None,
     params: dict | None = None,
     json_body: dict | None = None,
     timeout: int = 15,
@@ -116,11 +148,20 @@ def _native_energy_request(
 
     last: Exception | None = None
     for base in bases:
-        explicit = ctx.obj.get("api_key") if ctx.obj else None
+        explicit = (getattr(ctx, "obj", None) or {}).get("api_key")
         kwargs = auth_client_kwargs(
             explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client"
         )
-        client = AITBCHTTPClient(base_url=base, timeout=timeout, **kwargs)
+        client_kwargs = dict(kwargs)
+        merged_headers = dict(client_kwargs.pop("headers", None) or {})
+        if miner_id:
+            # MinerDep accepts a caller-asserted X-Miner-ID on unbound keys
+            # (#2764); without it the coordinator derives miner_<hash> and
+            # GPURegistry ownership checks 403.
+            merged_headers["X-Miner-ID"] = miner_id
+        if merged_headers:
+            client_kwargs["headers"] = merged_headers
+        client = AITBCHTTPClient(base_url=base, timeout=timeout, **client_kwargs)
         try:
             if method == "get":
                 return client.get(path, params=params)
@@ -227,6 +268,11 @@ def provider():
 @click.option("--eur-per-kwh", type=float, required=True, help="EUR per kWh tariff")
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
+@click.option(
+    "--miner-id",
+    default=None,
+    help="Miner identity sent as X-Miner-ID on the native rail (default: MINER_ID env / miner env files)",
+)
 @wallet_password_options
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
@@ -239,6 +285,7 @@ def provider_register(
     eur_per_kwh,
     wallet,
     wallet_path,
+    miner_id,
     password,
     password_file,
     password_stdin,
@@ -253,6 +300,7 @@ def provider_register(
                 "post",
                 "/v1/market/native-energy/profile",
                 miner=True,
+                miner_id=_register_miner_id(miner_id),
                 json_body={
                     "resource_id": resource_id,
                     "provider": provider_address,
@@ -738,6 +786,7 @@ def _register_suggestion(
     tariff,
     wallet,
     wallet_path,
+    miner_id,
     password,
     password_file,
     password_stdin,
@@ -757,6 +806,7 @@ def _register_suggestion(
             eur_per_kwh=float(tariff),
             wallet=wallet,
             wallet_path=wallet_path,
+            miner_id=miner_id,
             password=password,
             password_file=password_file,
             password_stdin=password_stdin,
@@ -770,6 +820,7 @@ def _register_suggestion(
             "post",
             "/v1/market/native-energy/profile",
             miner=True,
+            miner_id=_register_miner_id(miner_id),
             json_body={
                 "resource_id": resource_id,
                 "provider": provider_address,
@@ -895,6 +946,11 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
 @click.option("--model-id", help="Model ID for registration (default: detected model)")
 @click.option("--wallet", help="Wallet name for signing (with --register)")
 @click.option("--wallet-path", help="Direct wallet file path (with --register)")
+@click.option(
+    "--miner-id",
+    default=None,
+    help="Miner identity sent as X-Miner-ID on the native rail (with --register; default: MINER_ID env / miner env files)",
+)
 @wallet_password_options
 @click.option("--register", is_flag=True, help="Submit the on-chain energy profile registration")
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
@@ -917,6 +973,7 @@ def suggest(
     model_id,
     wallet,
     wallet_path,
+    miner_id,
     password,
     password_file,
     password_stdin,
@@ -1052,6 +1109,7 @@ def suggest(
             tariff=tariff,
             wallet=wallet,
             wallet_path=wallet_path,
+            miner_id=miner_id,
             password=password,
             password_file=password_file,
             password_stdin=password_stdin,
