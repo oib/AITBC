@@ -24,12 +24,14 @@ from ....custom_types import JobState
 from ....storage import get_session
 from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
+from ..domain.cross_chain_reputation import CrossChainReputationAggregation
 from ..domain.reputation import (
     AgentReputation,
     CommunityFeedback,
     ReputationEvent,
     ReputationLevel,
 )
+from ..services.reputation_engine import CrossChainReputationEngine
 from ..services.reputation_service import ReputationService
 
 logger = get_logger(__name__)
@@ -586,9 +588,31 @@ def update_region(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _cross_chain_aggregation(session: Session, agent_id: str) -> CrossChainReputationAggregation | None:
+    return (
+        session.execute(select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id))
+        .scalars()
+        .first()
+    )
+
+
+def _cross_chain_view(aggregation: CrossChainReputationAggregation | None) -> dict[str, Any]:
+    """Real stored aggregation values — never fabricated constants (#2722)."""
+    active_chains = list(aggregation.active_chains) if aggregation and aggregation.active_chains else []
+    chain_scores = dict(aggregation.chain_scores) if aggregation and aggregation.chain_scores else {}
+    return {
+        "aggregated_score": aggregation.aggregated_score if aggregation else 0.0,
+        "chain_count": (aggregation.chain_count or len(active_chains)) if aggregation else len(active_chains),
+        "active_chains": active_chains or sorted(chain_scores, key=lambda c: int(c)),
+        "chain_scores": chain_scores,
+        "consistency_score": aggregation.consistency_score if aggregation else 0.0,
+        "verification_status": aggregation.verification_status if aggregation else "pending",
+    }
+
+
 @router.get("/{agent_id}/cross-chain")
 @rate_limit(rate=200, per=60)
-def get_cross_chain_reputation(
+async def get_cross_chain_reputation(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -599,24 +623,25 @@ def get_cross_chain_reputation(
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
+        # #2722: refresh through the real engine, then report the stored
+        # aggregation — the previous literals (chain_count 1, consistency
+        # 1.0, "verified") were fabricated for every agent.
+        engine = CrossChainReputationEngine(session)  # type: ignore[arg-type]
+        await engine.aggregate_cross_chain_reputation(agent_id)
+        aggregation = _cross_chain_aggregation(session, agent_id)
+        cross_chain = _cross_chain_view(aggregation)
         return {
             "agent_id": agent_id,
-            "cross_chain": {
-                "aggregated_score": reputation.trust_score / 1000.0,
-                "chain_count": 1,
-                "active_chains": [1],
-                "chain_scores": {1: reputation.trust_score / 1000.0},
-                "consistency_score": 1.0,
-                "verification_status": "verified",
-            },
+            "cross_chain": cross_chain,
             "chain_reputations": {
-                1: {
+                chain_id: {
                     "trust_score": reputation.trust_score,
                     "reputation_level": reputation.reputation_level.value,
                     "transaction_count": reputation.transaction_count,
                     "success_rate": reputation.success_rate,
                     "last_updated": reputation.updated_at.isoformat(),
                 }
+                for chain_id in cross_chain["active_chains"]
             },
             "last_updated": datetime.now(UTC).isoformat(),
         }
@@ -630,10 +655,9 @@ def get_cross_chain_reputation(
 
 @router.post("/{agent_id}/cross-chain/sync")
 @rate_limit(rate=20, per=60)
-def sync_cross_chain_reputation(
+async def sync_cross_chain_reputation(
     request: Request,
     agent_id: str,
-    background_tasks: Any,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
     user: AdminDep,
@@ -643,12 +667,21 @@ def sync_cross_chain_reputation(
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
+        # #2722: actually recompute — the previous "completed" reply synced
+        # nothing.
+        engine = CrossChainReputationEngine(session)  # type: ignore[arg-type]
+        await engine.aggregate_cross_chain_reputation(agent_id)
+        aggregation = _cross_chain_aggregation(session, agent_id)
+        cross_chain = _cross_chain_view(aggregation)
         return {
             "agent_id": agent_id,
             "sync_status": "completed",
-            "chains_synced": [1],
+            "chains_synced": cross_chain["active_chains"],
+            "chain_count": cross_chain["chain_count"],
+            "aggregated_score": cross_chain["aggregated_score"],
+            "chain_scores": cross_chain["chain_scores"],
             "sync_timestamp": datetime.now(UTC).isoformat(),
-            "message": "Cross-chain reputation synchronized successfully",
+            "message": "Cross-chain reputation synchronized",
         }
     except HTTPException:
         raise
@@ -680,16 +713,32 @@ def get_cross_chain_leaderboard(
             .scalars()
             .all()
         )
+        # #2722: per-agent cross-chain fields come from the stored
+        # aggregations, not literals — agents without one report empty.
+        agent_ids = [rep.agent_id for rep in reputations]
+        aggregations: dict[str, CrossChainReputationAggregation] = {}
+        if agent_ids:
+            for agg in (
+                session.execute(
+                    select(CrossChainReputationAggregation).where(
+                        CrossChainReputationAggregation.agent_id.in_(agent_ids)  # type: ignore[attr-defined]
+                    )
+                )
+                .scalars()
+                .all()
+            ):
+                aggregations[agg.agent_id] = agg
         agents = []
         for rep in reputations:
+            cross_chain = _cross_chain_view(aggregations.get(rep.agent_id))
             agents.append(
                 {
                     "agent_id": rep.agent_id,
-                    "aggregated_score": rep.trust_score / 1000.0,
-                    "chain_count": 1,
-                    "active_chains": [1],
-                    "consistency_score": 1.0,
-                    "verification_status": "verified",
+                    "aggregated_score": cross_chain["aggregated_score"],
+                    "chain_count": cross_chain["chain_count"],
+                    "active_chains": cross_chain["active_chains"],
+                    "consistency_score": cross_chain["consistency_score"],
+                    "verification_status": cross_chain["verification_status"],
                     "trust_score": rep.trust_score,
                     "reputation_level": rep.reputation_level.value,
                     "transaction_count": rep.transaction_count,
@@ -717,7 +766,6 @@ def get_cross_chain_leaderboard(
 def submit_cross_chain_event(
     request: Request,
     event_data: dict[str, Any],
-    background_tasks: Any,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
     user: AdminDep,
@@ -802,7 +850,10 @@ def get_cross_chain_analytics(
             "score_distribution": score_ranges,
             "cross_chain_metrics": {
                 "cross_chain_agents": total_agents,
-                "average_consistency_score": 1.0,
+                # #2722: real average over stored aggregations, not a literal.
+                "average_consistency_score": (
+                    session.execute(select(func.avg(CrossChainReputationAggregation.consistency_score))).scalar() or 0.0
+                ),
                 "chain_diversity_score": 0.0,
             },
             "generated_at": datetime.now(UTC).isoformat(),

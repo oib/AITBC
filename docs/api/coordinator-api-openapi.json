@@ -31866,14 +31866,6 @@
             }
           },
           {
-            "name": "background_tasks",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Background Tasks"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -32013,14 +32005,6 @@
         "description": "Submit a cross-chain reputation event",
         "operationId": "submit_cross_chain_event_v1_reputation_cross_chain_events_post",
         "parameters": [
-          {
-            "name": "background_tasks",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Background Tasks"
-            }
-          },
           {
             "name": "Authorization",
             "in": "header",
