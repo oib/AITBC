@@ -12,6 +12,7 @@ so the command layer retains full control over what is signed.
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -265,13 +266,33 @@ class EVMContractClient:
         """(minRentalDuration, maxRentalDuration) in seconds."""
         return int(self._rental_view("minRentalDuration")), int(self._rental_view("maxRentalDuration"))
 
+    def _gas_limit(
+        self,
+        function_name: str,
+        estimate_tx: dict[str, Any],
+        gas_limit: int | None,
+    ) -> int:
+        """Resolve the gas limit for a transaction.
+
+        An explicit ``gas_limit`` is used verbatim; otherwise the limit is
+        ``eth_estimateGas`` plus 25% headroom. Estimate failures raise
+        ``RuntimeError`` -- no silent fallback to stale hardcoded values.
+        """
+        if gas_limit is not None:
+            return gas_limit
+        try:
+            estimate = self.rpc.estimate_gas(estimate_tx)
+        except Exception as e:
+            raise RuntimeError(f"eth_estimateGas failed for {function_name}: {e}") from e
+        return math.ceil(estimate * 5 / 4)
+
     def build_approve_tx(
         self,
         spender: str,
         amount: int,
         from_address: str,
         nonce: int,
-        gas_limit: int = 100_000,
+        gas_limit: int | None = None,
         gas_price: int | None = None,
     ) -> dict[str, Any]:
         """Build an ERC-20 approve transaction dict for external signing."""
@@ -286,7 +307,11 @@ class EVMContractClient:
             "to": self.token_contract,
             "from": from_address,
             "nonce": nonce,
-            "gas": gas_limit,
+            "gas": self._gas_limit(
+                "approve",
+                {"from": from_address, "to": self.token_contract, "data": data, "value": 0},
+                gas_limit,
+            ),
             "gasPrice": gas_price,
             "chainId": self.chain_id,
             "data": data,
@@ -298,7 +323,7 @@ class EVMContractClient:
         agreement_id: int,
         from_address: str,
         nonce: int,
-        gas_limit: int = 300_000,
+        gas_limit: int | None = None,
         gas_price: int | None = None,
     ) -> dict[str, Any]:
         """Build an AIPowerRental.startRental transaction dict for external signing."""
@@ -313,7 +338,11 @@ class EVMContractClient:
             "to": self.rental_contract,
             "from": from_address,
             "nonce": nonce,
-            "gas": gas_limit,
+            "gas": self._gas_limit(
+                "startRental",
+                {"from": from_address, "to": self.rental_contract, "data": data, "value": 0},
+                gas_limit,
+            ),
             "gasPrice": gas_price,
             "chainId": self.chain_id,
             "data": data,
@@ -330,7 +359,7 @@ class EVMContractClient:
         compute_units: int,
         from_address: str,
         nonce: int,
-        gas_limit: int = 500_000,
+        gas_limit: int | None = None,
         gas_price: int | None = None,
     ) -> dict[str, Any]:
         """Build an AIPowerRental.createRental transaction dict for external signing."""
@@ -345,7 +374,11 @@ class EVMContractClient:
             "to": self.rental_contract,
             "from": from_address,
             "nonce": nonce,
-            "gas": gas_limit,
+            "gas": self._gas_limit(
+                "createRental",
+                {"from": from_address, "to": self.rental_contract, "data": data, "value": 0},
+                gas_limit,
+            ),
             "gasPrice": gas_price,
             "chainId": self.chain_id,
             "data": data,
@@ -357,7 +390,7 @@ class EVMContractClient:
         agreement_id: int,
         from_address: str,
         nonce: int,
-        gas_limit: int = 200_000,
+        gas_limit: int | None = None,
         gas_price: int | None = None,
     ) -> dict[str, Any]:
         """Build an AIPowerRental.completeRental transaction dict."""
@@ -372,7 +405,11 @@ class EVMContractClient:
             "to": self.rental_contract,
             "from": from_address,
             "nonce": nonce,
-            "gas": gas_limit,
+            "gas": self._gas_limit(
+                "completeRental",
+                {"from": from_address, "to": self.rental_contract, "data": data, "value": 0},
+                gas_limit,
+            ),
             "gasPrice": gas_price,
             "chainId": self.chain_id,
             "data": data,
