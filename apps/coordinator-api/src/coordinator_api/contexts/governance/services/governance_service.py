@@ -240,6 +240,7 @@ class GovernanceService:
         from ..domain.governance import (
             GovernanceProfile,
             Proposal as DomainProposal,
+            ProposalStatus,
             Vote as DomainVote,
             effective_voting_power,
         )
@@ -252,15 +253,31 @@ class GovernanceService:
         )
         if not proposal:
             raise ValueError(f"Proposal {proposal_id} not found")
+        # #2694: votes are only accepted while the proposal is ACTIVE and
+        # inside its voting window — the tally lifecycle relies on it.
+        if proposal.status != ProposalStatus.ACTIVE:
+            raise ValueError(f"Proposal {proposal_id} is not open for voting")
+        now = _utc_now()
+        voting_starts = proposal.voting_starts
+        voting_ends = proposal.voting_ends
+        if voting_starts.tzinfo is not None:
+            voting_starts = voting_starts.replace(tzinfo=None)
+        if voting_ends.tzinfo is not None:
+            voting_ends = voting_ends.replace(tzinfo=None)
+        if now < voting_starts or now > voting_ends:
+            raise ValueError(f"Proposal {proposal_id} is outside its voting window")
+        # #2694: voter_id is the JWT sub (a user id) — resolve the governance
+        # profile by user_id, then key the vote by profile_id (the FK target).
         voter = (
-            self._session_factory.execute(sm_select(GovernanceProfile).where(GovernanceProfile.profile_id == voter_id))
+            self._session_factory.execute(sm_select(GovernanceProfile).where(GovernanceProfile.user_id == voter_id))
             .scalars()
             .first()
         )
+        vote_owner_id = voter.profile_id if voter else voter_id
         power = effective_voting_power(voter) if voter else 0.0
         existing = (
             self._session_factory.execute(
-                sm_select(DomainVote).where(DomainVote.proposal_id == proposal_id, DomainVote.voter_id == voter_id)
+                sm_select(DomainVote).where(DomainVote.proposal_id == proposal_id, DomainVote.voter_id == vote_owner_id)
             )
             .scalars()
             .first()
@@ -269,7 +286,7 @@ class GovernanceService:
             raise ValueError("voter has already voted on this proposal")  # #1071: one vote per voter
         vote = DomainVote(
             proposal_id=proposal_id,
-            voter_id=voter_id,
+            voter_id=vote_owner_id,
             vote_type=vote_type,
             voting_power_used=power,
             reason=reason,
