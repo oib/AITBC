@@ -392,6 +392,8 @@ Verify with `aitbc wallet bridge sell status --id …` or
 > bare `https://<hub>` origin — the signed-order routes publish at their
 > natural `/api/*` paths; `/exchange/` is the wallet service's mount.
 
+### D.1 — place and cross signed orders
+
 ```bash
 # on node2 — claim the seeded registry row (signs exchange_register locally)
 aitbc exchange node register --wallet <node2-wallet> --password-file ~/.aitbc-wallet-pw
