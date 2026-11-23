@@ -579,7 +579,7 @@
             }
           },
           "502": {
-            "description": "On-chain escrow lock failed; the task was not submitted",
+            "description": "On-chain escrow lock failed; the task was not distributed. Retry POST /v1/tasks/submit with the same task_id and payment terms to reconcile.",
             "content": {
               "application/json": {
                 "schema": {

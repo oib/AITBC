@@ -28,7 +28,18 @@ logger = get_logger(__name__)
 
 
 class EscrowRPCError(RuntimeError):
-    """Raised when the chain escrow RPC rejects or fails a submission."""
+    """Raised when the chain escrow RPC rejects or fails a submission.
+
+    ``status_code``/``retry_after`` carry the HTTP answer through so the
+    task-submit path can tell a retryable "lock not confirmed yet" (425 +
+    Retry-After) from a permanent rejection instead of flattening both into
+    the same 502.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_after = retry_after
 
 
 from aitbc.island_deferral import IslandDegradedError as _IslandDegradedError
@@ -82,7 +93,18 @@ class ChainEscrowClient:
         except httpx.HTTPError as e:
             raise EscrowRPCError(f"escrow RPC {path} unreachable: {e}") from e
         if response.status_code >= 400:
-            raise EscrowRPCError(f"escrow RPC {path} returned {response.status_code}: {response.text[:300]}")
+            retry_after = None
+            raw_retry_after = response.headers.get("Retry-After")
+            if raw_retry_after:
+                try:
+                    retry_after = float(raw_retry_after)
+                except ValueError:
+                    retry_after = None
+            raise EscrowRPCError(
+                f"escrow RPC {path} returned {response.status_code}: {response.text[:300]}",
+                status_code=response.status_code,
+                retry_after=retry_after,
+            )
         try:
             data = response.json()
         except ValueError as e:

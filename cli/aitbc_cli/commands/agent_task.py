@@ -44,6 +44,7 @@ from ..utils.http_client import (
     AITBCHTTPClient,
     auth_client_kwargs,
     get_logger,
+    http_error_detail,
     http_response_status,
     origin_base_url,
 )
@@ -179,6 +180,25 @@ def _inbox(
         return []
     messages = data.get("messages", []) if isinstance(data, dict) else []
     return [m for m in messages if isinstance(m, dict)]
+
+
+def _task_escrow(
+    client: AITBCHTTPClient,
+    task_id: str,
+    agent_id: str,
+    signing_key: str | None = None,
+) -> dict[str, Any] | None:
+    """GET the task escrow as ``agent_id``; signed when a buyer key exists.
+
+    ``/v1/tasks/{task_id}/escrow`` is principal-gated and party-scoped, so the
+    read must carry the same ``X-Agent-*`` headers as the inbox poll whenever
+    signing is configured. Unsigned stays unsigned — the coordinator still
+    answers 401 under enabled auth rather than exposing escrow metadata.
+    """
+    headers = signed_request_headers(agent_id, signing_key) if signing_key else None
+    data = client.get(f"/v1/tasks/{task_id}/escrow", headers=headers)
+    escrow = data.get("escrow") if isinstance(data, dict) else None
+    return escrow if isinstance(escrow, dict) else None
 
 
 def _message_content(message: dict[str, Any]) -> dict[str, Any] | None:
@@ -418,7 +438,25 @@ def _submit_task(
             },
         )
     except _OPS_ERRORS as e:
-        error(f"Task submission failed: {e}")
+        # #2738: a 502 here can still leave a persisted escrow (and sometimes a
+        # sealed on-chain lock) behind. Look the task up before aborting so the
+        # operator sees the real state instead of "nothing happened".
+        escrow_state = None
+        try:
+            escrow_state = _task_escrow(client, task_id, buyer_agent, signing_key)
+        except _OPS_ERRORS:
+            escrow_state = None
+        detail = http_error_detail(e) or str(e)
+        status = http_response_status(e)
+        answered = f"HTTP {status}" if status is not None else "a network error"
+        if escrow_state:
+            warning(
+                f"Submit for task {task_id} failed ({answered}) but an escrow already exists "
+                f"(escrow_id={escrow_state.get('escrow_id')} status={escrow_state.get('escrow_status')}). "
+                "Do not re-hire blindly — inspect with `agent-task status` and resubmit the same "
+                "task_id only if the escrow is still unresolved."
+            )
+        error(f"Task submission failed for {task_id}: {detail}")
         raise click.Abort() from e
     escrow_id = submission.get("escrow_id") if isinstance(submission, dict) else None
     if not escrow_id:
@@ -697,8 +735,7 @@ def status(
 
     escrow: dict[str, Any] | None = None
     try:
-        data = client.get(f"/v1/tasks/{task_id}/escrow")
-        escrow = data.get("escrow") if isinstance(data, dict) else None
+        escrow = _task_escrow(client, task_id, buyer_agent, signing_key)
     except _OPS_ERRORS as e:
         warning(f"Escrow lookup failed: {e}")
 

@@ -304,6 +304,17 @@ class TestChainEscrowClient:
         with pytest.raises(EscrowRPCError):
             submitter("c", "f", "t", 100)
 
+    def test_rpc_error_carries_status_and_retry_after(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(425, json={"detail": "lock not confirmed"}, headers={"Retry-After": "5"})
+
+        client = self._client(handler)
+        submitter = make_lock_submitter(client, "task-425", None, "sig")
+        with pytest.raises(EscrowRPCError) as excinfo:
+            submitter("c", "f", "t", 100)
+        assert excinfo.value.status_code == 425
+        assert excinfo.value.retry_after == 5.0
+
     def test_missing_tx_hash_raises(self):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"contract_id": "esc"})

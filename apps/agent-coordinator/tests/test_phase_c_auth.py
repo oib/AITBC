@@ -514,6 +514,36 @@ class TestTaskSubmit:
         assert entry.tx_hash_lock == "0x" + "ab" * 32
         assert entry.contract_id == "contract-1"
 
+    def test_lock_failure_is_truthful_and_retryable(self, client, fake_state, monkeypatch):
+        """#2738: a 502 must not claim success, and must point at the reconcile path."""
+        monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
+        monkeypatch.setattr(settings, "task_payment_escrow_enabled", True)
+        escrow = PaymentEscrow()
+        fake_state.payment_escrow = escrow
+        escrow.create_escrow(
+            task_id="t-ambiguous",
+            chain_id=settings.default_chain_id,
+            requester="0xBuyer",
+            agent="0xAgent",
+            amount=100,
+        )
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("chain exploded")
+
+        monkeypatch.setattr(tasks_router, "_create_task_escrow", boom)
+        resp = client.post("/v1/tasks/submit", json=self._submission("t-ambiguous"))
+
+        assert resp.status_code == 502, resp.text
+        detail = resp.json()["detail"]
+        assert "not distributed" in detail
+        assert "same task_id" in detail
+        # The task was not handed to the distributor, and the escrow stays
+        # PENDING so a same-task_id resubmit can still reconcile the lock.
+        fake_state.task_distributor.submit_task.assert_not_called()
+        entry = escrow.get_escrow_for_task("t-ambiguous")
+        assert entry is not None and entry.status == EscrowStatus.PENDING
+
     def test_no_payment_no_escrow(self, client, fake_state, monkeypatch):
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
         resp = client.post("/v1/tasks/submit", json={"task_data": {"task_id": "t-free"}})

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -22,6 +23,7 @@ from ..services.agent_auth import (
     authorize_escrow_party,
     optional_agent,
 )
+from ..services.chain_escrow import EscrowRPCError
 from ..services.nonce_store import get_nonce_store
 
 logger = get_logger(__name__)
@@ -121,6 +123,37 @@ def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> st
     return contract_id
 
 
+# The chain's escrow create answers HTTP 425 + Retry-After while the submitted
+# ESCROW_LOCK is neither sealed nor visible in the hub mempool — a retryable
+# "not confirmed yet", not a rejection. Honour Retry-After when present and
+# otherwise back off briefly; only 425 is retried, every other chain error
+# still fails the submit immediately.
+_LOCK_NOT_CONFIRMED_STATUS = 425
+_LOCK_NOT_CONFIRMED_DELAYS = (1.0, 3.0, 5.0)
+_LOCK_RETRY_AFTER_CAP_SECONDS = 10.0
+
+
+def _lock_escrow_on_chain_with_retry(escrow: Any, payment: Any, task_id: str) -> str | None:
+    attempts = 1 + len(_LOCK_NOT_CONFIRMED_DELAYS)
+    for attempt in range(attempts):
+        try:
+            return _lock_escrow_on_chain(escrow, payment, task_id)
+        except EscrowRPCError as e:
+            if e.status_code != _LOCK_NOT_CONFIRMED_STATUS or attempt == attempts - 1:
+                raise
+            delay = e.retry_after if e.retry_after is not None else _LOCK_NOT_CONFIRMED_DELAYS[attempt]
+            delay = min(max(delay, 0.5), _LOCK_RETRY_AFTER_CAP_SECONDS)
+            logger.info(
+                "Escrow lock for task %s not confirmed yet (HTTP 425); retrying in %.1fs (attempt %d/%d)",
+                task_id,
+                delay,
+                attempt + 2,
+                attempts,
+            )
+            time.sleep(delay)
+    raise AssertionError("unreachable")
+
+
 def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) -> tuple[str | None, str | None, str | None]:
     """Create the payment escrow for a submission (v0.6.5).
 
@@ -166,8 +199,22 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         if request.payment.auto_reinvest_pct is not None:
             escrow.metadata["auto_reinvest_pct"] = str(request.payment.auto_reinvest_pct)
             state.payment_escrow.persist_entry(escrow)
-    contract_id = _lock_escrow_on_chain(escrow, request.payment, task_id)
+    contract_id = _lock_escrow_on_chain_with_retry(escrow, request.payment, task_id)
     return escrow.escrow_id, contract_id, escrow.status.value
+
+
+def _escrow_state_for_task(task_id: str) -> str | None:
+    """Best-effort escrow status for logging after a lock failure (#2738)."""
+    if state.payment_escrow is None:
+        return None
+    try:
+        entry = state.payment_escrow.get_escrow_for_task(task_id)
+    except Exception:  # noqa: BLE001 - log detail only, never masks the 502
+        return None
+    if entry is None:
+        return None
+    status_value = getattr(entry.status, "value", entry.status)
+    return f"escrow {entry.escrow_id} is {status_value}"
 
 
 @router.post("/tasks/submit")
@@ -209,9 +256,15 @@ async def submit_task(
             # The exception text is the only place the chain error survives now
             # that it no longer goes out in the response, so log the traceback.
             logger.exception("On-chain escrow lock failed for task %s", task_id)
+            escrow_state = _escrow_state_for_task(task_id)
+            if escrow_state:
+                logger.info("Escrow state for task %s after submit lock failure: %s", task_id, escrow_state)
             raise HTTPException(
                 status_code=502,
-                detail="On-chain escrow lock failed; the task was not submitted",
+                detail=(
+                    "On-chain escrow lock failed; the task was not distributed. "
+                    "Retry POST /v1/tasks/submit with the same task_id and payment terms to reconcile."
+                ),
             ) from None
 
         await state.task_distributor.submit_task(
