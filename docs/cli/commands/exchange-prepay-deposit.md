@@ -23,6 +23,7 @@ aitbc exchange prepay deposit [OPTIONS]
 | `--max-eth` | decimal | `0.01` | no | Per-call deposit cap — raise explicitly for larger deposits |
 | `--exchange-url` | text | — | no | Override exchange service base URL |
 | `--eth-rpc-url` | text | — | no | Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config) |
+| `--gas` | integer range | — | no | Explicit gas limit — bypasses eth_estimateGas |
 
 ## Examples
 

@@ -641,6 +641,7 @@ def aitbc_exchange_prepay_deposit(
     eth_rpc_url: Annotated[
         str | dict[str, Any] | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
     ] = None,
+    gas_limit: Annotated[int | None, Field(description="Explicit gas limit — bypasses eth_estimateGas")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -658,6 +659,7 @@ def aitbc_exchange_prepay_deposit(
             "max_eth": "max-eth",
             "exchange_url": "exchange-url",
             "eth_rpc_url": "eth-rpc-url",
+            "gas_limit": "gas",
         },
     )
     args = None

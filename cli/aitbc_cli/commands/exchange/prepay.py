@@ -18,6 +18,7 @@ reported and the operator decides.
 
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 from typing import Any
 
@@ -30,11 +31,26 @@ from ...utils.wallet_secret import resolve_wallet_password, wallet_password_opti
 from .hub_orders import _exchange_client, _fund_wallet_address
 
 SEPOLIA_CHAIN_ID = 11155111
-# Fixed ceiling like `wallet bridge deposit`'s tx — a tagged data field adds
-# only calldata gas over a plain transfer; estimation overrides it when the
-# RPC answers.
-FALLBACK_GAS_LIMIT = 100_000
 DEFAULT_MAX_ETH = Decimal("0.01")
+
+
+def _estimate_gas_limit(ctx, rpc_url: str, address: str, to_address: str, value_wei: int, data_hex: str) -> int | None:
+    """eth_estimateGas + 25% headroom — the #2754/#2755 contract. Returns None
+    when the RPC gives no usable estimate; --send refuses on None rather than
+    silently signing a fixed limit."""
+    estimate = _rpc_try(
+        ctx,
+        rpc_url,
+        "eth_estimateGas",
+        [{"from": address, "to": to_address, "value": hex(value_wei), "data": data_hex}],
+    )
+    try:
+        estimate_int = int(estimate, 16) if isinstance(estimate, str) else None
+    except ValueError:
+        estimate_int = None
+    if estimate_int is None or estimate_int <= 0:
+        return None
+    return math.ceil(estimate_int * 5 / 4)
 
 
 def _prepay_tag(node_address: str) -> str:
@@ -169,8 +185,13 @@ def prepay():
 )
 @click.option("--exchange-url", default=None, help="Override exchange service base URL")
 @click.option("--eth-rpc-url", default=None, help="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
+@click.option(
+    "--gas", "gas_limit", type=click.IntRange(min=1), default=None, help="Explicit gas limit — bypasses eth_estimateGas"
+)
 @click.pass_context
-def deposit(ctx, amount_eth, wallet, password, password_file, password_stdin, send, max_eth, exchange_url, eth_rpc_url):
+def deposit(
+    ctx, amount_eth, wallet, password, password_file, password_stdin, send, max_eth, exchange_url, eth_rpc_url, gas_limit
+):
     """Deposit Sepolia ETH into this node's prepaid exchange balance.
 
     Sends to the hub's bridge deposit address with the
@@ -217,13 +238,8 @@ def deposit(ctx, amount_eth, wallet, password, password_file, password_stdin, se
         return
     nonce = _rpc_try(ctx, rpc_url, "eth_getTransactionCount", [address, "pending"])
     gas_price = _rpc_try(ctx, rpc_url, "eth_gasPrice", [])
-    gas_estimate = _rpc_try(
-        ctx,
-        rpc_url,
-        "eth_estimateGas",
-        [{"from": address, "to": to_address, "value": hex(value_wei), "data": data_hex}],
-    )
-    gas_limit = int(gas_estimate, 16) if isinstance(gas_estimate, str) else FALLBACK_GAS_LIMIT
+    if gas_limit is None:
+        gas_limit = _estimate_gas_limit(ctx, rpc_url, address, to_address, value_wei, data_hex)
 
     tx_view = {
         "chain_id": SEPOLIA_CHAIN_ID if chain_id_int is None else chain_id_int,
@@ -297,7 +313,7 @@ def _send_deposit(
     chain_id_int: int | None,
     nonce,
     gas_price,
-    gas_limit: int,
+    gas_limit: int | None,
 ) -> None:
     """The --send leg: verified-chain + funded-wallet gates, one signature,
     one broadcast."""
@@ -311,6 +327,13 @@ def _send_deposit(
         gas_price_wei = None
     if gas_price_wei is None:
         abort(ctx, "no usable gas price from the Sepolia RPC — refusing to sign a zero-price transaction")
+        return
+    if gas_limit is None:
+        abort(
+            ctx,
+            "eth_estimateGas returned no usable estimate — refusing to sign without a gas limit "
+            "(pass --gas to set one explicitly)",
+        )
         return
 
     balance = _rpc_call(ctx, rpc_url, "eth_getBalance", [address, "latest"])
