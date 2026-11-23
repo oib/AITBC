@@ -1,5 +1,10 @@
 # Confidential Payments
 
+> **Retired (#2767).** This scenario covered a simulation, not a ledger
+> payment. The CLI commands were removed; the examples below are retained
+> for historical reference and must not be replayed. The TEE rail was
+> retired separately in #2375.
+
 **Level**: Intermediate
 **Prerequisites**: Scenario 47 ZK Proofs for High-Value Jobs
 **Estimated Time**: 10 minutes
@@ -10,7 +15,7 @@
 
 ## Navigation Path
 
-[Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*
+[Documentation Home](../../README.md) > [Agent Scenarios](../../scenarios/README.md) > *You are here*
 
 breadcrumb: Home > Scenarios > Confidential Payments
 
@@ -18,7 +23,7 @@ breadcrumb: Home > Scenarios > Confidential Payments
 
 ## See Also
 
-- **Previous Scenario**: [Contract Deploy & Call](./73_contract_deploy_call.md)
+- **Previous Scenario**: [Contract Deploy & Call](../../scenarios/73_contract_deploy_call.md)
 - **Feature Documentation**: `cli/aitbc_cli/commands/confidential.py`
 
 ---

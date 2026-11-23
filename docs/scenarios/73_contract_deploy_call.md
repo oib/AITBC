@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Contract Deploy & Call
 ## See Also
 
 - **Previous Scenario**: [Developer Registry](./72_developer_registry.md)
-- **Next Scenario**: [Confidential Payments](./74_confidential_payments.md)
+- **Next Scenario**: [Market Escrow & Jobs Listing Options](./75_market_escrow_jobs_options.md)
 - **Feature Documentation**: `cli/aitbc_cli/commands/contract.py`
 
 ---

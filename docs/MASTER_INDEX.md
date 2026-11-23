@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-23
+**Last Updated**: 2026-11-24
 
 ---
 
@@ -69,7 +69,7 @@ docs/
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 15 | Application catalog and per-app landing pages |
 | [architecture](architecture/) | 15 | System architecture and design patterns |
-| [archive](archive/) | 51 | Historical documents and archive |
+| [archive](archive/) | 52 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
@@ -91,7 +91,7 @@ docs/
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 82 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 81 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
@@ -244,6 +244,7 @@ Inbound markdown links per document (top referrers).
 | [archive/scenarios/14_staking_basics.md](archive/scenarios/14_staking_basics.md) | [scenarios/13_mining_setup.md](scenarios/13_mining_setup.md), [scenarios/15_blockchain_monitoring.md](scenarios/15_blockchain_monitoring.md), [scenarios/README.md](scenarios/README.md) |
 | [archive/scenarios/40_auto_reinvestment.md](archive/scenarios/40_auto_reinvestment.md) | [scenarios/README.md](scenarios/README.md) |
 | [archive/scenarios/49_auto_reinvest_escrow.md](archive/scenarios/49_auto_reinvest_escrow.md) | [scenarios/51_multi_validator_poa_soak.md](scenarios/51_multi_validator_poa_soak.md), [scenarios/52_wallet_key_mismatch.md](scenarios/52_wallet_key_mismatch.md), [scenarios/README.md](scenarios/README.md) |
+| [archive/scenarios/74_confidential_payments.md](archive/scenarios/74_confidential_payments.md) | [scenarios/README.md](scenarios/README.md) |
 | [archive/security/1_security-cleanup-guide.md](archive/security/1_security-cleanup-guide.md) | [development/5_developer-guide.md](development/5_developer-guide.md), [reference/4_confidential-transactions.md](reference/4_confidential-transactions.md), [security/README.md](security/README.md) |
 | [archive/security/SECURITY_FIXES_SUMMARY.md](archive/security/SECURITY_FIXES_SUMMARY.md) | [README.md](README.md), [security/README.md](security/README.md) |
 | [archive/security/WALLET_SECURITY_FIXES_SUMMARY.md](archive/security/WALLET_SECURITY_FIXES_SUMMARY.md) | [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
@@ -1580,9 +1581,8 @@ Inbound markdown links per document (top referrers).
 | [scenarios/70_script_runner.md](scenarios/70_script_runner.md) | [scenarios/69_cluster_ops.md](scenarios/69_cluster_ops.md), [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md) | [scenarios/70_script_runner.md](scenarios/70_script_runner.md), [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md) | [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md), [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md) | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md) | [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/75_market_escrow_jobs_options.md](scenarios/75_market_escrow_jobs_options.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +43 more |
+| [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md) | [archive/scenarios/74_confidential_payments.md](archive/scenarios/74_confidential_payments.md), [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/README.md](scenarios/README.md) |
+| [scenarios/75_market_escrow_jobs_options.md](scenarios/75_market_escrow_jobs_options.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +44 more |
 | [scenarios/76_bridge_options.md](scenarios/76_bridge_options.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/77_trade_options.md](scenarios/77_trade_options.md) | [scenarios/README.md](scenarios/README.md) |
 | [scenarios/78_market_options.md](scenarios/78_market_options.md) | [scenarios/README.md](scenarios/README.md) |
@@ -1598,7 +1598,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/88_bridge_island_lock_release.md](scenarios/88_bridge_island_lock_release.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/89_coordinator_inflight_cap.md](scenarios/89_coordinator_inflight_cap.md) | [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md), [scenarios/25_job_payment_failure.md](scenarios/25_job_payment_failure.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/90_market_escrow_alias_binding.md](scenarios/90_market_escrow_alias_binding.md) | [scenarios/README.md](scenarios/README.md) |
-| [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +72 more |
+| [scenarios/README.md](scenarios/README.md) | [archive/scenarios/74_confidential_payments.md](archive/scenarios/74_confidential_payments.md), [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), +72 more |
 | [scenarios/_TEMPLATE.md](scenarios/_TEMPLATE.md) | [scenarios/README.md](scenarios/README.md) |
 | [security/2_security-architecture.md](security/2_security-architecture.md) | [features/10-security.md](features/10-security.md), [security/README.md](security/README.md), [security/api-key-management.md](security/api-key-management.md), +2 more |
 | [security/3_chaos-testing.md](security/3_chaos-testing.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
