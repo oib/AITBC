@@ -23,7 +23,7 @@ from aitbc.network import SharedHttpClient
 from ..contracts.escrow import DEFAULT_FEE_BPS, recompute_release_proofs, row_state_for
 from ..contracts.escrow_txn import escrow_row_lock
 from ..logger import get_logger
-from ..mempool import compute_tx_hash
+from ..mempool import compute_mempool_entry_hash
 from ..models import Escrow, Transaction
 from .escrow_routes import _chain_id, _HUB_RPC_URL
 
@@ -93,7 +93,7 @@ async def _proposer_pending_hashes() -> set[str] | None:
         # the row stored. An unhashable body must not silently empty the
         # answer to "is my leg still pending": fail closed like any other
         # unreadable probe.
-        return {compute_tx_hash(tx) for tx in txs}
+        return {compute_mempool_entry_hash(tx) for tx in txs}
     except Exception as e:  # noqa: BLE001 - any RPC/parse failure alike: probe reports unreadable
         _logger.warning("settlement sweeper: proposer mempool probe failed: %s", e)
         return None

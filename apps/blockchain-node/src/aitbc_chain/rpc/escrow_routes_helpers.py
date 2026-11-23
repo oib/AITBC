@@ -479,9 +479,9 @@ async def _find_pending_escrow_tx(job_id: str, tx_type: str) -> str | None:
             payload = tx.get("payload") or {}
             if tx.get("type") != tx_type or payload.get("job_id") != job_id:
                 continue
-            from ..mempool_common import compute_tx_hash
+            from ..mempool_common import compute_mempool_entry_hash
 
-            return compute_tx_hash(tx)
+            return compute_mempool_entry_hash(tx)
     except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("%s: pending-tx lookup failed for job_id=%s: %s", tx_type, job_id, e)
     return None

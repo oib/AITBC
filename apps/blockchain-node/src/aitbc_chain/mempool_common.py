@@ -62,6 +62,22 @@ def compute_tx_hash(tx: dict[str, Any]) -> str:
     return f"0x{digest}"
 
 
+# Keys the /mempool read path adds on top of the admitted tx body. They are
+# response decoration, never sealed content — hashing them yields a phantom
+# tx_hash that can never confirm (#2741).
+_MEMPOOL_RESPONSE_ONLY_KEYS = frozenset({"state"})
+
+
+def compute_mempool_entry_hash(tx: dict[str, Any]) -> str:
+    """Canonical tx_hash for a ``/mempool`` response entry.
+
+    ``get_mempool`` tags survivors with ``state: "pending"`` (#2457); the tag
+    is not part of the admitted body, so strip response-only keys before the
+    canonical hash or every lookup returns a hash that never seals.
+    """
+    return compute_tx_hash({key: value for key, value in tx.items() if key not in _MEMPOOL_RESPONSE_ONLY_KEYS})
+
+
 def _estimate_size(tx: dict[str, Any]) -> int:
     return len(json.dumps(tx, separators=(",", ":")).encode())
 
