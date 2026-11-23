@@ -17,7 +17,7 @@ aitbc market exchange deposit-eth [OPTIONS]
 | `--amount` | decimal | — | yes | Amount of ETH (Sepolia) to deposit. |
 | `--ait-address` | text | — | no | AIT address that will receive minted AIT (defaults to the sending wallet address) |
 | `--bridge-address` | text | — | no | Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var) |
-| `--gas` | integer | `30000` | no | Gas limit for the deposit transaction |
+| `--gas` | integer | — | no | Gas limit for the deposit transaction (default: eth_estimateGas + 25% headroom) |
 
 ## Examples
 

@@ -17,6 +17,7 @@ the coordinator's ``/v1/market/native-energy/*`` endpoints (miner auth for write
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 import click
@@ -306,11 +307,23 @@ def provider_register(
     )
     nonce = rpc._get_web3().eth.get_transaction_count(addr)
     gas_price = int(rpc.get_gas_price()["wei"])
+    try:
+        est = rpc.estimate_gas(
+            {
+                "from": addr,
+                "to": config.energy_pricing_contract_address,
+                "data": data,
+                "value": 0,
+            }
+        )
+    except ValueError as e:
+        error(f"eth_estimateGas failed for registerEnergyProfile: {e}")
+        sys.exit(1)
     tx = {
         "to": config.energy_pricing_contract_address,
         "from": addr,
         "nonce": nonce,
-        "gas": 300_000,
+        "gas": math.ceil(est * 5 / 4),
         "gasPrice": gas_price,
         "chainId": config.energy_pricing_chain_id,
         "data": data,
@@ -501,11 +514,23 @@ def _evm_rate_publish(
     )
     nonce = rpc._get_web3().eth.get_transaction_count(addr)
     gas_price = int(rpc.get_gas_price()["wei"])
+    try:
+        est = rpc.estimate_gas(
+            {
+                "from": addr,
+                "to": config.energy_pricing_contract_address,
+                "data": calldata,
+                "value": 0,
+            }
+        )
+    except ValueError as e:
+        error(f"eth_estimateGas failed for publishEnergyRate: {e}")
+        sys.exit(1)
     tx = {
         "to": config.energy_pricing_contract_address,
         "from": addr,
         "nonce": nonce,
-        "gas": 200_000,
+        "gas": math.ceil(est * 5 / 4),
         "gasPrice": gas_price,
         "chainId": config.energy_pricing_chain_id,
         "data": calldata,
