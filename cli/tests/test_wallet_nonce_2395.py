@@ -39,6 +39,20 @@ def test_pending_nonce_floor_skips_own_pending_slots():
     assert pending_nonce_floor(client, ADDR, 5) == 7
 
 
+def test_pending_nonce_floor_fills_the_lowest_gap():
+    """#2745: a stranded/dead entry ahead of a hole must not push the next
+    signature into future-nonce territory — apply seals nonces sequentially,
+    so the hole is the only slot that can land."""
+    client = _StubClient(mempool={"transactions": [_tx(ADDR, 189), _tx(ADDR, 191)]})
+    # sealed 188, pending occupy 189 and 191 -> 188 is the lowest free slot
+    assert pending_nonce_floor(client, ADDR, 188) == 188
+
+
+def test_pending_nonce_floor_contiguous_still_advances():
+    client = _StubClient(mempool={"transactions": [_tx(ADDR, 188), _tx(ADDR, 189)]})
+    assert pending_nonce_floor(client, ADDR, 188) == 190
+
+
 def test_pending_nonce_floor_ignores_stale_and_foreign_nonces():
     client = _StubClient(
         mempool={

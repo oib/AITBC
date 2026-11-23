@@ -255,7 +255,7 @@ def test_unsealed_timeout_leaves_deposit_uncompleted(harness, monkeypatch):
 
 
 def test_nonce_advances_past_pending_mempool_slots(harness, monkeypatch):
-    # A prior treasury tx sits in the mempool at nonce 7; sealed is 5.
+    # Prior treasury txs occupy pending nonces 5-7; sealed is 5.
     # The new transfer must sign nonce 8, not the colliding sealed 5.
     # pending_nonce_floor probes /rpc/mempool through AITBCHTTPClient on
     # the chain base_url — teach the fake to answer sender pending nonces.
@@ -270,7 +270,7 @@ def test_nonce_advances_past_pending_mempool_slots(harness, monkeypatch):
         return type(self).deposit
 
     monkeypatch.setattr(_WalletClient, "get", client_get)
-    monkeypatch.setattr(_WalletClient, "mempool_nonces", [7], raising=False)
+    monkeypatch.setattr(_WalletClient, "mempool_nonces", [5, 6, 7], raising=False)
     res = _run()
     assert res.exit_code == 0, res.output
     tx = _posts(harness)[0]["json"]
