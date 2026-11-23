@@ -269,6 +269,11 @@ class Settings(BaseAITBCConfig):
     )
     rate_limit_exchange_payment: str = Field(default="20/minute", description="Rate limit for exchange payment")
 
+    # ETH treasury address that receives exchange deposits. Empty/unset (or the
+    # zero address) means the deposit flow is not configured — create-payment
+    # refuses with 501 rather than handing out a burn address (#2709).
+    exchange_deposit_address: str = Field(default="", description="ETH treasury address for exchange deposits")
+
     # Receipt Signing
     receipt_signing_key_hex: str | None = None
     receipt_attestation_key_hex: str | None = None

@@ -21,6 +21,16 @@ from fastapi.testclient import TestClient
 import coordinator_api.contexts.infrastructure.routers.exchange as exch_mod
 from aitbc.auth import create_access_token
 from aitbc.auth.security_matrix import AuthLevel, check_role_match, get_auth_level
+from coordinator_api.config import settings
+
+_TEST_TREASURY = "0x" + "ab" * 20
+
+
+@pytest.fixture
+def _treasury(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Configure a real deposit address — create-payment 501s without one (#2709)."""
+    monkeypatch.setattr(settings, "exchange_deposit_address", _TEST_TREASURY)
+
 
 # Captured at import time, before the autouse _no_monitor fixture patches
 # the module attribute — the termination tests below exercise the real loop.
@@ -64,12 +74,13 @@ class TestExchangeMatrix:
 
 
 class TestPaymentLifecycle:
-    def test_create_and_status(self, client: TestClient) -> None:
+    def test_create_and_status(self, client: TestClient, _treasury: None) -> None:
         resp = client.post(f"{BASE}/create-payment", json=_payment(), headers=_headers())
         assert resp.status_code == 200
         body = resp.json()
         assert body["payment_id"]
         assert body["status"] == "pending"
+        assert body["payment_address"] == _TEST_TREASURY
         assert body["user_id"] == "u"  # bound to token sub, not the body field (#1881)
         assert Decimal(str(body["aitbc_amount"])) == Decimal("1000")
 
@@ -92,6 +103,20 @@ class TestPaymentLifecycle:
     def test_confirm_payment_disabled_501(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/confirm-payment/abc", params={"tx_hash": "0xdead"}, headers=_headers())
         assert resp.status_code == 501
+
+
+class TestDepositAddressGuard:
+    """#2709 — never hand out the zero/placeholder address as payment_address."""
+
+    @pytest.mark.parametrize("bad", ["", "0x" + "0" * 40, "  "])
+    def test_unset_or_zero_address_refuses_501(self, client: TestClient, monkeypatch: pytest.MonkeyPatch, bad: str) -> None:
+        monkeypatch.setattr(settings, "exchange_deposit_address", bad)
+        resp = client.post(f"{BASE}/create-payment", json=_payment(), headers=_headers())
+        assert resp.status_code == 501
+
+    def test_default_config_has_no_deposit_address(self) -> None:
+        # The shipped default must not silently carry a treasury address.
+        assert settings.exchange_deposit_address == "" or exch_mod._deposit_address() == ""
 
 
 class TestRatesAndStats:
@@ -118,7 +143,7 @@ class TestRatesAndStats:
 class TestPaymentStorageBounds:
     """#1533: payments must be per-key TTL'd docs, not hash fields."""
 
-    def test_create_payment_uses_doc_storage_not_hash(self, client: TestClient) -> None:
+    def test_create_payment_uses_doc_storage_not_hash(self, client: TestClient, _treasury: None) -> None:
         exch_mod._state._memory.pop("exchange", None)
         resp = client.post(f"{BASE}/create-payment", json=_payment(), headers=_headers())
         assert resp.status_code == 200
