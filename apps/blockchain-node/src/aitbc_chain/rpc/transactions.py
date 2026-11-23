@@ -7,7 +7,10 @@ import concurrent.futures
 import json
 import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..mempool import PendingTransaction
 
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
@@ -786,8 +789,21 @@ def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[st
 
 
 @rate_limit(rate=200, per=60)
-def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
-    """Get pending transactions from mempool"""
+def get_mempool(
+    request: Request,
+    chain_id: str | None = None,
+    limit: int = 100,
+    *,
+    nonce_view: bool = False,
+) -> dict[str, Any]:
+    """Get pending transactions from mempool
+
+    ``nonce_view`` is an opt-in read for nonce selection (#2745): pending
+    entries whose exact hash already carries a durable ``rejected`` row (or
+    a confirmed seal) do not occupy their nonce slot, so a retry can sign
+    the freed nonce instead of sliding into the future. The default view is
+    unchanged for every existing caller.
+    """
     from ..mempool import get_mempool
 
     # A negative limit used to slice every entry but the last (#1057).
@@ -799,14 +815,66 @@ def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100)
         # own settings.chain_id default. Coercing to "" defeated that default
         # ("" is not None) and filtered on a chain_id no entry carries, so a
         # populated mempool reported count: 0.
+        # The opt-in view reads stored entry identities with a one-row
+        # lookahead: a page plus the extra row proves the listing was
+        # truncated, and a truncated view must not advertise the omitted
+        # slots as free. ``entry.tx_hash`` is authoritative — recomputing
+        # from content can differ for entries admitted with an explicit hash.
+        if nonce_view:
+            entries = mempool.list_transactions(chain_id or None, limit=limit + 1)
+            if len(entries) > limit:
+                return _incomplete_nonce_view()
+            return _nonce_mempool_view(chain_id or None, entries)
         pending_txs = mempool.get_pending_transactions(chain_id=chain_id or None, limit=limit)
         pending_txs = _drop_sealed_pending(chain_id or None, mempool, pending_txs)
 
         return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
+        if nonce_view:
+            # An unreadable opt-in view must read as "cannot classify", never
+            # as an empty pool — the caller's fallback would sign a nonce the
+            # chain may still hold.
+            return _incomplete_nonce_view()
         _logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
+
+
+def _incomplete_nonce_view() -> dict[str, Any]:
+    """Explicit "cannot classify" answer for the opt-in nonce view (#2745)."""
+    return {"success": False, "nonce_view_complete": False, "transactions": [], "count": 0}
+
+
+def _nonce_mempool_view(chain_id: str | None, entries: "list[PendingTransaction]") -> dict[str, Any]:
+    """Classify nonce occupants against the local chain without mutating the pool."""
+    from ..config import settings
+
+    resolved_chain = chain_id or settings.chain_id
+    try:
+        # Stored identities, not recomputed hashes: admission accepts an
+        # explicit tx_hash (bridge/rollback paths), so only entry.tx_hash is
+        # guaranteed to match the durable Transaction row.
+        by_hash = {entry.tx_hash: entry.content for entry in entries}
+        excluded: set[str] = set()
+        if by_hash:
+            with session_scope(resolved_chain) as session:
+                tx_hash = col(Transaction.tx_hash)
+                tx_status = col(Transaction.status)
+                excluded = set(
+                    session.exec(
+                        select(tx_hash).where(
+                            col(Transaction.chain_id) == resolved_chain,
+                            tx_hash.in_(list(by_hash)),
+                            (tx_status == "rejected")
+                            | ((tx_status == "confirmed") & col(Transaction.block_height).is_not(None)),
+                        )
+                    ).all()
+                )
+        eligible = [{**tx, "state": "pending"} for tx_hash, tx in by_hash.items() if tx_hash not in excluded]
+    except Exception as exc:  # noqa: BLE001 - inability to classify must not advertise a free slot
+        _logger.debug("Nonce mempool classification failed: %s", type(exc).__name__)
+        return _incomplete_nonce_view()
+    return {"success": True, "nonce_view_complete": True, "transactions": eligible, "count": len(eligible)}
 
 
 def _drop_sealed_pending(chain_id: str | None, mempool: Any, pending_txs: list[dict[str, Any]]) -> list[dict[str, Any]]:

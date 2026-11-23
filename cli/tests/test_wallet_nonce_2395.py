@@ -3,7 +3,7 @@ sender's own pending mempool transactions."""
 
 import pytest
 
-from aitbc_cli.utils.nonce import next_send_nonce, pending_nonce_floor
+from aitbc_cli.utils.nonce import NonceClassificationError, next_send_nonce, pending_nonce_floor
 
 
 class _StubClient:
@@ -95,3 +95,74 @@ def test_next_send_nonce_raises_when_sealed_lookup_fails():
     client = _StubClient(account_exc=NetworkError("down"))
     with pytest.raises(NetworkError):
         next_send_nonce(client, ADDR)
+
+
+# --- #2745: opt-in rejection-aware nonce view -------------------------------
+
+
+def test_nonce_view_negative_marker_fails_closed_for_all_callers():
+    """``nonce_view_complete: false`` is a known "cannot classify" — it must
+    bypass the legacy fallback for ordinary sends too, never read as an
+    empty pool that would sign a still-held nonce."""
+    client = _StubClient(mempool={"success": False, "nonce_view_complete": False, "transactions": [], "count": 0})
+    with pytest.raises(NonceClassificationError, match="Could not classify"):
+        pending_nonce_floor(client, ADDR, 5)
+    with pytest.raises(NonceClassificationError, match="Could not classify"):
+        pending_nonce_floor(client, ADDR, 5, require_nonce_view=True)
+
+
+@pytest.mark.parametrize(
+    "mempool_data",
+    [
+        {"success": True, "nonce_view_complete": True, "transactions": "nope"},
+        {"success": True, "nonce_view_complete": True, "transactions": [{"from": ADDR, "nonce": "5"}]},
+    ],
+    ids=["non-list-transactions", "malformed-member"],
+)
+def test_nonce_view_malformed_classified_answer_fails_closed(mempool_data):
+    """``complete: true`` promises a classified, well-formed list — a
+    non-list ``transactions`` or a member that cannot name sender+nonce is
+    malformed, not an empty pool."""
+    client = _StubClient(mempool=mempool_data)
+    with pytest.raises(NonceClassificationError, match="Could not classify"):
+        pending_nonce_floor(client, ADDR, 5)
+    with pytest.raises(NonceClassificationError, match="Could not classify"):
+        pending_nonce_floor(client, ADDR, 5, require_nonce_view=True)
+
+
+def test_require_nonce_view_rejects_legacy_unmarked_answer():
+    """A normal listing without the marker is a legacy node: ordinary sends
+    keep counting every occupant, but an explicit retry refuses to sign on
+    an unclassified view."""
+    client = _StubClient(mempool={"transactions": [_tx(ADDR, 5)]})
+    with pytest.raises(NonceClassificationError, match="rejection-aware"):
+        pending_nonce_floor(client, ADDR, 5, require_nonce_view=True)
+    assert pending_nonce_floor(client, ADDR, 5) == 6
+
+
+def test_require_nonce_view_probe_failure_raises_not_falls_back():
+    """Transport failure under the opt-in must fail closed — the legacy
+    ``None`` fallback would sign a nonce the node never classified."""
+    from aitbc.exceptions import NetworkError
+
+    client = _StubClient(mempool_exc=NetworkError("down"))
+    with pytest.raises(NonceClassificationError, match="Could not read"):
+        pending_nonce_floor(client, ADDR, 5, require_nonce_view=True)
+    assert pending_nonce_floor(client, ADDR, 5) is None
+
+
+def test_require_nonce_view_sends_opt_in_query_and_uses_classified_entries():
+    paths: list[str] = []
+
+    class _RecordingClient:
+        def get(self, path: str):
+            paths.append(path)
+            return {
+                "success": True,
+                "nonce_view_complete": True,
+                "transactions": [_tx(ADDR, 5), _tx(ADDR, 6), _tx(OTHER, 5)],
+                "count": 3,
+            }
+
+    assert pending_nonce_floor(_RecordingClient(), ADDR, 5, "test-chain", require_nonce_view=True) == 7
+    assert paths == ["/rpc/mempool?limit=500&nonce_view=true&chain_id=test-chain"]

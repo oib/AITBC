@@ -28,6 +28,9 @@ from aitbc_mcp_server import (
 def aitbc_wallet_liquidity_unstake(
     stake_id: Annotated[str, Field(description="Stake ID.")],
     pool: Annotated[str | None, Field(description="Liquidity pool name (must match the stake's pool)")] = None,
+    retry_rejected: Annotated[
+        bool | None, Field(description="Use a fresh signed attempt ID after confirming the prior withdrawal was rejected.")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
@@ -56,7 +59,7 @@ def aitbc_wallet_liquidity_unstake(
     """Withdraw a liquidity stake and its accumulated rewards."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"allow_high_fee": "allow-high-fee"},
+        flags={"retry_rejected": "retry-rejected", "allow_high_fee": "allow-high-fee"},
         values={
             "stake_id": "stake-id",
             "pool": "pool",

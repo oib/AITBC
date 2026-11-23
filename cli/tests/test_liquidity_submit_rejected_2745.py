@@ -14,6 +14,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from aitbc_cli.utils.nonce import NonceClassificationError
+
 pytest.importorskip("click", reason="cli dependencies not installed")
 pytest.importorskip("eth_keys", reason="wallet signing needs eth-keys")
 
@@ -92,3 +94,124 @@ def test_status_probe_failure_is_advisory(monkeypatch):
     _client(monkeypatch, status_exc=RuntimeError("rpc down"))
 
     assert wallet_staking._submit_liquidity_transaction(_ctx(), _wallet_data(), _tx()) == TX_HASH
+
+
+# --- #2745: --retry-rejected requires the classified nonce view --------------
+
+
+def _attempt_tx() -> dict:
+    tx = _tx()
+    tx["payload"]["attempt_id"] = "a" * 32
+    return tx
+
+
+def _nonce_client(monkeypatch, mempool_data, mempool_exc=None, status_record=None):
+    """Like ``_client`` but the mempool probe returns ``mempool_data`` and
+    every requested path is recorded for query assertions."""
+    client = Mock()
+    client.post.return_value = {"transaction_hash": TX_HASH}
+    paths: list[str] = []
+
+    def _get(path: str):
+        paths.append(path)
+        if "/rpc/mempool" in path:
+            if mempool_exc is not None:
+                raise mempool_exc
+            return mempool_data
+        if "/rpc/transaction/" in path:
+            return status_record or {}
+        if "/rpc/account/" in path:
+            return {"nonce": 0}
+        return {}
+
+    client.get.side_effect = _get
+    monkeypatch.setattr(wallet_staking, "AITBCHTTPClient", lambda *a, **k: client)
+    return client, paths
+
+
+def test_attempt_id_retry_fails_on_legacy_unmarked_mempool(monkeypatch):
+    """attempt_id marks an explicit retry: a node without the classified view
+    must stop the submit before signing or POSTing anything."""
+    client, paths = _nonce_client(monkeypatch, {})
+    sign = Mock()
+    monkeypatch.setattr(wallet_staking, "_sign_transaction", sign)
+
+    with pytest.raises(NonceClassificationError, match="rejection-aware"):
+        wallet_staking._submit_liquidity_transaction(_ctx(), _wallet_data(), _attempt_tx())
+
+    sign.assert_not_called()
+    client.post.assert_not_called()
+    assert any("nonce_view=true" in p for p in paths)
+
+
+def test_attempt_id_retry_fails_on_explicit_incomplete_view(monkeypatch):
+    """``nonce_view_complete: false`` is a known cannot-classify — fail
+    closed even though the flag asked for the view."""
+    client, _paths = _nonce_client(
+        monkeypatch,
+        {"success": False, "nonce_view_complete": False, "transactions": [], "count": 0},
+    )
+    sign = Mock()
+    monkeypatch.setattr(wallet_staking, "_sign_transaction", sign)
+
+    with pytest.raises(NonceClassificationError, match="Could not classify"):
+        wallet_staking._submit_liquidity_transaction(_ctx(), _wallet_data(), _attempt_tx())
+
+    sign.assert_not_called()
+    client.post.assert_not_called()
+
+
+def test_attempt_id_retry_fails_on_transport_error(monkeypatch):
+    """A probe that cannot be read must not fall back to the legacy count —
+    the retry would sign a nonce the node never cleared."""
+    from aitbc.exceptions import NetworkError
+
+    client, _paths = _nonce_client(monkeypatch, None, mempool_exc=NetworkError("down"))
+    sign = Mock()
+    monkeypatch.setattr(wallet_staking, "_sign_transaction", sign)
+
+    with pytest.raises(NonceClassificationError, match="Could not read"):
+        wallet_staking._submit_liquidity_transaction(_ctx(), _wallet_data(), _attempt_tx())
+
+    sign.assert_not_called()
+    client.post.assert_not_called()
+
+
+def test_attempt_id_retry_proceeds_on_classified_view(monkeypatch):
+    """Happy path: classified view frees the slot, the real signer runs
+    (unmocked), exactly one POST carries the attempt-tagged envelope, and
+    the occupied classified nonce is skipped."""
+    client, paths = _nonce_client(
+        monkeypatch,
+        {
+            "success": True,
+            "nonce_view_complete": True,
+            "transactions": [{"from": ADDRESS, "nonce": 0, "state": "pending"}],
+            "count": 1,
+        },
+    )
+
+    assert wallet_staking._submit_liquidity_transaction(_ctx(), _wallet_data(), _attempt_tx()) == TX_HASH
+
+    assert client.post.call_count == 1
+    posted = client.post.call_args.kwargs["json"]
+    assert posted["nonce"] == 1  # sealed 0, classified view holds slot 0
+    assert posted["payload"]["attempt_id"] == "a" * 32
+    assert posted["signature"]
+    assert any("nonce_view=true" in p for p in paths)
+
+
+def test_plain_liquidity_tx_keeps_legacy_nonce_semantics(monkeypatch):
+    """Without attempt_id the probe stays non-strict: ordinary clients now
+    request ``nonce_view=true`` on every send, and a node predating the
+    parameter ignores it — its unmarked answer still counts every occupant,
+    so the submit proceeds exactly as before."""
+    client, paths = _nonce_client(monkeypatch, {"transactions": [{"from": ADDRESS, "nonce": 0}]})
+
+    assert wallet_staking._submit_liquidity_transaction(_ctx(), _wallet_data(), _tx()) == TX_HASH
+
+    assert client.post.call_count == 1
+    posted = client.post.call_args.kwargs["json"]
+    assert posted["nonce"] == 1
+    assert "attempt_id" not in posted["payload"]
+    assert any("nonce_view=true" in p for p in paths)

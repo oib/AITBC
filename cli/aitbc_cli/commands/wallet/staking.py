@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import click
 
@@ -216,16 +217,24 @@ def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str
         raise click.Abort() from e
 
 
-def _get_next_tx_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
+def _get_next_tx_nonce(
+    http_client: AITBCHTTPClient,
+    address: str,
+    chain_id: str,
+    *,
+    require_nonce_view: bool = False,
+) -> int:
     """Pending-aware nonce for a transaction this wallet is about to sign (#2395/#2398).
 
     The sealed account nonce does not move while the wallet's earlier txs
     sit in the mempool; signing it again collides on the occupied slot.
+    ``require_nonce_view`` demands the node's rejection-aware classification
+    (#2745) — used when the tx carries an ``attempt_id`` retry marker.
     """
     from ...utils.nonce import pending_nonce_floor
 
     sealed = _get_account_nonce(http_client, address, chain_id)
-    floor = pending_nonce_floor(http_client, address, sealed, chain_id)
+    floor = pending_nonce_floor(http_client, address, sealed, chain_id, require_nonce_view=require_nonce_view)
     return floor if floor is not None else sealed
 
 
@@ -260,7 +269,12 @@ def _submit_liquidity_transaction(
     address = canonical_address(wallet_data["address"])
 
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-    tx["nonce"] = _get_next_tx_nonce(http_client, address, chain_id)
+    tx["nonce"] = _get_next_tx_nonce(
+        http_client,
+        address,
+        chain_id,
+        require_nonce_view="attempt_id" in tx.get("payload", {}),
+    )
     tx["chain_id"] = chain_id
     tx["signature"] = _sign_transaction(wallet_data, tx)
 
@@ -891,10 +905,16 @@ def liquidity_claim(
     name="liquidity-unstake",
     epilog="""Examples:
 
-  aitbc wallet liquidity-unstake --stake-id lstake-5678 --pool main""",
+  aitbc wallet liquidity-unstake --stake-id lstake-5678 --pool main
+  aitbc wallet liquidity-unstake --stake-id lstake-5678 --retry-rejected""",
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--pool", default="main", help="Liquidity pool name (must match the stake's pool)")
+@click.option(
+    "--retry-rejected",
+    is_flag=True,
+    help="Use a fresh signed attempt ID after confirming the prior withdrawal was rejected.",
+)
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @ALLOW_HIGH_FEE_OPTION
 @click.pass_context
@@ -904,6 +924,7 @@ def liquidity_unstake(
     ctx,
     stake_id: str,
     pool: str,
+    retry_rejected: bool,
     fee: Decimal,
     allow_high_fee: bool,
     password: str | None,
@@ -946,7 +967,7 @@ def liquidity_unstake(
     # signature (403 "Invalid transaction signature").
     stake_pool, stake_amount = _liquidity_stake_or_abort(ctx, hex_address, stake_id, pool)
 
-    tx = {
+    tx: dict[str, Any] = {
         "type": "LIQUIDITY_WITHDRAW",
         "from": hex_address,
         "to": hex_address,
@@ -959,6 +980,11 @@ def liquidity_unstake(
             "amount": stake_amount,
         },
     }
+    if retry_rejected:
+        # #2745: a fresh attempt id makes the retry a distinct signed
+        # transaction — the deterministic hash of the rejected original can
+        # never collide with it, and the nonce view proves the slot is free.
+        tx["payload"]["attempt_id"] = uuid4().hex
 
     try:
         tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
