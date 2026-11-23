@@ -5,7 +5,6 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 """
 
 from __future__ import annotations
-from aitbc.constants import BLOCKCHAIN_RPC_URL
 from decimal import Decimal
 
 from datetime import UTC, datetime, timedelta
@@ -16,7 +15,6 @@ from sqlalchemy import desc, func
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.utils.units import ait_to_units
 
 from ...blockchain.services.blockchain import get_balance, mint_tokens
 from ..domain.developer_platform import (
@@ -185,36 +183,23 @@ class DeveloperPlatformService:
         return submission
 
     async def _submit_reward_payout(self, bounty: Any, developer: Any) -> str:
-        """Submit a reward payout transaction to the blockchain node RPC.
+        """Pay the bounty reward on-chain — not implemented (#2683).
 
-        Returns the on-chain tx hash.
+        The old code POSTed ``/rpc/sendTransaction``, a route no node
+        serves, so every approval failed 502 while the response read as a
+        live payout. There is also no funded leg to pay from: dev-platform
+        bounties never deploy an on-chain ``/rpc/bounty/deploy`` lock or
+        record a ``/rpc/bounty/{id}/submit`` submission, so the chain's
+        real ``verify`` payout path has nothing to settle. Answer 501
+        honestly until a funded on-chain bounty flow exists.
         """
-        import os
-
-        import httpx
-
-        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
-        payload = {
-            "from": "treasury",
-            "to": developer.wallet_address,
-            "amount": ait_to_units(bounty.reward_amount),  # AIT → compute-units
-            "type": "BOUNTY_REWARD",
-            "metadata": {"bounty_id": str(bounty.id), "developer": developer.wallet_address},
-        }
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(f"{rpc_url}/rpc/sendTransaction", json=payload)
-                if resp.status_code == 200:
-                    return str(resp.json().get("tx_hash", ""))
-                else:
-                    logger.error("Reward payout failed: blockchain returned %s", resp.status_code)
-                    logger.exception("Unhandled exception")
-
-                    raise HTTPException(status_code=502, detail="Internal server error")
-        except httpx.ConnectError as e:
-            logger.exception("Unhandled exception")
-
-            raise HTTPException(status_code=503, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=501,
+            detail=(
+                "bounty reward payout is not implemented: dev-platform bounties have no "
+                "on-chain escrow to pay from (see #2683)"
+            ),
+        )
 
     def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
