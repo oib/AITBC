@@ -6,6 +6,7 @@ Provides a unified dashboard for the node's deployed services
 import asyncio
 import json
 import os
+import time
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -235,8 +236,15 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
     try:
         client = AITBCHTTPClient(timeout=2.0, max_retries=0)
         health_url = f"{service_config['url']}/health"
+        started = time.monotonic()
         response = client.get(health_url)
-        return {"status": "healthy", "response_time": 0.1, "last_check": datetime.now(UTC).isoformat(), "details": response}
+        elapsed = time.monotonic() - started
+        return {
+            "status": "healthy",
+            "response_time": round(elapsed, 3),
+            "last_check": datetime.now(UTC).isoformat(),
+            "details": response,
+        }
     except NetworkError as e:
         logger.warning("Service %s health check failed: %s", service_name, e)
         return {"status": "unhealthy", "error": str(e), "last_check": datetime.now(UTC).isoformat()}
@@ -247,17 +255,19 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
 def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
     """Calculate overall system metrics from health data"""
     status_counts = {"healthy": 0, "degraded": 0, "unhealthy": 0, "unknown": 0}
-    total_response_time = 0
+    total_response_time = 0.0
     response_time_count = 0
     for service_health in health_data.values():
         status = service_health.get("status", "unknown")
         status_counts[status] = status_counts.get(status, 0) + 1
         if "response_time" in service_health:
             try:
-                time_str = service_health["response_time"].replace("s", "")
-                total_response_time += float(time_str)  # type: ignore[assignment]
+                # Stored as float seconds by check_service_health; tolerate a
+                # legacy "0.123s" string just in case an older payload arrives.
+                raw = service_health["response_time"]
+                total_response_time += float(str(raw).removesuffix("s"))
                 response_time_count += 1
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError, TypeError):
                 pass
     if status_counts["unhealthy"] > 0:
         overall_status = "unhealthy"
@@ -271,7 +281,6 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
         "status_counts": status_counts,
         "average_response_time": f"{avg_response_time:.3f}s",
         "health_percentage": status_counts["healthy"] / len(health_data) * 100 if health_data else 0,
-        "uptime_estimate": "99.9%",
     }
 
 
@@ -328,18 +337,18 @@ def monitoring_metrics_route(
     }
 
     try:
-        all_jobs = session.exec(select(Job)).all()
-        for job in all_jobs:
-            metrics["jobs"]["total"] += 1
-            metrics["jobs"][_job_bucket(job.state)] += 1
+        from sqlalchemy import func
 
-        all_miners = session.exec(select(Miner)).all()
-        for miner in all_miners:
-            metrics["miners"]["total"] += 1
-            if miner.status == "ONLINE":
-                metrics["miners"]["online"] += 1
-            else:
-                metrics["miners"]["offline"] += 1
+        # Count in SQL — loading every Job/Miner row per call does not scale
+        # (#2715). Grouped counts bucket the same way the row loop did.
+        for state, count in session.exec(select(Job.state, func.count()).group_by(Job.state)).all():
+            metrics["jobs"]["total"] += count
+            metrics["jobs"][_job_bucket(state)] += count
+
+        miner_rows = session.exec(select(Miner.status, func.count()).group_by(Miner.status)).all()
+        metrics["miners"]["total"] = sum(count for _, count in miner_rows)
+        metrics["miners"]["online"] = sum(count for status, count in miner_rows if status == "ONLINE")
+        metrics["miners"]["offline"] = metrics["miners"]["total"] - metrics["miners"]["online"]
     except _OPS_ERRORS as e:
         logger.error("Failed to collect job/miner metrics: %s", e)
 
