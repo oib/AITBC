@@ -4,11 +4,10 @@
     #2385: the inter-chain HTLC settlement rail is retired. HTLC emissions
     carry no ``payload.auth`` and cannot seal at block version ≥ 9 — unlike
     the v17-revived staking/bounty surfaces there is no unarmed-then-live
-    path; a revival would need a new consensus version. Every lifecycle
-    mutator (``create_escrow``, ``lock_escrow``, ``verify_lock``,
-    ``execute_trade``, ``settle``, ``refund``, ``extend_timeout``) therefore
-    fails fast with ``RetiredProtocolTransfer`` before touching state, and
-    the pre-retirement bodies were removed rather than left as dead code.
+    path; a revival would need a new consensus version. The HTTP write
+    routes return 410 without calling this service. The internal refund
+    method still refuses with ``RetiredProtocolTransfer`` so the timeout
+    monitor can mark expired legacy rows as failed.
 
     The read methods (``get_escrow``, ``get_escrow_status``,
     ``get_proof_chain``) stay live so existing escrow records remain
@@ -102,55 +101,10 @@ def _proof_to_dict(record: EscrowProofRecord) -> dict:
 
 
 class CrossChainSettlementService:
-    """Cross-chain atomic settlement service using HTLC (v0.9.0 B3).
-
-    #2385: the HTLC rail is retired — every lifecycle mutator fails fast
-    with ``RetiredProtocolTransfer``. Only the read methods and the
-    ``check_timeouts`` sweeper (which retires legacy non-terminal rows to
-    ``failed``) remain functional.
-    """
+    """Read existing escrows and retire expired legacy rows (#2385)."""
 
     def __init__(self, chain_id: str):
         self.chain_id = chain_id
-
-    async def create_escrow(
-        self,
-        trade_id: str,
-        source_chain: str,
-        dest_chain: str,
-        sender: str,
-        recipient: str,
-        amount: int,
-        timeout_seconds: int | None = None,
-    ) -> dict:
-        """Retired (#2385): refuses before minting a never-lockable record."""
-        if not settings.escrow_enabled:
-            raise RuntimeError("Settlement not enabled")
-        raise_for_retired_settlement_contract()
-
-    async def lock_escrow(self, escrow_id: str) -> dict:
-        """Retired (#2385): the HTLC lock it drove can never seal at block v9."""
-        if not settings.escrow_enabled:
-            raise RuntimeError("Settlement not enabled")
-        raise_for_retired_settlement_contract()
-
-    async def verify_lock(self, escrow_id: str) -> dict:
-        """Retired (#2385): no escrow can ever reach ``locked``."""
-        if not settings.escrow_enabled:
-            raise RuntimeError("Settlement not enabled")
-        raise_for_retired_settlement_contract()
-
-    async def execute_trade(self, escrow_id: str) -> dict:
-        """Retired (#2385): no escrow can ever reach ``verified``."""
-        if not settings.escrow_enabled:
-            raise RuntimeError("Settlement not enabled")
-        raise_for_retired_settlement_contract()
-
-    async def settle(self, escrow_id: str, secret: str) -> dict:
-        """Retired (#2385): HTLC complete_swap emits no payload.auth."""
-        if not settings.escrow_enabled:
-            raise RuntimeError("Settlement not enabled")
-        raise_for_retired_settlement_contract()
 
     async def refund(self, escrow_id: str) -> dict:
         """Retired (#2385): HTLC refund_swap emits no payload.auth.
@@ -253,12 +207,6 @@ class CrossChainSettlementService:
             session.commit()  # noqa: unawaited-async — sync Session via session_scope
             session.refresh(record)  # noqa: unawaited-async — sync Session via session_scope
         logger.info("Escrow %s marked failed: HTLC settlement rail retired (#2385)", escrow_id)
-
-    async def extend_timeout(self, escrow_id: str, extension_seconds: int) -> dict:
-        """Retired (#2385): extending a timeout on a rail that cannot settle."""
-        if not settings.escrow_enabled:
-            raise RuntimeError("Settlement not enabled")
-        raise_for_retired_settlement_contract()
 
     async def get_escrow(self, escrow_id: str) -> dict | None:
         """Get escrow record as dict.
