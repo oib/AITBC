@@ -131,7 +131,7 @@ def _shop_access_headers(req: dict[str, Any]) -> dict[str, str]:
     secret = req.get("access_secret")
     if not key or not secret:
         return {}
-    bound_job = req.get("access_job_id") or req.get("job_id") or req.get("task_id")
+    bound_job = req.get("access_job_id") or req.get("market_job_id") or req.get("job_id") or req.get("task_id")
     return {
         "X-Access-Key": str(key),
         "X-Access-Secret": str(secret),
