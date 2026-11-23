@@ -25,9 +25,14 @@ import pytest as _pytest_dead
 
 
 @_pytest_dead.fixture(autouse=True)
-def _dead_rpc_endpoints(monkeypatch):
+def _dead_rpc_endpoints(monkeypatch, tmp_path):
     monkeypatch.setenv("WALLET_URL", "http://127.0.0.1:1")
     monkeypatch.setenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:1")
+    # Pin config resolution away from ambient files: without a cwd
+    # ./.aitbc.yaml, default_config_path() falls back to ~/.aitbc.yaml,
+    # whose yaml keys are init kwargs that outrank the dead env vars above —
+    # on a live node that silently pointed tests at the real hub RPC (#2745).
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(tmp_path / "absent.aitbc.yaml"))
 
 
 # Signing-related env vars must not leak into CLI tests: a developer machine
