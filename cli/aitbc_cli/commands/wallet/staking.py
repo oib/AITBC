@@ -144,6 +144,28 @@ def _get_chain_id(ctx: click.Context, rpc_url: str) -> str:
         raise click.Abort() from e
 
 
+def _liquidity_stake_amount(ctx: click.Context, address: str, stake_id: str) -> int | None:
+    """Principal (compute-units) of ``stake_id`` for ``address``, or None.
+
+    Best-effort lookup against ``/rpc/liquidity/stakes/{address}`` so the
+    sealed LIQUIDITY_WITHDRAW record carries the withdrawing amount in
+    ``payload.amount`` (#2734). Top-level ``value`` stays unset — the sender
+    pays fee only and the payout is pool-state, not a sender transfer, so a
+    nonzero value would fail the sender-balance validation. Any lookup
+    failure returns None: the node re-validates the stake at apply anyway.
+    """
+    try:
+        rpc_url = _get_rpc_url(ctx)
+        chain_id = _get_chain_id(ctx, rpc_url)
+        data = AITBCHTTPClient(base_url=rpc_url, timeout=10).get(f"/rpc/liquidity/stakes/{address}?chain_id={chain_id}")
+        for stake in (data or {}).get("stakes", []):
+            if stake.get("stake_id") == stake_id:
+                return int(stake["amount"])
+    except Exception as e:  # noqa: BLE001 - amount decoration must not block the withdraw
+        logger.debug("liquidity stake amount lookup failed for %s: %s", stake_id, e)
+    return None
+
+
 def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
     """Fetch the sealed on-chain nonce for an address.
 
@@ -870,18 +892,24 @@ def liquidity_unstake(
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))
 
+    payload: dict[str, Any] = {
+        "pool_id": pool,
+        "stake_id": stake_id,
+        "to": hex_address,
+    }
+    # #2734: record the withdrawing principal so the sealed tx does not read
+    # as a zero-value withdraw; omitted when the lookup cannot resolve it.
+    stake_amount = _liquidity_stake_amount(ctx, hex_address, stake_id)
+    if stake_amount is not None:
+        payload["amount"] = stake_amount
+
     tx = {
         "type": "LIQUIDITY_WITHDRAW",
         "from": hex_address,
         "to": hex_address,
         "amount": 0,
         "fee": fee_seconds,
-        "payload": {
-            "pool_id": pool,
-            "stake_id": stake_id,
-            "to": hex_address,
-            "amount": 0,
-        },
+        "payload": payload,
     }
 
     try:

@@ -253,6 +253,11 @@ def build_withdraw(request: Request, body: BuildWithdrawRequest, chain_id: str |
             "payload": {
                 "pool_id": body.pool_id,
                 "stake_id": body.stake_id,
+                # #2734: carry the withdrawing principal — top-level value
+                # stays 0 because the sender pays fee only and the payout is
+                # pool-state, not a sender transfer; without this the sealed
+                # record reads as a zero-value withdraw of a real position.
+                "amount": stake.amount,
             },
         }
         return {"success": True, "chain_id": resolved, "transaction": tx}

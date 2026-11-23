@@ -260,6 +260,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet liquidity-claim` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet liquidity-stake` | `/rpc/account/` | — | —
 | `aitbc wallet liquidity-stake` | `/rpc/account/{hex_address}` | `get_account_route` (core.py) | —
+| `aitbc wallet liquidity-unstake` | `/rpc/liquidity/stakes/` | — | —
 | `aitbc wallet multisig-propose` | `/rpc/account/` | — | —
 | `aitbc wallet multisig-propose` | `/rpc/account/{address}` | `get_account_route` (core.py) | —
 | `aitbc wallet rewards` | `/rpc/liquidity/stakes/` | — | —
