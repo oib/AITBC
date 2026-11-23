@@ -339,3 +339,58 @@ def test_media_upload_still_works_end_to_end(client, tmp_path, monkeypatch):
     )
     assert resp.status_code == 200
     assert resp.json()["success"] is True
+
+
+# --- #2713: SecurityGate body cap honors settings + exempt prefixes --------
+
+
+def _run_security_gate(path: str, headers: list[tuple[bytes, bytes]]):
+    from coordinator_api.main import SecurityGateMiddleware
+
+    inner = _InnerApp()
+    gate = SecurityGateMiddleware(inner)
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"",
+        "headers": [(b"host", b"testserver"), *headers],
+        "client": ("127.0.0.1", 1234),
+        "server": ("testserver", 80),
+    }
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    sent = []
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(gate(scope, receive, send))
+    return sent, inner
+
+
+def test_security_gate_media_exempt_allows_20mib():
+    """#2713: a 20 MiB Content-Length on /v1/media/upload must pass the gate —
+    the media handler enforces its own 100 MiB cap."""
+    sent, inner = _run_security_gate("/v1/media/upload", [(b"content-length", str(20 * 1024 * 1024).encode())])
+    assert sent[0]["status"] == 200
+    assert inner.called is True
+
+
+def test_security_gate_non_exempt_uses_configured_cap():
+    """#2713: non-exempt paths are capped at settings.max_request_body_bytes
+    (5 MiB), not the old literal 10 MiB."""
+    sent, inner = _run_security_gate("/v1/jobs", [(b"content-length", str(6 * 1024 * 1024).encode())])
+    assert sent[0]["status"] == 413
+    assert inner.called is False
+
+
+def test_security_gate_small_body_passes():
+    sent, inner = _run_security_gate("/v1/jobs", [(b"content-length", b"1024")])
+    assert sent[0]["status"] == 200
+    assert inner.called is True
