@@ -202,7 +202,7 @@ async def vote_grant(
 
 @router.post("/{grant_id}/disburse", response_model=GrantProposalResponse)
 @rate_limit(rate=20, per=60)
-async def disburse_grant(
+def disburse_grant(
     request: Request,
     grant_id: str,
     body: GrantDisburseRequest,
@@ -210,11 +210,13 @@ async def disburse_grant(
     user: AdminDep,
 ) -> GrantProposal:
     """Disburse funds for a grant or milestone."""
-    try:
-        return await run_in_threadpool(service.disburse, grant_id=grant_id, milestone_id=body.milestone_id, amount=body.amount)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    # #2677: GrantService.disburse only moves DB counters — no AIT leaves a
+    # treasury account, yet the route used to answer 200 with status
+    # COMPLETED/executed_at, claiming a payout that never happened. Refuse
+    # honestly until a real transfer path (treasury source + recipient
+    # resolution + tx hash recording) is wired; the service's accounting
+    # primitives stay for that work.
+    raise HTTPException(
+        status_code=501,
+        detail="grant disbursement is not yet wired to a payout — refusing rather than record a disbursement that moves no funds",
+    )

@@ -239,7 +239,12 @@ class GrantService:
         milestone_id: str | None = None,
         amount: Decimal | str | float | None = None,
     ) -> GrantProposal:
-        """Disburse funds for a grant or a specific milestone."""
+        """Disburse funds for a grant or a specific milestone.
+
+        #2677: accounting only — this moves DB counters, no AIT leaves a
+        treasury account. The HTTP route refuses with 501 until a real
+        payout path is wired; do not treat COMPLETED/disbursed_amount as
+        evidence funds moved."""
         grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")

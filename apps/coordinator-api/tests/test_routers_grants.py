@@ -8,6 +8,8 @@ AdminDep.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -130,4 +132,9 @@ class TestGrantLifecycle:
         gid = created["id"]
         # process may be permissioned; disburse is AdminDep
         resp = client.post(f"{BASE}/{gid}/disburse", json={"amount": "1"}, headers=_admin())
-        assert resp.status_code in (200, 400, 404)
+        # #2677: the route answers 501 — the service only moves DB counters
+        # and no payout path exists yet, so it must not claim one happened.
+        assert resp.status_code == 501
+        detail = client.get(f"{BASE}/{gid}", headers=_headers()).json()
+        assert detail["status"] != "completed"
+        assert Decimal(detail["disbursed_amount"]) == 0
