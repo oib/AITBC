@@ -23,6 +23,8 @@ aitbc wallet send [OPTIONS]
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--rpc-url` | text | — | no | Blockchain RPC URL |
+| `--wallet-name` | text | — | no | Wallet name (overrides the group-level value) |
+| `--wallet-path` | text | — | no | Direct path to wallet file (overrides --wallet-name) |
 
 ## Examples
 

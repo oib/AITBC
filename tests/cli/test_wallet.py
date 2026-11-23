@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from aitbc.utils import ait_to_units, format_ait, units_to_ait
+from aitbc_cli.utils.address import to_eip55
 from aitbc_cli.commands.wallet import wallet
 from click.testing import CliRunner
 
@@ -406,6 +407,44 @@ class TestWalletCommands:
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data["transaction_hash"] == "0xabc123"
+
+    def test_send_wallet_path_override_selects_other_wallet(self, runner, temp_wallet, mock_config):
+        """#2736: `wallet send --wallet-path` sends from that wallet, not the active one."""
+        other_address = "0x000000000000000000000000000000000000dEaD"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "address": other_address,
+                    "balance": 5.0,
+                    "private_key": "b" * 64,
+                    "transactions": [],
+                    "created_at": "2024-01-01T00:00:00",
+                },
+                f,
+            )
+            other_wallet = f.name
+        try:
+            result = runner.invoke(
+                wallet,
+                [
+                    "--wallet-path",
+                    temp_wallet,
+                    "send",
+                    "--to-address",
+                    "0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd",
+                    "--amount",
+                    "1.0",
+                    "--wallet-path",
+                    other_wallet,
+                ],
+                obj={"config": mock_config, "output": "json", "output_format": "json"},
+            )
+        finally:
+            os.unlink(other_wallet)
+
+        assert result.exit_code == 0, result.output
+        data = extract_json_from_output(result.output)
+        assert data["from"] == to_eip55(other_address)
 
     def test_request_payment_command(self, runner, temp_wallet, mock_config):
         """Test payment request command"""
