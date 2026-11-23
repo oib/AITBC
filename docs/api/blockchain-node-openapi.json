@@ -25793,6 +25793,46 @@
           }
         }
       }
+    },
+    "/agent/bootstrap.env": {
+      "get": {
+        "tags": [
+          "bootstrap"
+        ],
+        "summary": "Sanitized public bootstrap env (join bootstrap)",
+        "description": "Serve the bootstrap env advertised as ``bootstrap_env_url`` by\n``/rpc/network-info`` and ``/rpc/join`` \u2014 see\n``_agent_bootstrap_env_document`` for the serving semantics (#2765).",
+        "operationId": "agent_bootstrap_env_agent_bootstrap_env_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "no bootstrap.env rendered on this node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "bootstrap.env unreadable / bootstrap.env failed the public-content gate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

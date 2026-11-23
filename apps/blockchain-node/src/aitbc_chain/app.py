@@ -995,7 +995,39 @@ def create_app() -> FastAPI:
         for the serving semantics (#2759)."""
         return _agent_genesis_document(chain_id)
 
+    _register_agent_public_routes(app)
+
     return app
+
+
+def _register_agent_public_routes(app: FastAPI) -> None:
+    """Mount the public ``/agent/*`` bootstrap routes (#2759, #2765).
+
+    Kept out of ``create_app`` so the factory stays under the C901 ratchet;
+    the routes themselves are thin delegates to module-level helpers.
+    """
+
+    @app.get(
+        "/agent/bootstrap.env",
+        tags=["bootstrap"],
+        summary="Sanitized public bootstrap env (join bootstrap)",
+    )
+    def agent_bootstrap_env() -> Response:
+        """Serve the bootstrap env advertised as ``bootstrap_env_url`` by
+        ``/rpc/network-info`` and ``/rpc/join`` — see
+        ``_agent_bootstrap_env_document`` for the serving semantics (#2765)."""
+        return _agent_bootstrap_env_document()
+
+    @app.get(
+        "/agent/openapi.json",
+        tags=["bootstrap"],
+        summary="This service's OpenAPI document",
+        include_in_schema=False,
+    )
+    def agent_openapi_json() -> Response:
+        """Serve this app's own OpenAPI document at the ``docs_url`` advertised
+        by ``/rpc/network-info`` — see ``_agent_openapi_document`` (#2765)."""
+        return _agent_openapi_document(app)
 
 
 def _agent_genesis_document(chain_id: str | None) -> Response:
@@ -1023,6 +1055,53 @@ def _agent_genesis_document(chain_id: str | None) -> Response:
         _app_logger.error("genesis document unreadable at %s: %s", genesis_path, exc)
         raise HTTPException(status_code=500, detail="genesis document unreadable") from exc
     return JSONResponse(content=document)
+
+
+# Same denylist scripts/ops/render-bootstrap-env.sh enforces before publishing
+# /etc/aitbc/bootstrap.env — belt-and-braces so a mis-rendered file can never
+# be served even if the ops gate is bypassed (#2765).
+_BOOTSTRAP_ENV_DENYLIST = re.compile(r"PROPOSER_KEY|VALIDATOR_KEYS|SECRET_KEY|COORDINATOR_API_KEY|BLOCKCHAIN_RPC_API_KEY")
+
+
+def _agent_bootstrap_env_document() -> Response:
+    """Serve ``CONFIG_DIR/bootstrap.env`` — the sanitized file rendered by
+    ``scripts/ops/render-bootstrap-env.sh``.
+
+    ``/rpc/network-info`` and ``/rpc/join`` advertise
+    ``{base}/agent/bootstrap.env`` and the join flow curls it into
+    ``/etc/aitbc/blockchain.env``; only the public hub's nginx vhost served
+    the path, so on the raw RPC port and on hosts without that vhost the
+    advertised URL 404'd (#2765 — same defect class as #2759). The file is
+    public by design: an allowlist-rendered copy carrying no key material.
+    Missing file → 404 (non-hub nodes legitimately have none).
+    """
+    from aitbc.constants import CONFIG_DIR
+
+    env_path = CONFIG_DIR / "bootstrap.env"
+    if not env_path.is_file():
+        raise HTTPException(status_code=404, detail="no bootstrap.env rendered on this node")
+    try:
+        body = env_path.read_text()
+    except OSError as exc:
+        _app_logger.error("bootstrap.env unreadable at %s: %s", env_path, exc)
+        raise HTTPException(status_code=500, detail="bootstrap.env unreadable") from exc
+    if _BOOTSTRAP_ENV_DENYLIST.search(body):
+        _app_logger.error("bootstrap.env at %s contains key material — refusing to serve", env_path)
+        raise HTTPException(status_code=500, detail="bootstrap.env failed the public-content gate")
+    return PlainTextResponse(content=body)
+
+
+def _agent_openapi_document(app: FastAPI) -> Response:
+    """Return this app's own OpenAPI document.
+
+    ``/rpc/network-info`` advertises ``docs_url = {base}/agent/openapi.json``;
+    only the public hub's nginx vhost answered it (proxying the
+    agent-coordinator spec). Serving the app's own schema keeps the
+    advertised URL working on the raw RPC port and documents the API the
+    caller actually reached (#2765). Public-host divergence is an nginx
+    layer decision, unchanged here.
+    """
+    return JSONResponse(content=app.openapi())
 
 
 def _check_chain_db() -> None:
