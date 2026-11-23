@@ -277,6 +277,7 @@ class CrossChainReputationEngine:
             if aggregation:
                 aggregation.aggregated_score = avg_score
                 aggregation.chain_scores = chain_scores
+                aggregation.chain_count = len(chain_scores)
                 aggregation.active_chains = list(chain_scores.keys())
                 aggregation.score_variance = variance
                 aggregation.score_range = score_range
@@ -286,6 +287,7 @@ class CrossChainReputationEngine:
                 aggregation = CrossChainReputationAggregation(
                     agent_id=agent_id,
                     aggregated_score=avg_score,
+                    chain_count=len(chain_scores),
                     chain_scores=chain_scores,
                     active_chains=list(chain_scores.keys()),
                     score_variance=variance,
