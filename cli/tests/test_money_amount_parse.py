@@ -11,7 +11,7 @@ from decimal import Decimal
 import click
 import pytest
 
-from aitbc_cli.utils.money import wallet_amount
+from aitbc_cli.utils.money import wallet_amount, wallet_ledger_balance
 
 
 def test_wallet_amount_rejects_non_numeric_string():
@@ -59,3 +59,23 @@ def test_escrow_create_rejects_non_numeric_amount_at_parse_time():
     )
     assert result.exit_code != 0
     assert "not a valid" in result.output or "notanumber" in result.output
+
+
+def test_wallet_ledger_balance_reads_canonical_ait_untouched():
+    """AIT-denominated stored balances pass through unchanged (#2730)."""
+    assert wallet_ledger_balance("100.0") == Decimal("100.0")
+    assert wallet_ledger_balance("0.0309830555") == Decimal("0.0309830555")
+    assert wallet_ledger_balance(0) == Decimal("0")
+    assert wallet_ledger_balance(999999) == Decimal("999999")
+
+
+def test_wallet_ledger_balance_unwraps_legacy_units():
+    """Unit-scale stored balances (pre-#2196 writers) convert to AIT once (#2730)."""
+    from aitbc.utils.units import units_to_ait
+
+    # the observed node0 default.json value: 1115390 units ≈ 0.031 AIT
+    assert wallet_ledger_balance(1115390) == units_to_ait(1115390)
+    assert wallet_ledger_balance("36000000") == Decimal("1")
+    # exactly at the floor is units; one below stays AIT
+    assert wallet_ledger_balance(1000000) == units_to_ait(1000000)
+    assert wallet_ledger_balance(999999) == Decimal("999999")

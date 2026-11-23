@@ -74,3 +74,30 @@ def wallet_amount(value: Any) -> Decimal:
     if not parsed.is_finite():
         raise click.BadParameter(f"{value!r} is not a finite amount")
     return parsed
+
+
+# Wallet files canonically store ``balance`` as AIT — every current writer
+# (earn/spend/multisig/send) saves ``str(<AIT amount>)``. Files written by
+# older builds hold raw compute-units instead: the pre-#2196 send path stored
+# the chain ``/rpc/account`` figure verbatim, and there is no on-disk marker
+# distinguishing the two (#2730). A local bookkeeping balance of a million AIT
+# is not a plausible ledger figure, while the same digits read as
+# compute-units denote a sub-AIT amount, so magnitudes at or above this floor
+# are unwrapped as units.
+LEDGER_BALANCE_UNITS_FLOOR = Decimal("1000000")
+
+
+def wallet_ledger_balance(value: Any) -> Decimal:
+    """Read a wallet file's ``balance`` field as AIT.
+
+    Canonical storage is AIT; legacy files may hold raw compute-units. Values
+    whose magnitude reaches ``LEDGER_BALANCE_UNITS_FLOOR`` are treated as
+    units and converted once, so callers keep formatting the result with
+    ``ait_to_units`` exactly like any other AIT amount.
+    """
+    from aitbc.utils.units import units_to_ait
+
+    amount = wallet_amount(value)
+    if abs(amount) >= LEDGER_BALANCE_UNITS_FLOOR:
+        return units_to_ait(amount)
+    return amount
