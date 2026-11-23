@@ -48,7 +48,10 @@ _AIPOWER_RENTAL_ABI: list[dict[str, Any]] = [
                     {"name": "endTime", "type": "uint256"},
                     {"name": "platformFee", "type": "uint256"},
                     {"name": "status", "type": "uint8"},
-                    {"name": "performance", "type": "tuple"},
+                    # No `performance` field: the contract's getRentalAgreement
+                    # returns 12 values and omits PerformanceMetrics (split out
+                    # to getRentalPerformance — adf9d808b stack-too-deep fix).
+                    # Metrics come via getRentalPerformance, not this call.
                     {"name": "gpuModel", "type": "string"},
                     {"name": "computeUnits", "type": "uint256"},
                     {"name": "performanceProof", "type": "bytes32"},
