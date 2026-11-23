@@ -24401,18 +24401,8 @@
               }
             }
           },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "grant disbursement is not yet wired to a payout \u2014 refusing rather than record a disbursement that moves no funds",
             "content": {
               "application/json": {
                 "schema": {
