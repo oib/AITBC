@@ -214,11 +214,13 @@ class _FakeStakingService:
         self._stakes = stakes
         self._claim_result = claim_result
         self.restored: dict[str, Decimal] | None = None
+        self.claim_calls: list[list[str]] = []
 
     def get_stake(self, stake_id: str):
         return self._stakes.get(stake_id)
 
     def claim_rewards(self, stake_ids: list[str]) -> dict[str, Any]:
+        self.claim_calls.append(list(stake_ids))
         return self._claim_result
 
     def restore_claimed_rewards(self, claimed_amounts: dict[str, Decimal]) -> None:
@@ -261,13 +263,14 @@ def _override_claim_deps(client, staking_service, chain_service):
 
 
 @pytest.mark.unit
-def test_claim_router_skips_chain_call_when_all_cas_lost(client, db_session):
-    """Every claim CAS lost -> the DB counted nothing, so NO chain memo may
-    be written (the double-emit the Validator flagged)."""
+def test_claim_router_answers_501_and_never_mutates(client, db_session):
+    """#2696: the chain claim endpoint records a memo only — no payout — so
+    the router must refuse with 501 BEFORE zeroing accumulated_rewards,
+    and neither the staking service nor the chain may be called."""
     stakes = {"s1": _ClaimStake(STAKER, Decimal("10")), "s2": _ClaimStake(STAKER, Decimal("5"))}
     svc = _FakeStakingService(
         stakes,
-        {"total_rewards": Decimal("0"), "claimed_stakes": 0, "claimed_stake_ids": [], "claimed_amounts": {}},
+        {"total_rewards": Decimal("15"), "claimed_stakes": 2, "claimed_stake_ids": ["s1", "s2"], "claimed_amounts": {}},
     )
     chain = _FakeChainService()
     cleanup = _override_claim_deps(client, svc, chain)
@@ -275,58 +278,10 @@ def test_claim_router_skips_chain_call_when_all_cas_lost(client, db_session):
         resp = client.post("/v1/staking/claim-rewards", json=["s1", "s2"])
     finally:
         cleanup()
-    assert resp.status_code == 200
-    assert resp.json()["claimed_stakes"] == 0
+    assert resp.status_code == 501
     assert chain.calls == []
-
-
-@pytest.mark.unit
-def test_claim_router_chain_called_only_for_cas_winners(client, db_session):
-    """Partial CAS win -> the chain payout covers only the stakes whose
-    rewards this claim actually zeroed."""
-    stakes = {"s1": _ClaimStake(STAKER, Decimal("10")), "s2": _ClaimStake(STAKER, Decimal("5"))}
-    svc = _FakeStakingService(
-        stakes,
-        {
-            "total_rewards": Decimal("10"),
-            "claimed_stakes": 1,
-            "claimed_stake_ids": ["s1"],
-            "claimed_amounts": {"s1": Decimal("10")},
-        },
-    )
-    chain = _FakeChainService()
-    cleanup = _override_claim_deps(client, svc, chain)
-    try:
-        resp = client.post("/v1/staking/claim-rewards", json=["s1", "s2"])
-    finally:
-        cleanup()
-    assert resp.status_code == 200
-    assert resp.json()["claimed_stakes"] == 1
-    assert chain.calls == [["s1"]]
-
-
-@pytest.mark.unit
-def test_claim_router_restores_rewards_on_chain_failure(client, db_session):
-    """Chain payout raises after the DB zero committed -> the exact claimed
-    amounts go back so a retry can pay them (no unrecoverable loss)."""
-    stakes = {"s1": _ClaimStake(STAKER, Decimal("10"))}
-    svc = _FakeStakingService(
-        stakes,
-        {
-            "total_rewards": Decimal("10"),
-            "claimed_stakes": 1,
-            "claimed_stake_ids": ["s1"],
-            "claimed_amounts": {"s1": Decimal("10")},
-        },
-    )
-    chain = _FakeChainService(error=RuntimeError("chain rpc unreachable"))
-    cleanup = _override_claim_deps(client, svc, chain)
-    try:
-        resp = client.post("/v1/staking/claim-rewards", json=["s1"])
-    finally:
-        cleanup()
-    assert resp.status_code == 400
-    assert svc.restored == {"s1": Decimal("10")}
+    # claim_rewards must never run — the DB rewards stay intact for a real payout
+    assert svc.claim_calls == []
 
 
 @pytest.mark.unit
