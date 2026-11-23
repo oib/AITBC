@@ -7,6 +7,7 @@ Provides Bearer token extraction and role-based dependency injection.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import os
@@ -313,7 +314,12 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
             )
         sub = bound
     else:
-        sub = miner_id or api_key
+        # #2702: never let the raw API key become the miner identity — it
+        # propagates into Miner.id/assigned_miner_id, which the unauthenticated
+        # explorer lists publicly, leaking the credential. Derive a stable,
+        # non-reversible id from the key instead; an explicit X-Miner-ID still
+        # wins for unbound keys (legacy single-key deployments).
+        sub = miner_id or f"miner_{hashlib.sha256((matched_key or api_key_str).encode()).hexdigest()[:16]}"
     return {"sub": sub, "role": "miner"}
 
 

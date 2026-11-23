@@ -259,3 +259,26 @@ def test_miner_key_bindings_pair_syntax(monkeypatch):
     client = TestClient(_miner_key_app())
     resp = client.get("/whoami", headers={"X-Api-Key": key})
     assert resp.status_code == 200 and resp.json()["sub"] == "miner-pair"
+
+
+def test_unbound_miner_key_without_header_derives_safe_sub(monkeypatch):
+    """#2702: an unbound key with no X-Miner-ID must not become the miner id —
+    the raw key would leak through public miner listings. The derived sub is
+    stable per key and never equals the credential."""
+    import hashlib
+
+    _configure_miner_key(monkeypatch)
+    monkeypatch.setenv("MINER_API_KEY_BINDINGS", "")
+
+    client = TestClient(_miner_key_app())
+    resp = client.get("/whoami", headers={"X-Api-Key": MINER_KEY})
+    assert resp.status_code == 200
+    sub = resp.json()["sub"]
+    assert sub != MINER_KEY
+    assert MINER_KEY not in sub
+    expected = f"miner_{hashlib.sha256(MINER_KEY.encode()).hexdigest()[:16]}"
+    assert sub == expected
+
+    # Stable across calls — the same key always resolves to the same miner id.
+    again = client.get("/whoami", headers={"X-Api-Key": MINER_KEY})
+    assert again.json()["sub"] == sub
