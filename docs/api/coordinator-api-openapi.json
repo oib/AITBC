@@ -18631,8 +18631,18 @@
               }
             }
           },
+          "400": {
+            "description": "invalid verification_type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "403": {
-            "description": "address is not one of the caller's wallets",
+            "description": "admin only",
             "content": {
               "application/json": {
                 "schema": {
@@ -20029,7 +20039,7 @@
             }
           },
           "403": {
-            "description": "verifier_address is not one of the caller's wallets",
+            "description": "admin only",
             "content": {
               "application/json": {
                 "schema": {
