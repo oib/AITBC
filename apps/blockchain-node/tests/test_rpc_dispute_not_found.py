@@ -13,9 +13,13 @@ import asyncio
 import inspect
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
+import aitbc_chain.rpc.dispute_resolution_service as dispute_resolution_service_module
 import aitbc_chain.rpc.disputes as disputes
+import aitbc_chain.rpc.routers.disputes as disputes_router_module
+from aitbc_chain.contracts.dispute_resolution import DisputeResolutionContract, DisputeStatus
 
 
 def _run(coro):
@@ -83,18 +87,53 @@ def test_evidence_known_id_returns_list(monkeypatch):
     assert result[0].dispute_id == 7
 
 
-def test_votes_known_id_returns_list(monkeypatch):
-    def _ok(dispute_id: int):
-        return {
-            "success": True,
-            "votes": [
-                {
-                    "dispute_id": dispute_id,
-                    "votes": [{"arbitrator": "0x0000000000000000000000000000000000000002"}],
-                }
-            ],
-        }
+def test_votes_route_exposes_persisted_ballots_after_auto_resolution(tmp_path, monkeypatch):
+    """#2751: the votes route must surface each stored ballot, not ``votes: []``.
 
-    monkeypatch.setattr(disputes.dispute_resolution_service, "get_arbitration_votes", _ok)
-    result = _run(disputes.get_arbitration_votes(7))
-    assert len(result) == 1
+    The contract returns flat ``asdict`` vote rows; wrapping them with
+    ``GetArbitrationVotesResponse(**vote)`` dropped every ballot field into
+    the model's ignored extras and left ``votes`` empty. Drive the real
+    contract (file-backed, tmp state) through the real router so the wire
+    shape is pinned end to end.
+    """
+    arbitrators = [f"0x{n:040x}" for n in (1, 2, 3)]
+    monkeypatch.setenv("AITBC_DISPUTE_ARBITRATORS", ",".join(f"{address}:90" for address in arbitrators))
+    state_path = tmp_path / "disputes.json"
+    writer = DisputeResolutionContract(state_path=state_path)
+    filed = writer.file_dispute(
+        agreement_id=0,
+        respondent="0x" + "bb" * 20,
+        dispute_type="Payment",
+        reason="test",
+        evidence_hash="0xabc",
+        sender_address="0x" + "aa" * 20,
+    )
+    assert filed["success"] is True
+    did = int(filed["dispute_id"])
+    reader = DisputeResolutionContract(state_path=state_path)
+    monkeypatch.setattr(dispute_resolution_service_module, "dispute_resolution_contract", reader)
+    app = FastAPI()
+    app.include_router(disputes_router_module.router, prefix="/rpc")
+    with TestClient(app) as client:
+        route = f"/rpc/disputes/{did}/votes"
+        assert client.get(route).json() == []
+        ballots = list(zip(arbitrators, (True, True, False), (90, 85, 70), ("first", "second", "third"), strict=False))
+        for arbitrator, favor, confidence, reasoning in ballots:
+            result = writer.submit_arbitration_vote(did, favor, confidence, reasoning, arbitrator)
+            assert result["success"] is True
+        assert result["resolved"] is True
+        assert reader.get_dispute(did)["dispute"]["status"] == DisputeStatus.RESOLVED
+        response = client.get(route)
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 3
+    for row, (arbitrator, favor, confidence, reasoning) in zip(rows, ballots, strict=True):
+        assert row["dispute_id"] == did
+        (vote,) = row["votes"]
+        assert (vote["arbitrator"], vote["vote_in_favor_of_initiator"], vote["confidence"], vote["reasoning"]) == (
+            arbitrator,
+            favor,
+            confidence,
+            reasoning,
+        )
+        assert vote["dispute_id"] == did and vote["vote_time"] > 0 and vote["is_valid"] is True
