@@ -7,7 +7,8 @@ the operator wallet: canonical JSON of the field dict → keccak256 →
 secp256k1, verified on the node against ``AGENT_ECONOMICS_OPERATOR_ADDRESS``.
 
 ``status`` is a read leaf: agent-stake rows are node-local, so it reports the
-on-chain STAKE_LOCK/STAKE_RELEASE protocol transfers carrying the stake id —
+on-chain STAKE_LOCK/STAKE_UNBOND/STAKE_RELEASE protocol transfers carrying
+the stake id —
 the consensus-visible part of the stake's lifecycle.
 """
 
@@ -214,6 +215,30 @@ def claim(ctx, stake_id, memo, **kw):
     post_signed(ctx, "/rpc/agent-staking/claim-rewards", fields, title="Claim Memo", **kw)
 
 
+def _sealed_kind(tx_type: str, tx: dict[str, Any]) -> str:
+    """Lifecycle tag for a sealed protocol-transfer row.
+
+    #2456: top-ups seal as STAKE_LOCK too — distinguish them by the
+    additional_amount marker the node puts in the payload. #2733 adds the
+    unbond marker so the unbonding window is visible between lock and
+    release.
+    """
+    if tx_type == "STAKE_RELEASE":
+        return "release"
+    if tx_type == "STAKE_UNBOND":
+        return "unbond"
+    return "topup" if (tx.get("payload") or {}).get("additional_amount") is not None else "lock"
+
+
+def _pending_kind(rtype: str) -> str:
+    """Lifecycle tag for a pooled mempool row (same vocabulary as sealed)."""
+    if rtype == "STAKE_RELEASE":
+        return "release"
+    if rtype == "STAKE_UNBOND":
+        return "unbond"
+    return "lock"
+
+
 @agent_staking.command(
     epilog="""Examples:
 
@@ -233,7 +258,7 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
     client = AITBCHTTPClient(base_url=rpc, timeout=15)
     found: dict[str, Any] = {}
     truncated = False
-    for tx_type in ("STAKE_LOCK", "STAKE_RELEASE"):
+    for tx_type in ("STAKE_LOCK", "STAKE_RELEASE", "STAKE_UNBOND"):
         try:
             # #2507: page with before_id until the id's rows are found or the
             # scan budget/history ends — a single newest-N window read
@@ -250,12 +275,7 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
         truncated = truncated or hit_cap
         for tx in matches:
-            # #2456: top-ups seal as STAKE_LOCK too — distinguish them by
-            # the additional_amount marker the node puts in the payload.
-            if tx_type == "STAKE_RELEASE":
-                tx["kind"] = "release"
-            else:
-                tx["kind"] = "topup" if (tx.get("payload") or {}).get("additional_amount") is not None else "lock"
+            tx["kind"] = _sealed_kind(tx_type, tx)
         if matches:
             found[tx_type] = matches
     # #2457: a queued-but-unsealed STAKE_* transfer is invisible to the
@@ -266,14 +286,14 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
     try:
         for row in pending_protocol_matches(
             client,
-            tx_types=("STAKE_LOCK", "STAKE_RELEASE"),
+            tx_types=("STAKE_LOCK", "STAKE_RELEASE", "STAKE_UNBOND"),
             payload_key="agent_stake_id",
             payload_id=stake_id,
             chain_id=chain_id,
         ):
             rtype = str(pending_tx_type(row))
             entry = dict(row)
-            entry["kind"] = "release" if rtype == "STAKE_RELEASE" else "lock"
+            entry["kind"] = _pending_kind(rtype)
             pending.setdefault(rtype, []).append(entry)
     except _OPS_ERRORS:
         pending_error = True
