@@ -523,7 +523,11 @@ def _register_agent(agent_id: str, wallet: str, services: list[str]) -> bool:
 
 def _task_escrow_status(task_id: str) -> dict[str, Any] | None:
     try:
-        resp = requests.get(f"{COORDINATOR_URL}/v1/tasks/{task_id}/escrow", timeout=HTTP_TIMEOUT)
+        resp = requests.get(
+            f"{COORDINATOR_URL}/v1/tasks/{task_id}/escrow",
+            headers=_agent_request_headers(AGENT_EXECUTOR_ID),
+            timeout=HTTP_TIMEOUT,
+        )
         if resp.status_code == 200:
             data = resp.json()
             return data.get("escrow") if isinstance(data, dict) else None

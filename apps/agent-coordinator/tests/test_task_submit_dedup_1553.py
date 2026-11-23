@@ -21,6 +21,7 @@ from aitbc.crypto import EscrowStatus, PaymentEscrow  # noqa: E402
 from agent_app import state  # noqa: E402
 from agent_app.models import TaskPayment, TaskSubmission  # noqa: E402
 from agent_app.routers import tasks as tasks_router  # noqa: E402
+from agent_app.services.chain_escrow import EscrowRPCError  # noqa: E402
 
 
 def _submission(task_id: str) -> TaskSubmission:
@@ -108,3 +109,66 @@ class TestTaskSubmitEscrowDedup:
         )
         with pytest.raises(ValueError, match="different payment terms"):
             tasks_router._create_task_escrow(req_b, "task-dedup-5", "ait-mainnet")
+
+    def test_lock_425_retries_then_locks(self, escrow_env, monkeypatch):
+        """#2738: the chain's 425 means 'lock not confirmed yet' — retry, don't 502."""
+        monkeypatch.setattr(tasks_router, "_LOCK_NOT_CONFIRMED_DELAYS", (0.0,))
+        monkeypatch.setattr(tasks_router, "_LOCK_RETRY_AFTER_CAP_SECONDS", 0.0)
+        req = _submission("task-425")
+        calls = []
+
+        def flaky_lock(escrow, _payment, task_id):
+            calls.append(task_id)
+            if len(calls) == 1:
+                raise EscrowRPCError(
+                    "escrow RPC /rpc/escrow/create returned 425",
+                    status_code=425,
+                    retry_after=0,
+                )
+            escrow_env.lock(escrow.escrow_id, submitter=lambda *a: "0xlock")
+            escrow.contract_id = "contract-1"
+            escrow_env.persist_entry(escrow)
+            return "contract-1"
+
+        monkeypatch.setattr(tasks_router, "_lock_escrow_on_chain", flaky_lock)
+        escrow_id, contract_id, status = tasks_router._create_task_escrow(req, "task-425", "ait-mainnet")
+
+        assert calls == ["task-425", "task-425"]
+        assert contract_id == "contract-1"
+        assert status == EscrowStatus.LOCKED.value
+        entry = escrow_env.get_escrow(escrow_id)
+        assert entry is not None and entry.status == EscrowStatus.LOCKED
+
+    def test_lock_400_does_not_retry(self, escrow_env, monkeypatch):
+        monkeypatch.setattr(tasks_router, "_LOCK_NOT_CONFIRMED_DELAYS", (0.0,))
+        monkeypatch.setattr(tasks_router, "_LOCK_RETRY_AFTER_CAP_SECONDS", 0.0)
+        req = _submission("task-400")
+        calls = []
+
+        def bad_lock(_escrow, _payment, _task_id):
+            calls.append(1)
+            raise EscrowRPCError("escrow RPC /rpc/escrow/create returned 400", status_code=400)
+
+        monkeypatch.setattr(tasks_router, "_lock_escrow_on_chain", bad_lock)
+        with pytest.raises(EscrowRPCError):
+            tasks_router._create_task_escrow(req, "task-400", "ait-mainnet")
+        assert calls == [1]
+        entry = escrow_env.get_escrow_for_task("task-400")
+        assert entry is not None and entry.status == EscrowStatus.PENDING
+
+    def test_lock_425_exhausts_retries_and_stays_pending(self, escrow_env, monkeypatch):
+        monkeypatch.setattr(tasks_router, "_LOCK_NOT_CONFIRMED_DELAYS", (0.0, 0.0))
+        monkeypatch.setattr(tasks_router, "_LOCK_RETRY_AFTER_CAP_SECONDS", 0.0)
+        req = _submission("task-425-exhausted")
+        calls = []
+
+        def always_425(_escrow, _payment, _task_id):
+            calls.append(1)
+            raise EscrowRPCError("escrow RPC /rpc/escrow/create returned 425", status_code=425, retry_after=0)
+
+        monkeypatch.setattr(tasks_router, "_lock_escrow_on_chain", always_425)
+        with pytest.raises(EscrowRPCError):
+            tasks_router._create_task_escrow(req, "task-425-exhausted", "ait-mainnet")
+        assert calls == [1, 1, 1]
+        entry = escrow_env.get_escrow_for_task("task-425-exhausted")
+        assert entry is not None and entry.status == EscrowStatus.PENDING

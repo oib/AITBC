@@ -455,6 +455,40 @@ class TestSignedRequestHeaders:
             nonces.add(headers["X-Agent-Nonce"])
         assert len(nonces) == 2  # no replay-collision across sweep calls
 
+    def test_escrow_status_carries_signed_headers(self, monkeypatch):
+        pk, addr = _new_keypair()
+        monkeypatch.setenv("AGENT_SIGNING_KEY", pk)
+        captured = {}
+
+        def fake_get(url, **kwargs):
+            captured["url"] = url
+            captured["headers"] = kwargs.get("headers")
+            return _resp({"escrow": {"escrow_status": "locked"}})
+
+        monkeypatch.setattr(ate.requests, "get", fake_get)
+        out = ate._task_escrow_status("t-escrow-1")
+        assert out == {"escrow_status": "locked"}
+        assert captured["url"].endswith("/v1/tasks/t-escrow-1/escrow")
+        headers = captured["headers"]
+        assert headers["X-Agent-Id"] == ate.AGENT_EXECUTOR_ID
+        payload = {
+            "agent_id": headers["X-Agent-Id"],
+            "timestamp": headers["X-Agent-Timestamp"],
+            "nonce": headers["X-Agent-Nonce"],
+        }
+        assert _recover_req_payload(payload, headers["X-Agent-Signature"]) == addr
+
+    def test_escrow_status_unsigned_without_key(self, monkeypatch):
+        captured = {}
+
+        def fake_get(url, **kwargs):
+            captured["headers"] = kwargs.get("headers")
+            return _resp({"escrow": {"escrow_status": "locked"}})
+
+        monkeypatch.setattr(ate.requests, "get", fake_get)
+        assert ate._task_escrow_status("t-escrow-2") == {"escrow_status": "locked"}
+        assert captured["headers"] == {}
+
     def test_mark_read_carries_headers(self, monkeypatch):
         pk, addr = _new_keypair()
         monkeypatch.setenv("AGENT_SIGNING_KEY", pk)

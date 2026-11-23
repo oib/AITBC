@@ -329,7 +329,12 @@ class TestAgentTaskSigning:
             assert field not in msg, f"{field} present despite --no-sign"
 
     def test_status_signs_inbox_poll_with_wallet(self, runner):
-        client = _mock_client(get_map={"/api/v1/agent/messages/inbox": {"messages": []}})
+        client = _mock_client(
+            get_map={
+                "/v1/tasks/t-1/escrow": {"escrow": {"task_id": "t-1", "escrow_status": "locked"}},
+                "/api/v1/agent/messages/inbox": {"messages": []},
+            }
+        )
 
         from aitbc_cli.commands.agent_task import agent_task
 
@@ -343,16 +348,38 @@ class TestAgentTaskSigning:
         ):
             result = runner.invoke(
                 agent_task,
-                ["status", "--task-id", "t-1", "--wallet", "w1", "--coordinator-url", "http://c"],
+                [
+                    "status",
+                    "--task-id",
+                    "t-1",
+                    "--from-agent",
+                    "agent-a",
+                    "--wallet",
+                    "w1",
+                    "--coordinator-url",
+                    "http://c",
+                ],
                 obj={"output_format": "json"},
             )
         assert result.exit_code == 0, result.output
         assert mock_load.call_args.kwargs["wallet_name"] == "w1"
 
+        escrow = next(c for c in client.get.call_args_list if c.args[0] == "/v1/tasks/t-1/escrow")
         inbox = next(c for c in client.get.call_args_list if c.args[0] == "/api/v1/agent/messages/inbox")
-        headers = inbox.kwargs["headers"]
-        assert headers["X-Agent-Id"]
-        assert headers["X-Agent-Signature"].startswith("0x")
+        for call in (escrow, inbox):
+            headers = call.kwargs["headers"]
+            assert headers["X-Agent-Id"] == "agent-a"
+            assert headers["X-Agent-Signature"].startswith("0x")
+            claim = {
+                "agent_id": "agent-a",
+                "nonce": headers["X-Agent-Nonce"],
+                "timestamp": headers["X-Agent-Timestamp"],
+            }
+            recovered = recover_address(domain_digest(claim, "aitbc-agent-req-v1"), headers["X-Agent-Signature"])
+            assert canonical_address(recovered) == canonical_address(ACCOUNT.address)
+        # Fresh nonces per request — the coordinator's (agent, nonce) dedup must
+        # not see the inbox poll and the escrow read collide.
+        assert escrow.kwargs["headers"]["X-Agent-Nonce"] != inbox.kwargs["headers"]["X-Agent-Nonce"]
 
     def test_status_no_sign_sends_no_headers(self, runner):
         client = _mock_client(get_map={"/api/v1/agent/messages/inbox": {"messages": []}})
@@ -372,7 +399,9 @@ class TestAgentTaskSigning:
         assert result.exit_code == 0, result.output
         mock_load.assert_not_called()
         inbox = next(c for c in client.get.call_args_list if c.args[0] == "/api/v1/agent/messages/inbox")
+        escrow = next(c for c in client.get.call_args_list if c.args[0] == "/v1/tasks/t-1/escrow")
         assert inbox.kwargs["headers"] is None
+        assert escrow.kwargs["headers"] is None
 
 
 # --------------------------------------------------------------------------- #
