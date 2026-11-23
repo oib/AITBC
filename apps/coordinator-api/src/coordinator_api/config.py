@@ -286,6 +286,9 @@ class Settings(BaseAITBCConfig):
 
     # Blockchain RPC
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
+    # AI engine upstream for the /v1/multi-modal-rl proxy (#2712). Same env
+    # name/default as AI_SERVICE_URL used by the portfolio aggregator.
+    ai_service_url: str = Field(default="http://localhost:8005", description="AI engine service URL")
     blockchain_rpc_api_key: str = Field(default="", description="API key for blockchain RPC escrow endpoints")
     # Dedicated settlement credential for the chain's escrow release/refund
     # routes (#1917): the node requires it as X-Settlement-Key IN ADDITION to
