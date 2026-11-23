@@ -144,26 +144,53 @@ def _get_chain_id(ctx: click.Context, rpc_url: str) -> str:
         raise click.Abort() from e
 
 
-def _liquidity_stake_amount(ctx: click.Context, address: str, stake_id: str) -> int | None:
-    """Principal (compute-units) of ``stake_id`` for ``address``, or None.
+def _liquidity_stake(ctx: click.Context, address: str, stake_id: str) -> tuple[dict[str, Any] | None, bool]:
+    """Look up ``stake_id`` for ``address``; returns ``(stake, lookup_ok)``.
 
-    Best-effort lookup against ``/rpc/liquidity/stakes/{address}`` so the
-    sealed LIQUIDITY_WITHDRAW record carries the withdrawing amount in
-    ``payload.amount`` (#2734). Top-level ``value`` stays unset — the sender
-    pays fee only and the payout is pool-state, not a sender transfer, so a
-    nonzero value would fail the sender-balance validation. Any lookup
-    failure returns None: the node re-validates the stake at apply anyway.
+    ``lookup_ok`` is False when the ``/rpc/liquidity/stakes/{address}`` read
+    itself failed — callers then keep the flag-provided ``--pool`` and a
+    zero ``payload.amount`` rather than block the write. A successful read
+    that does not list the stake returns ``(None, True)`` so callers can
+    refuse a doomed submission instead of letting it die on-chain (#2739).
     """
     try:
         rpc_url = _get_rpc_url(ctx)
         chain_id = _get_chain_id(ctx, rpc_url)
         data = AITBCHTTPClient(base_url=rpc_url, timeout=10).get(f"/rpc/liquidity/stakes/{address}?chain_id={chain_id}")
-        for stake in (data or {}).get("stakes", []):
+        stakes = (data or {}).get("stakes")
+        if not isinstance(stakes, list):
+            return None, False
+        for stake in stakes:
             if stake.get("stake_id") == stake_id:
-                return int(stake["amount"])
-    except Exception as e:  # noqa: BLE001 - amount decoration must not block the withdraw
-        logger.debug("liquidity stake amount lookup failed for %s: %s", stake_id, e)
-    return None
+                return stake, True
+        return None, True
+    except Exception as e:  # noqa: BLE001 - lookup failure must not block the write path
+        logger.debug("liquidity stake lookup failed for %s: %s", stake_id, e)
+    return None, False
+
+
+def _liquidity_stake_or_abort(ctx: click.Context, address: str, stake_id: str, pool: str) -> tuple[str, int]:
+    """Resolve ``(pool_id, principal_units)`` for a liquidity stake.
+
+    The stake's own ``pool_id`` wins over ``--pool`` — apply rejects
+    ``stake.pool_id != payload.pool_id`` as "does not belong to sender"
+    (#2739: stakes live under their deposit-time pool, not the flag
+    default). Aborts when the lookup succeeds but the stake is absent;
+    on lookup failure falls back to ``(pool, 0)`` — ``payload.amount``
+    must always be present because the node injects ``amount`` into the
+    signed payload when it is missing, which invalidates the signature
+    (#2739: omitted amount -> 403 "Invalid transaction signature").
+    """
+    stake, lookup_ok = _liquidity_stake(ctx, address, stake_id)
+    if lookup_ok and stake is None:
+        abort(ctx, f"Liquidity stake {stake_id} not found for {address} — check `aitbc liquidity stakes --address {address}`")
+    if stake is None:
+        return pool, 0
+    try:
+        amount = int(stake["amount"])
+    except (KeyError, TypeError, ValueError):
+        amount = 0
+    return str(stake.get("pool_id") or pool), amount
 
 
 def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
@@ -804,6 +831,11 @@ def liquidity_claim(
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))
 
+    # #2739: resolve the stake's own pool — apply rejects a pool_id that
+    # differs from the stake's deposit-time pool, and the flag default
+    # ("main") does not match stakes opened under other pools.
+    stake_pool, _ = _liquidity_stake_or_abort(ctx, hex_address, stake_id, pool)
+
     tx = {
         "type": "LIQUIDITY_CLAIM",
         "from": hex_address,
@@ -811,7 +843,7 @@ def liquidity_claim(
         "amount": 0,
         "fee": fee_seconds,
         "payload": {
-            "pool_id": pool,
+            "pool_id": stake_pool,
             "stake_id": stake_id,
             "to": hex_address,
             "amount": 0,
@@ -892,16 +924,11 @@ def liquidity_unstake(
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))
 
-    payload: dict[str, Any] = {
-        "pool_id": pool,
-        "stake_id": stake_id,
-        "to": hex_address,
-    }
-    # #2734: record the withdrawing principal so the sealed tx does not read
-    # as a zero-value withdraw; omitted when the lookup cannot resolve it.
-    stake_amount = _liquidity_stake_amount(ctx, hex_address, stake_id)
-    if stake_amount is not None:
-        payload["amount"] = stake_amount
+    # #2734/#2739: record the withdrawing principal and the stake's own
+    # pool_id; payload.amount must always be present — omitting it lets the
+    # node inject amount into the signed payload, which invalidates the
+    # signature (403 "Invalid transaction signature").
+    stake_pool, stake_amount = _liquidity_stake_or_abort(ctx, hex_address, stake_id, pool)
 
     tx = {
         "type": "LIQUIDITY_WITHDRAW",
@@ -909,7 +936,12 @@ def liquidity_unstake(
         "to": hex_address,
         "amount": 0,
         "fee": fee_seconds,
-        "payload": payload,
+        "payload": {
+            "pool_id": stake_pool,
+            "stake_id": stake_id,
+            "to": hex_address,
+            "amount": stake_amount,
+        },
     }
 
     try:
