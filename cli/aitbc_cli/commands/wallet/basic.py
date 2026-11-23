@@ -1072,6 +1072,10 @@ MAX_SEND_FEE_AIT = MAX_TX_FEE_AIT
 )
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
+@click.option("--wallet-name", "wallet_name_override", default=None, help="Wallet name (overrides the group-level value)")
+@click.option(
+    "--wallet-path", "wallet_path_override", default=None, help="Direct path to wallet file (overrides --wallet-name)"
+)
 @click.pass_context
 def send(
     ctx,
@@ -1084,8 +1088,21 @@ def send(
     password_file: str | None,
     password_stdin: bool,
     rpc_url: str | None,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
 ):
     """Send AITBC tokens from the active wallet to another address."""
+    # #2736: sibling wallet commands accept --wallet-name/--wallet-path —
+    # rebind through the group callback so the send can come from any wallet
+    # without mutating the configured active wallet.
+    if wallet_name_override or wallet_path_override:
+        ctx.invoke(
+            wallet,
+            wallet_name=wallet_name_override,
+            wallet_path=wallet_path_override,
+            use_daemon=ctx.obj.get("use_daemon", True),
+            chain_id=ctx.obj.get("chain_id_explicit"),
+        )
     # Client-side fee sanity (#1714/#1744): refuse negative fees and absurd
     # burns before anything is signed — the node only checks fee >= 0 and balance.
     validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
