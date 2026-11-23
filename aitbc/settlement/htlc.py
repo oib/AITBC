@@ -1,9 +1,9 @@
-"""HTLC (Hashed Timelock Contract) utilities for atomic settlement (v0.9.0 §A2).
+"""Legacy HTLC utilities for the retired native settlement rail.
 
-Provides secret generation, hashlock computation, timelock calculation,
-and HTLC state machine management for cross-chain atomic settlement.
+These helpers are deprecated for new integrations and remain available for
+compatibility. They do not enable new native settlement writes (#2385).
 
-The HTLC protocol works as follows:
+The historical protocol worked as follows:
 1. Buyer generates a random secret and computes its SHA256 hash (hashlock)
 2. Buyer locks funds on source chain with hashlock + source_timelock
 3. Seller locks funds on dest chain with same hashlock + dest_timelock
