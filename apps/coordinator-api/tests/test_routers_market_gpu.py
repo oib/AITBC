@@ -994,6 +994,51 @@ def test_gpu_purchase_resolves_buyer_address_from_agent_id(
     assert pd.buyer_agent_id == BUYER_AGENT
 
 
+@pytest.mark.unit
+def test_buy_gpu_rejects_foreign_prepared_job(
+    client, client_token, db_session, native_pricing, available_gpu, pricing_engine_override
+):
+    """#2676: a purchase naming another client's job_id must 403 before any
+    state is touched — previously the payment ownership 403 cancelled the
+    victim's QUEUED/RUNNING job in the failure handler."""
+    _seed_energy(db_session)
+    quote_resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={
+            "buyer_id": "client1",
+            "gpu_id": available_gpu,
+            "duration_hours": 0.05,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert quote_resp.status_code == 200
+    victim_job_id = quote_resp.json()["job_id"]
+    db_session.expire_all()
+    victim_state = db_session.get(Job, victim_job_id).state
+
+    attacker_token = create_access_token("client-1", "client")
+    buy_resp = client.post(
+        "/v1/market/gpu/purchase",
+        headers={"Authorization": f"Bearer {attacker_token}"},
+        json={
+            "buyer_id": "client-1",
+            "gpu_id": available_gpu,
+            "duration_hours": 0.05,
+            "payment_method": "blockchain",
+            "job_id": victim_job_id,
+        },
+    )
+    assert buy_resp.status_code == 403
+
+    db_session.expire_all()
+    victim = db_session.get(Job, victim_job_id)
+    assert victim.state == victim_state
+    gpu = db_session.get(GPURegistry, available_gpu)
+    assert gpu.status == "available"
+
+
 # --- CE-004/CE-005: booking squatting expiry + delete_gpu IDOR ---
 
 
