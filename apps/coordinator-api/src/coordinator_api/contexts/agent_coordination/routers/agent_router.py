@@ -316,17 +316,22 @@ async def cancel_workflow(
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
-        from coordinator_api.contexts.agent_coordination.services.orchestrator_service import CoordinatorClient
+        # #2688: update_execution_status lives on AgentStateManager, not
+        # AIAgentOrchestrator — the old call raised AttributeError into the
+        # generic 500 on every cancel. Bind the execution to this workflow
+        # too: execution_id alone let a caller cancel any workflow's run.
+        from coordinator_api.contexts.agent_coordination.domain.agent import AgentExecution
+        from coordinator_api.contexts.agent_coordination.services.orchestrator_service import AgentStateManager
 
-        coordinator_client = CoordinatorClient()
-        from coordinator_api.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
-
-        orchestrator = AIAgentOrchestrator(session, coordinator_client)
-        result = await orchestrator.update_execution_status(  # type: ignore[attr-defined]
+        execution = await run_in_threadpool(session.get, AgentExecution, execution_id)
+        if execution is None or execution.workflow_id != workflow_id:
+            raise HTTPException(status_code=404, detail="Execution not found for this workflow")
+        state_manager = AgentStateManager(session)
+        result = await state_manager.update_execution_status(
             execution_id, AgentStatus.CANCELLED, completed_at=datetime.now(UTC)
         )
         logger.info("Cancelled workflow execution: %s", execution_id)
-        return result  # type: ignore[no-any-return]
+        return result.model_dump(mode="json")
     except HTTPException:
         raise
     except Exception as e:

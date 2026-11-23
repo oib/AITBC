@@ -15546,7 +15546,7 @@
             }
           },
           "404": {
-            "description": "Workflow not found",
+            "description": "Workflow not found / Execution not found for this workflow",
             "content": {
               "application/json": {
                 "schema": {
