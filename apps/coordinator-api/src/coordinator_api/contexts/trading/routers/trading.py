@@ -836,13 +836,18 @@ def get_trading_analytics(
     end_date: str | None = None,
 ) -> dict[str, Any]:
     """Get P2P trading analytics"""
+    # Parse the client-supplied bounds before the try: a malformed date is a
+    # 422 client error, not a 500 (#2720).
+    start_dt = None
+    end_dt = None
     try:
-        start_dt = None
-        end_dt = None
         if start_date:
             start_dt = _parse_period_bound(start_date)
         if end_date:
             end_dt = _parse_period_bound(end_date)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"invalid date parameter: {e}") from e
+    try:
         if not start_dt:
             start_dt = datetime.now(UTC) - timedelta(days=30)
         if not end_dt:
