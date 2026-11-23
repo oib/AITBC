@@ -149,7 +149,8 @@ class _JobsSettlementMixin(_JobsMixin):
     async def _require_locked_escrow(self, job: MarketJob, payment: MarketJobPayment) -> None:
         """#1564: the pending->escrowed flip needs on-chain escrow proof.
 
-        The chain escrow is keyed by the market job id (``/rpc/escrow/{job_id}``),
+        The chain escrow is keyed by the market job id (``/rpc/escrow/{job_id}``)
+        unless ``payload["escrow_job_id"]`` declares an alias key (#2737),
         so proof is: the escrow row exists, it is in a locked state (not
         created/released/refunded/expired), and — where the response and the
         job both name them — the locked amount and the buyer/provider parties
@@ -162,9 +163,31 @@ class _JobsSettlementMixin(_JobsMixin):
         floor = await self._offer_price_floor(job)
         if floor is not None and payment.amount < floor:
             raise ValueError(f"Job payment amount {payment.amount} is below the offer's listed minimum {floor}")
-        escrow = await self._rpc_client.verify_escrow(job.id)
+        # #2737: the escrow may be keyed by an alias — ``payload["escrow_job_id"]``
+        # names the on-chain job id when it differs from the market job id
+        # (coordinator-rail host payments, ``ai submit`` tokens). The alias
+        # must pass the same exclusivity + lock-binding checks the
+        # access-token path enforces (#2325/#2326), or a caller could point
+        # pin-confirm's pending->escrowed flip at a foreign escrow.
+        escrow_key = str((job.payload or {}).get("escrow_job_id") or job.id)
+        if escrow_key != job.id and not await self._escrow_key_claimed_by_this_job(job, escrow_key):
+            raise ValueError(f"Escrow key {escrow_key} is claimed by another market job")
+        escrow = await self._fetch_locked_escrow(job, payment, escrow_key)
+        if escrow_key != job.id:
+            await self._require_alias_escrow_binding(job, escrow)
+
+    async def _fetch_locked_escrow(self, job: MarketJob, payment: MarketJobPayment, escrow_key: str) -> dict[str, Any]:
+        """Fetch + validate the locked on-chain escrow for ``escrow_key``.
+
+        Raises ValueError unless the escrow exists, is in a locked state,
+        and its amount/parties match this job's payment record — the proof
+        ``_require_locked_escrow`` demands before flipping pending ->
+        escrowed. ``escrow_key`` is the market job id, or the
+        ``payload["escrow_job_id"]`` alias (#2737).
+        """
+        escrow = await self._rpc_client.verify_escrow(escrow_key)
         if not escrow:
-            raise ValueError(f"No on-chain escrow found for job {job.id}; payment cannot be marked escrowed")
+            raise ValueError(f"No on-chain escrow found for job {escrow_key}; payment cannot be marked escrowed")
         # Whitelist, not blacklist: the node reports contract states
         # (created/funded/job_started/job_completed/disputed/resolved/released/
         # refunded/expired) or the escrow row status (locked/released/refunded/
@@ -173,19 +196,35 @@ class _JobsSettlementMixin(_JobsMixin):
         # terminal) must not flip the payment.
         state = str(escrow.get("state") or "").lower()
         if state not in ESCROW_LOCKED_STATES:
-            raise ValueError(f"On-chain escrow for job {job.id} is not locked (state={state or 'unknown'})")
+            raise ValueError(f"On-chain escrow for job {escrow_key} is not locked (state={state or 'unknown'})")
         amount = escrow.get("amount")
         if amount is not None:
             try:
                 locked = Decimal(str(amount))
             except Exception as e:
-                raise ValueError(f"On-chain escrow for job {job.id} has an unreadable amount") from e
+                raise ValueError(f"On-chain escrow for job {escrow_key} has an unreadable amount") from e
             if not locked.is_finite() or locked != payment.amount:
                 raise ValueError(f"On-chain escrow amount {locked} does not match job payment amount {payment.amount}")
         for field, expected in (("buyer", job.buyer_address), ("provider", job.provider_address)):
             actual = escrow.get(field)
             if actual and expected and not self._addresses_match(actual, expected):
                 raise ValueError(f"On-chain escrow {field} does not match job {job.id}")
+        return escrow
+
+    async def _require_alias_escrow_binding(self, job: MarketJob, escrow: dict[str, Any]) -> None:
+        """#2326/#2737: extra proof an ``escrow_job_id`` alias claim needs.
+
+        Same rule as ``_locked_escrow_matches``: alias claims re-check buyer
+        presence+match (the party loop in ``_fetch_locked_escrow`` skips
+        absent fields), and the signed ESCROW_LOCK tx must name this market
+        job — without it the alias is an unverified caller claim.
+        """
+        actual = escrow.get("buyer")
+        expected = job.buyer_address
+        if not expected or not actual or not self._addresses_match(actual, expected):
+            raise ValueError(f"On-chain escrow buyer does not match alias claim for job {job.id}")
+        if not await self._alias_lock_binds_market_job(escrow, job):
+            raise ValueError(f"On-chain escrow lock does not name market job {job.id}")
 
     async def _job_token_escrow_verified(self, job: MarketJob, payment: MarketJobPayment | None) -> bool:
         """#2322 MARKET-TOKEN-ESCROW-BIND-1: does this job have locked escrow?
