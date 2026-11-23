@@ -630,3 +630,78 @@ class TestSettlementWalletUnderfunded:
         assert counts["failed"] == 1
         tagged = [r for r in caplog.records if "settlement_wallet_underfunded" in r.getMessage()]
         assert len(tagged) == 1
+
+
+@pytest.mark.unit
+class TestStuckEscrowDeliveredGate:
+    """#2680: delivered output makes the auto-refund an arbiter call.
+
+    The sweeper refunds as admin, which skips the delivered-work gate in
+    ``refund_payment`` — a client cancelling a RUNNING job after delivery
+    would collect the work AND the refund. The sweeper must leave the
+    payment held instead.
+    """
+
+    @patch("coordinator_api.contexts.payments.services.stuck_escrow_sweeper.PaymentService")
+    def test_canceled_job_with_delivered_result_is_not_refunded(self, mock_service_cls, sweep_session):
+        job, _payment = _make_job_and_payment(sweep_session, "job-dlv-1", "pay-dlv-1", state="CANCELED")
+        job.result = {"output": "the mined answer"}
+        sweep_session.add(job)
+        sweep_session.commit()
+
+        mock_service = MagicMock()
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 0
+        mock_service.refund_payment.assert_not_called()
+        sweep_session.expire_all()
+        assert sweep_session.get(JobPayment, "pay-dlv-1").status == "escrowed"
+
+    @patch("coordinator_api.contexts.payments.services.stuck_escrow_sweeper.PaymentService")
+    def test_canceled_job_with_failure_result_still_refunds(self, mock_service_cls, sweep_session):
+        """A stored failure payload is not delivery (#2244 semantics)."""
+        job, _payment = _make_job_and_payment(sweep_session, "job-dlv-2", "pay-dlv-2", state="CANCELED")
+        job.result = {"status": "failed", "error": "miner crashed"}
+        sweep_session.add(job)
+        sweep_session.commit()
+
+        mock_service = MagicMock()
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 1
+        assert counts["refunded"] == 1
+        mock_service.refund_payment.assert_called_once()
+
+    @patch("coordinator_api.contexts.payments.services.stuck_escrow_sweeper.PaymentService")
+    def test_disputed_job_still_auto_refunds_after_grace(self, mock_service_cls, sweep_session):
+        """Scope pin: the delivered gate covers the terminal-state branch
+        only. The disputed branch keeps its designed 24h operator-timeout
+        auto-refund — a COMPLETED job always reads as delivered, so gating
+        it would strand every unresolved dispute."""
+        job, _payment = _make_job_and_payment(
+            sweep_session,
+            "job-dlv-3",
+            "pay-dlv-3",
+            state="COMPLETED",
+            payment_status=DISPUTED,
+            meta_data={"disputed_at": (datetime.now(UTC) - timedelta(hours=25)).isoformat()},
+        )
+        job.result = {"output": "delivered before the dispute"}
+        sweep_session.add(job)
+        sweep_session.commit()
+
+        mock_service = MagicMock()
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 1
+        assert counts["refunded"] == 1
+        mock_service.refund_payment.assert_called_once()
