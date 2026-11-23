@@ -495,6 +495,14 @@ class AgentIdentityManager:
                 raise ValueError(f"Agent identity not found: {agent_id}")
             update_request = AgentIdentityUpdate(**updates)
             updated_identity = await self.core.update_identity(identity.id, update_request)
+            # Report only the fields the update model actually carries —
+            # trust fields (status, verification_level) and the
+            # cross_chain_updates/wallet_updates pseudo-keys are not
+            # identity columns (#2689).
+            applied_fields = [
+                {"meta_data": "identity_data", "settings": "settings_data"}.get(k, k)
+                for k in update_request.model_dump(exclude_unset=True)
+            ]
             cross_chain_updates = updates.get("cross_chain_updates", {})
             if cross_chain_updates:
                 for chain_id, chain_update in cross_chain_updates.items():
@@ -515,7 +523,7 @@ class AgentIdentityManager:
             return {
                 "agent_id": agent_id,
                 "identity_id": updated_identity.id,
-                "updated_fields": list(updates.keys()),
+                "updated_fields": applied_fields,
                 "updated_at": updated_identity.updated_at.isoformat(),
             }
         except _OPS_ERRORS as e:

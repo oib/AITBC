@@ -124,6 +124,36 @@ async def test_registry_statistics_counts_populated_db(db_session: Session) -> N
     assert 0.0 <= stats["verification_rate"] <= 1.0
 
 
+async def test_update_identity_maps_meta_and_blocks_trust_fields(db_session: Session) -> None:
+    """meta_data/settings land on identity_data/settings_data; status and
+    verification_level are not owner-writable (#2689)."""
+    mgr = AgentIdentityManager(db_session)
+    created = await mgr.create_agent_identity(owner_address=OWNER, chains=[1], display_name="Upd")
+    agent_id = created["agent_id"]
+    before = await mgr.core.get_identity_by_agent_id(agent_id)
+    assert before is not None
+
+    result = await mgr.update_agent_identity(
+        agent_id,
+        {
+            "meta_data": {"k": "v"},
+            "settings": {"s": 1},
+            "verification_level": "zero-knowledge",
+            "status": "suspended",
+        },
+    )
+    assert result.get("update_successful", True) is not False
+    assert set(result["updated_fields"]) == {"identity_data", "settings_data"}
+
+    ident = await mgr.core.get_identity_by_agent_id(agent_id)
+    assert ident is not None
+    assert ident.identity_data == {"k": "v"}
+    assert ident.settings_data == {"s": 1}
+    # trust fields untouched by the owner update
+    assert ident.verification_level == before.verification_level
+    assert ident.status == before.status
+
+
 async def test_import_agent_identity_rejects_existing(db_session: Session) -> None:
     mgr = AgentIdentityManager(db_session)
     created = await mgr.create_agent_identity(owner_address=OWNER, chains=[1], display_name="Dup")
