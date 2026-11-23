@@ -402,11 +402,11 @@ def test_native_energy_rate_get(client, db_session, native_pricing, miner_token)
     assert data["version"] == 1
 
 
-def test_native_energy_rate_post_accepts_in_band(client, miner_token):
+def test_native_energy_rate_post_accepts_in_band(client, admin_token):
     """A plausible rate publishes and bumps the version."""
     resp = client.post(
         "/v1/market/native-energy/rate",
-        headers={"Authorization": f"Bearer {miner_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
         json={"ait_per_eur": "4.0"},
     )
     assert resp.status_code == 200
@@ -415,29 +415,29 @@ def test_native_energy_rate_post_accepts_in_band(client, miner_token):
     assert data["version"] == 1
 
 
-def test_native_energy_rate_post_rejects_below_band(client, miner_token):
+def test_native_energy_rate_post_rejects_below_band(client, admin_token):
     """SD-7: the stub value 1 sat accepted for nine days — a clearly-absurd rate
     must now be refused at admission."""
     resp = client.post(
         "/v1/market/native-energy/rate",
-        headers={"Authorization": f"Bearer {miner_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
         json={"ait_per_eur": "0.1"},
     )
     assert resp.status_code == 400
     assert "plausible band" in resp.json()["detail"]
 
 
-def test_native_energy_rate_post_rejects_above_band(client, miner_token):
+def test_native_energy_rate_post_rejects_above_band(client, admin_token):
     resp = client.post(
         "/v1/market/native-energy/rate",
-        headers={"Authorization": f"Bearer {miner_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
         json={"ait_per_eur_scaled": int(Decimal("9") * FIXED_POINT_SCALE)},
     )
     assert resp.status_code == 400
     assert "plausible band" in resp.json()["detail"]
 
 
-def test_native_energy_rate_post_band_is_configurable(client, miner_token, monkeypatch):
+def test_native_energy_rate_post_band_is_configurable(client, admin_token, monkeypatch):
     """The band bounds are config keys — an operator can widen them, and the
     POST honours the override."""
     from coordinator_api.config import settings
@@ -445,35 +445,35 @@ def test_native_energy_rate_post_band_is_configurable(client, miner_token, monke
     monkeypatch.setattr(settings, "energy_rate_min_ait_per_eur", Decimal("0.1"))
     resp = client.post(
         "/v1/market/native-energy/rate",
-        headers={"Authorization": f"Bearer {miner_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
         json={"ait_per_eur": "0.2"},
     )
     assert resp.status_code == 200
 
 
-def test_native_energy_rate_post_band_boundaries(client, miner_token):
+def test_native_energy_rate_post_band_boundaries(client, admin_token):
     """The configured bounds are inclusive and stay inside the int64 scaled range."""
     for rate in ("0.5", "8"):
         resp = client.post(
             "/v1/market/native-energy/rate",
-            headers={"Authorization": f"Bearer {miner_token}"},
+            headers={"Authorization": f"Bearer {admin_token}"},
             json={"ait_per_eur": rate},
         )
         assert resp.status_code == 200, f"boundary {rate} refused: {resp.text}"
 
 
-def test_native_energy_rate_post_rejects_int64_overflow(client, miner_token):
+def test_native_energy_rate_post_rejects_int64_overflow(client, admin_token):
     """A scaled value above int64 must 400 at admission, not 500 on insert."""
     resp = client.post(
         "/v1/market/native-energy/rate",
-        headers={"Authorization": f"Bearer {miner_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
         json={"ait_per_eur_scaled": 10_000_000_000_000_000_000},
     )
     assert resp.status_code == 400
     assert "int64" in resp.json()["detail"]
 
 
-def test_native_energy_rate_post_always_bumps_version(client, miner_token, db_session, native_pricing):
+def test_native_energy_rate_post_always_bumps_version(client, admin_token, db_session, native_pricing):
     """SD-7 inventory: this endpoint is the only repository writer of the
     native_energy_rates row, and it must bump `version` on every write —
     an observed_at that moves under a fixed version (hub's protected escrow
@@ -484,11 +484,80 @@ def test_native_energy_rate_post_always_bumps_version(client, miner_token, db_se
     for expected_version in (2, 3):
         resp = client.post(
             "/v1/market/native-energy/rate",
-            headers={"Authorization": f"Bearer {miner_token}"},
+            headers={"Authorization": f"Bearer {admin_token}"},
             json={"ait_per_eur": "4.0"},
         )
         assert resp.status_code == 200
         assert resp.json()["version"] == expected_version
+
+
+def test_native_energy_profile_post_requires_resource_ownership(client, miner_token, miner_b_token):
+    """#2704: a miner cannot create an energy profile for a resource_id it does
+    not own — the floor feeds protected-funding quotes."""
+    _register_gpu(client, miner_token)
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_b_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": 200, "eur_per_kwh": "0.4"},
+    )
+    assert resp.status_code == 403
+
+
+def test_native_energy_profile_create_and_foreign_update_403(client, miner_token, miner_b_token, db_session):
+    """#2704: provider is the token sub, never a caller string; only the owner
+    may update the profile (raise/lower the floor or disable it)."""
+    _register_gpu(client, miner_token)
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": 200, "eur_per_kwh": "0.4", "provider": "0xattacker"},
+    )
+    assert resp.status_code == 201, resp.text
+    db_session.expire_all()
+    profile = db_session.get(NativeEnergyProfile, RESOURCE)
+    assert profile.provider == "gpu_miner"
+
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_b_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": 1, "eur_per_kwh": "0.01", "enabled": False},
+    )
+    assert resp.status_code == 403
+    db_session.expire_all()
+    profile = db_session.get(NativeEnergyProfile, RESOURCE)
+    assert profile.enabled is True
+    assert profile.tbp_watts == 200
+
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": 210, "eur_per_kwh": "0.4"},
+    )
+    assert resp.status_code == 201, resp.text
+    db_session.expire_all()
+    assert db_session.get(NativeEnergyProfile, RESOURCE).tbp_watts == 210
+
+
+def test_native_energy_profile_tbp_watts_validated(client, miner_token):
+    """#2704: a non-numeric tbp_watts is a 400, not a 500."""
+    _register_gpu(client, miner_token)
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": "not-a-number", "eur_per_kwh": "0.4"},
+    )
+    assert resp.status_code == 400
+
+
+def test_native_energy_rate_post_requires_admin(client, miner_token):
+    """#2704: the single global rate row moves every floor on the node —
+    miners can no longer publish it."""
+    resp = client.post(
+        "/v1/market/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"ait_per_eur": "4.0"},
+    )
+    assert resp.status_code in (401, 403)
 
 
 def test_native_energy_floor_get(client, db_session, native_pricing):
