@@ -100,6 +100,30 @@ async def test_create_identity_seeds_no_payment_mapping(db_session: Session) -> 
     assert exc_info.value.status_code == 404
 
 
+async def test_registry_statistics_counts_populated_db(db_session: Session) -> None:
+    """get_registry_statistics must return real counts, not entity rows (#2687)."""
+    from coordinator_api.agent_identity.registry import CrossChainRegistry
+
+    db_session.add(AgentIdentity(agent_id="agent_stats1", owner_address=OWNER))
+    db_session.add(
+        CrossChainMapping(
+            agent_id="agent_stats1",
+            chain_id=1,
+            chain_address="0x" + "ab" * 20,
+            is_verified=True,
+        )
+    )
+    db_session.commit()
+
+    stats = await CrossChainRegistry(db_session).get_registry_statistics()
+    assert isinstance(stats["total_identities"], int)
+    assert isinstance(stats["total_mappings"], int)
+    assert stats["total_identities"] >= 1
+    assert stats["total_mappings"] >= 1
+    assert stats["verified_mappings"] >= 1
+    assert 0.0 <= stats["verification_rate"] <= 1.0
+
+
 async def test_import_agent_identity_rejects_existing(db_session: Session) -> None:
     mgr = AgentIdentityManager(db_session)
     created = await mgr.create_agent_identity(owner_address=OWNER, chains=[1], display_name="Dup")
