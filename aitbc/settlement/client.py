@@ -2,8 +2,8 @@
 
 Async HTTP client that wraps the blockchain node's settlement endpoints
 (Agent B B5) and the trading service's settlement endpoints (Agent B B6).
-Used by the CLI and other services to create escrows, lock funds, verify
-locks, execute trades, settle atomically, and handle refunds/disputes.
+Used to read legacy settlement records. Remaining write wrappers target
+retired routes and are kept for compatibility.
 
 The client is async-first (``httpx.AsyncClient``) and supports both
 context-manager usage (``async with SettlementClient() as c: ...``) and
@@ -13,15 +13,10 @@ responses; callers are responsible for retry/backoff.
 Endpoint mapping (Agent B B5 — blockchain node, port 8202):
 - POST /rpc/bridge/settlement/create           -> create_escrow
 - POST /rpc/bridge/settlement/{id}/lock        -> lock_escrow
-- POST /rpc/bridge/settlement/{id}/verify      -> verify_lock
-- POST /rpc/bridge/settlement/{id}/execute     -> execute_trade
 - POST /rpc/bridge/settlement/{id}/settle      -> settle
 - POST /rpc/bridge/settlement/{id}/refund      -> refund
 - GET  /rpc/bridge/settlement/{id}             -> get_escrow
-- POST /rpc/bridge/settlement/{id}/extend-timeout -> extend_timeout
 - GET  /rpc/bridge/settlement/{id}/proofs      -> get_proofs
-- POST /rpc/bridge/settlement/{id}/dispute     -> file_dispute
-- POST /rpc/bridge/settlement/{id}/resolve     -> resolve_dispute
 
 Trading service endpoints (Agent B B6 — port 8104):
 - POST /v1/trading/trades/{id}/lock-escrow      -> lock_escrow_for_trade
@@ -184,28 +179,6 @@ class SettlementClient:
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
-    async def verify_lock(self, escrow_id: str) -> dict[str, Any]:
-        """Verify the lock proof on the destination chain.
-
-        Uses the bridge proof verification (v0.7.2 in-process verifier
-        or external oracle with fallback, v0.7.4) to verify that funds
-        were actually locked on the source chain.
-        """
-        resp = await self._ensure_client().post(f"/rpc/bridge/settlement/{escrow_id}/verify")
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
-
-    async def execute_trade(self, escrow_id: str) -> dict[str, Any]:
-        """Execute the trade on the destination chain.
-
-        Marks the trade as executed on the destination chain (e.g., AI
-        service delivered, compute job completed). Generates the
-        execution proof.
-        """
-        resp = await self._ensure_client().post(f"/rpc/bridge/settlement/{escrow_id}/execute")
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
-
     async def settle(self, escrow_id: str, secret: str) -> dict[str, Any]:
         """Settle the escrow atomically by revealing the secret.
 
@@ -252,20 +225,6 @@ class SettlementClient:
     # ------------------------------------------------------------------
     # Timeout management
     # ------------------------------------------------------------------
-
-    async def extend_timeout(self, escrow_id: str, extension_seconds: int) -> dict[str, Any]:
-        """Extend the escrow timeout.
-
-        Requires mutual agreement (multi-sig) from both parties. The
-        total extension cannot exceed ``max_timeout_extension_seconds``
-        from the original timeout.
-        """
-        resp = await self._ensure_client().post(
-            f"/rpc/bridge/settlement/{escrow_id}/extend-timeout",
-            json={"extension_seconds": extension_seconds},
-        )
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
 
     async def check_timeout(self, escrow_id: str) -> dict[str, Any]:
         """Check if an escrow has timed out and needs refunding.
@@ -346,37 +305,6 @@ class SettlementClient:
         if not errors:
             errors = _verify(proofs)
         return {"valid": not errors, "errors": errors}
-
-    # ------------------------------------------------------------------
-    # Dispute resolution
-    # ------------------------------------------------------------------
-
-    async def file_dispute(self, escrow_id: str, reason: str, evidence: str = "") -> dict[str, Any]:
-        """File a dispute for an escrow.
-
-        Puts the escrow into ``disputed`` status, halting automatic
-        timeout/refund until the dispute is resolved.
-        """
-        resp = await self._ensure_client().post(
-            f"/rpc/bridge/settlement/{escrow_id}/dispute",
-            json={"reason": reason, "evidence": evidence},
-        )
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
-
-    async def resolve_dispute(self, escrow_id: str, resolution: str) -> dict[str, Any]:
-        """Resolve a dispute for an escrow.
-
-        Args:
-            escrow_id: The escrow ID in dispute
-            resolution: "complete" (release to seller) or "refund" (refund buyer)
-        """
-        resp = await self._ensure_client().post(
-            f"/rpc/bridge/settlement/{escrow_id}/resolve",
-            json={"resolution": resolution},
-        )
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
 
     # ------------------------------------------------------------------
     # Trading service endpoints (port 8104)
