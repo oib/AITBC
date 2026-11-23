@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 from sqlmodel import Session
 
 from aitbc.auth import create_access_token
@@ -205,3 +206,15 @@ def test_relay_route_registered_in_security_matrix():
 
     assert get_auth_level("/v1/escrow/relay") == AuthLevel.ADMIN_OR_CLIENT
     assert ROUTE_SECURITY_MATRIX["/v1/escrow/relay"] == AuthLevel.ADMIN_OR_CLIENT
+
+
+@pytest.mark.parametrize("bad", ["NaN", "Infinity", "-Infinity", "nan", "inf"])
+def test_amount_units_rejects_non_finite(bad):
+    """Non-finite amounts must be a 400, not an unhandled 500 (#2692)."""
+    from fastapi import HTTPException
+
+    from coordinator_api.contexts.payments.services.escrow_relay import EscrowRelayService
+
+    with pytest.raises(HTTPException) as exc:
+        EscrowRelayService._amount_units(bad)
+    assert exc.value.status_code == 400

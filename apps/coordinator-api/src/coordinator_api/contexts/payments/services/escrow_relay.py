@@ -105,6 +105,13 @@ class EscrowRelayService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid amount: {amount}",
             ) from None
+        # NaN fails the <= 0 ordering with InvalidOperation and Infinity
+        # overflows ait_to_units — reject non-finite input as a 400 (#2692).
+        if not amount_dec.is_finite():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid amount: {amount}",
+            )
         if amount_dec <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
