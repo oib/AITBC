@@ -763,6 +763,27 @@ class TestShopAccessHeaders:
         # No access_job_id: falls back to the request's job_id, then task_id.
         assert captured["headers"]["X-Job-Id"] == "job-in-req"
 
+    def test_market_job_id_binds_x_job_id(self, monkeypatch):
+        """#2743: agent-task hire embeds the market token id as
+        ``market_job_id`` — it must win over the atask job_id/task_id so
+        X-Job-Id names the market job the token was issued for."""
+        captured = {}
+
+        def fake_post(url, **kwargs):
+            captured["headers"] = kwargs.get("headers")
+            return _resp(content=b"{}")
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        req = _task_request(
+            task_id="atask_1",
+            job_id="atask_1",
+            market_job_id="ataskmkt_abc",
+            access_key="ak-12345678",
+            access_secret="sec",
+        )
+        ate._exec_whisper(req, b"audio")
+        assert captured["headers"]["X-Job-Id"] == "ataskmkt_abc"
+
     def test_no_credentials_omits_headers(self, monkeypatch):
         captured = {}
 

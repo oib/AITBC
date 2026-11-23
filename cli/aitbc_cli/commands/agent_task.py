@@ -372,6 +372,70 @@ def _buyer_signing(
     return buyer_address, private_key, signing, signing_key, buyer_agent
 
 
+# service_types whose provider-side endpoints sit behind the paid shop gate
+# (#803): whisper ``/transcribe`` and ffmpeg ``/process`` require the
+# X-Access-Key/X-Access-Secret/X-Job-Id triple verified against a market job
+# token. ollama/ipfs handlers do not.
+_SHOP_GATED_SERVICE_TYPES = frozenset({"whisper", "ffmpeg"})
+
+
+def _agent_task_shop_access(
+    ctx: click.Context,
+    service_type: str,
+    task_id: str,
+    buyer_address: str,
+    provider_wallet: str,
+    amount: Decimal,
+    model: str | None,
+    private_key: str,
+) -> dict[str, str]:
+    """Mint + register the shop-gate credential triple for gated service types (#2743).
+
+    Paid shop endpoints verify ``X-Access-Key``/``X-Access-Secret`` against
+    ``GET /v1/market/access/{key}`` and bind ``X-Job-Id`` to that market job
+    — a token only the buyer-side CLI can register (``POST /v1/market/jobs``).
+    ``ai submit`` does the same for ``type=transcribe`` (#2316/#2322); the
+    agent-task TaskRequest needs the identical triple in its content or the
+    provider's whisper/ffmpeg call 401s and the paid task fails.
+
+    The market job id stays distinct from ``task_id`` (the on-chain
+    ESCROW_LOCK key) exactly like ``ai submit``: it is a pure token record
+    whose ``payload.escrow_job_id`` alias binds it to the atask escrow —
+    the #2326 buyer-wallet signature covers that binding. Returns the
+    content fields to merge into the TaskRequest, or ``{}`` for ungated
+    types / registration failure (the shop's own 401 remains the refusal).
+    """
+    if service_type not in _SHOP_GATED_SERVICE_TYPES:
+        return {}
+    import secrets
+
+    from .market.jobs import _register_paid_market_job
+
+    market_job_id = f"ataskmkt_{uuid.uuid4().hex[:16]}"
+    access_key = secrets.token_urlsafe(16)
+    access_secret = secrets.token_urlsafe(32)
+    registered = _register_paid_market_job(
+        ctx,
+        market_job_id,
+        {"model": model or ""},
+        buyer_address,
+        provider_wallet,
+        service_type,
+        amount,
+        access_key=access_key,
+        access_secret=access_secret,
+        escrow_job_id=task_id,
+        signer_key=private_key,
+    )
+    if registered is None:
+        return {}
+    return {
+        "access_key": access_key,
+        "access_secret": access_secret,
+        "access_job_id": market_job_id,
+    }
+
+
 def _submit_task(
     ctx,
     client: AITBCHTTPClient,
@@ -669,6 +733,14 @@ def hire(
     )
     success(f"Task {task_id} submitted — escrow {escrow_id} locked on-chain ({max_price_ait} AIT)")
 
+    # 5b. Shop-gate credentials for gated service types (#2743): the
+    # provider's whisper/ffmpeg endpoints verify the access triple against
+    # a market job token — register it bound to this task's on-chain escrow
+    # and carry the triple in the TaskRequest content.
+    shop_access = _agent_task_shop_access(
+        ctx, service_type, task_id, buyer_address, provider_wallet, max_price_ait, model, private_key
+    )
+
     # 6. Send the TaskRequest negotiation message.
     request_msg = {
         "task_id": task_id,
@@ -678,6 +750,7 @@ def hire(
         "max_price": str(max_price_ait),
         "deadline": None,
         "escrow_id": escrow_id,
+        **shop_access,
     }
     if not _send_task_message(client, buyer_agent, to_agent, "task_request", request_msg, signing=signing):
         error("Escrow is locked but TaskRequest delivery failed — use `agent-task status` to inspect")

@@ -171,6 +171,7 @@ def test_hire_submits_signed_escrow(runner, mock_client):
         ),
         patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")) as mock_lock,
         patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
+        patch("aitbc_cli.commands.market.jobs._register_paid_market_job", return_value=("ak", "sec")),
     ):
         result = runner.invoke(
             agent_task,
@@ -221,6 +222,110 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     # The lock tx was signed to the coordinator's settlement wallet,
     # not the buyer's local node wallet.
     assert mock_lock.call_args.kwargs["node_wallet"] == "0xSettleNode"
+
+
+def _hire_kwargs(mock_client, wallet):
+    def fake_get(path, params=None, headers=None):
+        if path.startswith("/v1/agents/"):
+            return {"agent": {"metadata": {"wallet": "0xProvider"}}}
+        if path == "/v1/tasks/escrow-config":
+            return {"status": "success", "settlement_wallet": "0xSettleNode"}
+        return {"messages": []}
+
+    def fake_post(path, json=None, headers=None):
+        if path == "/v1/tasks/submit":
+            return {"status": "success", "escrow_id": "esc-9", "task_id": json["task_data"]["task_id"]}
+        return {"status": "success", "message_id": "m-1"}
+
+    mock_client.get.side_effect = fake_get
+    mock_client.post.side_effect = fake_post
+    return wallet
+
+
+def _invoke_hire(runner, service_type):
+    from aitbc_cli.commands.agent_task import agent_task
+
+    return runner.invoke(
+        agent_task,
+        [
+            "hire",
+            "--to-agent",
+            "aitbc-miner-1",
+            "--service-type",
+            service_type,
+            "--payload",
+            "QmCID",
+            "--max-price",
+            "0.05",
+            "--no-wait",
+            "--coordinator-url",
+            "http://coord.local",
+        ],
+        obj={"output_format": "json"},
+    )
+
+
+def test_hire_gated_service_carries_shop_access(runner, mock_client):
+    """#2743: whisper/ffmpeg TaskRequests must carry the shop-gate triple —
+    the provider's gated endpoint 401s without it. The market token registers
+    bound to the task's on-chain escrow (payload.escrow_job_id=task_id)."""
+
+    wallet = _hire_kwargs(mock_client, _real_wallet())
+    register = MagicMock(return_value=("ak", "sec"))
+
+    with (
+        patch("aitbc_cli.commands.agent_task._resolve_payload_ref", return_value="QmCID"),
+        patch(
+            "aitbc_cli.commands.agent_task.load_wallet_for_payment",
+            return_value=(wallet.address, wallet.key.hex(), "w1"),
+        ),
+        patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")),
+        patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
+        patch("aitbc_cli.commands.market.jobs._register_paid_market_job", register),
+    ):
+        result = _invoke_hire(runner, "whisper")
+
+    assert result.exit_code == 0, result.output
+    register.assert_called_once()
+    call = register.call_args
+    market_job_id = call.args[1]
+    assert market_job_id.startswith("ataskmkt_")
+    assert call.kwargs["access_key"] and call.kwargs["access_secret"]
+    # The on-chain ESCROW_LOCK is keyed by task_id — the token binds to it.
+    assert call.kwargs["escrow_job_id"].startswith("atask_")
+    assert call.args[5] == "whisper"  # service_type positional
+
+    send = next(c for c in mock_client.post.call_args_list if c.args[0] == "/api/v1/agent/messages/send")
+    content = send.kwargs["json"]["content"]
+    assert content["access_key"] == call.kwargs["access_key"]
+    assert content["access_secret"] == call.kwargs["access_secret"]
+    assert content["access_job_id"] == market_job_id
+
+
+def test_hire_ungated_service_skips_shop_access(runner, mock_client):
+    """#2743: ollama/ipfs tasks are not shop-gated — no token, no registration."""
+    wallet = _hire_kwargs(mock_client, _real_wallet())
+    register = MagicMock(return_value=("ak", "sec"))
+
+    with (
+        patch("aitbc_cli.commands.agent_task._resolve_payload_ref", return_value="QmCID"),
+        patch(
+            "aitbc_cli.commands.agent_task.load_wallet_for_payment",
+            return_value=(wallet.address, wallet.key.hex(), "w1"),
+        ),
+        patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")),
+        patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
+        patch("aitbc_cli.commands.market.jobs._register_paid_market_job", register),
+    ):
+        result = _invoke_hire(runner, "ollama")
+
+    assert result.exit_code == 0, result.output
+    register.assert_not_called()
+    send = next(c for c in mock_client.post.call_args_list if c.args[0] == "/api/v1/agent/messages/send")
+    content = send.kwargs["json"]["content"]
+    assert "access_key" not in content
+    assert "access_secret" not in content
+    assert "access_job_id" not in content
 
 
 def test_hire_provider_lookup_sends_signed_headers(runner, mock_client):
