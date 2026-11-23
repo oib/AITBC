@@ -368,12 +368,25 @@ def submit_transaction_route(request: Request, tx_data: TransactionRequest) -> d
 
 @router.get("/mempool", summary="Get pending transactions")
 @rate_limit(rate=200, per=60)
-def get_mempool_api_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
-    """Get pending transactions from mempool"""
+def get_mempool_api_route(
+    request: Request,
+    chain_id: str | None = None,
+    limit: int = 100,
+    nonce_view: bool = False,
+) -> dict[str, Any]:
+    """Get pending transactions from mempool.
+
+    ``nonce_view=true`` opts into the rejection-aware nonce classification
+    (#2745): entries whose exact hash already carries a durable rejected (or
+    height-sealed confirmed) row stop occupying their nonce slot, and the
+    response carries ``nonce_view_complete`` so callers can tell a classified
+    empty slot from an unclassifiable one. Legacy callers see the unchanged
+    listing.
+    """
     # Import locally to avoid circular dependency
     from ..transactions import get_mempool
 
-    return get_mempool(request, chain_id, limit)  # type: ignore[no-any-return]
+    return get_mempool(request, chain_id, limit, nonce_view=nonce_view)  # type: ignore[no-any-return]
 
 
 @router.post("/transactions/market", summary="Submit market transaction")

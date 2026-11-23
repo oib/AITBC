@@ -231,13 +231,13 @@ class InMemoryMempool:
         self._drop_entry(chain_id, lowest)
         metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
 
-    def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
+    def list_transactions(self, chain_id: str | None = None, *, limit: int | None = None) -> list[PendingTransaction]:
         from .config import settings
 
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
-            return list(self._get_chain_transactions(chain_id).values())
+            return list(self._get_chain_transactions(chain_id).values())[:limit]
 
     def drain(self, max_count: int, max_bytes: int, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings

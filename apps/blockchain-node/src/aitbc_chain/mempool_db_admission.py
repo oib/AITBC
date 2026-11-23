@@ -363,18 +363,21 @@ class _DbAdmissionMixin:
         metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
         return True, current_count
 
-    def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
+    def list_transactions(self, chain_id: str | None = None, *, limit: int | None = None) -> list[PendingTransaction]:
         from .config import settings
 
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
             with Session(self._engine) as session:
-                entries = session.exec(
+                statement = (
                     select(MempoolEntry)
                     .where(MempoolEntry.chain_id == chain_id)
                     .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.received_at).asc())
-                ).all()
+                )
+                if limit is not None:
+                    statement = statement.limit(limit)
+                entries = session.exec(statement).all()
         return [
             PendingTransaction(
                 tx_hash=e.tx_hash, content=json.loads(e.content), fee=e.fee, size_bytes=e.size_bytes, received_at=e.received_at

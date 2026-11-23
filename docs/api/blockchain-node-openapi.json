@@ -4023,7 +4023,7 @@
           "core"
         ],
         "summary": "Get pending transactions",
-        "description": "Get pending transactions from mempool",
+        "description": "Get pending transactions from mempool.\n\n``nonce_view=true`` opts into the rejection-aware nonce classification\n(#2745): entries whose exact hash already carries a durable rejected (or\nheight-sealed confirmed) row stop occupying their nonce slot, and the\nresponse carries ``nonce_view_complete`` so callers can tell a classified\nempty slot from an unclassifiable one. Legacy callers see the unchanged\nlisting.",
         "operationId": "get_mempool_api_route_rpc_mempool_get",
         "parameters": [
           {
@@ -4050,6 +4050,16 @@
               "type": "integer",
               "default": 100,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "nonce_view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Nonce View"
             }
           }
         ],
@@ -16444,7 +16454,7 @@
           "core"
         ],
         "summary": "Get pending transactions",
-        "description": "Get pending transactions from mempool",
+        "description": "Get pending transactions from mempool.\n\n``nonce_view=true`` opts into the rejection-aware nonce classification\n(#2745): entries whose exact hash already carries a durable rejected (or\nheight-sealed confirmed) row stop occupying their nonce slot, and the\nresponse carries ``nonce_view_complete`` so callers can tell a classified\nempty slot from an unclassifiable one. Legacy callers see the unchanged\nlisting.",
         "operationId": "get_mempool_api_route_v1_mempool_get",
         "parameters": [
           {
@@ -16471,6 +16481,16 @@
               "type": "integer",
               "default": 100,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "nonce_view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Nonce View"
             }
           }
         ],

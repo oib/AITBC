@@ -7,11 +7,19 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from eth_keys import keys
 from sqlmodel import select
 
 from aitbc.utils.units import LIQUIDITY_FEE_UNITS
 from aitbc_chain.base_models import _to_ait_address
+from aitbc_chain.mempool_common import compute_tx_hash
 from aitbc_chain.models import Account, LiquidityPool, LiquidityStake
+from aitbc_chain.rpc.transactions import TransactionRequest
+from aitbc_chain.rpc.utils import (
+    normalize_transaction_data,
+    sign_transaction_data,
+    verify_transaction_signature,
+)
 from aitbc_chain.state.liquidity import (
     _distribute_to_pool,
     _ensure_pool_accounts,
@@ -283,3 +291,53 @@ def test_liquidity_withdraw_with_absent_pool_accounts(session, funded_account):
     session.flush()
     for addr in (pool_main_address(), pool_treasury_address(), pool_emission_address()):
         assert session.get(Account, ("test-chain", addr)) is not None
+
+
+def test_withdraw_attempt_id_is_signed_and_applies(session):
+    """#2745 phase-1 proof: a withdraw payload carrying ``attempt_id`` survives
+    real secp256k1 signing/verification and the real consensus apply path —
+    no signature or apply stubbing. The attempt id is inside the signed
+    payload, so tampering with it must break verification, and the retried
+    (attempt-tagged) envelope must apply as a distinct transaction."""
+    private_key = "11" * 32
+    sender = keys.PrivateKey(bytes.fromhex(private_key)).public_key.to_checksum_address()
+    chain_id = "test-chain"
+    session.add(Account(chain_id=chain_id, address=sender, balance=100_000_000, nonce=188))
+    session.commit()
+    stake = _seed_active_stake(session, sender, stake_id="liq_retry_proof")
+    _fund_pool_account(session, pool_main_address(), 40_000_000)
+    _fund_pool_account(session, pool_treasury_address(), 40_000_000)
+    original = {
+        "type": "LIQUIDITY_WITHDRAW",
+        "from": sender,
+        "to": sender,
+        "chain_id": chain_id,
+        "amount": 0,
+        "nonce": 188,
+        "fee": 100,
+        "payload": {"pool_id": "main", "stake_id": stake.stake_id, "to": sender, "amount": stake.amount},
+    }
+    retry = {**original, "payload": {**original["payload"], "attempt_id": "a" * 32}}
+    for tx in (original, retry):
+        tx["signature"] = sign_transaction_data(tx, private_key)
+    req = TransactionRequest.model_validate(retry)
+    assert req.payload == retry["payload"]
+    normalized = normalize_transaction_data({**retry, "payload": req.payload}, chain_id)
+    assert verify_transaction_signature(normalized, req.sig, sender)
+    tampered = {**normalized, "payload": {**normalized["payload"], "attempt_id": "b" * 32}}
+    assert not verify_transaction_signature(tampered, req.sig, sender)
+    tx_hash = compute_tx_hash(normalized)
+    assert tx_hash != compute_tx_hash(normalize_transaction_data(original, chain_id))
+    ok, reason = StateTransition().apply_transaction(
+        session,
+        chain_id,
+        normalized,
+        tx_hash,
+        block_version=30,
+        block_height=36_177,
+        block_time=datetime.now(UTC),
+    )
+    assert ok, reason
+    session.flush()
+    assert session.get(Account, (chain_id, sender)).nonce == 189
+    assert session.get(LiquidityStake, (stake.stake_id, chain_id)).status == "withdrawn"
