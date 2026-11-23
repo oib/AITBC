@@ -46,12 +46,12 @@ def test_create_escrow_retired_is_410(client, monkeypatch):
 
     called = False
 
-    async def boom(self, **kwargs):
+    def boom(self, *args, **kwargs):
         nonlocal called
         called = True
         raise ChainDbMissingError("chain db missing: /var/lib/aitbc/data/bc-2-island/chain.db")
 
-    monkeypatch.setattr(settlement_mod.CrossChainSettlementService, "create_escrow", boom)
+    monkeypatch.setattr(settlement_mod.CrossChainSettlementService, "__init__", boom)
     resp = client.post("/bridge/settlement/create", json=_payload())
     assert resp.status_code == 410, resp.text
     assert "#2385" in resp.json()["detail"]
