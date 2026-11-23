@@ -834,6 +834,9 @@ async def get_pricing(
                 base_price=gpu.price_per_hour,
                 strategy=PricingStrategy.MARKET_BALANCE,
                 region=gpu.region,
+                # #2707: unauthenticated GET must not write two DB rows per
+                # GPU per request — compute the quote read-only.
+                persist=False,
             )
             recommended = dynamic_result.recommended_price
             dynamic_prices.append(

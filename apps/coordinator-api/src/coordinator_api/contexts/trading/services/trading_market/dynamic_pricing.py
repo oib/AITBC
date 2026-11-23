@@ -141,8 +141,14 @@ class DynamicPricingEngine(_PricingFactorsMixin, _PricingMarketMixin):
         strategy: PricingStrategy | None = None,
         constraints: PriceConstraints | None = None,
         region: str = "global",
+        persist: bool = True,
     ) -> PricingResult:
-        """Calculate dynamic price for a resource"""
+        """Calculate dynamic price for a resource.
+
+        ``persist=False`` computes the same result without appending to the
+        in-memory history or writing PricingHistory/PricingAuditLog rows —
+        for read-only preview paths like the public pricing GET (#2707).
+        """
         try:
             base_price_dec = _D(base_price)
             if strategy is None:
@@ -157,7 +163,8 @@ class DynamicPricingEngine(_PricingFactorsMixin, _PricingMarketMixin):
             reasoning = await self._generate_pricing_reasoning(factors, strategy, market_conditions, price_trend)
             confidence = await self._calculate_confidence_score(factors, market_conditions)
             next_update = datetime.now(UTC) + timedelta(seconds=self.update_interval)
-            await self._store_price_point(resource_id, resource_type, final_price, factors, strategy)
+            if persist:
+                await self._store_price_point(resource_id, resource_type, final_price, factors, strategy)
             result = PricingResult(
                 resource_id=resource_id,
                 resource_type=resource_type,
