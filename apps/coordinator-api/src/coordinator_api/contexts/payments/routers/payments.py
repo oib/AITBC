@@ -134,7 +134,14 @@ async def release_payment(
         result = {"status": "released", "payment_id": payment_id}
         await complete_operation(key, attempt, result)
         return result
-    except HTTPException:
+    except HTTPException as e:
+        # Settle the idempotency row for every HTTP outcome: retryable
+        # statuses (425, 5xx) fail the attempt so a keyed retry can execute;
+        # deterministic 4xx are memoized as rejections (#2698).
+        if e.status_code == 425 or e.status_code >= 500:
+            await fail_operation(key, attempt, f"HTTP {e.status_code}")
+        else:
+            await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
         raise
     except Exception as e:
         await fail_operation(key, attempt, type(e).__name__)
@@ -184,7 +191,13 @@ async def refund_payment(
         result = {"status": "refunded", "payment_id": payment_id}
         await complete_operation(key, attempt, result)
         return result
-    except HTTPException:
+    except HTTPException as e:
+        # Same ledger settlement as release: retryable statuses fail the
+        # attempt, deterministic 4xx are memoized (#2698).
+        if e.status_code == 425 or e.status_code >= 500:
+            await fail_operation(key, attempt, f"HTTP {e.status_code}")
+        else:
+            await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
         raise
     except Exception as e:
         await fail_operation(key, attempt, type(e).__name__)

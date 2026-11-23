@@ -207,3 +207,43 @@ def test_no_key_routes_straight_through(client, ledger):
         r2 = client.post("/v1/payments/pay1/release", json=body)
         assert r1.status_code == 200 and r2.status_code == 200
         assert svc.release_payment.await_count == 2
+
+
+def test_retryable_http_error_fails_attempt_so_keyed_retry_executes(client, ledger):
+    """#2698: a service 425 ('lock not yet sealed, retry') must fail the
+    idempotency attempt — not leave it pending — so the keyed retry the
+    node itself advises actually runs instead of answering 409."""
+    from fastapi import HTTPException
+
+    with patch("coordinator_api.contexts.payments.routers.payments.PaymentService") as svc_cls:
+        svc = _mock_service()
+        svc.refund_payment = AsyncMock(side_effect=[HTTPException(status_code=425, detail="lock not yet sealed, retry"), True])
+        svc_cls.return_value = svc
+
+        body = {"job_id": "job1", "payment_id": "pay1", "reason": "job failed"}
+        r1 = client.post("/v1/payments/pay1/refund", json=body, headers={"Idempotency-Key": "pay-ref-425"})
+        assert r1.status_code == 425
+
+        r2 = client.post("/v1/payments/pay1/refund", json=body, headers={"Idempotency-Key": "pay-ref-425"})
+        assert r2.status_code == 200
+        assert r2.json() == {"status": "refunded", "payment_id": "pay1"}
+        assert svc.refund_payment.await_count == 2  # retry re-drove the service
+
+
+def test_deterministic_4xx_from_service_is_memoized(client, ledger):
+    """#2698: a service 403 is a deterministic rejection — the keyed replay
+    gets the same answer without re-driving the service."""
+    from fastapi import HTTPException
+
+    with patch("coordinator_api.contexts.payments.routers.payments.PaymentService") as svc_cls:
+        svc = _mock_service()
+        svc.refund_payment = AsyncMock(side_effect=HTTPException(status_code=403, detail="forbidden"))
+        svc_cls.return_value = svc
+
+        body = {"job_id": "job1", "payment_id": "pay1", "reason": "job failed"}
+        r1 = client.post("/v1/payments/pay1/refund", json=body, headers={"Idempotency-Key": "pay-ref-403"})
+        r2 = client.post("/v1/payments/pay1/refund", json=body, headers={"Idempotency-Key": "pay-ref-403"})
+
+        assert r1.status_code == 403 and r2.status_code == 403
+        assert r1.json() == r2.json()
+        assert svc.refund_payment.await_count == 1
