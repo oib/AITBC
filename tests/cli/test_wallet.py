@@ -327,6 +327,66 @@ class TestWalletCommands:
         assert data["jobs_completed"] == 1
         assert data["transaction_count"] == 1
 
+    @pytest.fixture
+    def legacy_units_wallet(self):
+        """Wallet file holding a raw compute-units balance (pre-#2196 writer, #2730)."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            wallet_data = {
+                "address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
+                "balance": 1115390,  # units, not AIT — the observed node0 default.json shape
+                "private_key": "a" * 64,
+                "transactions": [],
+                "created_at": "2024-01-01T00:00:00",
+            }
+            json.dump(wallet_data, f)
+            temp_path = f.name
+        yield temp_path
+        os.unlink(temp_path)
+
+    def test_stats_legacy_units_balance(self, runner, legacy_units_wallet, mock_config):
+        """stats must not double-convert a unit-scale stored balance (#2730)."""
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", legacy_units_wallet, "stats"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
+        )
+
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        # 1115390 units / 36_000_000 ≈ 0.031 AIT — not "1115390 AIT"
+        assert data["local_ledger_balance"] == format_ait(1115390)
+        assert data["local_ledger_balance"] != format_ait(ait_to_units(1115390))
+
+    def test_earn_normalizes_legacy_units_balance(self, runner, legacy_units_wallet, mock_config):
+        """earn on a unit-scale file re-saves canonical AIT, not units+AIT (#2730)."""
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", legacy_units_wallet, "earn", "--amount", "1.0", "--job-id", "job_u"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
+        )
+
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        expected_ait = units_to_ait(1115390) + Decimal("1.0")
+        assert data["new_balance"] == format_ait(ait_to_units(expected_ait))
+
+        with open(legacy_units_wallet) as f:
+            wallet_data = json.load(f)
+        # the file is migrated to canonical AIT on write
+        assert Decimal(wallet_data["balance"]) == expected_ait
+
+    def test_spend_legacy_units_balance(self, runner, legacy_units_wallet, mock_config):
+        """spend sufficiency check reads the unwrapped AIT figure (#2730)."""
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", legacy_units_wallet, "spend", "--amount", "1.0", "--description", "too much"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
+        )
+
+        # the ledger only holds ~0.031 AIT — 1.0 AIT must be refused
+        assert result.exit_code != 0
+        assert "Insufficient balance" in result.output
+
     def test_send_command_success(self, runner, temp_wallet, mock_config):
         """Test successful send command"""
         result = runner.invoke(

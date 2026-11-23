@@ -20,6 +20,7 @@ from ...utils.fee_guard import MAX_TX_FEE_AIT, validate_tx_fee
 from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ...utils.money import wallet_amount as _wallet_amount
+from ...utils.money import wallet_ledger_balance as _wallet_ledger_balance
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import (
     env_wallet_dir_override_active,
@@ -662,8 +663,9 @@ def _attach_balance(wallet_info: dict[str, Any], wallet_data: dict[str, Any], ad
         wallet_info["balance"] = live
         wallet_info["balance_source"] = "chain"
     elif "balance" in wallet_data:
-        # the local wallet file holds AIT; format_ait takes compute-units
-        wallet_info["balance"] = format_ait(ait_to_units(wallet_data["balance"]))
+        # the local wallet file holds AIT (legacy unit-scale values are
+        # unwrapped by _wallet_ledger_balance); format_ait takes compute-units
+        wallet_info["balance"] = format_ait(ait_to_units(_wallet_ledger_balance(wallet_data["balance"])))
         wallet_info["balance_source"] = "stored-file (may be stale)"
 
 
@@ -918,7 +920,9 @@ def earn(
     }
 
     wallet_data["transactions"].append(transaction)
-    wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + amount)
+    # _wallet_ledger_balance unwraps legacy unit-scale values, so the re-saved
+    # balance is always canonical AIT (#2730).
+    wallet_data["balance"] = str(_wallet_ledger_balance(wallet_data.get("balance", 0)) + amount)
 
     # Save wallet with encryption
     _resave_wallet(ctx, Path(wallet_path), wallet_data, password)
@@ -966,7 +970,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
     )
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
-    balance = _wallet_amount(wallet_data.get("balance", 0))
+    balance = _wallet_ledger_balance(wallet_data.get("balance", 0))
     if balance < amount:
         abort(ctx, f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
@@ -1444,7 +1448,7 @@ def stats(ctx, password: str | None, password_file: str | None, password_stdin: 
     # earn/spend — it is NOT the chain balance and diverges from it (#2196).
     # Show the chain figure as current_balance (same preference as `info`),
     # and keep the local ledger visible under its own label.
-    local_balance = _wallet_amount(wallet_data.get("balance", 0))
+    local_balance = _wallet_ledger_balance(wallet_data.get("balance", 0))
     live = _fetch_chain_balance(wallet_data["address"])
     output(
         {
