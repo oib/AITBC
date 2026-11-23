@@ -370,10 +370,10 @@ def test_resolve_buyer_agent_wallet_binding_used():
     from aitbc_cli.commands import agent_task as mod
 
     client = _discover_client("scenario-agent")
-    # find_agent_by_identity canonicalizes addresses; match whatever the
+    # scan_agents_for_identity canonicalizes addresses; match whatever the
     # registry scan returns by agent_id regardless of address compare —
     # patch the helper to isolate resolution order.
-    with patch.object(mod, "find_agent_by_identity", return_value="scenario-agent") as m:
+    with patch.object(mod, "scan_agents_for_identity", return_value=("scenario-agent", None)) as m:
         with patch.dict("os.environ", {}, clear=False):
             os.environ.pop("AGENT_ID", None)
             assert mod._resolve_buyer_agent(client, None, "0xWALLET") == "scenario-agent"
@@ -399,9 +399,46 @@ def test_resolve_buyer_agent_no_wallet_hostname_fallback():
     from aitbc_cli.commands import agent_task as mod
 
     client = MagicMock()
-    with patch.object(mod, "find_agent_by_identity", side_effect=AssertionError("must not scan")):
+    with patch.object(mod, "scan_agents_for_identity", side_effect=AssertionError("must not scan")):
         with patch.dict("os.environ", {}, clear=False):
             import os
 
             os.environ.pop("AGENT_ID", None)
             assert mod._resolve_buyer_agent(client, None, None) == f"buyer-{os.uname().nodename}"
+
+
+def test_resolve_buyer_agent_warns_on_scan_failure(capsys):
+    """#2732: a failed registry scan must not silently fall back — the
+    hostname default produces a guaranteed 401 at the provider lookup."""
+    import os
+
+    from aitbc_cli.commands import agent_task as mod
+
+    client = MagicMock()
+    client.post.side_effect = RuntimeError("401 unauthorized")
+    with patch.dict("os.environ", {}, clear=False):
+        os.environ.pop("AGENT_ID", None)
+        result = mod._resolve_buyer_agent(client, None, "0xWALLET")
+    assert result == f"buyer-{os.uname().nodename}"
+    captured = capsys.readouterr()
+    assert "registry scan failed" in (captured.out + captured.err).lower()
+
+
+def test_resolve_provider_wallet_401_is_actionable():
+    """#2732: a principal-gate 401 on the provider lookup aborts with
+    registration/--from-agent guidance instead of a bare 'could not look up'."""
+    from types import SimpleNamespace
+
+    import pytest
+
+    from aitbc_cli.commands.agent_task import _resolve_provider_wallet
+    from aitbc_cli.utils.error_handling import CLIError
+
+    exc = RuntimeError("401 Unauthorized")
+    exc.response = SimpleNamespace(status_code=401)  # type: ignore[attr-defined]
+    client = MagicMock()
+    client.get.side_effect = exc
+    wallet = _real_wallet()
+
+    with pytest.raises(CLIError, match="registered and bound"):
+        _resolve_provider_wallet(client, "aitbc-miner-1", signing_agent_id="buyer-x", signing_key=wallet.key.hex())

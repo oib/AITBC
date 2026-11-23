@@ -35,12 +35,18 @@ from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
 from ..utils.agent_signing import (
     check_registry_binding,
-    find_agent_by_identity,
     load_signing_wallet,
+    scan_agents_for_identity,
     sign_send_envelope,
     signed_request_headers,
 )
-from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, origin_base_url
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    auth_client_kwargs,
+    get_logger,
+    http_response_status,
+    origin_base_url,
+)
 from ..utils.wallet_loader import load_wallet_for_payment
 from .ipfs import _daemon_available, _ipfs_add_file, _is_cid
 from .market.escrow import _get_blockchain_rpc_url
@@ -106,9 +112,19 @@ def _resolve_buyer_agent(
     if explicit:
         return explicit
     if wallet_address:
-        bound = find_agent_by_identity(client, wallet_address)
+        bound, scan_error = scan_agents_for_identity(client, wallet_address)
         if bound:
             return bound
+        if scan_error is not None:
+            # #2732: the discover scan needs an authenticated principal; a
+            # silent fallback to buyer-<host> produces a guaranteed 401 at
+            # the provider lookup under advisory/enforce modes.
+            warning(
+                f"Agent registry scan failed ({scan_error}) — cannot resolve the agent "
+                f"bound to wallet {wallet_address}; falling back to buyer-{os.uname().nodename}. "
+                "Pass --from-agent or authenticate with --api-key/`aitbc auth login` if the "
+                "coordinator enforces agent auth."
+            )
     return f"buyer-{os.uname().nodename}"
 
 
@@ -209,6 +225,18 @@ def _resolve_provider_wallet(
     try:
         data = client.get(f"/v1/agents/{agent_id}", headers=headers)
     except _OPS_ERRORS as e:
+        if http_response_status(e) in (401, 403):
+            # #2732: the read authenticates as the *buyer* agent — a 401 here
+            # means that agent is unregistered, unbound to the signing
+            # wallet, or the request carried no valid principal at all.
+            abort(
+                None,
+                f"Agent registry rejected the lookup for '{agent_id}' "
+                f"(buyer agent: {signing_agent_id or 'unsigned'}). The buyer agent must be "
+                "registered and bound to the signing wallet — run `aitbc agent-comm register "
+                "--agent-id <id> --wallet ...`, pass --from-agent, or authenticate with "
+                "--api-key/`aitbc auth login`.",
+            )
         abort(None, f"Could not look up agent {agent_id}: {e}")
         return None
     agent = data.get("agent", {}) if isinstance(data, dict) else {}
