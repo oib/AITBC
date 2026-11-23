@@ -327,13 +327,17 @@ class AgentIdentityManager:
             tags=tags or [],
         )
         identity = await self.core.create_identity(identity_request)
-        chain_mappings = {}
-        for chain_id in chains:
-            chain_address = f"0x{secrets.token_hex(20)}"
-            chain_mappings[chain_id] = chain_address
-        registration_result = await self.registry.register_cross_chain_identity(
-            agent_id, chain_mappings, owner_address, VerificationType.BASIC
-        )
+        # #2686: never invent chain addresses. The old code seeded each
+        # mapping with secrets.token_hex(20) — an address no key controls —
+        # and escrow binding resolves the provider payee from
+        # CrossChainMapping.chain_address, so a buyer naming provider_agent_id
+        # would lock and release payment to an unspendable address. The
+        # agent wallet is keyless too (create_wallet drops the private key),
+        # so its address is not a valid payee either. Mappings stay empty
+        # until the owner registers a real address via PUT
+        # /identities/{id}/cross-chain/{chain} or /cross-chain/register; until
+        # then binding answers 404 instead of burning funds.
+        registration_result = await self.registry.register_cross_chain_identity(agent_id, {}, None)
         wallet_results = []
         for chain_id in chains:
             try:

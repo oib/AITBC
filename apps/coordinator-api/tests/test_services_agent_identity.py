@@ -8,6 +8,8 @@ old ``metadata=`` kwarg, leaving ``identity_data`` empty on every create).
 
 from __future__ import annotations
 
+import pytest
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from coordinator_api.contexts.agent_identity.domain.agent_identity import (
@@ -16,6 +18,7 @@ from coordinator_api.contexts.agent_identity.domain.agent_identity import (
     CrossChainMapping,
 )
 from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
+from coordinator_api.contexts.payments.services import escrow_agent_binding as binding
 
 OWNER = "0x" + "cd" * 20
 
@@ -75,6 +78,26 @@ async def test_import_agent_identity_roundtrip(db_session: Session) -> None:
 
     mappings = await mgr.registry.get_all_cross_chain_mappings(agent_id)
     assert len(mappings) == len(exported.get("cross_chain_mappings", []))
+
+
+async def test_create_identity_seeds_no_payment_mapping(db_session: Session) -> None:
+    """#2686: create must not invent chain addresses.
+
+    The old code seeded each CrossChainMapping with secrets.token_hex(20) —
+    an address no key controls — and escrow binding resolves the provider
+    payee from chain_address, so a buyer naming provider_agent_id would
+    lock and release payment to an unspendable address. Until the owner
+    registers a real address, binding must answer 404."""
+    mgr = AgentIdentityManager(db_session)
+    created = await mgr.create_agent_identity(owner_address=OWNER, chains=[1], display_name="NoMap")
+    agent_id = created["agent_id"]
+
+    mappings = await mgr.registry.get_all_cross_chain_mappings(agent_id)
+    assert mappings == []
+
+    with pytest.raises(HTTPException) as exc_info:
+        binding.resolve_agent_payment_address_sync(db_session, agent_id, chain_id=1)
+    assert exc_info.value.status_code == 404
 
 
 async def test_import_agent_identity_rejects_existing(db_session: Session) -> None:
