@@ -305,13 +305,18 @@ async def get_reward_analytics(
 ) -> RewardAnalyticsResponse:
     """Get reward system analytics"""
     reward_engine = RewardEngine(session)
+    # Parse dates before the catch-all try: a malformed client date is a 422,
+    # not a server error (#2691).
+    start_dt = None
+    end_dt = None
     try:
-        start_dt = None
-        end_dt = None
         if start_date:
             start_dt = datetime.fromisoformat(start_date)
         if end_date:
             end_dt = datetime.fromisoformat(end_date)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail="invalid date parameter") from e
+    try:
         analytics_data = await run_in_threadpool(
             asyncio.run,
             reward_engine.get_reward_analytics(period_type=period_type or "monthly", start_date=start_dt, end_date=end_dt),

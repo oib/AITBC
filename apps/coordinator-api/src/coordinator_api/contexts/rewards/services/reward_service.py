@@ -550,6 +550,8 @@ class RewardEngine:
                 "total_rewards_distributed": 0.0,
                 "total_agents_rewarded": 0,
                 "average_reward_per_agent": 0.0,
+                "tier_distribution": {},
+                "total_distributions": 0,
             }
         total_rewards = sum(d.reward_amount for d in distributions)
         unique_agents = len({d.agent_id for d in distributions})
