@@ -206,3 +206,84 @@ def test_audit_key_regenerates_on_mismatched_persisted_key(tmp_path: Path):
     # The fresh key was persisted, replacing the corrupt pair.
     manager_c = KeyManager(FileKeyStorage(storage_dir))
     assert manager_c.get_audit_key().public_bytes_raw() == pub_b.public_bytes_raw()
+
+
+# --- #2714: store_key_pair False must not be reported as success -----------
+
+
+class _FailingStore:
+    """KeyStorageBackend stub whose store_key_pair always returns False."""
+
+    def __init__(self, existing: KeyPair | None = None):
+        self._existing = existing
+
+    async def store_key_pair(self, key_pair: KeyPair) -> bool:
+        return False
+
+    async def get_key_pair(self, participant_id: str) -> KeyPair | None:
+        return self._existing
+
+    def get_key_pair_sync(self, participant_id: str) -> KeyPair | None:
+        return self._existing
+
+    async def log_rotation(self, rotation_log) -> None:
+        return None
+
+
+class _FlakyStore(_FailingStore):
+    """Succeeds once, then fails — isolates rotate's second store check."""
+
+    def __init__(self, existing: KeyPair | None = None):
+        super().__init__(existing)
+        self.calls = 0
+
+    async def store_key_pair(self, key_pair: KeyPair) -> bool:
+        self.calls += 1
+        return self.calls == 1
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_generate_key_pair_raises_when_store_fails():
+    from coordinator_api.contexts.security.services.key_management import KeyStorageError
+
+    manager = KeyManager(_FailingStore())
+    with pytest.raises(KeyStorageError):
+        await manager.generate_key_pair("p-fail")
+    # The public key must not be cached for a key that was never persisted.
+    assert "p-fail" not in manager._key_cache
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_rotate_keys_raises_when_first_store_fails():
+    from coordinator_api.contexts.security.services.key_management import KeyStorageError
+
+    existing = KeyPair(
+        participant_id="p-rot",
+        private_key=b"old-priv",
+        public_key=b"old-pub",
+        created_at=datetime.now(UTC),
+        version=3,
+    )
+    manager = KeyManager(_FailingStore(existing=existing))
+    with pytest.raises(KeyStorageError):
+        await manager.rotate_keys("p-rot")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_rotate_keys_raises_when_versioned_store_fails():
+    """generate_key_pair's store succeeds; the version-bumped re-store fails."""
+    from coordinator_api.contexts.security.services.key_management import KeyStorageError
+
+    existing = KeyPair(
+        participant_id="p-rot2",
+        private_key=b"old-priv",
+        public_key=b"old-pub",
+        created_at=datetime.now(UTC),
+        version=3,
+    )
+    manager = KeyManager(_FlakyStore(existing=existing))
+    with pytest.raises(KeyStorageError):
+        await manager.rotate_keys("p-rot2")

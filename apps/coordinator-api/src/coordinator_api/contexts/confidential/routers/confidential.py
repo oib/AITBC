@@ -25,7 +25,12 @@ from ....schemas import (
     KeyRegistrationResponse,
 )
 from ...security.services.encryption import EncryptionService
-from ...security.services.key_management import KeyManagementError, KeyManager, validate_participant_id
+from ...security.services.key_management import (
+    KeyManagementError,
+    KeyManager,
+    KeyStorageError,
+    validate_participant_id,
+)
 
 logger = get_logger(__name__)
 
@@ -223,6 +228,10 @@ async def rotate_encryption_key(
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=501, detail="Internal server error") from e
+    except KeyStorageError as e:
+        # #2714: backend refused to persist — server-side fault, not a bad request.
+        logger.error("Key rotation storage failure: %s", e)
+        raise HTTPException(status_code=500, detail="Key storage failure") from e
     except KeyManagementError as e:
         logger.error("Key rotation failed: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e

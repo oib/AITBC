@@ -42,6 +42,16 @@ class AccessDeniedError(KeyManagementError):
     pass
 
 
+class KeyStorageError(KeyManagementError):
+    """Raised when the storage backend refuses to persist a key pair (#2714).
+
+    ``store_key_pair`` returns ``False`` on backend failure instead of
+    raising; callers must not cache or report success on a ``False``.
+    """
+
+    pass
+
+
 # Expected failure surface for the key-management helpers: filesystem/JSON,
 # data-shape, runtime and the module error hierarchy (which also covers
 # NotImplementedError via RuntimeError). BaseExceptions still propagate.
@@ -108,10 +118,13 @@ class KeyManager:
                 created_at=datetime.now(UTC),
                 version=1,
             )
-            await self.storage.store_key_pair(key_pair)
+            if not await self.storage.store_key_pair(key_pair):
+                raise KeyStorageError(f"Failed to persist key pair for {participant_id}")
             self._key_cache[participant_id] = {"public_key": public_key, "version": key_pair.version}
             logger.info("Generated key pair for participant: %s", participant_id)
             return key_pair
+        except KeyManagementError:
+            raise
         except _OPS_ERRORS as e:
             logger.error("Failed to generate key pair for %s: %s", participant_id, e)
             raise KeyManagementError(f"Key generation failed: {e}") from e
@@ -124,7 +137,8 @@ class KeyManager:
                 raise KeyNotFoundError(f"No existing keys for {participant_id}")
             new_key_pair = await self.generate_key_pair(participant_id)
             new_key_pair.version = current_key.version + 1
-            await self.storage.store_key_pair(new_key_pair)
+            if not await self.storage.store_key_pair(new_key_pair):
+                raise KeyStorageError(f"Failed to persist rotated key pair for {participant_id}")
             self._key_cache[participant_id] = {
                 "public_key": X25519PublicKey.from_public_bytes(new_key_pair.public_key),
                 "version": new_key_pair.version,
