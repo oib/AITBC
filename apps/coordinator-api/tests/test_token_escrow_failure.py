@@ -664,3 +664,50 @@ def test_recover_marks_funding_unknown_via_real_client_bad_body(monkeypatch, pay
     assert payment.meta_data["escrow_error_kind"] == "funding_unknown"
     assert job.id in payment.meta_data["escrow_error"]
     assert len(calls) == 1
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_create_425_waits_for_seal_and_redrives(mock_client_cls, payment_session):
+    """#2669: the node's 425 means the lock was broadcast but is not yet
+    visible to its funding probe — not a refusal. The payment must wait
+    for the seal and re-drive the idempotent create, not fail."""
+    job = _make_job(payment_session, "job-425-recover")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(
+        side_effect=[
+            _network_error_from_status(425, {"detail": "escrow lock is not yet sealed"}),
+            {"contract_id": "0xescrow425"},
+        ]
+    )
+    mock_client.get_json = AsyncMock(return_value=_chain_lock_txs("0xlock425", job_id=job.id))
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "escrowed"
+    assert payment.escrow_address == "0xescrow425"
+    assert payment.meta_data["escrow_lock_tx_hash"] == "0xlock425"
+    assert mock_client.post.await_count == 2  # initial 425 + idempotent re-drive
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert len(escrows) == 1
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_create_425_unsealed_lock_marks_failed(mock_client_cls, payment_session, monkeypatch):
+    """#2669: a 425 whose lock never seals is the bounded 'unsealed' failure —
+    the create is not re-driven and the payment stays retriable."""
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "0.05")
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "0.01")
+    job = _make_job(payment_session, "job-425-unsealed")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=_network_error_from_status(425, {"detail": "not sealed"}))
+    mock_client.get_json = AsyncMock(return_value=[])
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "unsealed"
+    assert mock_client.post.await_count == 1  # never re-driven: nothing sealed
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert escrows == []

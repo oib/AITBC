@@ -29,6 +29,7 @@ from .payments_helpers import (
     _OPS_ERRORS,
     _escrow_failure_reason,
     _escrow_record_is_settled,
+    _find_http_status_error,
     _lookup_chain_lock,
     _lookup_escrow_record,
 )
@@ -254,10 +255,39 @@ class PaymentEscrowMixin(PaymentCoreMixin):
             payload["buyer_agent_id"] = buyer_agent_id
         if provider_agent_id:
             payload["provider_agent_id"] = provider_agent_id
-        escrow_data = await client.post(
-            f"{self.blockchain_rpc_url}/rpc/escrow/create",
-            json=payload,
-        )
+        try:
+            escrow_data = await client.post(
+                f"{self.blockchain_rpc_url}/rpc/escrow/create",
+                json=payload,
+            )
+        except _OPS_ERRORS as e:
+            status_error = _find_http_status_error(e)
+            if status_error is None or status_error.response.status_code != 425:
+                raise
+            # COORD-ESCROW-FUNDING-425-TERMINAL-1 (#2669): the node's 425 is
+            # "lock not yet sealed", not a refusal — /escrow/create only
+            # raises it after broadcasting the ESCROW_LOCK, so the lock is
+            # already in flight. Treating it as a terminal 4xx failed the
+            # payment while the lock sealed moments later. Wait for the seal
+            # (bounded, same as the success path), then re-drive the create
+            # once: its sealed-lock idempotency path returns the existing
+            # escrow instead of submitting a second lock.
+            logger.info(
+                "Escrow create for payment %s returned 425 (lock still landing); waiting for seal",
+                payment.id,
+            )
+            seal_hash = await self._wait_for_lock_seal(client, payment.job_id)
+            if seal_hash is None:
+                self._mark_escrow_failed(
+                    payment,
+                    "unsealed",
+                    "the escrow lock did not seal on-chain; the purchase can be retried",
+                )
+                return None
+            escrow_data = await client.post(
+                f"{self.blockchain_rpc_url}/rpc/escrow/create",
+                json=payload,
+            )
         lock_tx_hash = await self._wait_for_lock_seal(client, payment.job_id)
         if lock_tx_hash is None:
             self._mark_escrow_failed(
