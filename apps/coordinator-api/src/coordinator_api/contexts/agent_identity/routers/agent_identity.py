@@ -4,7 +4,6 @@ REST API endpoints for agent identity management and cross-chain operations
 """
 
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Annotated, Any
 
 from aitbc.aitbc_logging import get_logger
@@ -814,7 +813,7 @@ async def resolve_address_to_agent(
 @rate_limit(rate=20, per=60)
 async def create_spend_session(
     agent_id: str,
-    request: dict[str, Any],
+    body: AgentSpendSessionCreate,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
     *,
@@ -822,12 +821,6 @@ async def create_spend_session(
 ) -> dict[str, Any]:
     """Owner issues a scoped spend session for an agent."""
     identity = _require_owned_identity(session, agent_id, user)
-    body = AgentSpendSessionCreate(
-        chain_id=int(request.get("chain_id", 1000)),
-        cap_ait=Decimal(str(request["cap_ait"])),
-        allowed_ops=list(request.get("allowed_ops") or ["wallet.execute"]),
-        expires_at=request.get("expires_at"),
-    )
     svc = SpendSessionService(session)
     try:
         row = await run_in_threadpool(
@@ -836,7 +829,7 @@ async def create_spend_session(
             identity.owner_address,
             body.chain_id,
             body.cap_ait,
-            body.allowed_ops,
+            body.allowed_ops or ["wallet.execute"],
             body.expires_at,
         )
     except ValueError as exc:
