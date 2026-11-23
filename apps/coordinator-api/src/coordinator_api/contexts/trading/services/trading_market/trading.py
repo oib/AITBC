@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any, TypedDict
 from uuid import uuid4
 
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, col, or_, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.json_utils import to_jsonable
@@ -23,6 +23,8 @@ from ...domain.trading import (
     TradeStatus,
     TradeType,
 )
+from ....market.domain.gpu_market import GPURegistry
+from ....reputation.domain.reputation import AgentReputation
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
@@ -687,33 +689,44 @@ class P2PTradingProtocol:
         return negotiation
 
     def get_available_sellers(self, trade_request: TradeRequest) -> list[dict[str, Any]]:
-        """Get available sellers for a trade request (mock implementation)"""
-        mock_sellers = [
-            {  # not-money: ratio, threshold or configuration default — not an amount of money
-                "agent_id": "seller_001",
-                "price": 0.05,
-                "specifications": {"cpu_cores": 4, "memory_gb": 16, "gpu_count": 1},
-                "timing": {"start_time": datetime.now(UTC), "duration_hours": 8},
-                "regions": ["us-east", "us-west"],
-                "service_level": "premium",
-                "terms": {"settlement_type": "escrow", "delivery_guarantee": True},
-            },
-            {  # not-money: ratio, threshold or configuration default — not an amount of money
-                "agent_id": "seller_002",
-                "price": 0.045,
-                "specifications": {"cpu_cores": 2, "memory_gb": 8, "gpu_count": 1},
-                "timing": {"start_time": datetime.now(UTC), "duration_hours": 6},
-                "regions": ["us-east"],
-                "service_level": "standard",
-                "terms": {"settlement_type": "immediate", "delivery_guarantee": False},
-            },
-        ]
-        return mock_sellers
+        """Get available sellers for a trade request.
+
+        #2706: candidates come from live GPURegistry listings (status
+        available), never placeholder ids — the previous mock returned two
+        literal sellers and persisted TradeMatch rows against them.
+        """
+        rows = self.session.execute(select(GPURegistry).where(GPURegistry.status == "available")).scalars().all()
+        offers = []
+        for gpu in rows:
+            specifications: dict[str, Any] = {"memory_gb": gpu.memory_gb, "gpu_count": 1, "model": gpu.model}
+            if gpu.capabilities:
+                specifications["capabilities"] = gpu.capabilities
+            offers.append(
+                {
+                    "agent_id": gpu.miner_id,
+                    "price": gpu.price_per_hour,
+                    "specifications": specifications,
+                    "timing": {},
+                    "regions": [gpu.region] if gpu.region else [],
+                    "service_level": "standard",
+                    "terms": {"settlement_type": "escrow", "source": "gpu_registry", "gpu_id": gpu.id},
+                }
+            )
+        return offers
 
     def get_seller_reputations(self, seller_ids: list[str]) -> dict[str, float]:
-        """Get seller reputations (mock implementation)"""
-        mock_reputations = {"seller_001": 750.0, "seller_002": 650.0}
-        return {seller_id: mock_reputations.get(seller_id, 500.0) for seller_id in seller_ids}
+        """Get seller reputations from AgentReputation (0-1000 trust_score).
+
+        #2706: was a literal {seller_001: 750, seller_002: 650} map; unknown
+        agents keep the historical 500.0 neutral default.
+        """
+        if not seller_ids:
+            return {}
+        rows = self.session.execute(
+            select(AgentReputation.agent_id, AgentReputation.trust_score).where(col(AgentReputation.agent_id).in_(seller_ids))
+        ).all()
+        scores = {agent_id: float(score) for agent_id, score in rows}
+        return {seller_id: scores.get(seller_id, 500.0) for seller_id in seller_ids}
 
     def get_trading_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive trading summary for an agent"""
