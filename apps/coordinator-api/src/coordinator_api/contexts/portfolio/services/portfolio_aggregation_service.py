@@ -53,7 +53,9 @@ class PortfolioAggregationService:
         self._trading_api_key = os.getenv("TRADING_API_KEY") or ""
         self.http_client = RequestIDPropagatingClient(timeout=10.0)
 
-    async def get_unified_portfolio(self, agent_address: str | None = None) -> dict[str, Any]:
+    async def get_unified_portfolio(
+        self, agent_address: str | None = None, allowed_addresses: set[str] | None = None
+    ) -> dict[str, Any]:
         """
         Get unified portfolio view by aggregating data from all services
 
@@ -65,7 +67,7 @@ class PortfolioAggregationService:
             market stats, trading analytics, and AI signals
         """
         try:
-            wallet_data = await self._get_wallet_balances(agent_address)
+            wallet_data = await self._get_wallet_balances(agent_address, allowed_addresses)
             exchange_data = await self._get_exchange_rates()
             market_data = await self._get_market_stats()
             trading_data = await self._get_trading_analytics(agent_address)
@@ -87,8 +89,14 @@ class PortfolioAggregationService:
             logger.error("Error aggregating portfolio data: %s", str(e))
             raise
 
-    async def _get_wallet_balances(self, agent_address: str | None = None) -> dict[str, Any]:
-        """Fetch wallet balances from wallet service"""
+    async def _get_wallet_balances(
+        self, agent_address: str | None = None, allowed_addresses: set[str] | None = None
+    ) -> dict[str, Any]:
+        """Fetch wallet balances from wallet service.
+
+        ``allowed_addresses`` (#2697) restricts the listing to wallets whose
+        address/public_key the caller controls; None means admin/unfiltered.
+        """
         try:
             response = await self.http_client.get(
                 f"{self.wallet_service_url}/v1/wallets",
@@ -99,10 +107,17 @@ class PortfolioAggregationService:
                     data = response.json()
                 except (TypeError, ValueError) as e:
                     logger.warning("Failed to parse wallet data: %s", e)
-                    return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
+                    return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": "wallet data unavailable"}
                 wallets = data.get("items", [])
                 if agent_address:
                     wallets = [w for w in wallets if w.get("public_key") == agent_address or w.get("address") == agent_address]
+                if allowed_addresses is not None:
+                    wallets = [
+                        w
+                        for w in wallets
+                        if str(w.get("address") or "").lower() in allowed_addresses
+                        or str(w.get("public_key") or "").lower() in allowed_addresses
+                    ]
                 # Wallet descriptors carry no balance — fetch each wallet's
                 # balance from the wallet service (bounded by wallet count).
                 total_units = 0
@@ -126,7 +141,7 @@ class PortfolioAggregationService:
                 return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": "Wallet service unavailable"}
         except _OPS_ERRORS as e:
             logger.error("Error fetching wallet balances: %s", str(e))
-            return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
+            return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": "wallet service unavailable"}
 
     async def _get_exchange_rates(self) -> dict[str, Any]:
         """Fetch exchange rates from exchange service"""
