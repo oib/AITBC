@@ -7053,7 +7053,7 @@
           "Cross-Chain Integration"
         ],
         "summary": "Get Transaction History",
-        "description": "Get transaction history with filtering",
+        "description": "Get transaction history with filtering.\n\nNon-admin callers are bound to their own ``sub`` \u2014 a ``user_id`` naming\nanyone else is rejected. Admins may pass another ``user_id`` (or none for\nthe unfiltered view).",
         "operationId": "get_transaction_history_v1_cross_chain_transactions_history_get",
         "parameters": [
           {
@@ -7192,6 +7192,22 @@
               ],
               "title": "To Date"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -7216,6 +7232,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "cannot read another user's transaction history / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Error getting transaction history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
