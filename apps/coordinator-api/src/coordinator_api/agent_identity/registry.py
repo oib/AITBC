@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
@@ -343,10 +344,12 @@ class CrossChainRegistry:
 
     async def get_registry_statistics(self) -> dict[str, Any]:
         """Get comprehensive registry statistics"""
-        identity_count = self.session.execute(select(AgentIdentity)).scalar()
-        mapping_count = self.session.execute(select(CrossChainMapping)).scalar()
-        verified_mapping_count = self.session.execute(select(CrossChainMapping).where(CrossChainMapping.is_verified)).scalar()
-        verification_count = self.session.execute(select(IdentityVerification)).scalar()
+        identity_count = self.session.execute(select(func.count()).select_from(AgentIdentity)).scalar_one()
+        mapping_count = self.session.execute(select(func.count()).select_from(CrossChainMapping)).scalar_one()
+        verified_mapping_count = self.session.execute(
+            select(func.count()).select_from(CrossChainMapping).where(CrossChainMapping.is_verified)
+        ).scalar_one()
+        verification_count = self.session.execute(select(func.count()).select_from(IdentityVerification)).scalar_one()
         chain_breakdown: dict[str, dict[str, Any]] = {}
         result = self.session.execute(select(CrossChainMapping))
         mappings = list(result.scalars().all())
@@ -381,7 +384,7 @@ class CrossChainRegistry:
         for verification in expired_verifications:
             try:
                 mapping = await self.get_cross_chain_mapping_by_agent_chain(verification.agent_id, verification.chain_id)
-                if mapping and mapping.verified_at and (mapping.verified_at == verification.expires_at):
+                if mapping and mapping.verified_at and mapping.verified_at <= verification.expires_at:
                     mapping.is_verified = False
                     mapping.verified_at = None
                     mapping.verification_proof = None
