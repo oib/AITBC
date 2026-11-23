@@ -782,27 +782,12 @@ class JobService:
     def _reputation_map(self, miners: list[Miner]) -> dict[str, float]:
         """Batch-load reputation scores for a miner set in one query.
 
-        Mirrors _get_miner_reputation's precedence (reported metadata >
-        AgentReputation profile > completion ratio) but resolves the profile
-        step for all miners with a single IN-select instead of one query per
-        candidate per job.
+        Mirrors _get_miner_reputation's precedence (AgentReputation profile >
+        completion ratio) but resolves the profile step for all miners with a
+        single IN-select instead of one query per candidate per job.
+        Miner-reported ``reputation_score`` metadata is never trusted (#2701).
         """
-        reported: dict[str, float] = {}
-        need_profile: list[Miner] = []
-        for m in miners:
-            score: float | None = None
-            for source in (m.extra_metadata or {}, m.capabilities or {}):
-                raw = source.get("reputation_score")
-                if raw is not None:
-                    try:
-                        score = float(raw)
-                    except (TypeError, ValueError):
-                        pass
-                    break
-            if score is not None:
-                reported[m.id] = score
-            else:
-                need_profile.append(m)
+        need_profile = list(miners)
 
         profiles: dict[str, AgentReputation] = {}
         if need_profile:
@@ -818,7 +803,7 @@ class JobService:
             except _OPS_ERRORS:
                 logger.debug("Could not batch-load reputation profiles", exc_info=True)
 
-        out: dict[str, float] = dict(reported)
+        out: dict[str, float] = {}
         for m in need_profile:
             rep = profiles.get(m.id)
             if rep is not None and rep.trust_score is not None:
@@ -1049,20 +1034,13 @@ class JobService:
     def _get_miner_reputation(self, miner: Miner) -> float:
         """Return the reputation score for a miner.
 
-        The score can be reported by the miner (via heartbeat/registration
-        metadata), derived from the agent reputation service, or computed from
-        its historical job completion ratio.  A neutral starting value of 0.5 is
-        used for miners with no track record so that first-time providers are
-        neither favoured nor penalised.
+        The score comes only from the canonical AgentReputation profile or the
+        miner's historical job completion ratio — miner-supplied
+        ``reputation_score`` metadata is self-asserted and never trusted for
+        dispatch gating (#2701).  A neutral starting value of 0.5 is used for
+        miners with no track record so that first-time providers are neither
+        favoured nor penalised.
         """
-        for source in (miner.extra_metadata or {}, miner.capabilities or {}):
-            reported = source.get("reputation_score")
-            if reported is not None:
-                try:
-                    return float(reported)
-                except (TypeError, ValueError):
-                    pass
-
         # Prefer the canonical reputation service profile when available.
         try:
             reputation = (

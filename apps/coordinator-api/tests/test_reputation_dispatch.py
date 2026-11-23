@@ -18,16 +18,22 @@ def job_service(db_session):
 
 
 def _make_miner(session, miner_id: str, reputation: float, *, concurrency: int = 1, inflight: int = 0):
-    """Create and persist a miner with a self-reported reputation score."""
+    """Create and persist a miner with a canonical AgentReputation profile.
+
+    Dispatch reads reputation only from AgentReputation / completion ratio —
+    miner-reported metadata is never trusted (#2701) — so the score is seeded
+    as a profile row, not self-reported capabilities.
+    """
     miner = Miner(
         id=miner_id,
         concurrency=concurrency,
         inflight=inflight,
         status="ONLINE",
-        extra_metadata={"reputation_score": reputation},
+        extra_metadata={},
         capabilities={},
     )
     session.add(miner)
+    session.add(AgentReputation(agent_id=miner_id, trust_score=reputation * 1000))
     session.commit()
     session.refresh(miner)
     return miner
@@ -119,3 +125,49 @@ def test_reputation_falls_back_to_agent_reputation_table(db_session, job_service
     assert acquired is not None
     assert acquired.id == job.id
     assert acquired.assigned_miner_id == miner_id
+
+
+def test_self_reported_reputation_score_is_ignored(db_session, job_service):
+    """#2701: a miner reporting reputation_score=1.0 with no AgentReputation
+    profile must not satisfy min_reputation — the score is self-asserted."""
+    miner = Miner(
+        id="miner_liar",
+        concurrency=1,
+        inflight=0,
+        status="ONLINE",
+        extra_metadata={"reputation_score": 1.0},
+        capabilities={"reputation_score": 1.0},
+        jobs_completed=0,
+        jobs_failed=0,
+    )
+    db_session.add(miner)
+    db_session.commit()
+    db_session.refresh(miner)
+
+    # Neutral fallback is 0.5 for a track-record-less miner — below 0.9.
+    assert job_service._get_miner_reputation(miner) == 0.5
+
+    job = _make_job(job_service, constraints=Constraints(min_reputation=0.9))
+    assert job_service.acquire_next_job(miner) is None
+    refreshed = db_session.get(Job, job.id)
+    assert refreshed is not None
+    assert refreshed.state == "QUEUED"
+
+
+def test_self_reported_nan_cannot_pass_threshold(db_session, job_service):
+    """#2701: float('nan') in miner metadata must not compare past a gate."""
+    miner = Miner(
+        id="miner_nan",
+        concurrency=1,
+        inflight=0,
+        status="ONLINE",
+        extra_metadata={"reputation_score": "nan"},
+        capabilities={},
+    )
+    db_session.add(miner)
+    db_session.commit()
+    db_session.refresh(miner)
+
+    assert job_service._get_miner_reputation(miner) == 0.5
+    _make_job(job_service, constraints=Constraints(min_reputation=0.9))
+    assert job_service.acquire_next_job(miner) is None
