@@ -185,7 +185,7 @@ Live validation of the product path (paid job + `ESCROW_RELEASE` + shop offer) i
 | 71 | [Reinvest Policy](./71_reinvest_policy.md) | Miner earnings reinvestment policy and split simulation | `aitbc reinvest` |
 | 72 | [Developer Registry](./72_developer_registry.md) | DAO developer registration and listing | `aitbc developer` |
 | 73 | [Contract Deploy & Call](./73_contract_deploy_call.md) | Generic contract deployment and method calls | `aitbc contract` |
-| 74 | [Confidential Payments](./74_confidential_payments.md) | Confidential wallet balance and committed sends (simulated path) | `aitbc confidential` |
+| 74 | [Confidential Payments](../archive/scenarios/74_confidential_payments.md) *(retired — archived)* | Historical simulated commitment demo (#2767); no active replay | — |
 | 75 | [Market Escrow & Jobs Options](./75_market_escrow_jobs_options.md) | `market jobs` filters/formatting and `escrow create` optional flags (refusal play) | `aitbc market` |
 | 76 | [Bridge CLI Options](./76_bridge_options.md) | `aitbc bridge` read-only flags plus money-path options exercised as free refusals | `aitbc bridge` |
 | 77 | [Trade CLI Options](./77_trade_options.md) | `aitbc trade` options as reads/free refusals (401/404, array-shape drift) | `aitbc trade` |
