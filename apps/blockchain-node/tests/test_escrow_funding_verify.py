@@ -262,3 +262,81 @@ async def test_create_drops_contract_when_lock_unverifiable(patched, engine, mon
     assert not any(c.job_id == JOB_ID for c in mgr.escrow_contracts.values())
     with Session(engine) as session:
         assert session.get(Escrow, JOB_ID) is None
+
+
+def _resigned_lock_tx(nonce: int) -> dict:
+    """The same escrow re-signed at a different nonce — identical payload, new hash."""
+    tx, _ = escrow_routes._build_lock_tx(JOB_ID, BUYER, PROVIDER, AMOUNT, nonce=nonce)
+    tx["signature"] = "0xdeadbeef"
+    return tx
+
+
+@pytest.mark.asyncio
+async def test_verify_adopts_sealed_same_escrow_lock(patched, monkeypatch):
+    """#2671: the submitted envelope died but an earlier identical-binding lock
+    sealed — adopt the sealed hash instead of 409ing the purchase dead."""
+    submitted = _lock_tx()
+    sealed = _sealed(_resigned_lock_tx(nonce=1))
+    assert sealed["tx_hash"] != compute_tx_hash(submitted)
+    monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=sealed))
+
+    found = await escrow_routes._verify_funding_lock(compute_tx_hash(submitted), submitted_tx=submitted, **_verify_kwargs())
+
+    assert found is sealed
+
+
+@pytest.mark.asyncio
+async def test_verify_different_payload_sealed_lock_still_refuses(patched, monkeypatch):
+    """A sealed lock for the job with a *different* binding (other provider)
+    is a genuinely different escrow — the 409 stands even with submitted_tx."""
+    submitted = _lock_tx()
+    other = _resigned_lock_tx(nonce=1)
+    other["payload"]["provider"] = "0x" + "99" * 20
+    sealed = _sealed(other)
+    monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=sealed))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes._verify_funding_lock(compute_tx_hash(submitted), submitted_tx=submitted, **_verify_kwargs())
+    assert exc_info.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_verify_different_hash_without_submitted_tx_still_refuses(patched, monkeypatch):
+    """No submitted tx to compare against → adoption cannot be proven → 409."""
+    sealed = _sealed(_resigned_lock_tx(nonce=1))
+    monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=sealed))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes._verify_funding_lock("0x" + "ab" * 32, **_verify_kwargs())
+    assert exc_info.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_adopts_sealed_lock_hash_end_to_end(patched, engine, monkeypatch):
+    """#2671 end to end: submitted envelope lost, same-escrow lock sealed —
+    the create funds against the sealed hash and records it everywhere."""
+    mgr = patched
+    submitted = _lock_tx()
+    submitted_hash = compute_tx_hash(submitted)
+    sealed = _sealed(_resigned_lock_tx(nonce=1))
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", AsyncMock(return_value=submitted_hash))
+    monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=sealed))
+
+    body = {
+        "job_id": JOB_ID,
+        "buyer": BUYER,
+        "provider": PROVIDER,
+        "amount": str(AMOUNT),
+        "lock_tx": submitted,
+    }
+    result = await escrow_routes.create_escrow(body)
+
+    assert result["success"] is True
+    assert result["lock_tx_hash"] == sealed["tx_hash"]
+    contract = next(c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID)
+    assert contract.state is EscrowState.FUNDED
+    assert contract.lock_tx_hash == sealed["tx_hash"]
+    with Session(engine) as session:
+        row = session.get(Escrow, JOB_ID)
+        assert row is not None
+        assert row.lock_tx_hash == sealed["tx_hash"]
