@@ -48,7 +48,11 @@ async def get_current_user_required(
     wallet = (await run_in_threadpool(session.execute, select(Wallet).where(Wallet.user_id == user["sub"]))).scalars().first()
     if not wallet:
         raise HTTPException(status_code=401, detail="No wallet linked to user")
-    return {"address": wallet.address, "is_oracle": False, "is_admin": user.get("role") == "admin"}
+    # #2718: oracle status comes from the caller's role — admin is the only
+    # privileged role that exists; hard-coding False made the performance
+    # route unreachable (always 403).
+    is_admin = user.get("role") == "admin"
+    return {"address": wallet.address, "is_oracle": is_admin, "is_admin": is_admin}
 
 
 class StakeCreateRequest(BaseModel):
@@ -523,9 +527,10 @@ async def update_agent_performance(
                 performance_request.successful,
             ),
         )
-        await run_in_threadpool(
-            staking_service.update_agent_performance, agent_wallet=agent_wallet, **performance_request.model_dump()
-        )
+        # #2718: model_dump() carries agent_wallet too — passing both the
+        # path param and the body field raised "multiple values" (400).
+        metrics = {key: value for key, value in performance_request.model_dump().items() if key != "agent_wallet"}
+        await run_in_threadpool(staking_service.update_agent_performance, agent_wallet=agent_wallet, **metrics)
         return {"message": "Agent performance updated successfully"}
     except HTTPException:
         raise
