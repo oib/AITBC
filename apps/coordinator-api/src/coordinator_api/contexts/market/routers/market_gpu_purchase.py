@@ -44,6 +44,16 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def _buyer_owns_job(job: Any, booking: GPUBooking, request: GPUBuyRequest) -> bool:
+    """True when the job's ``client_id`` names this purchase's buyer.
+
+    ``booking.client_id`` is the resolved users.id; ``request.buyer_id`` is
+    the caller-submitted ref — legacy rows may carry either form, the same
+    dual comparison ``_require_owned_job`` applies (#2676).
+    """
+    return job is not None and job.client_id in {booking.client_id, request.buyer_id}
+
+
 async def _lock_gpu_for_purchase(session: Session, gpu_id: str) -> GPURegistry:
     """Expire a stale unpaid hold, take the row lock and fetch the GPU."""
     # CE-004: expire a stale unpaid hold before taking the row lock — the
@@ -197,6 +207,14 @@ async def _open_purchase_job(
             raise HTTPException(
                 status_code=http_status.HTTP_404_NOT_FOUND,
                 detail=f"Prepared job {request.job_id} not found",
+            )
+        # #2676: the prepared job must belong to this buyer. A foreign job_id
+        # used to reach the payment path, where the ownership 403 then
+        # cancelled the victim's QUEUED/RUNNING job in the failure handler.
+        if not _buyer_owns_job(job, booking, request):
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Prepared job does not belong to the buyer",
             )
         # E1: carry the frozen quote and binding fields from the prepared job.
         quote_snapshot = request.energy_quote or job.energy_quote_snapshot
@@ -389,11 +407,17 @@ async def _buy_gpu_job_payment(
         await run_in_threadpool(session.commit)
         logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking.id)
     except HTTPException:
-        # Validation failures (prepared-job 404/422, binding 403) must still
-        # release the booking/GPU committed above before propagating.
+        # Validation failures (prepared-job 404/403, binding 403) must still
+        # release the booking/GPU committed above before propagating. Only a
+        # job this buyer owns may be cancelled — never a foreign job_id
+        # (#2676).
         if job_id is not None:
             existing_job = await run_in_threadpool(session.get, Job, job_id)
-            if existing_job and existing_job.state in ("QUEUED", "RUNNING"):
+            if (
+                existing_job
+                and existing_job.state in ("QUEUED", "RUNNING")
+                and _buyer_owns_job(existing_job, booking, request)
+            ):
                 existing_job.state = "CANCELED"
                 existing_job.error = "Payment failed"
                 await run_in_threadpool(session.add, existing_job)
@@ -409,7 +433,11 @@ async def _buy_gpu_job_payment(
     if payment_status in ("failed", "skipped") or job_id is None:
         if job_id is not None:
             existing_job = await run_in_threadpool(session.get, Job, job_id)
-            if existing_job and existing_job.state in ("QUEUED", "RUNNING"):
+            if (
+                existing_job
+                and existing_job.state in ("QUEUED", "RUNNING")
+                and _buyer_owns_job(existing_job, booking, request)
+            ):
                 existing_job.state = "CANCELED"
                 existing_job.error = "Payment failed"
                 await run_in_threadpool(session.add, existing_job)
