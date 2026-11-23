@@ -88,6 +88,60 @@ class TestMonitoringMetricsJobBuckets:
             == jobs["total"]
         )
 
+    def test_miners_counted_in_sql(self, client: TestClient, db_session) -> None:
+        """#2715: miner totals come from grouped SQL counts, not row loads."""
+        from coordinator_api.contexts.infrastructure.domain.miner import Miner
+
+        for i, status in enumerate(["ONLINE", "ONLINE", "OFFLINE"]):
+            db_session.add(Miner(id=f"miner-{i}", status=status))
+        db_session.commit()
+
+        resp = client.get(f"{BASE}/metrics")
+        assert resp.status_code == 200
+        miners = resp.json()["miners"]
+        assert miners["total"] == 3
+        assert miners["online"] == 2
+        assert miners["offline"] == 1
+
+
+class TestHealthLatency:
+    """#2715: response_time is measured, not the literal 0.1; the aggregate
+    must not crash on floats and must not report a fabricated uptime."""
+
+    def test_check_service_health_measures_real_latency(self, monkeypatch) -> None:
+        import asyncio
+        import time as _time
+
+        import coordinator_api.contexts.infrastructure.routers.monitoring_dashboard as mod
+
+        class _SlowClient:
+            def __init__(self, **kwargs):
+                pass
+
+            def get(self, url):
+                _time.sleep(0.01)
+                return {"ok": True}
+
+        monkeypatch.setattr(mod, "AITBCHTTPClient", _SlowClient)
+        result = asyncio.run(mod.check_service_health("svc", {"url": "http://x", "port": 1}))
+        assert result["status"] == "healthy"
+        assert isinstance(result["response_time"], float)
+        assert result["response_time"] >= 0.005
+
+    def test_overall_metrics_averages_float_response_times(self) -> None:
+        import coordinator_api.contexts.infrastructure.routers.monitoring_dashboard as mod
+
+        metrics = mod.calculate_overall_metrics(
+            {
+                "a": {"status": "healthy", "response_time": 0.100},
+                "b": {"status": "healthy", "response_time": 0.300},
+                "c": {"status": "unhealthy"},
+            }
+        )
+        assert metrics["average_response_time"] == "0.200s"
+        assert metrics["overall_status"] == "unhealthy"
+        assert "uptime_estimate" not in metrics
+
 
 class TestDashboardServicesConfig:
     """#2409: the probed roster is env-overridable; bad config falls back to
