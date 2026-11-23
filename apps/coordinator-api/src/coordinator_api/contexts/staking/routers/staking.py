@@ -17,7 +17,6 @@ from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
-from aitbc.utils.units import ait_to_units
 
 from ..domain.staking import PerformanceTier, StakeStatus
 from ...infrastructure.domain.user import Wallet
@@ -64,11 +63,12 @@ class StakeCreateRequest(BaseModel):
     @field_validator("amount")
     @classmethod
     def validate_amount(cls, v: Decimal) -> Decimal:
-        min_units = Decimal(ait_to_units(Decimal("100")))
-        max_units = Decimal(ait_to_units(Decimal("100000")))
-        if v < min_units:
+        # amount is AIT — the chain boundary converts to units once
+        # (create_stake_contract). Validating against unit bounds here made
+        # every stake either 422 or ~36M× over the chain cap (#2695).
+        if v < Decimal("100"):
             raise ValueError("Minimum stake amount is 100 AITBC")
-        if v > max_units:
+        if v > Decimal("100000"):
             raise ValueError("Maximum stake amount is 100,000 AITBC")
         return v
 
