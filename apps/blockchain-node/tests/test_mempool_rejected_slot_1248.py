@@ -161,6 +161,55 @@ def test_persist_import_rejections_upgrades_pending_but_not_confirmed(session):
     assert session.get(ModelsTransaction, confirmed.id).status == "confirmed"
 
 
+def test_persist_import_rejections_batches_existence_probe():
+    """#2762: N rejected entries cost one existence SELECT, not N — the probe
+    runs inside the import commit window, so per-row selects inflate it
+    linearly on a rejection-carrying block."""
+    from sqlalchemy import event
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    chain_metadata.create_all(engine)
+    with Session(engine) as s:
+        entries = [{"tx_hash": "0x" + f"{i:064x}", "sender": SENDER, "nonce": i, "reason": "bad nonce"} for i in range(1, 6)]
+        selects: list[str] = []
+
+        def _count(_conn, _cursor, statement, _p, _c, _e):
+            if statement.lstrip().upper().startswith("SELECT"):
+                selects.append(statement)
+
+        event.listen(engine, "before_cursor_execute", _count)
+        try:
+            _importer()._persist_import_rejections(s, _block_data(entries))
+            s.commit()
+        finally:
+            event.remove(engine, "before_cursor_execute", _count)
+
+        assert len(selects) == 1
+        rows = s.exec(
+            select(ModelsTransaction).where(ModelsTransaction.chain_id == CHAIN, ModelsTransaction.status == "rejected")
+        ).all()
+        assert {r.tx_hash for r in rows} == {e["tx_hash"] for e in entries}
+
+
+def test_persist_import_rejections_dedupes_repeated_hash():
+    """#2762: a duplicated tx_hash in rejected_txs must not mint two pending
+    inserts for the same (chain_id, tx_hash) — that would fail the commit."""
+    entries = [
+        {"tx_hash": DEAD_HASH, "sender": SENDER, "nonce": 3, "reason": "first"},
+        {"tx_hash": DEAD_HASH, "sender": SENDER, "nonce": 3, "reason": "second"},
+    ]
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    chain_metadata.create_all(engine)
+    with Session(engine) as s:
+        _importer()._persist_import_rejections(s, _block_data(entries))
+        s.commit()
+        rows = s.exec(
+            select(ModelsTransaction).where(ModelsTransaction.chain_id == CHAIN, ModelsTransaction.tx_hash == DEAD_HASH)
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].tx_metadata is not None and "first" in rows[0].tx_metadata
+
+
 # --- mempool eviction on import ---------------------------------------------
 
 

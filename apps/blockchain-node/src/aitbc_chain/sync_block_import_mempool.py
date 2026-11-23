@@ -97,16 +97,29 @@ class ImportMempoolMixin(SyncBase):
             return
         height = int(block_data.get("height") or 0)
         proposer = str(block_data.get("proposer") or "")
+        # One existence probe for the whole batch (#2762): the per-entry
+        # SELECT this replaces ran N queries inside the import commit.
+        # Duplicated tx_hash entries collapse to the first — a second pending
+        # insert for the same (chain_id, tx_hash) would fail the commit.
+        unique_entries: dict[str, dict[str, Any]] = {}
         for e in entries:
-            tx_hash = e["tx_hash"]
+            unique_entries.setdefault(e["tx_hash"], e)
+        existing_rows: dict[str, ChainTransaction] = {}
+        try:
+            rows = session.exec(
+                select(ChainTransaction).where(
+                    ChainTransaction.chain_id == self._chain_id,
+                    ChainTransaction.tx_hash.in_(list(unique_entries)),  # type: ignore[attr-defined]
+                )
+            ).all()
+            existing_rows = {row.tx_hash: row for row in rows}
+        except SQLAlchemyError as exc:
+            logger.warning("Rejected-tx existence probe failed for height %s: %s", height, exc)
+            return
+        for tx_hash, e in unique_entries.items():
             nonce = e.get("nonce")
             try:
-                existing = session.exec(
-                    select(ChainTransaction).where(
-                        ChainTransaction.chain_id == self._chain_id,
-                        ChainTransaction.tx_hash == tx_hash,
-                    )
-                ).first()
+                existing = existing_rows.get(tx_hash)
                 metadata_note = f"apply-rejected by proposer {proposer} at height {height}: {e.get('reason', '')}"
                 if existing is not None:
                     if existing.status != "confirmed":
