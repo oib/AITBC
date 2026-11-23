@@ -38,7 +38,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
-from ....auth import AdminDep, AuthDep
+from ....auth import AdminDep, AdminOrClientDep, AuthDep
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
@@ -534,6 +534,7 @@ async def submit_transaction(
 async def get_transaction_history(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     user_id: str | None = None,
     chain_id: int | None = None,
     transaction_type: TransactionType | None = None,
@@ -544,7 +545,16 @@ async def get_transaction_history(
     from_date: datetime | None = None,
     to_date: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    """Get transaction history with filtering"""
+    """Get transaction history with filtering.
+
+    Non-admin callers are bound to their own ``sub`` — a ``user_id`` naming
+    anyone else is rejected. Admins may pass another ``user_id`` (or none for
+    the unfiltered view).
+    """
+    if user.get("role") != "admin":
+        if user_id is not None and user_id != user["sub"]:
+            raise HTTPException(status_code=403, detail="cannot read another user's transaction history")
+        user_id = user["sub"]
     try:
         tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": settings.blockchain_rpc_url}, 1001: {"rpc_url": settings.blockchain_rpc_url}}
@@ -563,62 +573,10 @@ async def get_transaction_history(
                 to_date=to_date,
             ),
         )
-        if not history or len(history) == 0:
-            return [
-                {  # not-money: ratio, threshold or configuration default — not an amount of money
-                    "transaction_id": "tx_001",
-                    "user_id": user_id or "user_123",
-                    "chain_id": chain_id or 1000,
-                    "transaction_type": "bridge",
-                    "status": "completed",
-                    "amount": 1000.0,
-                    "from_address": "0x1234567890123456789012345678901234567890",
-                    "to_address": "0x4567890123456789012345678901234567890123",
-                    "created_at": datetime.now(UTC).isoformat(),
-                    "completed_at": datetime.now(UTC).isoformat(),
-                },
-                {  # not-money: ratio, threshold or configuration default — not an amount of money
-                    "transaction_id": "tx_002",
-                    "user_id": user_id or "user_123",
-                    "chain_id": chain_id or 1000,
-                    "transaction_type": "transfer",
-                    "status": "pending",
-                    "amount": 500.0,
-                    "from_address": "0x4567890123456789012345678901234567890123",
-                    "to_address": "0x7890123456789012345678901234567890123456",
-                    "created_at": datetime.now(UTC).isoformat(),
-                    "completed_at": None,
-                },
-            ][:limit]
         return history
     except _OPS_ERRORS as e:
         logger.error("Error getting transaction history: %s", e)
-        return [
-            {  # not-money: ratio, threshold or configuration default — not an amount of money
-                "transaction_id": "tx_001",
-                "user_id": user_id or "user_123",
-                "chain_id": chain_id or 1000,
-                "transaction_type": "bridge",
-                "status": "completed",
-                "amount": 1000.0,
-                "from_address": "0x1234567890123456789012345678901234567890",
-                "to_address": "0x4567890123456789012345678901234567890123",
-                "created_at": datetime.now(UTC).isoformat(),
-                "completed_at": datetime.now(UTC).isoformat(),
-            },
-            {  # not-money: ratio, threshold or configuration default — not an amount of money
-                "transaction_id": "tx_002",
-                "user_id": user_id or "user_123",
-                "chain_id": chain_id or 1000,
-                "transaction_type": "transfer",
-                "status": "pending",
-                "amount": 500.0,
-                "from_address": "0x4567890123456789012345678901234567890123",
-                "to_address": "0x7890123456789012345678901234567890123456",
-                "created_at": datetime.now(UTC).isoformat(),
-                "completed_at": None,
-            },
-        ][:limit]
+        raise HTTPException(status_code=502, detail="Error getting transaction history") from None
 
 
 @router.get("/transactions/statistics", response_model=dict[str, Any])

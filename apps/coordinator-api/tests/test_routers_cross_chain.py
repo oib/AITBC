@@ -9,6 +9,7 @@ validation, health/config/chain reads, and wallet ownership binding.
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -93,3 +94,74 @@ class TestWalletOwnership:
         # without WALLETS_ENCRYPTION_PASSWORD configured this is an honest 400;
         # with it configured the service may succeed — accept both, reject 500
         assert resp.status_code in (200, 400, 422, 503)
+
+
+class _FakeTxManager:
+    """Stand-in for ChainTransactionManager recording the history kwargs."""
+
+    result: list[dict] = []
+    error: Exception | None = None
+    calls: list[dict] = []
+
+    def __init__(self, session: object) -> None:
+        pass
+
+    async def initialize(self, chain_configs: dict) -> None:
+        pass
+
+    async def get_transaction_history(self, **kwargs: object) -> list[dict]:
+        type(self).calls.append(kwargs)
+        if type(self).error is not None:
+            raise type(self).error
+        return list(type(self).result)
+
+
+@pytest.fixture
+def fake_tx_manager(monkeypatch: pytest.MonkeyPatch) -> type[_FakeTxManager]:
+    from coordinator_api.contexts.cross_chain.routers import cross_chain_integration
+
+    _FakeTxManager.result = []
+    _FakeTxManager.error = None
+    _FakeTxManager.calls = []
+    monkeypatch.setattr(cross_chain_integration, "ChainTransactionManager", _FakeTxManager)
+    return _FakeTxManager
+
+
+class TestTransactionHistory:
+    """#2708 — no fabricated rows, caller-bound user_id, honest 502."""
+
+    def test_requires_auth(self, client: TestClient) -> None:
+        assert client.get(f"{BASE}/transactions/history").status_code in (401, 403)
+
+    def test_empty_history_returns_empty_list(self, client: TestClient, fake_tx_manager: type[_FakeTxManager]) -> None:
+        resp = client.get(f"{BASE}/transactions/history", headers=_headers())
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_non_admin_user_id_bound_to_caller(self, client: TestClient, fake_tx_manager: type[_FakeTxManager]) -> None:
+        resp = client.get(f"{BASE}/transactions/history", headers=_headers("agent-1"))
+        assert resp.status_code == 200
+        assert fake_tx_manager.calls[-1]["user_id"] == "agent-1"
+
+    def test_foreign_user_id_rejected_for_client(self, client: TestClient, fake_tx_manager: type[_FakeTxManager]) -> None:
+        resp = client.get(
+            f"{BASE}/transactions/history",
+            params={"user_id": "victim-9"},
+            headers=_headers("agent-1"),
+        )
+        assert resp.status_code == 403
+        assert fake_tx_manager.calls == []
+
+    def test_admin_may_read_other_user(self, client: TestClient, fake_tx_manager: type[_FakeTxManager]) -> None:
+        resp = client.get(
+            f"{BASE}/transactions/history",
+            params={"user_id": "victim-9"},
+            headers=_headers("root", "admin"),
+        )
+        assert resp.status_code == 200
+        assert fake_tx_manager.calls[-1]["user_id"] == "victim-9"
+
+    def test_backend_error_is_502_not_fixtures(self, client: TestClient, fake_tx_manager: type[_FakeTxManager]) -> None:
+        fake_tx_manager.error = RuntimeError("db gone")
+        resp = client.get(f"{BASE}/transactions/history", headers=_headers())
+        assert resp.status_code == 502
