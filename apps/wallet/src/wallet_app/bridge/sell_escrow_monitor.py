@@ -601,7 +601,8 @@ async def poll_sells_once() -> dict[str, Any]:
         # A failed scan means the chain view is unverifiable this poll —
         # process nothing. Deadline/orphan/refund decisions only ever run
         # on successful polls; an RPC outage can never drive a refund.
-        logger.error("Sell lock scan failed — skipping poll: %s", e)
+        poll_log = logger.warning if wdm.is_transient_rpc_error(e) else logger.error
+        poll_log("Sell lock scan failed — skipping poll: %s", e)
         return {"scanned": 0, "recorded": 0, "processed": 0, "skipped": True, "reason": f"scan failed: {e}"}
 
     # In-flight sweeps resolve first: a sealed outflow frees the serialized

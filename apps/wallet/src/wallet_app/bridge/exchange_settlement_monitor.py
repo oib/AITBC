@@ -725,7 +725,8 @@ async def _run_lane(summary: dict[str, Any], key: str, label: str, awaitable: An
     try:
         summary[key] = await awaitable
     except Exception as e:  # noqa: BLE001 - lane containment — other lanes still run
-        logger.error("%s failed this poll: %s", label, e)
+        poll_log = logger.warning if wdm.is_transient_rpc_error(e) else logger.error
+        poll_log("%s failed this poll: %s", label, e)
         summary[key] = f"failed: {e}"
 
 
@@ -757,7 +758,8 @@ async def poll_exchange_settlements_once() -> dict[str, Any]:
     try:
         head: int | None = await sellmon._chain_height()
     except Exception as e:  # noqa: BLE001 - height probe containment — lane skipped this poll
-        logger.error("Chain height unavailable — expiry lane skipped this poll: %s", e)
+        poll_log = logger.warning if wdm.is_transient_rpc_error(e) else logger.error
+        poll_log("Chain height unavailable — expiry lane skipped this poll: %s", e)
         head = None
 
     await _run_lane(summary, "locks", "Escrow lock scan", _scan_order_locks(cfg, head))

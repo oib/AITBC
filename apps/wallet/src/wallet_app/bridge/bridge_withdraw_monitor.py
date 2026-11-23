@@ -664,6 +664,19 @@ async def _record_rejected_withdrawal(
         await _refund_withdrawal(ait_tx_hash, sender, gross_ait, reason, expected_statuses={"rejected"})
 
 
+def is_transient_rpc_error(exc: BaseException) -> bool:
+    """True for httpx transport-level failures against the chain RPC.
+
+    Connect/timeout/pool/protocol errors mean the request never got a
+    response — the expected shape of a co-located ``aitbc-blockchain-rpc``
+    restart during a deploy, or a dropped connection. They self-heal on the
+    next poll and are warning-class (#2753: a routine restart produced four
+    ERROR lines in one cycle and tripped AITBCJournalErrors). A real RPC
+    outage still surfaces through the rpc unit's own alerting.
+    """
+    return isinstance(exc, httpx.TransportError)
+
+
 class PollSkipWarner:
     """Rate-limits 'poll skipped' warnings for the bridge monitor loops.
 
@@ -1374,7 +1387,8 @@ async def poll_withdrawals_once() -> dict[str, Any]:
     try:
         head_height = await _fetch_chain_head_height()
     except Exception as e:  # noqa: BLE001 - head fetch containment — no head, no release
-        logger.error("Could not fetch chain head — skipping withdraw scan this poll: %s", e)
+        poll_log = logger.warning if is_transient_rpc_error(e) else logger.error
+        poll_log("Could not fetch chain head — skipping withdraw scan this poll: %s", e)
         return {"scanned": 0, "recorded": 0, "skipped": True, "reason": f"chain head unavailable: {e}"}
     if head_height is None:
         logger.error("Chain head height missing — skipping withdraw scan this poll")
