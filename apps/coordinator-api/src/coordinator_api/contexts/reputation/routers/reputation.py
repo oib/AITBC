@@ -91,7 +91,13 @@ class FeedbackRequest(BaseModel):
         default=None,
         description="Completed job this review is anchored to (required for non-admin callers)",
     )
-    ratings: dict[str, float] = Field(..., description="Overall, performance, communication, reliability, value ratings")
+    # #2693: CommunityFeedback is a table=True model — Field(ge/le) on it is
+    # never enforced — so the bounds must live here. ge/le also reject
+    # inf/nan (every comparison fails), which used to reach SQLite as
+    # Infinity/NULL and surface as a 500/409.
+    ratings: dict[str, Annotated[float, Field(ge=1.0, le=5.0, allow_inf_nan=False)]] = Field(
+        ..., description="Overall, performance, communication, reliability, value ratings"
+    )
     feedback_text: str = Field(default="", max_length=1000)
     tags: list[str] = Field(default_factory=list)
 
