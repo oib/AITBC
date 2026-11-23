@@ -318,6 +318,34 @@ def _discover_registry_agents(client) -> list[dict[str, Any]]:
     return agents
 
 
+def scan_agents_for_identity(client, address: str) -> tuple[str | None, Exception | None]:
+    """Wallet→agent registry scan.
+
+    Returns ``(agent_id, None)`` on a binding match, ``(None, None)`` when
+    the scan ran but no agent is bound to ``address``, and ``(None, exc)``
+    when the scan itself failed (auth, transport, malformed address) —
+    callers that only want the soft answer use :func:`find_agent_by_identity`.
+    """
+    try:
+        wanted = canonical_address(address)
+    except (AttributeError, TypeError, ValueError, ImportError):
+        return None, None
+    try:
+        agents = _discover_registry_agents(client)
+    except Exception as e:  # noqa: BLE001 - caller decides whether the miss is fatal
+        logger.debug("agent discover failed: %s", type(e).__name__)
+        return None, e
+    for agent in agents:
+        bound = agent.get("identity_address") if isinstance(agent, dict) else None
+        if bound:
+            try:
+                if canonical_address(bound) == wanted:
+                    return str(agent.get("agent_id")), None
+            except (AttributeError, TypeError, ValueError, ImportError):
+                continue
+    return None, None
+
+
 def find_agent_by_identity(client, address: str, *, strict: bool = False) -> str | None:
     """Scan the registry for an agent bound to ``address``; returns agent_id.
 
@@ -328,36 +356,22 @@ def find_agent_by_identity(client, address: str, *, strict: bool = False) -> str
     a failed scan as "no agent is bound" — since #2212 the discover route
     requires an authenticated principal, so an anonymous scan 401s.
     """
-    try:
-        wanted = canonical_address(address)
-    except (AttributeError, TypeError, ValueError, ImportError):
-        return None
-    try:
-        agents = _discover_registry_agents(client)
-    except Exception as e:  # noqa: BLE001 - caller decides whether the miss is fatal
-        logger.debug("agent discover failed: %s", type(e).__name__)
+    agent_id, exc = scan_agents_for_identity(client, address)
+    if exc is not None:
         if strict:
             auth_hint = (
                 " — /v1/agents/discover requires an authenticated principal; run `aitbc auth login` or pass --api-key"
-                if http_response_status(e) in (401, 403) or "authentication required" in str(e)
+                if http_response_status(exc) in (401, 403) or "authentication required" in str(exc)
                 else ""
             )
             abort(
                 None,
                 f"Could not resolve the agent bound to wallet {address}: the registry "
-                f"lookup failed ({e}).{auth_hint} Pass --from-agent explicitly.",
-                from_exception=e,
+                f"lookup failed ({exc}).{auth_hint} Pass --from-agent explicitly.",
+                from_exception=exc,
             )
         return None
-    for agent in agents:
-        bound = agent.get("identity_address") if isinstance(agent, dict) else None
-        if bound:
-            try:
-                if canonical_address(bound) == wanted:
-                    return str(agent.get("agent_id"))
-            except (AttributeError, TypeError, ValueError, ImportError):
-                continue
-    return None
+    return agent_id
 
 
 def agent_login_token(
