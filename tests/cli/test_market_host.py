@@ -117,6 +117,68 @@ class TestIpfsHostingAbortCleanup:
         mocks["_refund_orphaned_escrow"].assert_not_called()
         mocks["_track_market_job"].assert_not_called()
 
+    def test_coordinator_escrow_registers_alias_claim(self):
+        """#2737: on the coordinator rail the on-chain escrow is keyed by the
+        coordinator job id — the market job must claim it via
+        payload.escrow_job_id plus the buyer signature the alias gate (#2326)
+        requires, or pin-confirm looks up /rpc/escrow/{sw_job_id} and 404s."""
+        import aitbc_cli.commands.market._signing as signing_mod
+        from contextlib import ExitStack
+
+        patches = self._patches(pin_ok=False, market_ok=True)
+        patches["_lock_host_escrow"] = patch.object(
+            host_module,
+            "_lock_host_escrow",
+            return_value={
+                "escrow_job_id": "coord-job-9",
+                "contract_id": "contract-9",
+                "payment_id": "pay-9",
+                "tracked": True,
+            },
+        )
+        patches["_confirm_market_pin"] = patch.object(host_module, "_confirm_market_pin")
+        patches["_release_and_track"] = patch.object(host_module, "_release_and_track", return_value=None)
+        patches["_sig"] = patch.object(
+            signing_mod,
+            "signed_job_request_fields",
+            return_value={"signer_address": "0xBuyer", "signature": "0xsig"},
+        )
+
+        with ExitStack() as stack:
+            mocks = {name: stack.enter_context(p) for name, p in patches.items()}
+            host_module._run_ipfs_hosting(None, "offer-1", self.CID, 1, False, False, "json")
+
+        job_data = mocks["_track_market_job"].call_args[0][0]
+        assert job_data["payload"]["escrow_job_id"] == "coord-job-9"
+        assert job_data["signer_address"] == "0xBuyer"
+        assert job_data["signature"] == "0xsig"
+        sig_call = mocks["_sig"].call_args
+        assert sig_call.args[1] == "/v1/market/jobs"
+        assert sig_call.kwargs["binding"] == {
+            "escrow_job_id": "coord-job-9",
+            "buyer_address": "0xBuyer",
+        }
+
+    def test_legacy_escrow_registers_no_alias_claim(self):
+        """#2737: the legacy direct-lock path keys the escrow by the market
+        job id itself — no alias payload, no signature requirement."""
+        import aitbc_cli.commands.market._signing as signing_mod
+        from contextlib import ExitStack
+
+        patches = self._patches(pin_ok=False, market_ok=True)
+        patches["_confirm_market_pin"] = patch.object(host_module, "_confirm_market_pin")
+        patches["_release_and_track"] = patch.object(host_module, "_release_and_track", return_value=None)
+        patches["_sig"] = patch.object(
+            signing_mod, "signed_job_request_fields", side_effect=AssertionError("must not sign")
+        )
+
+        with ExitStack() as stack:
+            mocks = {name: stack.enter_context(p) for name, p in patches.items()}
+            host_module._run_ipfs_hosting(None, "offer-1", self.CID, 1, False, False, "json")
+
+        job_data = mocks["_track_market_job"].call_args[0][0]
+        assert "escrow_job_id" not in job_data["payload"]
+
 
 class TestCoordinatorHostEscrow:
     """#2340: market host locks escrow through the coordinator payment rail so
@@ -219,6 +281,12 @@ class TestCoordinatorHostEscrow:
         assert pay_body["buyer_lock_fee"] == 100
         assert pay_body["offer_quantity"] == "3"
         assert pay_body["escrow_timeout_seconds"] == 86400
+        # #2737: the escrow is keyed by the coordinator job id — the lock tx
+        # and the payment row must both bind the market job id so the
+        # market service's alias claim verifies.
+        assert pay_body["market_job_id"] == "sw_job_ipfs_test"
+        lock_call = mocks["create_signed_escrow_lock"].call_args
+        assert lock_call.kwargs["market_job_id"] == "sw_job_ipfs_test"
 
     def test_ttl_and_timeout_scale_with_days(self):
         """#2340 respin: a 1-day rental must not inherit the old fixed 24h ttl —

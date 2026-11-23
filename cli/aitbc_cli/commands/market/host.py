@@ -467,6 +467,11 @@ def _create_coordinator_host_escrow(
             private_key,
             chain_id=get_chain_id(),
             node_wallet=node_wallet,
+            # #2737: the on-chain escrow is keyed by the coordinator job id,
+            # so the market job claims it via payload.escrow_job_id — the
+            # market service only honors that alias when the lock tx names
+            # this market job and the payment row carries the same binding.
+            market_job_id=job_id,
         )
     except _MARKET_HOST_ERRORS as e:
         warning(f"Escrow lock signing failed before submit ({type(e).__name__}: {e}) — no escrow locked")
@@ -489,6 +494,9 @@ def _create_coordinator_host_escrow(
         "escrow_timeout_seconds": min(rental_seconds, 86400),
         "offer_id": offer.get("offer_id", ""),
         "offer_quantity": str(days),
+        # #2737/#2371: the coordinator rebuilds the lock tx server-side and
+        # validates this against the job payload's declared market_job_id.
+        "market_job_id": job_id,
     }
     payment: dict[str, Any] | None
     try:
@@ -772,6 +780,24 @@ def _run_ipfs_hosting(
         "payment_status": "escrowed",
         "payment_amount": str(total_cost),
     }
+
+    if escrow_job_id != job_id:
+        # #2737: the coordinator rail keys the on-chain escrow by the
+        # coordinator job id, so this market job claims it via
+        # payload.escrow_job_id. The alias gate (#2326) requires a
+        # buyer-wallet signature over (escrow key, buyer) — unsigned alias
+        # claims 403 for ordinary user-key callers.
+        job_data["payload"]["escrow_job_id"] = escrow_job_id
+        from ._signing import signed_job_request_fields
+
+        job_data.update(
+            signed_job_request_fields(
+                ctx,
+                "/v1/market/jobs",
+                wallet=(buyer, private_key, ""),
+                binding={"escrow_job_id": escrow_job_id, "buyer_address": buyer},
+            )
+        )
 
     market_result = _register_ipfs_market_job(
         ctx,
