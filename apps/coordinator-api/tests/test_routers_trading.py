@@ -233,6 +233,13 @@ class TestMatchesAndNegotiation:
         assert summary.status_code == 200
         assert summary.json()["agent_id"] == AGENT
 
+    def test_analytics_malformed_date_is_422_not_500(self, client: TestClient) -> None:
+        """#2720: a non-ISO start_date/end_date is a client error, not a 500."""
+        resp = client.get(f"{BASE}/analytics", params={"start_date": "yesterday"}, headers=_headers())
+        assert resp.status_code == 422
+        resp = client.get(f"{BASE}/analytics", params={"end_date": "not-a-date"}, headers=_headers())
+        assert resp.status_code == 422
+
     def test_match_row_persisted(self, client: TestClient, db_session: Session) -> None:
         resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
         rid = resp.json()["request_id"]
