@@ -358,6 +358,17 @@ class EscrowRefundRelayService(EscrowRelayService):
         await self._check_no_completed_job_record(client, job_id)
 
         chain_response = await self._post_refund(client, job_id, {"reason": reason})
+        return await self._finish_refund(client_id, job_id, reason, chain_response)
+
+    async def _finish_refund(self, client_id: str, job_id: str, reason: str, chain_response: Any) -> dict[str, Any]:
+        """Record the settled refund and shape the relay response.
+
+        Split from :meth:`refund` for the c901 ratchet — the unsettled
+        short-circuit, dedup insert and response shaping live here.
+        """
+        unsettled = _unsettled_refund_result(chain_response, client_id, job_id)
+        if unsettled is not None:
+            return unsettled
 
         refund_tx_hash = chain_response.get("refund_tx_hash") if isinstance(chain_response, dict) else None
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
@@ -390,3 +401,23 @@ class _AlreadyRefunded(Exception):
     def __init__(self, row: EscrowRefundRelay) -> None:
         super().__init__()
         self.row = row
+
+
+def _unsettled_refund_result(chain_response: Any, client_id: str, job_id: str) -> dict[str, Any] | None:
+    """The chain's rolled-back answer, or None when the refund settled.
+
+    #2678: the chain answers ``{"success": false}`` when it rolled the
+    # refund back (unsettled). Recording a dedup row for that answer would
+    # replay success:true with a null tx_hash on every retry and wedge the
+    # escrow lock — return the failure so a fresh request re-attempts.
+    """
+    if not isinstance(chain_response, dict) or chain_response.get("success") is not False:
+        return None
+    logger.warning(
+        "Escrow refund unsettled on-chain: client_id=%s job_id=%s; no relay row recorded",
+        client_id,
+        job_id,
+    )
+    failure: dict[str, Any] = dict(chain_response)
+    failure["duplicate"] = False
+    return failure
