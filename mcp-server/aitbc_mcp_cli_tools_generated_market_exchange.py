@@ -34,7 +34,9 @@ def aitbc_market_exchange_deposit_eth(
     bridge_address: Annotated[
         str | None, Field(description="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)")
     ] = None,
-    gas_limit: Annotated[int | None, Field(description="Gas limit for the deposit transaction")] = None,
+    gas_limit: Annotated[
+        int | None, Field(description="Gas limit for the deposit transaction (default: eth_estimateGas + 25% headroom)")
+    ] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
     market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
     password_file: Annotated[

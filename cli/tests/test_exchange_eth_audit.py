@@ -143,6 +143,7 @@ def _fake_w3(receipt_status: int):
     w3.eth = SimpleNamespace(
         gas_price=1,
         get_transaction_count=lambda *a, **k: 0,
+        estimate_gas=lambda *a, **k: 21_000,  # #2755: default path estimates gas
         account=SimpleNamespace(sign_transaction=lambda tx, key: SimpleNamespace(raw_transaction=b"\x01")),
         send_raw_transaction=lambda raw: tx_hash,
         wait_for_transaction_receipt=lambda h, timeout=None: SimpleNamespace(status=receipt_status),

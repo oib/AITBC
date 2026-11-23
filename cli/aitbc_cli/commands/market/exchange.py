@@ -1,3 +1,4 @@
+import math
 import os
 import time
 
@@ -787,7 +788,7 @@ def _validate_eth_deposit_args(bridge_address: str | None, ait_address: str | No
 
 
 def _broadcast_eth_deposit(
-    w3, *, amount: Decimal, bridge_address: str, ait_address: str, gas_limit: int, sender_address: str, private_key: str
+    w3, *, amount: Decimal, bridge_address: str, ait_address: str, gas_limit: int | None, sender_address: str, private_key: str
 ) -> str:
     """Build, sign, broadcast and wait for an ETH bridge deposit.
 
@@ -800,6 +801,17 @@ def _broadcast_eth_deposit(
     value_wei = w3.to_wei(str(amount), "ether")
     gas_price = w3.eth.gas_price
     nonce = w3.eth.get_transaction_count(sender_address, "pending")
+
+    if gas_limit is None:
+        est = w3.eth.estimate_gas(
+            {
+                "from": sender_address,
+                "to": Web3.to_checksum_address(bridge_address),
+                "data": Web3.to_checksum_address(ait_address),
+                "value": value_wei,
+            }
+        )
+        gas_limit = math.ceil(int(est) * 5 / 4)
 
     tx = {
         "nonce": nonce,
@@ -834,9 +846,15 @@ def _broadcast_eth_deposit(
 @click.option(
     "--bridge-address", default=None, help="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)"
 )
-@click.option("--gas", "gas_limit", default=30000, type=int, help="Gas limit for the deposit transaction")
+@click.option(
+    "--gas",
+    "gas_limit",
+    default=None,
+    type=int,
+    help="Gas limit for the deposit transaction (default: eth_estimateGas + 25% headroom)",
+)
 @click.pass_context
-def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: str | None, gas_limit: int):
+def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: str | None, gas_limit: int | None):
     """Deposit Sepolia ETH to the bridge and mint AIT."""
     try:
         from web3 import Web3

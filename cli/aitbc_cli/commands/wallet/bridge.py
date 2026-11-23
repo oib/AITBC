@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 from decimal import Decimal
 
@@ -195,6 +196,8 @@ def _send_eth_deposit_tx(
         except (TypeError, ValueError):
             chain_id = {"mainnet": 1, "sepolia": 11155111, "goerli": 5, "holesky": 17000}.get(network.lower(), 11155111)
 
+        value_wei = int(eth_amount * Decimal(10**18))
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             rpc_body = {
                 "jsonrpc": "2.0",
@@ -211,11 +214,36 @@ def _send_eth_deposit_tx(
             resp.raise_for_status()
             gas_price = int(resp.json()["result"], 16)
 
-        value_wei = int(eth_amount * Decimal(10**18))
+            rpc_body = {
+                "jsonrpc": "2.0",
+                "method": "eth_estimateGas",
+                "params": [
+                    {
+                        "from": derived_address,
+                        "to": bridge_eth_address,
+                        "data": hex_data,
+                        "value": hex(value_wei),
+                    }
+                ],
+                "id": 2,
+            }
+            resp = await client.post(rpc_url, json=rpc_body)
+            if resp.status_code != 200:
+                error(f"eth_estimateGas failed: HTTP {resp.status_code}")
+                raise click.Abort()
+            est_result = resp.json()
+            if "error" in est_result:
+                error(f"eth_estimateGas failed: {est_result['error']}")
+                raise click.Abort()
+            if "result" not in est_result:
+                error("eth_estimateGas failed: missing result in RPC response")
+                raise click.Abort()
+            gas_limit = math.ceil(int(est_result["result"], 16) * 5 / 4)
+
         tx = {
             "to": canonical_address(bridge_eth_address),
             "value": value_wei,
-            "gas": 100000,
+            "gas": gas_limit,
             "gasPrice": gas_price,
             "nonce": nonce,
             "chainId": chain_id,
@@ -236,7 +264,7 @@ def _send_eth_deposit_tx(
                 raise RuntimeError(result["error"])
             return str(result["result"])
 
-    return asyncio.get_event_loop().run_until_complete(_send())
+    return asyncio.run(_send())
 
 
 @bridge.command(
