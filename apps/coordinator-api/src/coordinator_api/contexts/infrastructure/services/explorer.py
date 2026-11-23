@@ -8,6 +8,8 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import TypedDict
 
+from fastapi import HTTPException
+
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
@@ -174,46 +176,36 @@ class ExplorerService:
         rpc_base = settings.blockchain_rpc_url.rstrip("/")
         try:
             client = AITBCHTTPClient(timeout=10.0)
-            try:
-                head = client.get(f"{rpc_base}/rpc/head")
-                height = head.get("height", 0)
-                start = max(0, height - offset - limit + 1)
-                end = height - offset
-                if start > end:
-                    return BlockListResponse(items=[], next_offset=None)
-                rpc_data = client.get(f"{rpc_base}/rpc/blocks-range", params={"start": start, "end": end})
-                raw_blocks = rpc_data.get("blocks", [])
-                raw_blocks = list(reversed(raw_blocks))
-                items: list[BlockSummary] = []
-                for block in raw_blocks:
-                    ts = block.get("timestamp")
-                    if isinstance(ts, str):
-                        ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                    items.append(
-                        BlockSummary(
-                            height=block["height"],
-                            hash=block["hash"],
-                            timestamp=ts,
-                            txCount=block.get("tx_count", 0),
-                            proposer=block.get("proposer", "—"),
-                        )
-                    )
-                next_offset = offset + len(items) if len(items) == limit else None
-                return BlockListResponse(items=items, next_offset=next_offset)
-            except NetworkError:
+            head = client.get(f"{rpc_base}/rpc/head")
+            height = head.get("height", 0)
+            start = max(0, height - offset - limit + 1)
+            end = height - offset
+            if start > end:
                 return BlockListResponse(items=[], next_offset=None)
-        except _OPS_ERRORS as e:
-            logger.warning("Failed to fetch blocks from RPC: %s, falling back to fake data", e)
-            statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
-            jobs = self.session.execute(statement.offset(offset).limit(limit)).scalars().all()
-            for index, job in enumerate(jobs):
-                height = _DEFAULT_HEIGHT_BASE + offset + index
-                proposer = job.assigned_miner_id or "unassigned"
+            rpc_data = client.get(f"{rpc_base}/rpc/blocks-range", params={"start": start, "end": end})
+            raw_blocks = rpc_data.get("blocks", [])
+            raw_blocks = list(reversed(raw_blocks))
+            items: list[BlockSummary] = []
+            for block in raw_blocks:
+                ts = block.get("timestamp")
+                if isinstance(ts, str):
+                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                 items.append(
-                    BlockSummary(height=height, hash=job.id, timestamp=job.requested_at, txCount=1, proposer=proposer)
+                    BlockSummary(
+                        height=block["height"],
+                        hash=block["hash"],
+                        timestamp=ts,
+                        txCount=block.get("tx_count", 0),
+                        proposer=block.get("proposer", "—"),
+                    )
                 )
             next_offset = offset + len(items) if len(items) == limit else None
             return BlockListResponse(items=items, next_offset=next_offset)
+        except _OPS_ERRORS as e:
+            # #2716: never fabricate blocks from job rows — an RPC outage is
+            # an honest 502, not invented heights/hashes for anonymous callers.
+            logger.warning("Failed to fetch blocks from RPC: %s", e)
+            raise HTTPException(status_code=502, detail="blockchain RPC unavailable") from e
 
     def list_transactions(self, *, limit: int = 50, offset: int = 0) -> TransactionListResponse:
         statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
@@ -319,11 +311,13 @@ class ExplorerService:
                 }
             except NetworkError as e:
                 if "404" in str(e) or "not found" in str(e).lower():
-                    return {"error": "Transaction not found", "hash": tx_hash}
-                return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
+                    raise HTTPException(status_code=404, detail="transaction not found") from e
+                raise HTTPException(status_code=502, detail="blockchain RPC unavailable") from e
+        except HTTPException:
+            raise
         except _OPS_ERRORS as e:
-            logger.warning("Failed to fetch transaction from RPC tx_hash=%s error=%s", tx_hash, str(e))
-            return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
+            logger.warning("Failed to fetch transaction from RPC tx_hash=%s error=%s", tx_hash, e)
+            raise HTTPException(status_code=502, detail="blockchain RPC unavailable") from e
 
     def get_block_by_hash(self, block_hash: str) -> dict:
         """Get block details by hash from blockchain database"""
@@ -361,10 +355,12 @@ class ExplorerService:
                         "stateRoot": state_root,
                     }
 
-            return {"error": "Block not found", "hash": block_hash}
+            raise HTTPException(status_code=404, detail="block not found")
+        except HTTPException:
+            raise
         except _OPS_ERRORS as e:
-            logger.warning("Failed to fetch block by hash from database block_hash=%s error=%s", block_hash, str(e))
-            return {"error": f"Failed to fetch block: {str(e)}", "hash": block_hash}
+            logger.warning("Failed to fetch block by hash from database block_hash=%s error=%s", block_hash, e)
+            raise HTTPException(status_code=503, detail="explorer store unavailable") from e
 
     def get_transaction_by_hash(self, tx_hash: str) -> dict:
         """Get transaction details by hash from blockchain database"""
@@ -404,7 +400,9 @@ class ExplorerService:
                         "status": status,
                     }
 
-            return {"error": "Transaction not found", "tx_hash": tx_hash}
+            raise HTTPException(status_code=404, detail="transaction not found")
+        except HTTPException:
+            raise
         except _OPS_ERRORS as e:
-            logger.warning("Failed to fetch transaction by hash from database tx_hash=%s error=%s", tx_hash, str(e))
-            return {"error": f"Failed to fetch transaction: {str(e)}", "tx_hash": tx_hash}
+            logger.warning("Failed to fetch transaction by hash from database tx_hash=%s error=%s", tx_hash, e)
+            raise HTTPException(status_code=503, detail="explorer store unavailable") from e
