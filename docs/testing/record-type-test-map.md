@@ -34,7 +34,7 @@ Inverted index: each `V9_METRIC_KNOWN_TX_TYPES` record type → the
 | `GPU_MARKET` | [test_jobs_sign_transactions.py](../../tests/cli/test_jobs_sign_transactions.py), [test_market_offers.py](../../tests/cli/test_market_offers.py), [test_nonce_retry.py](../../tests/escrow_e2e/test_nonce_retry.py) |
 | `GPU_REGISTER` | [test_gpu_caller_relays.py](../../tests/test_gpu_caller_relays.py) |
 | `IPFS_SUBSCRIPTION` | [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
-| `LIQUIDITY_CLAIM` | [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
+| `LIQUIDITY_CLAIM` | [test_wallet.py](../../tests/cli/test_wallet.py), [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `LIQUIDITY_DEPOSIT` | [test_commands_staking.py](../../tests/cli/test_commands_staking.py), [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `LIQUIDITY_WITHDRAW` | [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `MESSAGE` | [test_commands_messaging.py](../../tests/cli/test_commands_messaging.py), [test_journal_errors_textfile.py](../../tests/unit/test_journal_errors_textfile.py), [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
