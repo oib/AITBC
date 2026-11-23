@@ -26,6 +26,7 @@ from aitbc_chain.base_models import Transaction
 
 CHAIN_ID = "ait-test"
 TX_HASH = "0x" + "2d" * 32
+REJECTED_TX_HASH = "0x" + "5d" * 32
 
 
 @pytest.fixture
@@ -46,6 +47,26 @@ def chain(monkeypatch):
                 value=100,
                 fee=10,
                 nonce=0,
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+            )
+        )
+        session.add(
+            Transaction(
+                chain_id=CHAIN_ID,
+                tx_hash=REJECTED_TX_HASH,
+                block_height=None,
+                sender="0x08aB801150eF3496344cFA78fe025c3B48Caf435",
+                recipient="0xRecipient",
+                payload={"amount": 100},
+                type="ESCROW_LOCK",
+                value=100,
+                fee=10,
+                nonce=189,
+                status="rejected",
+                tx_metadata=(
+                    '{"rejected_reason": "Invalid nonce for 0xBuyer: expected 187, got 189",'
+                    ' "rejected_at_height": 36068, "rejected_at": "2026-11-23T12:00:00+00:00"}'
+                ),
                 created_at=datetime.now(UTC).replace(tzinfo=None),
             )
         )
@@ -103,6 +124,18 @@ async def test_the_lookup_is_scoped_to_the_chain(chain) -> None:
         await _get(chain, TX_HASH, chain_id="ait-other")
 
     assert raised.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_an_apply_rejected_tx_surfaces_its_reason(chain) -> None:
+    """#2744: the coordinator's escrow reconcile reads this endpoint — a bare
+    ``status: rejected`` is not enough; the apply-time reason must come back."""
+    result = await _get(chain, REJECTED_TX_HASH)
+
+    assert result["status"] == "rejected"
+    assert result["block_height"] is None
+    assert "expected 187, got 189" in result["rejected_reason"]
+    assert result["rejected_at_height"] == 36068
 
 
 @pytest.mark.parametrize("omitted", [None, ""])

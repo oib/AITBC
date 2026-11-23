@@ -4,6 +4,7 @@ Transaction-related RPC endpoints.
 
 import asyncio
 import concurrent.futures
+import json
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -1432,6 +1433,19 @@ def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None)
             "value": tx.value,
             "fee": tx.fee,
         }
+        # Apply-time rejections carry their reason in tx_metadata (#669);
+        # surface it so callers (e.g. the agent-coordinator escrow reconcile,
+        # #2744) can tell *why* a hash will never seal instead of seeing a
+        # bare "rejected".
+        if tx.tx_metadata:
+            try:
+                meta = json.loads(tx.tx_metadata)
+            except (TypeError, ValueError):
+                meta = None
+            if isinstance(meta, dict):
+                for key in ("rejected_reason", "rejected_at_height", "rejected_at"):
+                    if key in meta:
+                        body[key] = meta[key]
         if finality_fields_enabled():
             body.update(finality_view(tx.block_height, head_height_in_session(session, resolved_chain_id)))
         return body

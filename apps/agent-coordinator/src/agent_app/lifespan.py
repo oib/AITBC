@@ -125,6 +125,28 @@ def _escrow_refund_submitter(entry: Any) -> Any:
     return make_refund_submitter(state.escrow_rpc, entry.task_id, reason="expired")
 
 
+def _escrow_sweep_once(mgr: Any) -> list[Any]:
+    """One expire/refund pass, preceded by the #2744 lock reconcile.
+
+    Runs in a worker thread (#1750): the reconcile probe and refund submitters
+    are synchronous httpx and must stay off the event loop.
+    """
+    from .services.chain_escrow import reconcile_rejected_lock
+
+    if state.escrow_rpc is not None:
+        for esc in mgr.get_all_escrows():
+            if reconcile_rejected_lock(state.escrow_rpc, esc):
+                mgr.persist_entry(esc)
+                logger.warning(
+                    "Escrow %s lock rejected on-chain for task %s: %s",
+                    esc.escrow_id,
+                    esc.task_id,
+                    esc.metadata.get("lock_rejected_reason"),
+                )
+    expired: list[Any] = mgr.expire_stale(refund_submitter_for=_escrow_refund_submitter)
+    return expired
+
+
 async def sweep_stale_escrows() -> None:
     """Background task: expire/refund escrows past their timeout (v0.25).
 
@@ -135,11 +157,7 @@ async def sweep_stale_escrows() -> None:
     while True:
         try:
             if state.payment_escrow:
-                # #1750: refund submitters are synchronous httpx (up to 15s
-                # per escrow) — keep them off the event loop.
-                expired = await asyncio.to_thread(
-                    state.payment_escrow.expire_stale, refund_submitter_for=_escrow_refund_submitter
-                )
+                expired = await asyncio.to_thread(_escrow_sweep_once, state.payment_escrow)
                 if expired:
                     logger.info("Expired %d stale escrow(s): %s", len(expired), [e.escrow_id for e in expired])
                     # #1749: an expired escrow means the task never completed —
