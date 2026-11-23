@@ -33,13 +33,16 @@ AGENT = "agent-buyer-1"
 @pytest.fixture(autouse=True)
 def _no_payment_monitor(monkeypatch: pytest.MonkeyPatch) -> None:
     """monitor_payment is an infinite background loop — no-op it like
-    test_routers_exchange does."""
+    test_routers_exchange does. Also configure a deposit address: create-payment
+    501s while exchange_deposit_address is unset/zero (#2709)."""
     import coordinator_api.contexts.infrastructure.routers.exchange as exch_mod
+    from coordinator_api.config import settings
 
     async def _noop(payment_id: str) -> None:
         return None
 
     monkeypatch.setattr(exch_mod, "monitor_payment", _noop)
+    monkeypatch.setattr(settings, "exchange_deposit_address", "0x" + "cd" * 20)
 
 
 @pytest.fixture(autouse=True)

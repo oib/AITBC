@@ -45,11 +45,20 @@ PAYMENT_RECORD_TTL_SECONDS = 7 * 24 * 60 * 60
 # ETH configuration
 ETH_CONFIG: dict[str, Any] = {
     "testnet": True,
-    "main_address": "0x0000000000000000000000000000000000000000",  # ponytail: replace with real treasury address
     "exchange_rate": 1000,  # 1 ETH = 1,000 AITBC
     "min_confirmations": 12,
     "payment_timeout": 3600,  # 1 hour
 }
+
+_ZERO_ADDRESS = "0x" + "0" * 40
+
+
+def _deposit_address() -> str:
+    """Configured treasury address, or "" when the deposit flow is not set up."""
+    address = (settings.exchange_deposit_address or "").strip()
+    if not address or address.lower() == _ZERO_ADDRESS:
+        return ""
+    return address
 
 
 @router.post("/exchange/create-payment", response_model=ExchangePaymentResponse)
@@ -73,6 +82,15 @@ async def create_payment(
     if abs(payment_request.eth_amount - expected_eth) > 0.00000001:
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
+    deposit_address = _deposit_address()
+    if not deposit_address:
+        # No real treasury address configured — refuse rather than return a
+        # burn/placeholder address the client would send ETH to (#2709).
+        raise HTTPException(
+            status_code=501,
+            detail="Exchange deposits are not configured on this node",
+        )
+
     # Bind payment to the authenticated principal — the body-supplied
     # user_id is caller-asserted and must never stand in for auth (#1881).
     user_id = str(user.get("sub") or user.get("user_id") or "")
@@ -86,7 +104,7 @@ async def create_payment(
         "user_id": user_id,
         "aitbc_amount": payment_request.aitbc_amount,
         "eth_amount": payment_request.eth_amount,
-        "payment_address": ETH_CONFIG["main_address"],
+        "payment_address": deposit_address,
         "status": "pending",
         "created_at": int(time.time()),
         "expires_at": int(time.time()) + ETH_CONFIG["payment_timeout"],

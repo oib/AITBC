@@ -14384,6 +14384,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Exchange deposits are not configured on this node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
