@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hmac
+import json
 import logging
 from typing import Any
 
@@ -19,18 +20,44 @@ router = APIRouter(tags=["memory"])
 store = MemoryStore()
 
 
-async def require_api_key(request: Request) -> None:
-    """Shared-secret gate (#1682): enforced only when MEMORY_API_KEY is set.
+def _key_owner_map() -> dict[str, str]:
+    """Parse MEMORY_API_KEY_OWNERS (JSON ``{"<key>": "<owner>"}``)."""
+    raw = settings.memory_api_key_owners
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        logging.getLogger(__name__).error("MEMORY_API_KEY_OWNERS is not valid JSON — ignoring")
+        return {}
+    if not isinstance(parsed, dict):
+        logging.getLogger(__name__).error("MEMORY_API_KEY_OWNERS must be a JSON object — ignoring")
+        return {}
+    return {str(k): str(v) for k, v in parsed.items()}
 
-    Constant-time compare, same pattern as the hermes /run credential. When
-    unset the service keeps its previous open behavior — the per-blob owner
-    checks on /retrieve and DELETE still apply either way.
+
+async def require_api_key(request: Request) -> str | None:
+    """Shared-secret gate (#1682) returning the authenticated owner identity.
+
+    Constant-time compare, same pattern as the hermes /run credential.
+    Returns ``None`` when no key material is configured (open mode — the
+    per-blob owner checks still apply, self-asserted as before). With
+    MEMORY_API_KEY set, every caller authenticates as the single tenant
+    ``"shared"``; with MEMORY_API_KEY_OWNERS entries, the presented key
+    binds the caller to that entry's owner (#2801). Either way the
+    caller-supplied owner is ignored once authenticated — cross-tenant
+    read/delete is impossible.
     """
-    if not settings.memory_api_key:
-        return
+    owners = _key_owner_map()
+    if not settings.memory_api_key and not owners:
+        return None
     token = request.headers.get("x-api-key", "")
-    if not hmac.compare_digest(token, settings.memory_api_key):
-        raise HTTPException(status_code=401, detail="invalid or missing api key")
+    if settings.memory_api_key and hmac.compare_digest(token, settings.memory_api_key):
+        return "shared"
+    for key, owner in owners.items():
+        if hmac.compare_digest(token, key):
+            return owner
+    raise HTTPException(status_code=401, detail="invalid or missing api key")
 
 
 class StoreRequest(BaseModel):
@@ -68,10 +95,11 @@ async def health(request: Request) -> dict[str, Any]:
     return store.health()
 
 
-@router.post("/store", response_model=StoreResponse, status_code=201, dependencies=[Depends(require_api_key)])
+@router.post("/store", response_model=StoreResponse, status_code=201)
 @rate_limit(rate=100, per=60)
-async def store_blob(request: Request, body: StoreRequest) -> dict[str, Any]:
+async def store_blob(request: Request, body: StoreRequest, identity: str | None = Depends(require_api_key)) -> dict[str, Any]:
     """Store a content-addressed blob."""
+    owner = identity or body.owner
 
     # Reject on the encoded length before decoding so an oversize body never
     # materialises as bytes (base64 inflates by ~4/3 plus padding).
@@ -79,7 +107,7 @@ async def store_blob(request: Request, body: StoreRequest) -> dict[str, Any]:
         raise HTTPException(status_code=413, detail=f"blob exceeds the {settings.memory_max_blob_bytes}-byte cap")
     try:
         data = base64.b64decode(body.data)
-        blob = store.store_blob(body.owner, data, body.tags)
+        blob = store.store_blob(owner, data, body.tags)
         return {
             "content_address": blob.content_address,
             "owner": blob.owner,
@@ -100,26 +128,25 @@ async def store_blob(request: Request, body: StoreRequest) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get(
-    "/retrieve/{content_address}",
-    response_model=RetrieveResponse,
-    dependencies=[Depends(require_api_key)],
-)
+@router.get("/retrieve/{content_address}", response_model=RetrieveResponse)
 @rate_limit(rate=200, per=60)
 async def retrieve_blob(
     request: Request,
     content_address: str,
     owner: str = Query(..., min_length=1, description="Owner identity; must match a storing owner"),
+    identity: str | None = Depends(require_api_key),
 ) -> dict[str, Any]:
     """Retrieve a blob by content address.
 
     ``owner`` is required (#1682): the route previously ignored ownership
     entirely, so any caller who learned a cid could read the blob. Every
     tenant that stored the content is recorded as an owner, so idempotent
-    re-stores by a second tenant do not lock that tenant out.
+    re-stores by a second tenant do not lock that tenant out. When key
+    auth is configured the authenticated identity overrides ``owner``
+    (#2801) — the caller cannot assert another tenant's name.
     """
     try:
-        data, blob = store.retrieve_blob(content_address, owner)
+        data, blob = store.retrieve_blob(content_address, identity or owner)
         return {
             "content_address": blob.content_address,
             "owner": blob.owner,
@@ -138,20 +165,20 @@ async def retrieve_blob(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.delete(
-    "/blobs/{content_address}",
-    status_code=204,
-    dependencies=[Depends(require_api_key)],
-)
+@router.delete("/blobs/{content_address}", status_code=204)
 @rate_limit(rate=100, per=60)
 async def delete_blob(
     request: Request,
     content_address: str,
     owner: str = Query(..., min_length=1, description="Owner identity; must match a storing owner"),
+    identity: str | None = Depends(require_api_key),
 ) -> None:
-    """Delete a blob. Only an owner of the blob may delete it (#1682)."""
+    """Delete a blob. Only an owner of the blob may delete it (#1682).
+
+    Authenticated callers are bound to their key's owner identity (#2801).
+    """
     try:
-        store.delete_blob(content_address, owner)
+        store.delete_blob(content_address, identity or owner)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except BlobPermissionError as e:
