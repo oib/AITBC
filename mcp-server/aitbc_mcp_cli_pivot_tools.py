@@ -311,6 +311,16 @@ def read_aitbc_cli(
                 "Use run_aitbc_cli for everything else; destructive subcommands require dry_run=false and confirm=true.",
             }
         )
+    # This tool is read_only_hint=True with no confirm gate, so mutation-looking
+    # option names must be refused outright — same heuristic run_aitbc_cli uses
+    # to force confirmation (#2883).
+    if _options_suggest_mutation(options, group_options):
+        return _json(
+            {
+                "error": "options suggest a mutating operation",
+                "note": "read_aitbc_cli refuses mutation-looking options; use run_aitbc_cli with dry_run=false and confirm=true.",
+            }
+        )
     env_error = _validate_cli_env_cwd(env, cwd)
     if env_error:
         return _json({"error": env_error})
