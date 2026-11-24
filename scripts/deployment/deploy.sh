@@ -151,13 +151,18 @@ install_python_dependencies() {
 
     local PROFILE="server-no-gpu"
     if [[ -f "/etc/aitbc/blockchain.env" ]]; then
-        # shellcheck disable=SC1091
-        source "/etc/aitbc/blockchain.env"
-        if [[ "${HARDWARE_PROFILE:-}" == "gpu" ]]; then
+        # #2787: systemd-env parse, not source — env files carry key material
+        # and `source` would execute $(...) inside them.
+        local _env_reader="$REPO_ROOT/scripts/utils/systemd-env.sh"
+        local _hw _bm _mr
+        _hw=$("$_env_reader" get "/etc/aitbc/blockchain.env" HARDWARE_PROFILE 2>/dev/null || true)
+        _bm=$("$_env_reader" get "/etc/aitbc/blockchain.env" BLOCKCHAIN_MODE 2>/dev/null || true)
+        _mr=$("$_env_reader" get "/etc/aitbc/blockchain.env" MARKET_ROLE 2>/dev/null || true)
+        if [[ "$_hw" == "gpu" ]]; then
             PROFILE="provider-gpu"
-        elif [[ "${BLOCKCHAIN_MODE:-}" == "hub" ]]; then
+        elif [[ "$_bm" == "hub" ]]; then
             PROFILE="hub"
-        elif [[ "${MARKET_ROLE:-}" == "customer" ]]; then
+        elif [[ "$_mr" == "customer" ]]; then
             PROFILE="customer-no-gpu"
         else
             PROFILE="server-no-gpu"

@@ -171,20 +171,19 @@ LEGACY_HEALTH_CHECK_PATH="${AITBC_ROOT}/health-check.sh"
 # Roles: hub, follower, shop, customer
 get_node_role() {
     local blockchain_mode="" market_role="" hardware_profile=""
-    if [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
-        # shellcheck disable=SC1091
-        source "${AITBC_ETC_DIR}/blockchain.env" 2>/dev/null
-        blockchain_mode="$BLOCKCHAIN_MODE"
-        market_role="$MARKET_ROLE"
-        hardware_profile="$HARDWARE_PROFILE"
-    fi
-    if [ -f "${AITBC_ETC_DIR}/node.env" ]; then
-        # shellcheck disable=SC1091
-        source "${AITBC_ETC_DIR}/node.env" 2>/dev/null
-        blockchain_mode="${blockchain_mode:-$BLOCKCHAIN_MODE}"
-        market_role="${market_role:-$MARKET_ROLE}"
-        hardware_profile="${hardware_profile:-$HARDWARE_PROFILE}"
-    fi
+    # #2787: parse env files via systemd-env, never source them — `source`
+    # executes $(...), backticks and unbalanced quotes inside files that
+    # carry key material. node.env overrides blockchain.env per key, the
+    # same precedence the old source order gave.
+    local _env_reader="${AITBC_ROOT}/scripts/utils/systemd-env.sh"
+    local _f _v
+    for _f in "${AITBC_ETC_DIR}/blockchain.env" "${AITBC_ETC_DIR}/node.env"; do
+        [ -f "$_f" ] || continue
+        _v=$("$_env_reader" get "$_f" BLOCKCHAIN_MODE 2>/dev/null || true); [ -n "$_v" ] && blockchain_mode="$_v"
+        _v=$("$_env_reader" get "$_f" MARKET_ROLE 2>/dev/null || true); [ -n "$_v" ] && market_role="$_v"
+        _v=$("$_env_reader" get "$_f" HARDWARE_PROFILE 2>/dev/null || true); [ -n "$_v" ] && hardware_profile="$_v"
+    done
+    unset _f _v _env_reader
 
     if [ "$blockchain_mode" = "hub" ]; then
         echo "hub"
@@ -1525,13 +1524,17 @@ setup_venvs() {
         #   customer-no-gpu — follower + customer, no GPU (lightweight CLI + wallet)
         #   server-no-gpu   — follower + shop, no GPU (core blockchain services)
         if [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
-            # shellcheck disable=SC1091
-            source "${AITBC_ETC_DIR}/blockchain.env"
-            if [ "$HARDWARE_PROFILE" = "gpu" ]; then
+            # #2787: systemd-env parse, not source (see get_node_role above).
+            local _env_reader="${AITBC_ROOT}/scripts/utils/systemd-env.sh"
+            local _hw _bm _mr
+            _hw=$("$_env_reader" get "${AITBC_ETC_DIR}/blockchain.env" HARDWARE_PROFILE 2>/dev/null || true)
+            _bm=$("$_env_reader" get "${AITBC_ETC_DIR}/blockchain.env" BLOCKCHAIN_MODE 2>/dev/null || true)
+            _mr=$("$_env_reader" get "${AITBC_ETC_DIR}/blockchain.env" MARKET_ROLE 2>/dev/null || true)
+            if [ "$_hw" = "gpu" ]; then
                 PROFILE="provider-gpu"
-            elif [ "$BLOCKCHAIN_MODE" = "hub" ]; then
+            elif [ "$_bm" = "hub" ]; then
                 PROFILE="hub"
-            elif [ "$MARKET_ROLE" = "customer" ]; then
+            elif [ "$_mr" = "customer" ]; then
                 PROFILE="customer-no-gpu"
             else
                 PROFILE="server-no-gpu"

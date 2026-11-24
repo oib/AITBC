@@ -12,6 +12,12 @@ REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
 # REPO_ROOT convention directly above (V23-98).
 LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 HEALTH_CHECK_LOG="$LOG_DIR/health_check.log"
+
+# #2787: env files are parsed, never sourced — `source` executes $(...),
+# backticks and unbalanced quotes inside secret-bearing files. Role/redis
+# lookups go through the systemd EnvironmentFile reader instead.
+SYSTEMD_ENV_READER="$(cd "$(dirname "${BASH_SOURCE[0]}")/../utils" && pwd)/systemd-env.sh"
+env_file_get() { "$SYSTEMD_ENV_READER" get "$1" "$2" 2>/dev/null || true; }
 ALERT_THRESHOLD_CPU=80
 ALERT_THRESHOLD_MEM=80
 ALERT_THRESHOLD_DISK=90
@@ -96,20 +102,15 @@ _node_role() {
     # by operators testing a role on a box that is already configured).
     local pinned_mode="${BLOCKCHAIN_MODE:-}" pinned_market="${MARKET_ROLE:-}" pinned_hw="${HARDWARE_PROFILE:-}"
     local blockchain_mode="" market_role="" hardware_profile=""
-    if [ -f "/etc/aitbc/blockchain.env" ]; then
-        # shellcheck disable=SC1091
-        source /etc/aitbc/blockchain.env 2>/dev/null || true
-        blockchain_mode="${BLOCKCHAIN_MODE:-}"
-        market_role="${MARKET_ROLE:-}"
-        hardware_profile="${HARDWARE_PROFILE:-}"
-    fi
-    if [ -f "/etc/aitbc/node.env" ]; then
-        # shellcheck disable=SC1091
-        source /etc/aitbc/node.env 2>/dev/null || true
-        blockchain_mode="${BLOCKCHAIN_MODE:-${blockchain_mode}}"
-        market_role="${MARKET_ROLE:-${market_role}}"
-        hardware_profile="${HARDWARE_PROFILE:-${hardware_profile}}"
-    fi
+    # node.env wins over blockchain.env per key, matching the old
+    # source-order precedence (#2787).
+    for _env_file in /etc/aitbc/blockchain.env /etc/aitbc/node.env; do
+        [ -f "$_env_file" ] || continue
+        _v=$(env_file_get "$_env_file" BLOCKCHAIN_MODE); [ -n "$_v" ] && blockchain_mode="$_v"
+        _v=$(env_file_get "$_env_file" MARKET_ROLE); [ -n "$_v" ] && market_role="$_v"
+        _v=$(env_file_get "$_env_file" HARDWARE_PROFILE); [ -n "$_v" ] && hardware_profile="$_v"
+    done
+    unset _env_file _v
     blockchain_mode="${pinned_mode:-${blockchain_mode}}"
     market_role="${pinned_market:-${market_role}}"
     hardware_profile="${pinned_hw:-${hardware_profile}}"
@@ -453,8 +454,8 @@ check_redis() {
     fi
 
     if [ -z "${REDIS_URL:-}" ] && [ -f "/etc/aitbc/blockchain-secrets.env" ]; then
-        # shellcheck disable=SC1091
-        source /etc/aitbc/blockchain-secrets.env 2>/dev/null || true
+        REDIS_URL=$(env_file_get /etc/aitbc/blockchain-secrets.env REDIS_URL)
+        [ -n "$REDIS_URL" ] && export REDIS_URL
     fi
 
     # redis-cli 8.x rejects URLs with an empty username even when the password
