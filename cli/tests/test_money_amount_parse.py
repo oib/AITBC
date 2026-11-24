@@ -6,6 +6,7 @@ passed ``Decimal("0")`` downstream because ``wallet_amount`` swallowed
 missing one — the parse must refuse with a named error.
 """
 
+import warnings
 from decimal import Decimal
 
 import click
@@ -74,8 +75,40 @@ def test_wallet_ledger_balance_unwraps_legacy_units():
     from aitbc.utils.units import units_to_ait
 
     # the observed node0 default.json value: 1115390 units ≈ 0.031 AIT
-    assert wallet_ledger_balance(1115390) == units_to_ait(1115390)
-    assert wallet_ledger_balance("36000000") == Decimal("1")
+    with pytest.warns(UserWarning, match="balance_unit"):
+        assert wallet_ledger_balance(1115390) == units_to_ait(1115390)
+    with pytest.warns(UserWarning, match="balance_unit"):
+        assert wallet_ledger_balance("36000000") == Decimal("1")
     # exactly at the floor is units; one below stays AIT
-    assert wallet_ledger_balance(1000000) == units_to_ait(1000000)
+    with pytest.warns(UserWarning, match="balance_unit"):
+        assert wallet_ledger_balance(1000000) == units_to_ait(1000000)
     assert wallet_ledger_balance(999999) == Decimal("999999")
+
+
+def test_wallet_ledger_balance_honours_explicit_balance_unit_marker():
+    """An explicit ``balance_unit`` marker settles the units-vs-AIT ambiguity (#2887)."""
+    from aitbc.utils.units import units_to_ait
+
+    # "ait" disables the heuristic: a real balance at/above the floor is never
+    # silently reinterpreted as units — this is the #2887 corruption case.
+    assert wallet_ledger_balance(2000000, balance_unit="ait") == Decimal("2000000")
+    assert wallet_ledger_balance("2000000.5", balance_unit="ait") == Decimal("2000000.5")
+    # "units" forces conversion even below the floor.
+    assert wallet_ledger_balance(36000000, balance_unit="units") == Decimal("1")
+    assert wallet_ledger_balance(500, balance_unit="units") == units_to_ait(500)
+    # Marked files never warn.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        wallet_ledger_balance(2000000, balance_unit="ait")
+        wallet_ledger_balance(2000000, balance_unit="units")
+
+
+def test_save_wallet_stamps_balance_unit_ait(tmp_path):
+    """Every ``_save_wallet`` write marks ``balance`` as canonical AIT (#2887)."""
+    from aitbc_cli.commands.wallet import _save_wallet
+
+    wallet_file = tmp_path / "w.json"
+    _save_wallet(wallet_file, {"name": "w", "address": "0xabc", "balance": "2.5"})
+    import json
+
+    assert json.loads(wallet_file.read_text())["balance_unit"] == "ait"

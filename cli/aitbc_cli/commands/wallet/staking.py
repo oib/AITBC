@@ -747,7 +747,7 @@ def liquidity_stake(
     except Exception as e:  # noqa: BLE001 - balance probe failure falls back to the wallet cache
         logger.debug("chain balance probe failed: %s", type(e).__name__)
     if balance is None:
-        balance = _wallet_ledger_balance(wallet_data.get("balance", 0))
+        balance = _wallet_ledger_balance(wallet_data.get("balance", 0), balance_unit=wallet_data.get("balance_unit"))
     if balance < amount + fee:
         error(f"Insufficient balance. Available: {balance}, Required: {amount + fee}")
         ctx.exit(1)

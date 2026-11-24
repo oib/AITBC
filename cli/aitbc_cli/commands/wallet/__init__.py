@@ -66,6 +66,11 @@ def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str |
         wallet_data["private_key"] = encrypt_value(wallet_data["private_key"], password)
         wallet_data["encrypted"] = True
 
+    # Every writer through this funnel stores ``balance`` as canonical AIT, so
+    # stamp the explicit marker that lets wallet_ledger_balance skip the
+    # units-detection heuristic for balances at or above its floor (#2887).
+    wallet_data["balance_unit"] = "ait"
+
     # Save wallet
     from ...utils.wallet_loader import write_json_0600
 
