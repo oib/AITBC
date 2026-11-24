@@ -64,11 +64,11 @@ def deploy_messaging_contract_route(request: Request, deploy_data: dict) -> dict
 
 @router.get("", summary="List deployed contracts")
 @rate_limit(rate=200, per=60)
-def list_contracts_route(request: Request) -> dict[str, Any]:
-    """List all deployed contracts"""
+def list_contracts_route(request: Request, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+    """List deployed contracts (bounded page)"""
     if list_contracts is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return list_contracts(request)  # type: ignore[no-any-return]
+    return list_contracts(request, limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.post("/deploy", summary="Deploy a smart contract", dependencies=[Depends(verify_rpc_api_key)])
