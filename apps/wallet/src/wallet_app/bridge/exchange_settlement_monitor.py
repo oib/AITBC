@@ -69,6 +69,7 @@ from .bridge_db import (
     insert_exchange_settlement,
     insert_monitor_mark,
     monitor_mark,
+    update_exchange_settlement,
 )
 from .exchange_settlement_driver import (
     _FEE_AIT as _FEE_AIT,
@@ -463,6 +464,7 @@ async def _ensure_order_refund(
     re-scan dedupes onto it. A stranger's lock never gets the fallback."""
     if not sender:
         logger.error("Lock %s on order %s has no sender — cannot refund", tx_hash, order_id)
+        _park_stranded_lock_refund(order_id, "", amount_ait, tx_hash, "lock tx carried no sender")
         return "no_sender"
     ref_id = order_id if remainder else -order_id
     row_id = insert_exchange_settlement(
@@ -499,6 +501,7 @@ async def _ensure_order_refund(
             order_id,
             tx_hash,
         )
+        _park_stranded_lock_refund(order_id, sender, amount_ait, tx_hash, "order_refund ref_id slots held")
         return "duplicate"
     logger.warning(
         "Order %s cannot take lock %s (%s AIT from %s) — order_refund %s created%s",
@@ -510,6 +513,65 @@ async def _ensure_order_refund(
         f" (lock-keyed ref_id {ref_id} — -order_id slot held)" if lock_keyed else "",
     )
     return "refunding"
+
+
+def _park_stranded_lock_refund(
+    order_id: int,
+    sender: str,
+    amount_ait: Decimal,
+    tx_hash: str,
+    reason: str,
+) -> None:
+    """Leave an operator-visible parked row for an inbound lock that could
+    not get an ``order_refund`` row (#2897).
+
+    The monitor mark alone made the stranded AIT invisible — one error
+    log, then silence forever, with no ledger row for the operator
+    worklists. The parked row keys on the same lock-derived ref_id the
+    owner fallback uses, so re-parking the same lock dedupes via the
+    UNIQUE pair; ``needs_review_sweep`` is terminal for the driver
+    (``_process_settlement`` returns immediately — no auto-spend) but
+    stays in the open worklist. ``seller_address`` stays empty when the
+    tx carried no usable sender — the operator resolves the refund target
+    from the chain record."""
+    lock_ref = _lock_refund_ref_id(tx_hash)
+    if lock_ref is None:
+        logger.error(
+            "Order %s stranded lock %s: tx hash %r is not hex — cannot park an operator row; manual handling required",
+            order_id,
+            tx_hash,
+            tx_hash,
+        )
+        return
+    try:
+        refund_to = canonical_address(sender) if sender else None
+    except (TypeError, ValueError):
+        refund_to = None
+    sid = insert_exchange_settlement(
+        "order_refund",
+        lock_ref,
+        seller_address=refund_to,
+        amount_ait=amount_ait,
+        fee_ait=Decimal(0),
+        lock_tx_hash=tx_hash,
+    )
+    if sid is None:
+        return  # already parked — the UNIQUE pair deduped the re-scan
+    # No await between insert and update: the 'locked' insert can never be
+    # observed by the settlement driver, so the parked row is born terminal.
+    update_exchange_settlement(
+        sid,
+        "needs_review_sweep",
+        error=f"inbound lock could not take an order_refund row ({reason}) — operator refund needed",
+    )
+    logger.error(
+        "Order %s stranded lock %s (%s AIT) parked as settlement %s for operator refund — %s",
+        order_id,
+        tx_hash,
+        amount_ait,
+        sid,
+        reason,
+    )
 
 
 # ---------------------------------------------------------------------------

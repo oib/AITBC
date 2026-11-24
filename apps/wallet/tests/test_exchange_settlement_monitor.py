@@ -1988,3 +1988,77 @@ class TestReleaseAmountGuard:
 
         assert exchange_env["eth_sends"] == []
         assert get_exchange_settlement("trade", 71)["status"] == "locked"
+
+
+class TestStrandedLockParking:
+    """#2897: a 'duplicate'/'no_sender' outcome used to leave only a monitor
+    mark — the stranded AIT had no ledger row and no recurring alert. Now
+    a parked ``needs_review_sweep`` order_refund row keeps it on the
+    operator worklist without the driver ever auto-processing it."""
+
+    @pytest.mark.asyncio
+    async def test_duplicate_outcome_parks_operator_row(self, exchange_env):
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        # Hold the -order_id slot so the next inbound lock dedupes out.
+        insert_exchange_settlement(
+            "order_refund",
+            -oid,
+            seller_address=stranger,
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal(0),
+        )
+        tx_hash = "0x" + "d" * 64
+
+        outcome = await esm._ensure_order_refund(cfg, oid, stranger, Decimal("2"), tx_hash, remainder=False)
+
+        assert outcome == "duplicate"
+        parked = get_exchange_settlement("order_refund", esm._lock_refund_ref_id(tx_hash))
+        assert parked is not None
+        assert parked["status"] == "needs_review_sweep"
+        assert parked["lock_tx_hash"] == tx_hash
+        assert parked["seller_address"] == stranger
+        assert Decimal(str(parked["amount_ait"])) == Decimal("2")
+        assert "operator refund needed" in (parked["error"] or "")
+        # The driver treats needs_review_sweep as terminal — parked, never spent.
+        await esm._process_settlement(cfg, parked)
+        assert get_exchange_settlement("order_refund", esm._lock_refund_ref_id(tx_hash))["status"] == "needs_review_sweep"
+
+    @pytest.mark.asyncio
+    async def test_repark_dedupes_on_lock_ref_id(self, exchange_env):
+        """A second 'duplicate' for the same lock must not stack rows —
+        the lock-derived ref_id makes the park itself idempotent."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        insert_exchange_settlement(
+            "order_refund",
+            -oid,
+            seller_address=stranger,
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal(0),
+        )
+        tx_hash = "0x" + "e" * 64
+        for _ in range(2):
+            outcome = await esm._ensure_order_refund(cfg, oid, stranger, Decimal("2"), tx_hash, remainder=False)
+            assert outcome == "duplicate"
+        conn = bridge_db._connect_db()
+        n = conn.execute("SELECT COUNT(*) FROM exchange_settlements WHERE lock_tx_hash = ?", (tx_hash,)).fetchone()[0]
+        conn.close()
+        assert n == 1
+
+    @pytest.mark.asyncio
+    async def test_no_sender_outcome_parks_row_without_address(self, exchange_env):
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        tx_hash = "0x" + "f" * 64
+
+        outcome = await esm._ensure_order_refund(cfg, oid, "", Decimal("1.5"), tx_hash, remainder=False)
+
+        assert outcome == "no_sender"
+        parked = get_exchange_settlement("order_refund", esm._lock_refund_ref_id(tx_hash))
+        assert parked is not None
+        assert parked["status"] == "needs_review_sweep"
+        assert parked["seller_address"] is None
+        assert parked["lock_tx_hash"] == tx_hash
