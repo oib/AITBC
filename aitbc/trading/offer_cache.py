@@ -102,7 +102,7 @@ class OfferCache:
             if not isinstance(data, dict):
                 return None
             return SyncedOffer.from_dict(data)
-        except (json.JSONDecodeError, TypeError, KeyError, AttributeError) as e:
+        except (json.JSONDecodeError, TypeError, KeyError, AttributeError, ValueError) as e:
             logger.warning("Failed to deserialize offer at %s: %s", key, e)
             return None
 
