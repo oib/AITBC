@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, Request
-from aitbc.middleware import setup_cors
+from aitbc.middleware import RequestValidationMiddleware, setup_cors
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger
@@ -134,6 +134,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 setup_cors(app, allow_origins=settings.cors_origins)
+# #2778: no body-size cap existed at this layer (the api-gateway caps at
+# 10 MB) — RecordMetricsRequest.metrics and SubmitComputeRequest.input_data
+# are unbounded dicts persisted verbatim and json.dumps'ed into prompts.
+app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 1024)
 
 
 @app.get("/health")

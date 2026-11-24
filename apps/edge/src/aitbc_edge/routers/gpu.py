@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from aitbc.auth import AdminDep, AuthDep
 from pydantic import BaseModel
@@ -81,7 +81,7 @@ async def get_gpu_metrics(
     _user: AuthDep,
     gpu_id: str,
     svc: Annotated[GPUService, Depends(get_gpu_service)],
-    limit: int = 100,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
 ) -> dict[str, Any]:
     """Get GPU metrics"""
     metrics = await svc.get_gpu_metrics(gpu_id, limit)
