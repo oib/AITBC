@@ -204,3 +204,126 @@ class SpendSessionService:
         self.validate_consume(session_id, agent_id, chain_id, amount, operation)
         self.apply_consume(session_id, agent_id, chain_id, amount, operation, ref=ref)
         self.session.commit()
+
+    def claim_consume(
+        self,
+        session_id: str,
+        agent_id: str,
+        chain_id: int,
+        amount: Decimal,
+        operation: str,
+        ref: str | None = None,
+    ) -> None:
+        """Reserve ``amount`` against the session cap and commit BEFORE the
+        chain call (#2815).
+
+        ``apply_consume`` runs after ``adapter.execute_transaction``, so a
+        crash or commit failure between the broadcast and the accounting
+        commit moved AIT on-chain while ``used_ait`` never recorded it —
+        the cap then under-counted permanently. Claiming first makes the
+        reservation durable before any funds can move; the caller releases
+        it only on a definite pre-send failure.
+        """
+        row = self._load_session_for_update(session_id, agent_id, chain_id, operation, amount)
+        new_used = row.used_ait + amount
+        self.session.exec(
+            update(AgentSpendSession)
+            .where(AgentSpendSession.id == session_id)  # type: ignore[arg-type]
+            .values(used_ait=new_used)
+        )
+        self._audit(
+            agent_id,
+            "spend.claim",
+            session_id=session_id,
+            amount_ait=amount,
+            op=operation,
+            ref=ref,
+        )
+        self.session.commit()
+
+    def release_claim(
+        self,
+        session_id: str,
+        agent_id: str,
+        chain_id: int,
+        amount: Decimal,
+        operation: str,
+        ref: str | None = None,
+    ) -> None:
+        """Return a claimed reservation after a definite pre-send failure.
+
+        Only for failures where the chain call provably never broadcast —
+        the adapters raise ``ValueError`` for validation before signing.
+        An ambiguous outcome must keep the claim instead (#2815).
+        """
+        stmt = (
+            select(AgentSpendSession)
+            .where(AgentSpendSession.id == session_id, AgentSpendSession.agent_id == agent_id)
+            .with_for_update()
+        )
+        row = self.session.exec(stmt).first()
+        if row is None or row.chain_id != chain_id:
+            raise SpendSessionCapError("spend session not found")
+        new_used = row.used_ait - amount
+        if new_used < 0:
+            new_used = Decimal("0")
+        self.session.exec(
+            update(AgentSpendSession)
+            .where(AgentSpendSession.id == session_id)  # type: ignore[arg-type]
+            .values(used_ait=new_used)
+        )
+        self._audit(
+            agent_id,
+            "spend.released",
+            session_id=session_id,
+            amount_ait=amount,
+            op=operation,
+            ref=ref,
+        )
+        self.session.commit()
+
+    def confirm_consume(
+        self,
+        session_id: str,
+        agent_id: str,
+        amount: Decimal,
+        operation: str,
+        ref: str | None = None,
+    ) -> None:
+        """Record the settled spend after the chain call returned a tx hash.
+
+        ``used_ait`` was already reserved by ``claim_consume`` — this only
+        writes the ``spend.ok`` audit row (committed by the caller).
+        """
+        self._audit(
+            agent_id,
+            "spend.ok",
+            session_id=session_id,
+            amount_ait=amount,
+            op=operation,
+            ref=ref,
+        )
+
+    def note_ambiguous_consume(
+        self,
+        session_id: str,
+        agent_id: str,
+        amount: Decimal,
+        operation: str,
+        ref: str | None = None,
+    ) -> None:
+        """Audit an ambiguous chain outcome and keep the reservation.
+
+        The transaction may have landed — releasing the claim would
+        under-count the cap, so it stays and the event is recorded for
+        reconciliation (#2815).
+        """
+        self._audit(
+            agent_id,
+            "spend.ambiguous",
+            session_id=session_id,
+            amount_ait=amount,
+            op=operation,
+            ref=ref,
+        )
+        self.session.commit()
