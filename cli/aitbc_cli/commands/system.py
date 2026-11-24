@@ -1431,6 +1431,14 @@ def _mask_secret_lines(text: str) -> str:
     return "".join(out)
 
 
+# ``system file`` is allowlisted to log/data dirs that can hold multi-GB
+# files (chain.db-adjacent stores, rotated journals). Reading one whole into
+# memory — then splitlines()ing it for the mask pass — is an unbounded
+# allocation reachable over MCP (#2799). Reads are capped; the tail is
+# reported as truncated rather than silently dropped.
+_FILE_READ_MAX_BYTES = 4 * 1024 * 1024
+
+
 @system.command(
     name="file",
     epilog="""Examples:
@@ -1449,8 +1457,13 @@ def read_file(ctx, path: str):
     """Read a remote AITBC configuration, log, or data file."""
     resolved = _resolve_allowed_read_path(path)
     try:
-        with open(resolved, encoding="utf-8") as f:
-            click.echo(_mask_secret_lines(f.read()))
+        with open(resolved, "rb") as f:
+            raw = f.read(_FILE_READ_MAX_BYTES + 1)
+        truncated = len(raw) > _FILE_READ_MAX_BYTES
+        text = raw[:_FILE_READ_MAX_BYTES].decode("utf-8", errors="replace")
+        click.echo(_mask_secret_lines(text))
+        if truncated:
+            click.echo(f"[truncated: file exceeds {_FILE_READ_MAX_BYTES} bytes]")
     except Exception as e:
         raise click.ClickException(f"Error reading {path}: {e}") from e
 
