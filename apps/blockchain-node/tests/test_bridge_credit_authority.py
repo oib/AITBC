@@ -756,6 +756,21 @@ def test_v6_refund_amount_must_be_present():
     assert validate_bridge_refund_lock(lock, good) is None
 
 
+def test_v6_refund_infinite_amount_rejects_not_crashes():
+    """#2810: ``int(±Infinity)`` raises OverflowError — uncaught it escaped
+    ``validate_transaction`` on the PBFT/import path. Must return a reason."""
+    from aitbc_chain.state.bridge_credit import validate_bridge_refund_lock
+
+    lock = {"exists": True, "sender": "ait1sender", "amount": 36000, "refunded": False}
+    for bad in (float("inf"), float("-inf")):
+        tx = {"to": "ait1sender", "payload": {"lock_tx_hash": "0xlock1", "amount": bad}}
+        assert validate_bridge_refund_lock(lock, tx) is not None
+    # Infinity on the lock side hits the same int() — also a clean reject.
+    inf_lock = {"exists": True, "sender": "ait1sender", "amount": float("inf"), "refunded": False}
+    tx = {"to": "ait1sender", "payload": {"lock_tx_hash": "0xlock1", "amount": 36000}}
+    assert validate_bridge_refund_lock(inf_lock, tx) is not None
+
+
 # --------------------------------------------------------------------------
 # Block-scoped credit shape (the /rpc/blocks-range persistence regression)
 # --------------------------------------------------------------------------
