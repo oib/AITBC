@@ -153,6 +153,17 @@ is case-insensitive on both sides, so a canary deposit must come from a
 clearly different sender — a case variant still matches. Without it a top-up
 takes the deposit path and fails on the missing recipient.
 
+Shared nonce space: the wallet-side auto-mint signs TRANSFERs from
+`GENESIS_WALLET_ADDRESS`, which may be the same account as the monitor's
+payout account (`BRIDGE_PAYOUT_ADDRESS`, falling back to
+`GENESIS_WALLET_ADDRESS`). When they match, the two services draw nonces
+from one account with no cross-service serialization — the monitor
+publishes its payout account in `bridge_monitor_state` and the wallet
+refuses the auto-mint, leaving the row `pending` (visible to the
+stranded-row alert). Split the accounts (`BRIDGE_PAYOUT_*` distinct from
+the mint account) or run only one deposit watcher; never let both sign
+from the payout account.
+
 ## Wallet key mismatches
 
 If a wallet's stored key does not match the address it is supposed to

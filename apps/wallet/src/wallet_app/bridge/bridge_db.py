@@ -625,6 +625,7 @@ _NAME_TO_MODULE = {
     "get_all_deposits": "bridge_db_deposits",
     "get_deposits_by_recipient": "bridge_db_deposits",
     "get_deposits_by_status": "bridge_db_deposits",
+    "get_monitor_state": "bridge_db_deposits",
     # price_history
     "insert_price_history": "bridge_db_prices",
     "get_all_time_average": "bridge_db_prices",

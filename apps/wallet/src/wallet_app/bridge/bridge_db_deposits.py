@@ -16,6 +16,18 @@ from wallet_app.utc_time import utc_now_iso
 from .bridge_db import _canon_tx_hash, _connect_db, _tx_hash_keys
 
 
+def get_monitor_state(key: str) -> str | None:
+    """Read a ``bridge_monitor_state`` value — the shared key/value channel
+    aitbc-bridge-monitor also uses (same DDL, either service may bootstrap
+    the table first)."""
+    conn = _connect_db()
+    try:
+        row = conn.execute("SELECT value FROM bridge_monitor_state WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+
 def insert_deposit(
     tx_hash: str,
     from_address: str,

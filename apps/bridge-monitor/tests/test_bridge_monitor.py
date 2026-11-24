@@ -1516,6 +1516,34 @@ class TestCommittedVocabulary2829:
         assert make_monitor().shared_mint_account is True
 
 
+class TestPayoutAccountPublish2831:
+    """#2831: init publishes the payout account into the shared
+    bridge_monitor_state so the wallet-side auto-mint can detect a shared
+    nonce space and refuse to race this service's envelopes."""
+
+    def test_init_publishes_payout_account(self, monitor):
+        from bridge_monitor.storage import get_monitor_state
+
+        # Fixture: BRIDGE_PAYOUT_ADDRESS unset → payout falls back to
+        # GENESIS_WALLET_ADDRESS = 0x + "b"*40.
+        assert get_monitor_state("payout_account") == "0x" + "b" * 40
+
+    def test_distinct_payout_address_published(self, tmp_path, monkeypatch):
+        from bridge_monitor.main import BridgeMonitor
+        from bridge_monitor.storage import get_monitor_state
+
+        monkeypatch.setattr("bridge_monitor.storage.DATA_DIR", str(tmp_path))
+        monkeypatch.setattr("bridge_monitor.storage.DB_PATH", str(tmp_path / "bridge_deposits.db"))
+        monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "0x" + "a" * 40)
+        monkeypatch.setenv("GENESIS_WALLET_ADDRESS", "0x" + "b" * 40)
+        monkeypatch.setenv("GENESIS_WALLET_PRIVATE_KEY", "0x" + "c" * 64)
+        monkeypatch.setenv("BRIDGE_PAYOUT_ADDRESS", "0x" + "D" * 40)
+        with patch("bridge_monitor.main.EthereumRPCClient"), patch("bridge_monitor.main.get_price_oracle"):
+            BridgeMonitor()
+
+        assert get_monitor_state("payout_account") == "0x" + "d" * 40
+
+
 class TestDocsCoverage:
     """Env vars the code reads must appear in the app README — docs drift
     fails at commit time, same as the v9 type-allowlist test. Reverse:

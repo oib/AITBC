@@ -23,6 +23,7 @@ from .storage import (
     get_deposits_for_retry,
     get_submitted_deposits,
     init_db,
+    set_monitor_state,
     try_admin_lock,
     update_deposit,
     WALLET_LIFECYCLE_STATUSES,
@@ -225,6 +226,14 @@ class BridgeMonitor(BridgeMonitorRuntime):
         # from an ordinary transport failure.
         self._last_post_rejection = None
         init_db()
+        # Publish the payout account in the shared ledger state so the
+        # wallet-side auto-mint can detect a shared nonce space and refuse
+        # to race this service's envelopes (#2831). Refreshed every start —
+        # a payout-account rotation propagates without a wallet restart.
+        try:
+            set_monitor_state("payout_account", self.genesis_wallet_address.lower())
+        except Exception as e:  # noqa: BLE001 - state publish is advisory; never block startup
+            logger.warning("payout_account state publish failed: %s", e)
         logger.info("BridgeMonitor initialized - watching %s", self.bridge_eth_address)
 
     def _kick_mtime(self) -> float | None:
