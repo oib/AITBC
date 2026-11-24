@@ -61,6 +61,9 @@ _PROPOSAL_CALLER_FIELDS = frozenset(
     }
 )
 
+# Caller-settable fields on POST /v1/governance/profiles (#2876).
+_PROFILE_CALLER_FIELDS = frozenset({"user_id"})
+
 
 class GovernanceService(_VotesMixin, _ExecutionMixin):
     def __init__(self, session: AsyncSession, blockchain_client: BlockchainClient | None = None):
@@ -134,8 +137,18 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         return result.scalars().first()
 
     async def create_profile(self, profile_data: dict[str, Any]) -> GovernanceProfile:
-        """Create a new governance profile"""
-        profile = GovernanceProfile(**profile_data)
+        """Create a new governance profile.
+
+        #2876: caller-settable fields only — ``user_id`` (the route binds it
+        to the signing address). ``role``, power counters, ``delegate_to``,
+        ``profile_id`` and timestamps are server-controlled: the signature
+        proves key ownership, not field sanity, so ``GovernanceProfile(**data)``
+        must never see them (self-asserted admin role / squatted PK).
+        """
+        dropped = sorted(set(profile_data) - _PROFILE_CALLER_FIELDS)
+        if dropped:
+            logger.info("create_profile ignoring non-caller fields: %s", ", ".join(dropped))
+        profile = GovernanceProfile(**{k: v for k, v in profile_data.items() if k in _PROFILE_CALLER_FIELDS})
         self.session.add(profile)
         await self.session.commit()
         await self.session.refresh(profile)
