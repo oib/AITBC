@@ -2108,3 +2108,42 @@ class TestReleaseReserveSelfExclusion:
 
         assert sell_env["eth_sends"] == []
         assert get_sell_lock_by_ait_tx_hash(lock_hash)["status"] == "queued_reserve"
+
+
+class TestConfigEnvValidation:
+    """#2895: _decimal_env accepted Decimal('Infinity')/NaN (the <= 0 check
+    can't see them) and the seal-depth envs were raw int() parses —
+    SELL_SEAL_DEPTH=0/-1 silently disabled the reorg gate."""
+
+    @pytest.mark.parametrize("bad", ["Infinity", "-Infinity", "NaN"])
+    @pytest.mark.parametrize(
+        "env",
+        [
+            "SELL_MAX_ETH_PER_TX",
+            "SELL_MAX_ETH_PER_DAY",
+            "ETH_WITHDRAW_MIN_RESERVE",
+            "BRIDGE_MAX_PAYOUT_FRACTION",
+        ],
+    )
+    def test_non_finite_cap_refuses_start(self, sell_env, monkeypatch, env, bad):
+        monkeypatch.setenv(env, bad)
+        enabled, reason = sellmon.sell_config_status()
+        assert not enabled
+        assert env in reason
+
+    @pytest.mark.parametrize("bad", ["0", "-2", "abc"])
+    def test_sell_seal_depth_must_be_positive(self, sell_env, monkeypatch, bad):
+        monkeypatch.setenv("SELL_SEAL_DEPTH", bad)
+        enabled, reason = sellmon.sell_config_status()
+        assert not enabled
+        assert "SELL_SEAL_DEPTH" in reason
+
+    def test_sell_seal_depth_falls_back_to_bridge_confirmations(self, sell_env, monkeypatch):
+        monkeypatch.delenv("SELL_SEAL_DEPTH", raising=False)
+        monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "7")
+        assert sellmon._sell_config().sell_seal_depth == 7
+
+    def test_sell_seal_depth_default(self, sell_env, monkeypatch):
+        monkeypatch.delenv("SELL_SEAL_DEPTH", raising=False)
+        monkeypatch.delenv("BRIDGE_CONFIRMATIONS", raising=False)
+        assert sellmon._sell_config().sell_seal_depth == 3

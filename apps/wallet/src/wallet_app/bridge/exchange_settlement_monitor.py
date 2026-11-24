@@ -158,7 +158,9 @@ def _exchange_config() -> ExchangeCfg:
         poll_interval=sellmon._positive_int_env("EXCHANGE_SETTLEMENT_POLL_INTERVAL", "30"),
         max_eth_per_tx=sellmon._decimal_env("EXCHANGE_SETTLEMENT_MAX_ETH_PER_TX", "0.05"),
         max_eth_per_day=sellmon._decimal_env("EXCHANGE_SETTLEMENT_MAX_ETH_PER_DAY", "0.5"),
-        seal_depth=int(os.getenv("EXCHANGE_SETTLEMENT_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3"))),
+        # #2895: same positivity gate as the sell lane — 0/negative
+        # silently disabled the canonical-depth recheck.
+        seal_depth=sellmon._positive_int_env("EXCHANGE_SETTLEMENT_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3")),
         min_reserve_eth=sellmon._decimal_env("ETH_WITHDRAW_MIN_RESERVE", "0.005"),
         max_payout_fraction=sellmon._decimal_env("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"),
     )

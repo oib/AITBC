@@ -137,6 +137,11 @@ def _decimal_env(env: str, default: str) -> Decimal:
         value = Decimal(raw)
     except (ArithmeticError, TypeError, ValueError) as e:
         raise ValueError(f"{env}={raw!r} is not a number") from e
+    # #2895: Decimal("Infinity")/"-Infinity" pass the <= 0 check (and NaN
+    # would raise InvalidOperation on it) — a non-finite cap silently
+    # disables every bound built on it. Reject before comparing.
+    if not value.is_finite():
+        raise ValueError(f"{env}={raw!r} must be finite")
     if value <= 0:
         raise ValueError(f"{env}={raw!r} must be positive")
     return value
@@ -198,7 +203,9 @@ def _sell_config() -> SellConfig:
         # bridge_withdraw_monitor.WITHDRAW_SEAL_DEPTH: defaults to the
         # deposit-side BRIDGE_CONFIRMATIONS (3); a tip-height lock can still
         # reorg out, which would leave ETH released against un-sealed AIT.
-        sell_seal_depth=int(os.getenv("SELL_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3"))),
+        # #2895: route through _positive_int_env — a raw int() accepted
+        # SELL_SEAL_DEPTH=0/-1, silently disabling the reorg gate.
+        sell_seal_depth=_positive_int_env("SELL_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3")),
         quote_expiry_seconds=_positive_int_env("SELL_QUOTE_EXPIRY_SECONDS", "900"),
         poll_interval=_positive_int_env("SELL_POLL_INTERVAL", "30"),
     )
