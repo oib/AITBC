@@ -8,8 +8,8 @@
 |---|---|
 | cli | 136 |
 | generated | 563 |
-| other | 8 |
-| rpc | 116 |
+| other | 9 |
+| rpc | 115 |
 
 | File | Tools |
 |---|---|
@@ -902,6 +902,7 @@
 | `get_aitbc_dashboard_customer` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc dashboard customer` |
 | `get_aitbc_dashboard_shop` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc dashboard shop` |
 | `list_aitbc_ipfs_pins` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc ipfs list` |
+| `_attach_request_signature` | mcp-server/aitbc_mcp_rpc_tools.py | other | `—` |
 | `add_agent_stake` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/agent-staking/stake/{stake_id}/add` |
 | `allocate_gpu` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/gpu/allocate` |
 | `bridge_confirm` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bridge/confirm` |
@@ -913,7 +914,6 @@
 | `create_cross_chain_bridge` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/cross-chain/bridge` |
 | `create_cross_chain_swap` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/swap` |
 | `create_escrow` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/escrow/create` |
-| `create_governance_proposal` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/governance/proposal` |
 | `create_market_listing` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/market/create` |
 | `deploy_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/deploy` |
 | `dispute_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/{bounty_id}/dispute` |

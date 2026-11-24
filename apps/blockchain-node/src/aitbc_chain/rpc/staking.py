@@ -142,6 +142,39 @@ def _verified_staking_request(
     return chain_id, address, sign_data, signature
 
 
+def _verified_governance_actor(
+    data: dict[str, Any], *, action: str, actor_noun: str, address_field: str, extra_sign_fields: dict[str, Any]
+) -> tuple[str, str]:
+    """Resolve ``(chain_id, canonical actor address)`` for a governance write.
+
+    Governance rows are node-local, but a vote's weight comes from the named
+    address's stake — an API-key holder naming a whale must not inherit its
+    voting power, so the claimed actor must sign (#2773). Same freshness
+    contract as signed staking requests: fresh timestamp + nonce inside the
+    signed message.
+    """
+    chain_id = get_chain_id(data.get("chain_id"))
+    address = data.get(address_field)
+    if not address:
+        raise HTTPException(status_code=400, detail=f"{address_field} is required")
+    address = _request_address(address)
+    signature = data.get("signature")
+    if not signature:
+        raise HTTPException(status_code=403, detail=f"Signature required for {action}")
+    nonce, timestamp = _freshness_fields(data, action=action)
+    sign_data = {
+        "action": action,
+        "chain_id": chain_id,
+        address_field: address.lower(),
+        "nonce": nonce,
+        "timestamp": timestamp,
+        **extra_sign_fields,
+    }
+    if not verify_request_signature(address, signature, sign_data):
+        raise HTTPException(status_code=403, detail=f"Invalid {actor_noun} signature")
+    return chain_id, address
+
+
 def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id: Any) -> tuple[Stake, list[str]]:
     """Return the active, matured stake row and its confirmed lock tx hashes.
 
@@ -556,7 +589,6 @@ def create_governance_proposal(request: Request, proposal_data: dict[str, Any]) 
     decide it — GOVERNANCE_EXECUTE is gated only by the governance_executors
     chain parameter.
     """
-    chain_id = get_chain_id(proposal_data.get("chain_id"))
     proposal_id = proposal_data.get("proposal_id")
     proposer_address = proposal_data.get("proposer_address")
     title = proposal_data.get("title")
@@ -567,7 +599,13 @@ def create_governance_proposal(request: Request, proposal_data: dict[str, Any]) 
     execution_payload = proposal_data.get("execution_payload", {})
     if not proposal_id or not proposer_address or (not title):
         raise HTTPException(status_code=400, detail="proposal_id, proposer_address, and title are required")
-    proposer_address = _request_address(proposer_address)
+    chain_id, proposer_address = _verified_governance_actor(
+        proposal_data,
+        action="proposing",
+        actor_noun="proposer",
+        address_field="proposer_address",
+        extra_sign_fields={"proposal_id": proposal_id},
+    )
     with session_scope() as session:
         existing = session.exec(
             select(GovernanceProposal).where(
@@ -620,7 +658,6 @@ def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> dict[st
     by the governance_executors chain parameter. The vote row is written only
     on this node and never propagates.
     """
-    chain_id = get_chain_id(vote_data.get("chain_id"))
     proposal_id = vote_data.get("proposal_id")
     voter_address = vote_data.get("voter_address")
     vote_type = vote_data.get("vote_type")
@@ -629,10 +666,16 @@ def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> dict[st
         raise HTTPException(status_code=400, detail="proposal_id and voter_address are required")
     if vote_type not in ("for", "against", "abstain"):
         raise HTTPException(status_code=400, detail="invalid vote_type: must be 'for', 'against', or 'abstain'")
-    # Canonicalize at write: the stored row carries the EIP-55 checksum so
-    # the same voter cannot twin under a different casing (the
-    # lowercase/checksum duplicates the fleet carried until 2026-09-29).
-    voter_address = _request_address(voter_address)
+    # The vote's weight comes from the named address's stake, so the voter
+    # must prove control of it — a bare API-key call must not let a caller
+    # vote as any whale (#2773).
+    chain_id, voter_address = _verified_governance_actor(
+        vote_data,
+        action="voting",
+        actor_noun="voter",
+        address_field="voter_address",
+        extra_sign_fields={"proposal_id": proposal_id, "vote_type": vote_type},
+    )
     with session_scope() as session:
         # Voting power is the voter's active stake on this chain — the
         # request-supplied value is never trusted. Stake rows predating

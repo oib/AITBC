@@ -85,6 +85,31 @@ def _load_wallet(
     return wallet_data
 
 
+def _attach_governance_signature(wallet_data: dict[str, Any], message: dict[str, Any], body: dict[str, Any]) -> None:
+    """Attach the signature fields the node-RPC governance routes require (#2773).
+
+    ``message`` must be the exact dict the route reconstructs for
+    verification — ``action``, ``chain_id``, the canonical-lowercase actor
+    address field, and the action's bound fields (``proposal_id`` and, for a
+    vote, ``vote_type``). A fresh ``timestamp`` and ``nonce`` are added to the
+    signed message and echoed into ``body`` alongside ``signature``.
+    """
+    private_key = wallet_data.get("private_key")
+    if not private_key:
+        abort(None, "Wallet has no signing key — governance writes require a full wallet")
+        return
+    import time
+
+    from .governance import _sign_body
+
+    nonce = int(time.time())
+    timestamp = time.time()
+    signed = {**message, "nonce": nonce, "timestamp": timestamp}
+    body["nonce"] = nonce
+    body["timestamp"] = timestamp
+    body["signature"] = _sign_body(private_key, signed)
+
+
 @click.group(
     hidden=True,
     deprecated=True,
@@ -523,6 +548,17 @@ def vote(
             "reason": reason,
             "chain_id": chain_id,
         }
+        _attach_governance_signature(
+            wallet_data,
+            {
+                "action": "voting",
+                "chain_id": chain_id,
+                "voter_address": hex_address.lower(),
+                "proposal_id": proposal_id,
+                "vote_type": vote,
+            },
+            vote_data,
+        )
         result = http_client.post("/rpc/governance/vote", json=vote_data)
 
         success(f"Vote '{vote}' cast for proposal {proposal_id}")
@@ -626,6 +662,16 @@ def proposal(
             "voting_ends": voting_ends,
             "chain_id": chain_id,
         }
+        _attach_governance_signature(
+            wallet_data,
+            {
+                "action": "proposing",
+                "chain_id": chain_id,
+                "proposer_address": hex_address.lower(),
+                "proposal_id": proposal_id,
+            },
+            proposal_data,
+        )
         result = http_client.post("/rpc/governance/proposal", json=proposal_data)
 
         success(f"Proposal created: {proposal_id}")

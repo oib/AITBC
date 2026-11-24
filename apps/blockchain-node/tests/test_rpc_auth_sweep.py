@@ -11,6 +11,7 @@ voting power, so the surface cannot silently reopen.
 
 from __future__ import annotations
 
+import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
@@ -404,6 +405,10 @@ class TestVotingPowerFromStake:
 
         monkeypatch.setattr(staking_module, "session_scope", _scope)
         monkeypatch.setattr(staking_module, "get_chain_id", lambda cid: cid or "ait-testnet")
+        # The governance write routes now require a signed actor (#2773);
+        # these tests exercise voting-power math, not signature recovery, so
+        # the verifier is stubbed and the freshness fields supplied.
+        monkeypatch.setattr(staking_module, "verify_request_signature", lambda *a, **k: True)
 
         now = datetime.now(UTC)
         with Session(engine) as s:
@@ -452,6 +457,9 @@ class TestVotingPowerFromStake:
                 "vote_type": "for",
                 "voting_power": 999999,
                 "chain_id": "ait-testnet",
+                "signature": "0xsig",
+                "timestamp": time.time(),
+                "nonce": 0,
             },
         )
         assert resp["voting_power"] == 250
@@ -467,6 +475,9 @@ class TestVotingPowerFromStake:
                 "vote_type": "for",
                 "voting_power": 999999,
                 "chain_id": "ait-testnet",
+                "signature": "0xsig",
+                "timestamp": time.time(),
+                "nonce": 0,
             },
         )
         assert resp["voting_power"] == 0
@@ -495,6 +506,9 @@ class TestVotingPowerFromStake:
                 "voter_address": "0x" + "dd" * 20,
                 "vote_type": "for",
                 "chain_id": "ait-testnet",
+                "signature": "0xsig",
+                "timestamp": time.time(),
+                "nonce": 0,
             },
         )
         assert resp["voting_power"] == 777
@@ -527,6 +541,9 @@ class TestVotingPowerFromStake:
                 "voter_address": "0x" + "e" * 40,
                 "vote_type": "for",
                 "chain_id": "ait-testnet",
+                "signature": "0xsig",
+                "timestamp": time.time(),
+                "nonce": 0,
             },
         )
         assert resp["voting_power"] == 0
