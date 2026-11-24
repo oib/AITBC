@@ -324,6 +324,13 @@ class TestHelpers:
         assert esm._exchange_order_id(None) is None
         assert esm._exchange_order_id("0x42") is None
         assert esm._exchange_order_id(4.2) is None
+        # #2892: order ids are positive rowids — 0/negatives used to pass
+        # verbatim and -N aliased the +N remainder-refund namespace.
+        assert esm._exchange_order_id(-1) is None
+        assert esm._exchange_order_id(-123) is None
+        assert esm._exchange_order_id(0) is None
+        assert esm._exchange_order_id("0") is None
+        assert esm._exchange_order_id("-123") is None
 
     def test_units_to_ticks_floors(self):
         # 1 AIT = 36e6 units = 1e8 ticks exactly.
@@ -446,6 +453,33 @@ class TestLockScan:
         assert row["seller_address"] == "0x6666666666666666666666666666666666666666"
         assert Decimal(str(row["amount_ait"])) == Decimal("2")
         assert monitor_mark("lock:0xsecond")["outcome"] == "refunding"
+
+    @pytest.mark.asyncio
+    async def test_negative_sell_quote_cannot_squat_remainder_refund(self, exchange_env):
+        """#2892: ``payload.sell_quote = -N`` (JSON int) parsed as order_id=-N;
+        the inbound-refund ref_id convention ``-order_id`` then produced
+        ``+N`` — squatting order N's remainder-refund slot so the real
+        remainder refund was never created. Non-positive ids are not order
+        ids: the lock is ignored like any non-exchange transfer."""
+        cfg = _cfg(exchange_env)
+        victim = _insert_order(
+            exchange_env,
+            order_type="SELL",
+            funded_state="funded",
+            backing_tx_hash="0xfirst",
+            locked_ticks=1_000_000_000,
+        )
+        evil = _lock_tx(-victim, "0xevilneg", "0x6666666666666666666666666666666666666666", 72_000_000)
+        evil["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(evil)
+
+        stats = await esm._scan_order_locks(cfg, head=1000)
+
+        assert stats["scanned"] == 0
+        assert stats["refunds"] == 0
+        # Neither namespace may hold a row for the victim order.
+        assert get_exchange_settlement("order_refund", victim) is None
+        assert get_exchange_settlement("order_refund", -victim) is None
 
     @pytest.mark.asyncio
     async def test_sellq_locks_are_ignored(self, exchange_env):
