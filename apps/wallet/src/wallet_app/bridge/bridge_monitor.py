@@ -21,6 +21,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from .bridge_db import (
     get_deposit_by_tx_hash,
+    get_monitor_state,
     init_db,
     insert_deposit,
     insert_exchange_prepay_deposit,
@@ -492,12 +493,49 @@ async def _submit_transfer(tx_payload: dict[str, Any]) -> str:
     return tx_hash
 
 
-async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) -> None:
-    """Verify, sign, submit AIT transfer, and mark deposit completed."""
-    genesis_address = _canonical_address(GENESIS_WALLET_ADDRESS)
+def _shared_payout_account(genesis_address: str) -> bool:
+    """True when the bridge-monitor's published payout account IS this
+    mint account — the two services would draw nonces from one account
+    with no cross-service serialization (#2831)."""
+    try:
+        payout_account = get_monitor_state("payout_account")
+    except sqlite3.Error as e:
+        # Detection is best-effort: an unreadable state table must not
+        # block mints — the monitor-side publish is equally advisory.
+        logger.warning("payout_account state read failed: %s", e)
+        return False
+    return bool(payout_account) and payout_account.lower().removeprefix("0x") == genesis_address.lower().removeprefix("0x")
+
+
+def _mint_preflight_ok(deposit_id: str, genesis_address: str | None) -> bool:
+    """Pre-submit guards for _mint_deposit: a usable genesis address that
+    is not the bridge-monitor payout account (#2831 — shared nonce space
+    with no cross-service serialization; two signers can collide in the
+    mempool and burn each other's envelopes). The monitor publishes its
+    payout account in bridge_monitor_state; on a match the row stays
+    'pending' — visible to the stranded-row alert — until the operator
+    splits the accounts or disables one watcher."""
     if not genesis_address:
         logger.error("GENESIS_WALLET_ADDRESS is not a valid 0x address: %s", GENESIS_WALLET_ADDRESS)
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending"})
+        return False
+    if _shared_payout_account(genesis_address):
+        logger.error(
+            "Auto-mint refused for deposit %s: GENESIS_WALLET_ADDRESS %s is the "
+            "bridge-monitor payout account — shared nonce space with no cross-service "
+            "serialization. Set a distinct BRIDGE_PAYOUT_ADDRESS or disable one deposit "
+            "watcher; the row stays 'pending'",
+            deposit_id,
+            genesis_address,
+        )
+        return False
+    return True
+
+
+async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) -> None:
+    """Verify, sign, submit AIT transfer, and mark deposit completed."""
+    genesis_address = _canonical_address(GENESIS_WALLET_ADDRESS)
+    if not _mint_preflight_ok(deposit_id, genesis_address):
         return
 
     # 1. Verify — CAS (#1839): if another writer already moved the row

@@ -276,6 +276,17 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_eth_deposits_tx_hash ON eth_deposits(tx_hash)
         """)
 
+        # Shared key/value state — same DDL as the wallet side's
+        # bridge_db.init_db; either service may bootstrap it first. The
+        # monitor publishes its payout account here so the wallet's
+        # auto-mint path can detect a shared nonce space (#2831).
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bridge_monitor_state (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_eth_deposits_status ON eth_deposits(status)
         """)
@@ -882,5 +893,27 @@ def set_cursor(key: str, value: int) -> None:
         cursor.execute(
             "INSERT INTO bridge_cursor (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
             (key, value, value),
+        )
+        conn.commit()
+
+
+def get_monitor_state(key: str) -> str | None:
+    """Read a ``bridge_monitor_state`` value — the shared key/value channel
+    the wallet side also uses (same DDL, either service may bootstrap)."""
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM bridge_monitor_state WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+
+def set_monitor_state(key: str, value: str) -> None:
+    """Write a ``bridge_monitor_state`` value."""
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO bridge_monitor_state (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
         )
         conn.commit()
