@@ -500,6 +500,25 @@ def verify_agent_identity(request: Request, verification_data: dict[str, Any]) -
     verifier_address = verification_data.get("verifier_address")
     if not agent_id or not verifier_address:
         raise HTTPException(status_code=400, detail="agent_id and verifier_address are required")
+    # The row attests on behalf of verifier_address — an API-key holder must
+    # not mark any agent verified and attribute it to an arbitrary address,
+    # so the verifier signs the request (#2936). Same freshness contract as
+    # the signed staking/governance writes.
+    verifier_address = _request_address(verifier_address)
+    signature = verification_data.get("signature")
+    if not signature:
+        raise HTTPException(status_code=403, detail="Signature required for agent verification")
+    nonce, timestamp = _freshness_fields(verification_data, action="agent verification")
+    sign_data = {
+        "action": "agent_verify",
+        "agent_id": agent_id,
+        "chain_id": chain_id,
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "verifier_address": verifier_address.lower(),
+    }
+    if not verify_request_signature(verifier_address, signature, sign_data):
+        raise HTTPException(status_code=403, detail="Invalid verifier signature")
     with session_scope() as session:
         identity = session.exec(
             select(AgentIdentity).where(AgentIdentity.chain_id == chain_id, AgentIdentity.agent_id == agent_id)
