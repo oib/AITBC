@@ -7559,6 +7559,8 @@
           },
           "timeout_seconds": {
             "type": "number",
+            "maximum": 2592000.0,
+            "exclusiveMinimum": 0.0,
             "title": "Timeout Seconds",
             "description": "Escrow timeout",
             "default": 3600.0

@@ -61,7 +61,10 @@ class TaskPayment(BaseModel):
     fee: int = Field(0, description="Transaction fee")
     requester: str = Field(..., description="Requester address (pays for task)")
     agent: str = Field(..., description="Agent address (receives payment)")
-    timeout_seconds: float = Field(3600.0, description="Escrow timeout")
+    # #2866: finite and bounded — a NaN/negative timeout produces an
+    # un-sweepable or instantly-refunding escrow; the cap matches the
+    # payment_escrow library bound (30 days).
+    timeout_seconds: float = Field(3600.0, gt=0, le=2_592_000, allow_inf_nan=False, description="Escrow timeout")
     lock_tx: dict[str, Any] | None = Field(None, description="Buyer-signed ESCROW_LOCK transaction")
     lock_signature: str | None = Field(None, description="Signature over lock_tx")
     # P2.4/GAP-43: forwarded to the chain at release time; the chain stakes that

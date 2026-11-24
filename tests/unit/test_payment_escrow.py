@@ -222,11 +222,10 @@ def test_refund_callback_called() -> None:
 def test_expire_stale_refunds() -> None:
     refund_calls: list[tuple[str, str, str, int]] = []
     escrow = PaymentEscrow(refund_callback=_make_refund_callback(refund_calls))
-    # timeout=0 → already expired at creation time
-    entry = escrow.create_escrow("task-1", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=0.0)
+    entry = escrow.create_escrow("task-1", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=3600.0)
+    # #2866: non-positive timeouts are rejected — backdate expires_at instead.
+    entry.expires_at = time.time() - 1
     escrow.lock(entry.escrow_id)
-    # Sleep a hair so now > expires_at deterministically.
-    time.sleep(0.01)
     expired = escrow.expire_stale()
     assert len(expired) == 1
     assert expired[0].status == EscrowStatus.REFUNDED
@@ -236,7 +235,7 @@ def test_expire_stale_refunds() -> None:
 def test_expire_stale_no_locked() -> None:
     escrow = PaymentEscrow()
     # Pending escrow, not locked → not expired
-    escrow.create_escrow("task-1", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=0.0)
+    escrow.create_escrow("task-1", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=3600.0)
     assert escrow.expire_stale() == []
 
 
@@ -362,7 +361,9 @@ def test_concurrent_release_and_expire_stale() -> None:
     import time as _time
 
     escrow = PaymentEscrow()
-    entry = escrow.create_escrow("t-race", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=-1)
+    entry = escrow.create_escrow("t-race", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=3600.0)
+    # #2866: non-positive timeouts are rejected — backdate expires_at instead.
+    entry.expires_at = _time.time() - 1
     escrow.lock(entry.escrow_id)
 
     release_calls: list[tuple[str, str, str, int]] = []
@@ -399,3 +400,60 @@ def test_concurrent_release_and_expire_stale() -> None:
     # Exactly one terminal transition won; the loser saw a non-LOCKED status.
     assert entry.status in (EscrowStatus.RELEASED, EscrowStatus.REFUNDED)
     assert len(release_calls) + len(refund_calls) == 1
+
+
+class TestTimeoutBounds:
+    """#2866: create_escrow must reject non-finite/non-positive/huge timeouts —
+    they land directly in expires_at (un-sweepable or instantly-refunding)."""
+
+    @pytest.mark.parametrize("bad", [-1.0, 0.0, float("nan"), float("inf"), float("-inf"), 3_000_000.0])
+    def test_invalid_timeout_rejected(self, bad):
+        escrow = PaymentEscrow()
+        with pytest.raises(ValueError, match="timeout"):
+            escrow.create_escrow(
+                task_id="t-bad-timeout",
+                chain_id=CHAIN_ID,
+                requester=REQUESTER,
+                agent=AGENT,
+                amount=100,
+                timeout=bad,
+            )
+
+    @pytest.mark.parametrize("good", [1.0, 60.0, 3600.0, 2_592_000.0])
+    def test_valid_timeout_accepted(self, good):
+        escrow = PaymentEscrow()
+        entry = escrow.create_escrow(
+            task_id=f"t-ok-timeout-{good}",
+            chain_id=CHAIN_ID,
+            requester=REQUESTER,
+            agent=AGENT,
+            amount=100,
+            timeout=good,
+        )
+        assert entry.expires_at is not None
+        assert entry.expires_at > time.time()
+
+    def test_default_timeout_still_applies(self):
+        escrow = PaymentEscrow(default_timeout=60.0)
+        entry = escrow.create_escrow(
+            task_id="t-default-timeout",
+            chain_id=CHAIN_ID,
+            requester=REQUESTER,
+            agent=AGENT,
+            amount=100,
+        )
+        assert entry.expires_at is not None
+        assert entry.expires_at <= time.time() + 61
+
+    @pytest.mark.parametrize("bad_default", [-1.0, float("nan"), float("inf"), 3_000_000.0])
+    def test_bad_default_timeout_rejected(self, bad_default):
+        # timeout=None falls back to default_timeout — it must be validated too.
+        escrow = PaymentEscrow(default_timeout=bad_default)
+        with pytest.raises(ValueError, match="timeout"):
+            escrow.create_escrow(
+                task_id="t-bad-default",
+                chain_id=CHAIN_ID,
+                requester=REQUESTER,
+                agent=AGENT,
+                amount=100,
+            )
