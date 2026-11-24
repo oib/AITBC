@@ -485,14 +485,25 @@ class TestProviderPin:
             "payload": {"access_key": "ak", "access_secret": "as", "public_endpoint": "/ip4/1.2.3.4"},
             "constraints": {"disk_quota_mb": 10},
         }
-        with patch.object(host_module, "_market_client", return_value=_Client()):
-            host_module._register_ipfs_rental_token(job, "job-1", "QmX", 7, "http://127.0.0.1:5002")
+        signer = Account.create()
+        with (
+            patch.object(host_module, "_market_client", return_value=_Client()),
+            patch.object(host_module, "get_chain_id", return_value="test-chain"),
+            patch.object(host_module.time, "time", return_value=1700000000),
+        ):
+            host_module._register_ipfs_rental_token(
+                job, "job-1", "QmX", 7, "http://127.0.0.1:5002", signer.address, signer.key.hex()
+            )
         assert posted["path"] == "/v1/market/ipfs/rental-token"
         data = posted["json"]
         assert data["rental_id"] == "job-1"
         assert data["cid"] == "QmX"
         assert data["access_key"] == "ak"
         assert data["pinned"] is True
+        # #2491: the provider key signs the job-keyed request proof.
+        assert data["signer_address"] == signer.address
+        assert data["chain_id"] == "test-chain"
+        assert data["signature"]
         # Settlement fields are service-owned — the CLI must not send them.
         assert "escrow_contract_id" not in data
         assert "expires_at" not in data
@@ -505,9 +516,16 @@ class TestProviderPin:
                 called.append(path)
                 return {}
 
+        signer = Account.create()
         job = {"payload": {}}
-        with patch.object(host_module, "_market_client", return_value=_Client()):
-            assert host_module._register_ipfs_rental_token(job, "j", "QmX", 1, "api") is None
+        with (
+            patch.object(host_module, "_market_client", return_value=_Client()),
+            patch.object(host_module, "get_chain_id", return_value="test-chain"),
+        ):
+            assert (
+                host_module._register_ipfs_rental_token(job, "j", "QmX", 1, "api", signer.address, signer.key.hex())
+                is None
+            )
         assert called == []
 
 

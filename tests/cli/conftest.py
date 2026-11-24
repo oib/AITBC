@@ -17,6 +17,20 @@ from click.testing import CliRunner
 
 
 @pytest.fixture(autouse=True)
+def _isolated_credential_store(monkeypatch, tmp_path):
+    """Keep the host's real ``~/.aitbc`` credential store out of the suite.
+
+    ``AuthManager()`` resolves the operator's stored admin/client JWTs — an
+    expired credential raises ``ExpiredAdminToken`` inside unrelated command
+    tests, and a live one would leak a real bearer into mocked calls (#2940).
+    Force the file backend at an empty tmp path; tests that exercise auth
+    pass ``store_path`` or patch the methods themselves.
+    """
+    monkeypatch.setattr("aitbc_cli.auth._DEFAULT_STORE", tmp_path / "credentials.json")
+    monkeypatch.setattr("aitbc_cli.auth._resolve_keyring", lambda: None)
+
+
+@pytest.fixture(autouse=True)
 def _dead_rpc_endpoints(monkeypatch):
     """Dead endpoints so unmocked wallet/RPC lookups fail fast.
 

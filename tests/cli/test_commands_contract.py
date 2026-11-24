@@ -195,6 +195,12 @@ class TestContractCommands:
         """#2350: no flag/env/config key -> UsageError naming both sources,
         not a bare server 403."""
         monkeypatch.delenv("BLOCKCHAIN_RPC_API_KEY", raising=False)
+        # get_config() also reads /etc/aitbc/*.env — on a provisioned node
+        # the key resolves from there even with the env var deleted (#2940).
+        monkeypatch.setattr(
+            "aitbc_cli.config.get_config",
+            lambda: type("C", (), {"blockchain_rpc_api_key": None})(),
+        )
 
         from aitbc_cli.commands.contract import contract
 
