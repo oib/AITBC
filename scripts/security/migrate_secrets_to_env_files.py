@@ -143,9 +143,23 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
 # Credentials do not always live behind an obviously-named variable. Matching on the
 # name alone wrote values like DATABASE_URL=postgres://user:password@host straight into
 # the generated template in plaintext, which is the opposite of what this script is for.
-_SECRET_NAME_HINTS = ("password", "secret", "token", "key", "auth", "credential", "passwd", "pwd")
-# A URL carrying inline credentials: scheme://user:pass@host
-_URL_WITH_CREDENTIALS = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://[^/\s:@]+:[^/\s@]+@")
+_SECRET_NAME_HINTS = (
+    "password",
+    "secret",
+    "token",
+    "key",
+    "auth",
+    "credential",
+    "passwd",
+    "pwd",
+    "mnemonic",
+    "seed",
+    "recovery",
+)
+# A URL carrying inline credentials: scheme://user:pass@host. The user part
+# may be empty (scheme://:pass@host) — requiring it let password-only URLs
+# through in plaintext (#2899).
+_URL_WITH_CREDENTIALS = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://[^/\s:@]*:[^/\s@]+@")
 
 
 def _is_sensitive(var_name: str, var_value: str) -> bool:
