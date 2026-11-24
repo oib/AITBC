@@ -416,8 +416,8 @@ def test_offer_rejects_invalid_status(api_client, monkeypatch):
     assert resp.status_code == 400
 
 
-def test_offer_falls_back_to_local_on_transport_failure(api_client, monkeypatch):
-    """Transport failure (not admission refusal) still writes the local row."""
+def test_offer_fails_closed_on_transport_failure(api_client, monkeypatch):
+    """#2906: transport failure must not mirror an unbacked bookable row."""
     from gpu_service import main as main_mod
 
     async def _transport_fail(self, *a, **kw):
@@ -441,14 +441,10 @@ def test_offer_falls_back_to_local_on_transport_failure(api_client, monkeypatch)
             },
         },
     )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["status"] == "success"
-    assert body["blockchain_registered"] is False
+    assert resp.status_code == 503
 
     got = api_client.get("/v1/gpu/gpu-local-1")
-    assert got.status_code == 200
-    assert got.json()["miner_id"] == "miner-local"
+    assert got.status_code == 404
 
 
 def test_offer_rejects_wrong_transaction_type(api_client):

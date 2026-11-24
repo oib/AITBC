@@ -145,24 +145,23 @@ def test_admission_refusal_is_relayed_not_masked(client, monkeypatch):
     assert _registry_row("gpu_relay_b") is None, "refused transaction must not leave a local row"
 
 
-def test_transport_failure_falls_back_to_local_row(client, monkeypatch):
-    """Connect/timeout class failures (no HTTP response) may still fall back:
-    nothing reached the chain, so a local record is honest."""
+def test_transport_failure_fails_closed(client, monkeypatch):
+    """#2906: a transport failure means no on-chain admission — mirroring a
+    local 'available' row would sell capacity with no chain backing, so the
+    offer is refused (503) and nothing is written."""
     _stub_submit(monkeypatch, exc=ConnectionError("rpc unreachable"))
     resp = client.post("/v1/transactions", json=_body("gpu_relay_c"))
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["blockchain_registered"] is False
-    row = _registry_row("gpu_relay_c")
-    assert row is not None and row["model"] == "A100"
+    assert resp.status_code == 503, resp.text
+    assert _registry_row("gpu_relay_c") is None
 
 
-def test_node_5xx_falls_back_to_local_row(client, monkeypatch):
-    """A 5xx means the node is up but errored — not a refusal of the tx."""
+def test_node_5xx_fails_closed(client, monkeypatch):
+    """A 5xx is ambiguous — the tx may have landed — but unbacked bookable
+    capacity is the worse failure direction, so refuse and write nothing."""
     _stub_submit(monkeypatch, exc=_HttpError(503, {"error": "upstream unavailable"}))
     resp = client.post("/v1/transactions", json=_body("gpu_relay_d"))
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["blockchain_registered"] is False
-    assert _registry_row("gpu_relay_d") is not None
+    assert resp.status_code == 503, resp.text
+    assert _registry_row("gpu_relay_d") is None
 
 
 def test_client_side_envelope_error_is_relayed_not_masked(client, monkeypatch):
