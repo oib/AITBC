@@ -16,7 +16,7 @@ import asyncio
 import logging
 from collections import OrderedDict
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
 from typing import Any, ClassVar
 
 import httpx
@@ -32,6 +32,7 @@ from aitbc.trading.offer_types import (
     OfferSyncStatus,
     OfferSyncStatusEntry,
     SyncedOffer,
+    parse_offer_price,
 )
 
 from ..config import settings
@@ -222,12 +223,29 @@ class OfferSyncService:
                 # "source-chain-wins" skip is gone (it would have let chain
                 # A's entry suppress chain B's legit offer_id forever).
 
+                # #2835: a NaN/Infinity/negative price from a buggy or
+                # malicious RPC must never reach the cache — it would crash
+                # every sort/filter on offer.price and leak to clients as a
+                # real quote. Skip the offer, keep the sync alive.
+                try:
+                    price = parse_offer_price(
+                        offer_data.get("price", 0)
+                    )  # not-money: validation boundary — parses to Decimal, rejects non-finite/negative
+                except ValueError:
+                    logger.warning(
+                        "Skipping offer %s on chain %s: invalid price %r",
+                        offer_id,
+                        chain_id,
+                        offer_data.get("price"),
+                    )
+                    continue
+
                 synced = SyncedOffer(  # not-money: ratio, threshold or configuration default — not an amount of money
                     offer_id=offer_id,
                     chain_id=chain_id,
                     provider=str(offer_data.get("provider", offer_data.get("owner", ""))),
                     service_type="gpu_market",
-                    price=Decimal(str(offer_data.get("price", 0.0))),
+                    price=price,
                     quantity=int(offer_data.get("capacity", offer_data.get("quantity", 1))),
                     status=str(offer_data.get("status", "available")),
                     attributes={

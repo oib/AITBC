@@ -15,9 +15,29 @@ lifecycle states (AVAILABLE, RESERVED, IN_USE, DELISTED, EXPIRED).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Any
+
+
+def parse_offer_price(value: Any) -> Decimal:
+    """Parse an offer price, rejecting anything a marketplace must not serve.
+
+    ``Decimal(str(...))`` happily yields ``NaN``/``Infinity`` and accepts
+    negatives — once cached, those values crash every sort/filter that
+    touches ``offer.price`` (InvalidOperation → persistent 500s) and leak
+    to clients as real quotes (#2835). Zero stays allowed: it sorts and
+    filters cleanly, and ``from_dict``'s missing-price default relies on
+    it. Raises ``ValueError`` on unparseable, non-finite, or negative
+    input.
+    """
+    try:
+        price = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"unparseable offer price: {value!r}") from None
+    if not price.is_finite() or price < 0:
+        raise ValueError(f"non-finite or negative offer price: {value!r}")
+    return price
 
 
 class OfferSyncStatus(StrEnum):
@@ -168,7 +188,9 @@ class SyncedOffer:
             chain_id=str(data.get("chain_id") or ""),
             provider=str(data.get("provider") or data.get("seller_address") or data.get("owner") or ""),
             service_type=str(data.get("service_type") or data.get("item_type") or ""),
-            price=Decimal(str(data.get("price", 0.0))),
+            price=parse_offer_price(
+                data.get("price", 0)
+            ),  # not-money: validation boundary — missing price deserializes as Decimal 0
             quantity=int(data.get("quantity", data.get("capacity", 0))),
             # The node listing wire says "active"; the OfferFSM word is
             # "available" — normalize so downstream status checks agree.

@@ -219,6 +219,14 @@ class TestSyncedOffer:
         assert offer.sync_status == "fresh"
         assert offer.sync_confidence == 1.0
 
+    @pytest.mark.parametrize("bad", ["NaN", "Infinity", "-Infinity", "-0.5", "-1", "abc", ""])
+    def test_from_dict_rejects_bad_price_2835(self, bad: str) -> None:
+        """#2835: non-finite, negative, or unparseable prices must not
+        deserialize — they crash every offer.price sort/filter and leak to
+        clients as real quotes. Zero stays valid (missing-price default)."""
+        with pytest.raises(ValueError):
+            SyncedOffer.from_dict({"offer_id": "o4", "chain_id": "ait-hub", "price": bad})
+
     def test_roundtrip(self) -> None:
         offer = _sample_synced_offer()
         d = offer.to_dict()
