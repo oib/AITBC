@@ -1309,15 +1309,12 @@ def aitbc_system_cron(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def aitbc_system_config(
-    show_secrets: Annotated[bool | None, Field(description="Show sensitive values like API keys")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Run `aitbc system config`."""
     options: dict[str, Any] = {}
-    if show_secrets:
-        options["show-secrets"] = None
     return _aitbc_cli_read_tool(
         role,
         host,

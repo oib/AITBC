@@ -68,6 +68,9 @@ _FIELD_DENY_TOKENS = frozenset(
         "privkey",
         "seedphrase",
         "salt",
+        # AUDIT-EDGE-MCP-SHOW-SECRETS (#2880): JWTs are bearer credentials —
+        # AITBC_JWT-style names carry tokens, not config.
+        "jwt",
     }
 )
 _FIELD_DENY_SUFFIXES = (
