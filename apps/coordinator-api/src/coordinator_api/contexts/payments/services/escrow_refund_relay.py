@@ -39,6 +39,7 @@ from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_shared import JobPayment
 
 from ....storage import get_session
+from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
 from ..domain.escrow_refund_relay import EscrowRefundRelay
 from .escrow_relay import EscrowRelayService
@@ -262,6 +263,21 @@ class EscrowRefundRelayService(EscrowRelayService):
                     detail=f"job_id={job_id} is {job.state} and has not expired",
                 )
 
+    def _canonical_client_id(self, client_id: str) -> str:
+        """Resolve the caller ref to the canonical ``users.id``.
+
+        ``job.client_id`` and ``wallets.user_id`` store canonical ids while
+        the JWT ``sub`` may be any client ref (username, wallet address).
+        Same normalization ``_require_owned_job`` applies — an unresolvable
+        ref falls back to the raw string, which then simply fails the
+        ownership compare (#2814).
+        """
+        try:
+            resolved, _ = resolve_client(self.session, client_id, auto_create=False)
+            return resolved
+        except ValueError:
+            return client_id
+
     def _stored_result(self, row: EscrowRefundRelay) -> dict[str, Any]:
         return {
             "success": True,
@@ -311,37 +327,36 @@ class EscrowRefundRelayService(EscrowRelayService):
 
         # Ownership first: the buyer check must run before any dedup or
         # already-refunded return, or a logged-in caller who merely knows a
-        # job_id could read that escrow's tx_hash/contract_id.
+        # job_id could read that escrow's tx_hash/contract_id. Both binding
+        # checks compare against canonical users.id — the JWT sub may be a
+        # username or wallet ref (#2814).
         escrow = await self._fetch_escrow(client, job_id)
         buyer = escrow.get("buyer")
+        canonical_client_id = await run_in_threadpool(self._canonical_client_id, client_id)
         if not is_admin:
             if not isinstance(buyer, str) or not buyer:
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail="the settlement node did not report the escrow buyer",
                 )
-            await run_in_threadpool(self._check_buyer_binding, client_id, buyer)
+            await run_in_threadpool(self._check_buyer_binding, canonical_client_id, buyer)
 
-        # Dedup: a prior relay row settles the job — return it without a
-        # chain call so a replayed request can never double-refund.
+        # Dedup: a prior relay row with a tx_hash settles the job — return
+        # it without a chain call so a replayed request can never
+        # double-refund. A hashless row is not proof of settlement and
+        # falls through to re-drive (#2814).
         existing: EscrowRefundRelay | None = await run_in_threadpool(
             lambda: self.session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == job_id)).scalars().first()
         )
-        if existing is not None:
-            return self._stored_result(existing)
+        replay = self._dedup_replay(existing)
+        if replay is not None:
+            return replay
 
         state = escrow.get("state")
         if state == "refunded" or escrow.get("refunded_at"):
-            # Already refunded on-chain: record the outcome and return it —
-            # a second refund POST is unnecessary and unsafe to repeat.
-            row = EscrowRefundRelay(
-                client_id=client_id,
-                job_id=job_id,
-                tx_hash=escrow.get("refund_tx_hash"),
-                contract_id=escrow.get("contract_id"),
-            )
-            stored = await run_in_threadpool(self._insert_or_existing, row)
-            return self._stored_result(stored if stored is not None else row)
+            # Already refunded on-chain: record (or heal) the outcome and
+            # return it — a second refund POST is unnecessary and unsafe.
+            return await self._record_settled_refund(client_id, job_id, escrow, existing)
         if state == "released" or escrow.get("released_at"):
             logger.warning("Escrow refund refused: escrow already released for job_id=%s", job_id)
             raise HTTPException(
@@ -352,32 +367,124 @@ class EscrowRefundRelayService(EscrowRelayService):
         # Phase-1 gate: coordinator job must exist and be terminal-unpaid;
         # secondary payment evidence; then the on-chain conflict check.
         try:
-            await run_in_threadpool(self._check_job_refundable, client_id, is_admin, job_id)
+            await run_in_threadpool(self._check_job_refundable, canonical_client_id, is_admin, job_id)
         except _AlreadyRefunded as prior:
             return self._stored_result(prior.row)
         await self._check_no_completed_job_record(client, job_id)
 
         chain_response = await self._post_refund(client, job_id, {"reason": reason})
-        return await self._finish_refund(client_id, job_id, reason, chain_response)
+        return await self._finish_refund(client, client_id, job_id, reason, chain_response, existing)
 
-    async def _finish_refund(self, client_id: str, job_id: str, reason: str, chain_response: Any) -> dict[str, Any]:
+    @staticmethod
+    def _chain_refund_settled(chain_response: Any) -> bool:
+        """True only for a chain answer that proves the refund settled.
+
+        ``success: true`` alone is not proof — the dedup row replays
+        ``success: true`` forever, so a response without a refund tx hash
+        (absent ``success``, ``success: null``, a proxy error body) must
+        not become one (#2814, same hardening as #2813).
+        """
+        return (
+            isinstance(chain_response, dict)
+            and chain_response.get("success") is True
+            and bool(chain_response.get("refund_tx_hash"))
+        )
+
+    def _dedup_replay(self, existing: EscrowRefundRelay | None) -> dict[str, Any] | None:
+        """Stored result for a trustworthy dedup row; None means re-drive.
+
+        A row is replayed as-is only when it carries a tx_hash. A hashless
+        row falls through: on a refunded escrow the caller heals it from
+        chain state, on an unrefunded one it is a wedge recorded before
+        tx_hash verification and the refund re-drives (#2814).
+        """
+        if existing is not None and existing.tx_hash:
+            return self._stored_result(existing)
+        return None
+
+    def _fill_dedup_row(self, row: EscrowRefundRelay, *, tx_hash: Any, contract_id: Any) -> None:
+        """Heal a dedup row recorded without a tx_hash once the refund verifies."""
+        row.tx_hash = tx_hash
+        row.contract_id = contract_id
+        self.session.add(row)
+        self.session.commit()
+
+    async def _record_settled_refund(
+        self,
+        client_id: str,
+        job_id: str,
+        escrow: dict[str, Any],
+        existing: EscrowRefundRelay | None,
+    ) -> dict[str, Any]:
+        """Record (or heal) the dedup row for an escrow already refunded on-chain."""
+        tx_hash = escrow.get("refund_tx_hash")
+        contract_id = escrow.get("contract_id")
+        if existing is not None:
+            await run_in_threadpool(self._fill_dedup_row, existing, tx_hash=tx_hash, contract_id=contract_id)
+            return self._stored_result(existing)
+        row = EscrowRefundRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
+        stored = await run_in_threadpool(self._insert_or_existing, row)
+        return self._stored_result(stored if stored is not None else row)
+
+    async def _ambiguous_refund_result(
+        self,
+        client: AsyncAITBCHTTPClient,
+        client_id: str,
+        job_id: str,
+        chain_response: Any,
+        existing: EscrowRefundRelay | None,
+    ) -> dict[str, Any]:
+        """Handle a chain answer that is not a verified settle.
+
+        Re-reads the escrow: if the refund landed anyway (ambiguous
+        post-send failure, ``success`` absent), record the dedup row from
+        the on-chain state. Otherwise return a retryable failure — no dedup
+        row, so the next request re-attempts the chain call (#2814).
+        """
+        logger.warning(
+            "Escrow refund answer not a verified settle: client_id=%s job_id=%s response=%r",
+            client_id,
+            job_id,
+            chain_response,
+        )
+        escrow_now = await self._fetch_escrow(client, job_id)
+        if escrow_now.get("state") == "refunded" or escrow_now.get("refunded_at"):
+            return await self._record_settled_refund(client_id, job_id, escrow_now, existing)
+        failure: dict[str, Any] = dict(chain_response) if isinstance(chain_response, dict) else {}
+        failure["success"] = False
+        failure["duplicate"] = False
+        return failure
+
+    async def _finish_refund(
+        self,
+        client: AsyncAITBCHTTPClient,
+        client_id: str,
+        job_id: str,
+        reason: str,
+        chain_response: Any,
+        existing: EscrowRefundRelay | None,
+    ) -> dict[str, Any]:
         """Record the settled refund and shape the relay response.
 
-        Split from :meth:`refund` for the c901 ratchet — the unsettled
-        short-circuit, dedup insert and response shaping live here.
+        Only a verified settle (``success: true`` + refund_tx_hash) records
+        the dedup row; anything else re-checks the escrow on-chain or
+        returns a retryable failure (#2814).
         """
-        unsettled = _unsettled_refund_result(chain_response, client_id, job_id)
-        if unsettled is not None:
-            return unsettled
+        if not self._chain_refund_settled(chain_response):
+            return await self._ambiguous_refund_result(client, client_id, job_id, chain_response, existing)
 
-        refund_tx_hash = chain_response.get("refund_tx_hash") if isinstance(chain_response, dict) else None
-        contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
+        refund_tx_hash = chain_response["refund_tx_hash"]
+        contract_id = chain_response.get("contract_id")
         row = EscrowRefundRelay(client_id=client_id, job_id=job_id, tx_hash=refund_tx_hash, contract_id=contract_id)
         stored = await run_in_threadpool(self._insert_or_existing, row)
         if stored is not None:
-            # Concurrent identical refund: the row landed first — the chain
-            # call may or may not have sealed; return the stored result.
-            return self._stored_result(stored)
+            if stored.tx_hash:
+                # Concurrent identical refund: the row landed first — the chain
+                # call may or may not have sealed; return the stored result.
+                return self._stored_result(stored)
+            # A concurrent wedge row (no tx_hash) won the insert — heal it
+            # with the verified hash.
+            await run_in_threadpool(self._fill_dedup_row, stored, tx_hash=refund_tx_hash, contract_id=contract_id)
         # Audit: one line per relay — client, job, reason and the tx, never payload detail.
         logger.info(
             "Escrow refund relayed: client_id=%s job_id=%s contract_id=%s refund_tx_hash=%s reason=%s",
@@ -387,11 +494,11 @@ class EscrowRefundRelayService(EscrowRelayService):
             refund_tx_hash,
             reason,
         )
-        result: dict[str, Any] = dict(chain_response) if isinstance(chain_response, dict) else {}
-        result.setdefault("success", True)
+        result: dict[str, Any] = dict(chain_response)
+        result["success"] = True
         result["contract_id"] = contract_id
         result["refund_tx_hash"] = refund_tx_hash
-        result["duplicate"] = bool(result.get("duplicate", False))
+        result["duplicate"] = False
         return result
 
 
@@ -401,23 +508,3 @@ class _AlreadyRefunded(Exception):
     def __init__(self, row: EscrowRefundRelay) -> None:
         super().__init__()
         self.row = row
-
-
-def _unsettled_refund_result(chain_response: Any, client_id: str, job_id: str) -> dict[str, Any] | None:
-    """The chain's rolled-back answer, or None when the refund settled.
-
-    #2678: the chain answers ``{"success": false}`` when it rolled the
-    # refund back (unsettled). Recording a dedup row for that answer would
-    # replay success:true with a null tx_hash on every retry and wedge the
-    # escrow lock — return the failure so a fresh request re-attempts.
-    """
-    if not isinstance(chain_response, dict) or chain_response.get("success") is not False:
-        return None
-    logger.warning(
-        "Escrow refund unsettled on-chain: client_id=%s job_id=%s; no relay row recorded",
-        client_id,
-        job_id,
-    )
-    failure: dict[str, Any] = dict(chain_response)
-    failure["duplicate"] = False
-    return failure
