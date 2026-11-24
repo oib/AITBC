@@ -1087,3 +1087,32 @@ class TestHostileSealedRows:
         assert topics["topics"][0]["message_count"] == 1
         assert state(session, CHAIN)["contract_state"]["total_messages"] == 1
         assert get_message(session, CHAIN, f"{1:064x}") is None
+
+
+def test_list_topics_pages_in_sql(session):
+    """#2870: limit/offset are applied by SQL, not a Python slice over every
+    topic group — the page is bounded and total_topics stays exact."""
+    _block(session, 1)
+    _block(session, 2)
+    _block(session, 3)
+    session.add_all(
+        [
+            _tx_row(3, 1, payload={"aitbc_msg": _env(topic="alpha", body="a")}),
+            _tx_row(2, 2, payload={"aitbc_msg": _env(topic="beta", body="b")}),
+            _tx_row(1, 3, payload={"aitbc_msg": _env(topic="gamma", body="g")}),
+        ]
+    )
+    session.commit()
+
+    page1 = list_topics(session, CHAIN, limit=2, offset=0)
+    assert page1["total_topics"] == 3
+    assert [t["topic"] for t in page1["topics"]] == ["alpha", "beta"]
+    assert page1["count"] == 2
+
+    page2 = list_topics(session, CHAIN, limit=2, offset=2)
+    assert page2["total_topics"] == 3
+    assert [t["topic"] for t in page2["topics"]] == ["gamma"]
+
+    # limit clamps to MAX_READ_LIMIT and offset to MAX_OFFSET
+    clamped = list_topics(session, CHAIN, limit=10_000, offset=-5)
+    assert len(clamped["topics"]) == 3
