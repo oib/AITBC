@@ -53,8 +53,9 @@ def test_idempotent_restore_keeps_both_owners() -> None:
     assert first.status_code == 201 and second.status_code == 201
     cid = first.json()["content_address"]
     assert second.json()["content_address"] == cid
-    # Descriptor still names the first writer (content-addressed semantics)…
-    assert second.json()["owner"] == "res-owner-c"
+    # #2911: the response names the caller — the first writer's owner is
+    # tenant metadata and must not be disclosed on re-store.
+    assert second.json()["owner"] == "res-owner-d"
     # …but BOTH owners may retrieve: the second writer is not locked out.
     for owner in ("res-owner-c", "res-owner-d"):
         resp = client.get(f"/v1/retrieve/{cid}", params={"owner": owner})
@@ -145,16 +146,23 @@ def test_byte_cap_overflow_evicts_lru_instead_of_507(monkeypatch: pytest.MonkeyP
     in the shared store.
     """
     client = TestClient(app)
-    monkeypatch.setattr(settings, "memory_max_total_bytes", 250)
+    monkeypatch.setattr(settings, "memory_max_total_bytes", 200)
+    # Deterministic heap: two ~115-byte-accounted blobs must overflow the
+    # cap regardless of what earlier tests left in the shared store.
+    for cid in list(api_module.store._store):
+        api_module.store._drop(cid)
+    # Same owner on both writes: #2911 caller-namespace eviction reclaims
+    # only the caller's own records — cross-tenant eviction is pinned by
+    # test_cross_tenant_* in test_cross_tenant_2911.py.
     first = _store(client, "b2177-owner-a", b"a" * 100)
     cid_first = first["content_address"]
     # Make the first blob deterministically the LRU victim.
     api_module.store._store[cid_first]["last_accessed"] = datetime(2000, 1, 1, tzinfo=UTC)
-    second = _store(client, "b2177-owner-b", b"b" * 100)
+    second = _store(client, "b2177-owner-a", b"b" * 100)
     assert second["content_address"] != cid_first
     gone = client.get(f"/v1/retrieve/{cid_first}", params={"owner": "b2177-owner-a"})
     assert gone.status_code == 404
-    ok = client.get(f"/v1/retrieve/{second['content_address']}", params={"owner": "b2177-owner-b"})
+    ok = client.get(f"/v1/retrieve/{second['content_address']}", params={"owner": "b2177-owner-a"})
     assert ok.status_code == 200
     assert base64.b64decode(ok.json()["data"]) == b"b" * 100
     assert api_module.store._total_bytes <= 250

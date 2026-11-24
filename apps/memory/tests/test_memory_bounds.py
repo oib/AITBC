@@ -85,7 +85,9 @@ def test_restore_existing_address_is_idempotent() -> None:
     assert first.status_code == 201
     second = client.post("/v1/store", json={"owner": "owner-b", "data": data, "tags": {"n": 2}})
     assert second.status_code == 201
-    assert second.json()["owner"] == "owner-a"
+    # #2911: the response names the CALLER's identity — the first storer's
+    # owner string is tenant metadata and must not be disclosed.
+    assert second.json()["owner"] == "owner-b"
     assert second.json()["tags"] == {"n": 1}
     retrieved = client.get(f"/v1/retrieve/{first.json()['content_address']}", params={"owner": "owner-a"})
     assert retrieved.json()["owner"] == "owner-a"

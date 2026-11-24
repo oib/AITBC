@@ -64,7 +64,9 @@ class StoreRequest(BaseModel):
     """Payload for storing a blob."""
 
     # #2910: owner/tags are heap-resident metadata — bound both.
-    owner: str = Field(max_length=256)
+    # #2911: owner keys the caller-namespace eviction domain — empty would
+    # be an anonymous tenant that can never evict its own records.
+    owner: str = Field(min_length=1, max_length=256)
     data: str  # base64-encoded bytes
     tags: dict[str, Any] = {}
 
