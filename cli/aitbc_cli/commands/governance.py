@@ -685,7 +685,13 @@ def execute(
             body["caller_address"] = executor_address
             body["timestamp"] = time.time()
             body["signature"] = _sign_body(
-                private_key, {"action": "execute", "proposal_id": proposal_id, "timestamp": body["timestamp"]}
+                private_key,
+                {
+                    "action": "execute",
+                    "proposal_id": proposal_id,
+                    "executor_address": executor_address,
+                    "timestamp": body["timestamp"],
+                },
             )
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}", json=body)
         output(result, resolve_output_format(ctx, format))
