@@ -345,25 +345,37 @@ def update_withdrawal_status(
     conn = _connect_db()
     cursor = conn.cursor()
 
-    timestamp_field = "released_at"
-    if status == "completed":
+    timestamp_field = None
+    # #2922: released_at marks release INTENT — only the releasing-family
+    # writes stamp it (same contract as bridge_db_sell's lock statuses).
+    # Every other status write used to refresh it, so a 'failed' or
+    # 'awaiting_depth' bookkeeping pass reset the release-age grace clock
+    # and dragged the row into the committed-since window at the wrong time.
+    if status in ("releasing", "releasing_retry", "released"):
+        timestamp_field = "released_at"
+    elif status == "completed":
         timestamp_field = "completed_at"
     elif status == "refunded":
         timestamp_field = "refunded_at"
 
-    # timestamp_field is a hardcoded literal above, never caller input
-    query = f"""
-        UPDATE eth_withdrawals
-        SET status = ?, {timestamp_field} = ?, eth_tx_hash = COALESCE(?, eth_tx_hash),
-            refund_tx_hash = COALESCE(?, refund_tx_hash), error = COALESCE(?, error),
-            release_nonce = COALESCE(?, release_nonce)
-        WHERE ait_tx_hash = ?
-    """  # nosec
-    params: tuple = (status, utc_now_iso(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash)
+    sets = ["status = ?"]
+    params: list = [status]
+    if timestamp_field:
+        # timestamp_field is a hardcoded literal above, never caller input
+        sets.append(f"{timestamp_field} = ?")
+        params.append(utc_now_iso())
+    sets += [
+        "eth_tx_hash = COALESCE(?, eth_tx_hash)",
+        "refund_tx_hash = COALESCE(?, refund_tx_hash)",
+        "error = COALESCE(?, error)",
+        "release_nonce = COALESCE(?, release_nonce)",
+    ]
+    query = f"UPDATE eth_withdrawals SET {', '.join(sets)} WHERE ait_tx_hash = ?"  # nosec
+    params += [eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash]
     if expected_statuses:
         expected = tuple(expected_statuses)
         query += f" AND status IN ({', '.join('?' for _ in expected)})"
-        params = (*params, *expected)
+        params += list(expected)
     cursor.execute(query, params)
     conn.commit()
     rows_affected = cursor.rowcount
