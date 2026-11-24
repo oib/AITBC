@@ -33,11 +33,13 @@ from aitbc.crypto.signature_recovery import canonical_address
 from .bridge_db import (
     get_awaiting_depth_withdrawals,
     get_resumable_withdrawals,
+    get_withdraw_scan_cursor,
     get_withdrawal_by_ait_tx_hash,
     init_db,
     insert_withdrawal,
     release_eth_release_lock,
     try_eth_release_lock,
+    set_withdraw_scan_cursor,
     update_withdrawal_block,
     update_withdrawal_pricing,
     update_withdrawal_status,
@@ -1477,42 +1479,98 @@ async def poll_withdrawals_once() -> dict[str, Any]:
 
 async def _scan_withdraw_transactions(head_height: int) -> dict[str, Any]:
     """Page backwards through BRIDGE_WITHDRAW history until a page is
-    fully-known (dedupe by ait_tx_hash row) or history is exhausted —
-    bounded at _MAX_PAGES_PER_POLL pages; a deeper backlog drains over
-    subsequent polls since each poll's rows are already ledgered."""
+    fully-known (dedupe by ait_tx_hash row), the persisted scan cursor is
+    consumed, or history is exhausted — bounded at _MAX_PAGES_PER_POLL
+    pages per poll.
+
+    #2918/AUDIT-MONEY-69: an all-known page only proves the region above it
+    is ledgered — it says nothing about rows below the last scan's stop
+    point. The scan therefore persists its deepest ``before_id`` in
+    ``bridge_monitor_state``: a mid-scan RPC failure or the page cap leaves
+    a contiguous unscanned tail, and the next poll jumps straight to the
+    persisted cursor instead of stranding the tail behind an all-duplicate
+    first page. A backlog deeper than one poll's page budget drains over
+    subsequent polls the same way. The cursor is rewritten on every exit —
+    including an exception mid-scan — so the resume point always reflects
+    the deepest fully-processed page.
+    """
     scanned = 0
     recorded = 0
     outcomes: dict[str, int] = {}
+    owed = get_withdraw_scan_cursor()
+    cursor = owed
     before_id: int | None = None
-    for _page in range(_MAX_PAGES_PER_POLL):
-        transactions = await get_bridge_withdraw_transactions(before_id=before_id)
-        if not transactions:
-            break
-        scanned += len(transactions)
-        all_known = True
-        for tx in transactions:
-            try:
-                outcome = await _process_withdrawal(tx, head_height)
-            except _OPS_ERRORS as e:
-                outcome = "error"
-                logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
-            outcomes[outcome] = outcomes.get(outcome, 0) + 1
-            if outcome in ("released", "awaiting_depth", "rejected", "orphaned"):
-                recorded += 1
-            if outcome != "duplicate":
-                all_known = False
-        ids = [t["transaction_id"] for t in transactions if isinstance(t.get("transaction_id"), int)]
-        if all_known or len(transactions) < _WITHDRAW_PAGE_SIZE or not ids:
-            break
-        before_id = min(ids)
-    else:
-        logger.error(
-            "Withdraw scan hit the %d-page cap (%d rows) with backlog remaining — continuing next poll",
-            _MAX_PAGES_PER_POLL,
-            scanned,
-        )
+    try:
+        for _page in range(_MAX_PAGES_PER_POLL):
+            transactions = await get_bridge_withdraw_transactions(before_id=before_id)
+            if not transactions:
+                cursor = None
+                break
+            scanned += len(transactions)
+            all_known, page_recorded = await _scan_withdraw_page(transactions, head_height, outcomes)
+            recorded += page_recorded
+            ids = [t["transaction_id"] for t in transactions if isinstance(t.get("transaction_id"), int)]
+            if not ids:
+                cursor = None
+                break
+            page_min = min(ids)
+            if all_known:
+                if owed is None:
+                    cursor = None
+                    break
+                # The whole page is already ledgered: everything between here
+                # and the persisted cursor is known too — jump straight to
+                # the owed backlog point instead of paging the duplicate
+                # middle. `cursor` tracks the deepest point still owed, so a
+                # failure on the next fetch resumes exactly here.
+                before_id = owed
+                owed = None
+                if cursor is None or before_id < cursor:
+                    cursor = before_id
+                continue
+            if len(transactions) < _WITHDRAW_PAGE_SIZE:
+                cursor = None
+                break
+            before_id = page_min
+            if cursor is None or page_min < cursor:
+                cursor = page_min
+        else:
+            logger.error(
+                "Withdraw scan hit the %d-page cap (%d rows) with backlog remaining — resuming at transaction_id %s next poll",
+                _MAX_PAGES_PER_POLL,
+                scanned,
+                cursor,
+            )
+    finally:
+        set_withdraw_scan_cursor(cursor)
 
     return {"scanned": scanned, "recorded": recorded, "skipped": False, **outcomes}
+
+
+async def _scan_withdraw_page(
+    transactions: list[dict[str, Any]], head_height: int, outcomes: dict[str, int]
+) -> tuple[bool, int]:
+    """Process one fetched page of BRIDGE_WITHDRAW rows.
+
+    Returns ``(all_known, recorded)`` — all_known is True only when every
+    row deduped against the ledger, recorded counts rows that produced a
+    ledger entry this page. Per-row failures are contained and counted as
+    ``error`` outcomes so one poisoned row cannot abort the page.
+    """
+    all_known = True
+    recorded = 0
+    for tx in transactions:
+        try:
+            outcome = await _process_withdrawal(tx, head_height)
+        except _OPS_ERRORS as e:
+            outcome = "error"
+            logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
+        outcomes[outcome] = outcomes.get(outcome, 0) + 1
+        if outcome in ("released", "awaiting_depth", "rejected", "orphaned"):
+            recorded += 1
+        if outcome != "duplicate":
+            all_known = False
+    return all_known, recorded
 
 
 async def withdrawal_monitor_loop() -> None:

@@ -494,3 +494,44 @@ def get_release_attempts(ait_tx_hash: str) -> list[dict[str, Any]]:
         "outcome",
     ]
     return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
+_WITHDRAW_SCAN_CURSOR_KEY = "withdraw_scan_before_id"
+
+
+def get_withdraw_scan_cursor() -> int | None:
+    """The deepest ``before_id`` the BRIDGE_WITHDRAW scan still owes, or None
+    when the scan is caught up (#2918/AUDIT-MONEY-69)."""
+    conn = _connect_db()
+    try:
+        row = conn.execute(
+            "SELECT value FROM bridge_monitor_state WHERE key = ?",
+            (_WITHDRAW_SCAN_CURSOR_KEY,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None or row[0] is None:
+        return None
+    try:
+        return int(row[0])
+    except (TypeError, ValueError):
+        return None
+
+
+def set_withdraw_scan_cursor(cursor: int | None) -> None:
+    """Persist (or clear, when None) the withdraw scan's resume point."""
+    conn = _connect_db()
+    try:
+        if cursor is None:
+            conn.execute(
+                "DELETE FROM bridge_monitor_state WHERE key = ?",
+                (_WITHDRAW_SCAN_CURSOR_KEY,),
+            )
+        else:
+            conn.execute(
+                "INSERT OR REPLACE INTO bridge_monitor_state (key, value) VALUES (?, ?)",
+                (_WITHDRAW_SCAN_CURSOR_KEY, str(cursor)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
