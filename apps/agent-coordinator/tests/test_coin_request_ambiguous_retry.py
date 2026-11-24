@@ -106,7 +106,14 @@ def test_retry_after_accept_recovers_the_first_tx(client) -> None:
 
     # The first attempt's tx is sitting in the mempool under the claim's nonce.
     _AmbiguousHttpClient.mempool.append(
-        {"from": GENESIS, "to": APPROVED["wallet_address"], "nonce": NONCE, "tx_hash": TX_HASH}
+        {
+            "from": GENESIS,
+            "to": APPROVED["wallet_address"],
+            "nonce": NONCE,
+            "value": PAYOUT,
+            "type": "TRANSFER",
+            "tx_hash": TX_HASH,
+        }
     )
     response = _execute(client)
 
@@ -121,7 +128,16 @@ def test_retry_after_accept_recovers_the_first_tx(client) -> None:
 
 def test_retry_recovers_from_sealed_history_too(client) -> None:
     _execute(client)
-    _AmbiguousHttpClient.sealed.append({"from": GENESIS, "to": APPROVED["wallet_address"], "nonce": NONCE, "tx_hash": TX_HASH})
+    _AmbiguousHttpClient.sealed.append(
+        {
+            "from": GENESIS,
+            "to": APPROVED["wallet_address"],
+            "nonce": NONCE,
+            "value": PAYOUT,
+            "type": "TRANSFER",
+            "tx_hash": TX_HASH,
+        }
+    )
     response = _execute(client)
     assert response.status_code == 200 and response.json()["tx_hash"] == TX_HASH
 
@@ -139,9 +155,89 @@ def test_executed_row_replay_is_unchanged(client) -> None:
     """A real tx_hash on the row still short-circuits before any chain work."""
     _execute(client)
     _AmbiguousHttpClient.mempool.append(
-        {"from": GENESIS, "to": APPROVED["wallet_address"], "nonce": NONCE, "tx_hash": TX_HASH}
+        {
+            "from": GENESIS,
+            "to": APPROVED["wallet_address"],
+            "nonce": NONCE,
+            "value": PAYOUT,
+            "type": "TRANSFER",
+            "tx_hash": TX_HASH,
+        }
     )
     _execute(client)  # recovers and finalizes to TX_HASH
     response = _execute(client)
     assert response.status_code == 200 and response.json()["tx_hash"] == TX_HASH
     assert len(signed_transactions()) == 1
+
+
+# --- #2861: nonce-fallback must prove it is OUR payout ----------------------
+#
+# The fallback matched only (nonce, from, to): any other genesis→recipient
+# transaction that consumed the claimed nonce — a different grant, a
+# replacement, an escrow lock — was adopted as proof this request paid,
+# finalizing APPROVED with an unrelated tx_hash while the amount never
+# moved. The match now also requires a TRANSFER of exactly the approved
+# amount (value/amount on the normalized row, payload.amount as fallback).
+
+
+def test_foreign_amount_at_same_nonce_is_not_adopted(client) -> None:
+    """A different-amount tx consuming the nonce must not finalize the row —
+    the claim releases and the retry 409s instead of reporting paid."""
+    _execute(client)
+    _AmbiguousHttpClient.mempool.append(
+        {
+            "from": GENESIS,
+            "to": APPROVED["wallet_address"],
+            "nonce": NONCE,
+            "value": PAYOUT * 10,  # someone else's bigger grant took the nonce
+            "type": "TRANSFER",
+            "tx_hash": "0x" + "ff" * 32,
+        }
+    )
+    response = _execute(client)
+    assert response.status_code == 409
+    assert stored_request(APPROVED["id"]).transaction_hash is None
+
+
+def test_non_transfer_at_same_nonce_is_not_adopted(client) -> None:
+    """An escrow lock (or any non-TRANSFER) at the claimed nonce is not our
+    payout either — nonce consumption alone proves nothing about amount."""
+    _execute(client)
+    _AmbiguousHttpClient.sealed.append(
+        {
+            "sender": GENESIS,
+            "recipient": APPROVED["wallet_address"],
+            "nonce": NONCE,
+            "value": PAYOUT,
+            "type": "ESCROW_LOCK",
+            "tx_hash": "0x" + "ee" * 32,
+        }
+    )
+    response = _execute(client)
+    assert response.status_code == 409
+    assert stored_request(APPROVED["id"]).transaction_hash is None
+
+
+def test_our_payout_still_recovers_via_nonce_fallback(client) -> None:
+    """Guard: the real attempt — same nonce, TRANSFER, exact amount — still
+    finalizes to its tx_hash (attempt_hash legitimately differs after node
+    normalization, so the nonce path is the live one)."""
+    _execute(client)
+    _AmbiguousHttpClient.mempool.append(
+        {
+            "content": {
+                "from": GENESIS,
+                "to": APPROVED["wallet_address"],
+                "nonce": NONCE,
+                "amount": PAYOUT,
+                "fee": 10,
+                "type": "TRANSFER",
+                "payload": {"amount": PAYOUT},
+            },
+            "tx_hash": TX_HASH,
+        }
+    )
+    response = _execute(client)
+    assert response.status_code == 200
+    assert response.json()["tx_hash"] == TX_HASH
+    assert response.json()["already_executed"] is True
