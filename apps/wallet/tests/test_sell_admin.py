@@ -555,27 +555,27 @@ class TestRequeue:
 
 class TestWriteOff:
     def test_dry_run(self, admin_env, capsys):
-        _sweep_review_lock()
-        rc = _run(admin_env, ["write-off", LOCK_HASH, "--reason", "nonce burned by manual send"])
+        _seed_lock("locked")
+        rc = _run(admin_env, ["write-off", LOCK_HASH, "--reason", "dead quote"])
         assert rc == 0
         assert "dry-run" in capsys.readouterr().out
-        assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == "needs_review_sweep"
+        assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == "locked"
 
     def test_confirm_writes_terminal(self, admin_env):
-        _sweep_review_lock()
+        _seed_lock("locked")
         rc = _run(
             admin_env,
-            ["write-off", LOCK_HASH, "--reason", "nonce burned", "--confirm", "--note", "op decision", "--operator", "opsbot"],
+            ["write-off", LOCK_HASH, "--reason", "dead quote", "--confirm", "--note", "op decision", "--operator", "opsbot"],
         )
         assert rc == 0
         row = get_sell_lock_by_ait_tx_hash(LOCK_HASH)
         assert row["status"] == "written_off"
-        assert "operator:write-off nonce burned" in row["error"]
+        assert "operator:write-off dead quote" in row["error"]
         assert row["resolved_by"] == "opsbot"
         assert row["operator_note"] == "op decision"
 
     def test_reason_required(self, admin_env):
-        _sweep_review_lock()
+        _seed_lock("locked")
         with pytest.raises(SystemExit):
             _run(admin_env, ["write-off", LOCK_HASH, "--confirm", "--note", "n"])
 
@@ -590,8 +590,43 @@ class TestWriteOff:
         _seed_lock("settling", nonce=5, blob=_intent_blob(LOCK_HASH))
         rc = _run(admin_env, ["write-off", LOCK_HASH, "--reason", "r", "--confirm", "--note", "n"])
         assert rc == 1
-        assert "live send in flight" in capsys.readouterr().out
+        assert "past the release decision" in capsys.readouterr().out
         assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == "settling"
+
+    @pytest.mark.parametrize(
+        "status",
+        [
+            "released",  # ETH leg already left — AIT settle still owed
+            "queued_fee_settle",  # same, sweep parked on fee float
+            "refund_pending",  # AIT refund owed to the seller
+            "queued_fee_refund",
+            "orphaned",  # refund-bound
+            "needs_review",  # ETH outcome ambiguous
+            "needs_review_sweep",  # sweep outcome ambiguous — may double-pay
+            "releasing",
+            "refunding",
+        ],
+    )
+    def test_refuse_post_release_statuses(self, admin_env, capsys, status):
+        """#2923: write-off must not terminally abandon a row whose ETH leg
+        already left or whose AIT leg is still owed — no guard meant a
+        single command could strand money outside every worklist."""
+        _seed_lock(status, nonce=5, blob=_intent_blob(LOCK_HASH))
+        rc = _run(admin_env, ["write-off", LOCK_HASH, "--reason", "r", "--confirm", "--note", "n"])
+        assert rc == 1
+        assert "past the release decision" in capsys.readouterr().out
+        assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == status
+
+    @pytest.mark.parametrize("status", ["locked", "stale_price", "queued_reserve"])
+    def test_allow_prerelease_statuses(self, admin_env, status):
+        """Pre-release rows — nothing sent, nothing owed — stay write-off-able."""
+        _seed_lock(status)
+        rc = _run(
+            admin_env,
+            ["write-off", LOCK_HASH, "--reason", "dead quote", "--confirm", "--note", "n"],
+        )
+        assert rc == 0
+        assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == "written_off"
 
 
 class TestSweepNow:
