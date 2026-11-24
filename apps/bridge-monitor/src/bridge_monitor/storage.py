@@ -587,25 +587,38 @@ def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-def sum_committed_ait(exclude_tx_hash: str | None = None) -> Decimal:
-    """AIT still owed by every non-terminal row.
+def sum_committed_ait(exclude_tx_hash: str | None = None, *, shared_mint_account: bool = False) -> Decimal:
+    """AIT still owed by every non-terminal row *against the payout account*.
 
-    pending/processing/pending_retry/submitted rows all carry an amount
-    the float is committed to pay (a submitted envelope may still seal;
-    a queued row will attempt payout). The balance alone overstates what
-    is free — the float check and the payout cap need the committed sum.
+    The committed set is aligned with actual payout-account exposure
+    (#2829): ``processing``/``pending_retry``/``submitted`` are this
+    monitor's own payout pipeline and always commit the payout wallet.
+    ``pending``/``verified`` are wallet-side mint vocabulary — a lingering
+    'pending' row belongs to the wallet watcher, not this monitor (every
+    monitor exit path moves a row out of PENDING within the same pass),
+    and 'verified' means the wallet's mint TRANSFER is in flight. Those
+    rows debit the wallet's GENESIS mint account, which is the payout
+    account only when the deployment shares the keys — the caller passes
+    ``shared_mint_account`` for that case; otherwise they are foreign-
+    account exposure and counting them overstates the committed float.
 
     ``exclude_tx_hash`` drops one row from the sum: the payout cap evaluates
     a deposit that is itself a non-terminal row, and counting its own
     amount_ait would double-subtract it (#2828).
     """
-    sql = "SELECT amount_ait FROM eth_deposits WHERE status IN (?, ?, ?, ?)"
-    params: list[object] = [
-        BridgeDepositStatus.PENDING.value,
+    pipeline = [
         BridgeDepositStatus.PROCESSING.value,
         BridgeDepositStatus.PENDING_RETRY.value,
         BridgeDepositStatus.SUBMITTED.value,
     ]
+    if shared_mint_account:
+        # Wallet-side mint rows pay from the same account: 'pending' awaits
+        # its mint, 'verified' has the TRANSFER in flight.
+        pipeline += [BridgeDepositStatus.PENDING.value, "verified"]
+        sql = "SELECT amount_ait FROM eth_deposits WHERE status IN (?, ?, ?, ?, ?)"
+    else:
+        sql = "SELECT amount_ait FROM eth_deposits WHERE status IN (?, ?, ?)"
+    params: list[object] = pipeline
     if exclude_tx_hash is not None:
         sql += " AND lower(tx_hash) NOT IN (?, ?)"
         params.extend(_tx_hash_keys(exclude_tx_hash))

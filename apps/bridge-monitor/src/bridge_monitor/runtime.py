@@ -187,7 +187,9 @@ class BridgeMonitorRuntime:
                     f"{ait_amount} AIT > payout cap {units_to_ait(abs_cap)} AIT (BRIDGE_MAX_PAYOUT_AIT; balance unknown)"
                 )
             return False, "balance unknown — cap unevaluated"
-        committed_units = ait_to_units(sum_committed_ait(exclude_tx_hash=exclude_tx_hash))
+        committed_units = ait_to_units(
+            sum_committed_ait(exclude_tx_hash=exclude_tx_hash, shared_mint_account=self.shared_mint_account)
+        )
         available = max(0, balance - committed_units - DEFAULT_TX_FEE_UNITS)
         cap = Decimal(available) * self.max_payout_fraction
         origin = f"{self.max_payout_fraction} of available float"
@@ -217,7 +219,7 @@ class BridgeMonitorRuntime:
         deposit — not the raw account figure."""
         balance = self._payout_wallet_balance()
         if balance is not None:
-            committed = ait_to_units(sum_committed_ait())
+            committed = ait_to_units(sum_committed_ait(shared_mint_account=self.shared_mint_account))
             available = max(0, balance - committed)
             if available < self.low_float_units:
                 self._float_alert(

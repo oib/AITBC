@@ -1331,6 +1331,108 @@ class TestPayoutHardening:
         assert "float low" not in caplog.text
 
 
+class TestCommittedVocabulary2829:
+    """#2829: sum_committed_ait counts only exposure to the payout account —
+    the monitor pipeline (processing/pending_retry/submitted) always; the
+    wallet-side 'pending'/'verified' mint vocabulary only when the wallet's
+    GENESIS mint account IS the payout account (shared keys)."""
+
+    @staticmethod
+    def _set_status(tx_hash: str, status: str) -> None:
+        """Direct-SQL status write — 'verified' is wallet vocabulary the
+        monitor's update_deposit refuses by design."""
+        import sqlite3
+
+        from bridge_monitor.storage import DB_PATH
+
+        with sqlite3.connect(str(DB_PATH)) as conn:
+            conn.execute("UPDATE eth_deposits SET status = ? WHERE tx_hash = ?", (status, tx_hash))
+
+    def test_status_sets(self, monitor):
+        from bridge_monitor.storage import create_deposit, sum_committed_ait, update_deposit
+
+        create_deposit("0xwv1", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwv1", ait_amount="10")  # lingers 'pending' — wallet-side
+        create_deposit("0xwv2", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwv2", ait_amount="20")
+        self._set_status("0xwv2", "verified")
+        create_deposit("0xwv3", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwv3", ait_amount="30", status=BridgeDepositStatus.SUBMITTED)
+        create_deposit("0xwv4", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwv4", ait_amount="40", status=BridgeDepositStatus.PENDING_RETRY)
+        # foreign-account deployment: only the monitor pipeline commits
+        assert sum_committed_ait() == Decimal("70")
+        # shared keys: wallet pending + verified-in-flight commit too
+        assert sum_committed_ait(shared_mint_account=True) == Decimal("100")
+
+    def test_foreign_pending_row_does_not_commit(self, monitor):
+        """Payout account != wallet mint account: a 60-AIT wallet-side
+        'pending' row is foreign exposure — a 30-AIT deposit still fits the
+        ~50-AIT cap on a 100-AIT float and submits."""
+        from bridge_monitor.storage import create_deposit, update_deposit
+        from aitbc.utils.units import ait_to_units
+
+        monitor.shared_mint_account = False
+        create_deposit("0xwfp1", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwfp1", ait_amount="60")  # stays 'pending'
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("30")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(100)),
+            patch.object(monitor, "_payout_in_flight", return_value=False),
+            patch.object(monitor, "_submit_payout", return_value=True) as submit,
+        ):
+            monitor.process_deposit("0xwnew1", "0xfrom", Decimal("0.01"), "0xdata")
+        submit.assert_called_once()
+
+    def test_shared_pending_and_verified_rows_commit(self, monitor):
+        """Shared keys: wallet 'pending' + 'verified' rows debit the same
+        float — 60 AIT committed on a 100-AIT float leaves a ~20-AIT cap, so
+        the 30-AIT deposit fails permanently like any over-cap payout."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+        from aitbc.utils.units import ait_to_units
+
+        monitor.shared_mint_account = True
+        create_deposit("0xwsh1", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwsh1", ait_amount="40")  # 'pending'
+        create_deposit("0xwsh2", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xwsh2", ait_amount="20")
+        self._set_status("0xwsh2", "verified")
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("30")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(100)),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_deposit("0xwnew2", "0xfrom", Decimal("0.01"), "0xdata")
+        assert get_deposit("0xwnew2")["status"] == BridgeDepositStatus.FAILED.value
+        build.assert_not_called()
+
+    def test_shared_mint_account_derives_from_env(self, tmp_path, monkeypatch):
+        """shared = (wallet mint account == payout account): BRIDGE_PAYOUT_*
+        unset falls back to GENESIS_WALLET_ADDRESS → shared; a distinct
+        BRIDGE_PAYOUT_ADDRESS → foreign; case-insensitive compare."""
+        from bridge_monitor.main import BridgeMonitor
+
+        def make_monitor(**env):
+            monkeypatch.setattr("bridge_monitor.storage.DATA_DIR", str(tmp_path))
+            monkeypatch.setattr("bridge_monitor.storage.DB_PATH", str(tmp_path / "bridge_deposits.db"))
+            monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "0x" + "a" * 40)
+            monkeypatch.setenv("GENESIS_WALLET_ADDRESS", "0x" + "b" * 40)
+            monkeypatch.setenv("GENESIS_WALLET_PRIVATE_KEY", "0x" + "c" * 64)
+            for key, value in env.items():
+                monkeypatch.setenv(key, value)
+            with patch("bridge_monitor.main.EthereumRPCClient"), patch("bridge_monitor.main.get_price_oracle"):
+                return BridgeMonitor()
+
+        monkeypatch.delenv("BRIDGE_PAYOUT_ADDRESS", raising=False)
+        assert make_monitor().shared_mint_account is True  # payout falls back to genesis
+        monkeypatch.setenv("BRIDGE_PAYOUT_ADDRESS", "0x" + "d" * 40)
+        assert make_monitor().shared_mint_account is False
+        monkeypatch.setenv("BRIDGE_PAYOUT_ADDRESS", "0x" + "B" * 40)  # same, other case
+        assert make_monitor().shared_mint_account is True
+
+
 class TestDocsCoverage:
     """Env vars the code reads must appear in the app README — docs drift
     fails at commit time, same as the v9 type-allowlist test. Reverse:
