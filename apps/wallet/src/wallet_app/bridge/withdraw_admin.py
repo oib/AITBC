@@ -137,6 +137,22 @@ def _load_env_files(paths: list[str]) -> None:
         os.environ.setdefault(key, val)
 
 
+def _host_gates() -> int:
+    """Root on the hub host only — same gate as sell_admin (#2924).
+
+    These commands sign and broadcast from the payout account against
+    hub's live ledger; env files and /var/lib/aitbc are root-owned there.
+    The hub check reads BLOCKCHAIN_MODE from the loaded env set, so no
+    hostname is baked in."""
+    if os.geteuid() != 0:
+        click.echo("refusing: withdraw_admin must run as root — the ledger and env files are root-owned")
+        return 2
+    if os.environ.get("BLOCKCHAIN_MODE") != "hub":
+        click.echo("refusing: withdraw_admin runs on the hub only (BLOCKCHAIN_MODE=hub in the loaded env set)")
+        return 2
+    return 0
+
+
 def _sync_wdm_env(wdm: Any) -> None:
     """Re-apply the loaded env to the monitor's import-time constants.
 
@@ -802,6 +818,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     _load_env_files(args.env_file or _DEFAULT_ENV_FILES)
+    if _host_gates():
+        return 2
 
     from . import bridge_db as db
     from . import bridge_withdraw_monitor as wdm
