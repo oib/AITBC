@@ -108,15 +108,23 @@ class MemoryStore:
             self._drop(cid)
         return len(expired)
 
-    def _evict_lru(self) -> str | None:
-        """Evict the least-recently-used record; returns its cid or None."""
-        if not self._store:
-            return None
-        victim = min(self._store, key=lambda cid: self._store[cid].get("last_accessed") or self._store[cid]["created_at"])
+    def _evict_lru(self, owner: str | None = None) -> str | None:
+        """Evict the least-recently-used record; returns its cid or None.
+
+        #2911: with *owner* given, only records that owner belongs to are
+        candidates — a tenant must never evict another tenant's live blob
+        to make room for its own write (cross-tenant data destruction).
+        """
+        candidates = self._store
+        if owner is not None:
+            candidates = {cid: rec for cid, rec in self._store.items() if owner in rec.get("owners", ())}
+            if not candidates:
+                return None
+        victim = min(candidates, key=lambda cid: candidates[cid].get("last_accessed") or candidates[cid]["created_at"])
         self._drop(victim)
         return victim
 
-    def _make_room(self, incoming_bytes: int) -> None:
+    def _make_room(self, incoming_bytes: int, owner: str | None = None) -> None:
         """Ensure capacity for one more blob: TTL sweep, then LRU eviction.
 
         MEMORY-RESIDUAL-1 (#1682): previously a full store raised
@@ -134,7 +142,11 @@ class MemoryStore:
         if incoming_bytes > max_bytes:
             raise StoreFullError(f"blob of {incoming_bytes} bytes exceeds the {max_bytes}-byte store cap")
         while self._store and (len(self._store) >= max_blobs or self._total_bytes + incoming_bytes > max_bytes):
-            self._evict_lru()
+            # #2911: evict only the caller's own namespace; when it has
+            # nothing evictable the write fails rather than destroying a
+            # victim tenant's blob.
+            if self._evict_lru(owner) is None:
+                break
         if len(self._store) >= max_blobs or self._total_bytes + incoming_bytes > max_bytes:
             raise StoreFullError(
                 f"memory store is full ({len(self._store)}/{max_blobs} blobs, {self._total_bytes}/{max_bytes} bytes)"
@@ -163,7 +175,10 @@ class MemoryStore:
                 existing["last_accessed"] = now
                 return ContentAddressedBlob(
                     content_address=existing["content_address"],
-                    owner=existing["owner"],
+                    # #2911: answer the caller's identity, not the first
+                    # storer's — blob.owner is tenant metadata and must not
+                    # disclose who contributed the content first.
+                    owner=owner,
                     size=existing["size"],
                     tags=existing["tags"],
                     created_at=existing["created_at"],
@@ -173,7 +188,7 @@ class MemoryStore:
         # 1-byte blob.
         meta_bytes = len(owner.encode("utf-8", "replace")) + len(json.dumps(tags or {}, default=str).encode())
         accounted_bytes = len(data) + meta_bytes
-        self._make_room(accounted_bytes)
+        self._make_room(accounted_bytes, owner)
         stored_data = data
         encrypted = self._fernet is not None
         if self._fernet:
@@ -228,7 +243,8 @@ class MemoryStore:
             data = self._fernet.decrypt(data)
         blob = ContentAddressedBlob(
             content_address=record["content_address"],
-            owner=record["owner"],
+            # #2911: the caller's identity, not the first storer's.
+            owner=owner or record["owner"],
             size=record["size"],
             tags=record["tags"],
             created_at=record["created_at"],
