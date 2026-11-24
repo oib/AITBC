@@ -1177,7 +1177,6 @@ def aitbc_blockchain_sync_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def aitbc_blockchain_monitor(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    export: Annotated[str | None, Field(description="Export monitoring data to file")] = None,
     interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
     realtime: Annotated[bool | None, Field(description="Real-time monitoring")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -1188,8 +1187,6 @@ def aitbc_blockchain_monitor(
     options: dict[str, Any] = {}
     if chain_id is not None:
         options["chain-id"] = chain_id
-    if export is not None:
-        options["export"] = export
     if interval is not None:
         options["interval"] = interval
     if realtime:
@@ -1553,7 +1550,6 @@ def aitbc_monitor_dashboard(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def aitbc_monitor_metrics(
-    export_path: Annotated[str | None, Field(description="Export metrics to file")] = None,
     period: Annotated[str | None, Field(description="Time period (1h, 24h, 7d, 30d)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1561,8 +1557,6 @@ def aitbc_monitor_metrics(
 ) -> str:
     """Run `aitbc monitor metrics`."""
     options: dict[str, Any] = {}
-    if export_path is not None:
-        options["export"] = export_path
     if period is not None:
         options["period"] = period
     return _aitbc_cli_read_tool(
