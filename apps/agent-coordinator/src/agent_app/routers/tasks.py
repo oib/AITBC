@@ -217,6 +217,57 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
     return escrow.escrow_id, contract_id, escrow.status.value
 
 
+async def _refund_escrow_after_failed_distribution(task_id: str, escrow_id: str | None) -> None:
+    """Expedited refund for an escrow that locked on-chain but whose task
+    then failed to distribute (#2865).
+
+    A LOCKED entry means the buyer's funds moved on-chain; leaving it to the
+    timeout sweep strands them for the full ``timeout_seconds``. Refund
+    immediately through the chain refund path; when that fails (RPC down,
+    chain refusing), pull ``expires_at`` to now so the next ``expire_stale``
+    sweep refunds promptly instead of after the full timeout. PENDING and
+    terminal entries have no on-chain funds to return — a same-task_id
+    retry replays or replaces them — so they are left alone. Never raises:
+    the distribution error is the one the caller must see.
+    """
+    if state.payment_escrow is None or escrow_id is None:
+        return
+    try:
+        entry = state.payment_escrow.get_escrow(escrow_id)
+        if entry is None or entry.status != EscrowStatus.LOCKED:
+            return
+        refunded = False
+        if state.escrow_rpc is not None:
+            from ..services.chain_escrow import make_refund_submitter
+
+            submitter = make_refund_submitter(state.escrow_rpc, task_id, reason="distribution_failed")
+            try:
+                await asyncio.to_thread(state.payment_escrow.refund, escrow_id, submitter=submitter)
+                refunded = True
+                logger.warning("Refunded escrow %s for undistributed task %s", escrow_id, task_id)
+            except Exception:  # noqa: BLE001 - refund failure falls through to expire-now
+                logger.exception(
+                    "Immediate refund failed for escrow %s (task %s); expiring for the sweeper",
+                    escrow_id,
+                    task_id,
+                )
+        if not refunded:
+            # No chain client, or the refund itself failed — expire now so
+            # the next expire_stale sweep retries promptly instead of
+            # waiting out the full timeout_seconds.
+            now = time.time()
+            if entry.expires_at is None or entry.expires_at > now:
+                entry.expires_at = now
+                state.payment_escrow.persist_entry(entry)
+                logger.warning(
+                    "Escrow %s for undistributed task %s expired early — refund deferred to the sweeper",
+                    escrow_id,
+                    task_id,
+                )
+    except Exception:  # noqa: BLE001 - refund containment — never mask the distribution error
+        logger.exception("Post-distribution refund path failed for escrow %s (task %s)", escrow_id, task_id)
+
+
 def _escrow_state_for_task(task_id: str) -> str | None:
     """Best-effort escrow status for logging after a lock failure (#2738)."""
     if state.payment_escrow is None:
@@ -299,12 +350,18 @@ async def submit_task(
                 ),
             ) from None
 
-        await state.task_distributor.submit_task(
-            request.task_data,
-            priority,
-            request.requirements,
-            chain_id=chain_id,
-        )
+        try:
+            await state.task_distributor.submit_task(
+                request.task_data,
+                priority,
+                request.requirements,
+                chain_id=chain_id,
+            )
+        except Exception:
+            # #2865: the escrow already locked on-chain — a distribution
+            # failure must not strand buyer funds until the timeout sweep.
+            await _refund_escrow_after_failed_distribution(task_id, escrow_id)
+            raise
         return {
             "status": "success",
             "message": "Task submitted successfully",
