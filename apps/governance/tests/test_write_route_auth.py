@@ -10,22 +10,45 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Annotated
 
 import pytest
 from eth_keys import keys
 from eth_utils import keccak
+from fastapi import Depends
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from governance_service.main import StakeRequest, app
+from governance_service.main import StakeRequest, app, get_governance_service, get_session_dep
+from governance_service.services.governance_service import GovernanceService
 
 
 def _sign(pk: keys.PrivateKey, payload: dict) -> str:
     return pk.sign_msg_hash(keccak(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())).to_hex()
 
 
+class _Chain:
+    """Blockchain stub: reports enough on-chain balance to back test stakes (#2873)."""
+
+    async def get_voting_power(self, address, chain_id=None):
+        from decimal import Decimal
+
+        return Decimal("1000000")
+
+    async def get_block_height(self, chain_id=None):
+        return 100
+
+
 @pytest.fixture
 def client() -> TestClient:
-    return TestClient(app)
+    async def _svc(session: Annotated[AsyncSession, Depends(get_session_dep)]):
+        return GovernanceService(session, blockchain_client=_Chain())  # type: ignore[arg-type]
+
+    app.dependency_overrides[get_governance_service] = _svc
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_governance_service, None)
 
 
 @pytest.fixture
