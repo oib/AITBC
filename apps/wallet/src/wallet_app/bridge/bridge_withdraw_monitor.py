@@ -410,31 +410,6 @@ async def _broadcast_release_tx(raw: str) -> str:
     return result
 
 
-async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
-    """Sign and broadcast an Ethereum transfer, returning the tx hash.
-
-    Broadcast only — a returned hash is NOT proof of payment. The caller
-    owns receipt verification (_release_receipt_outcome); never record a
-    send as complete on the broadcast echo alone (ETH-14).
-    """
-    key, error = _validate_release_key()
-    if not key:
-        raise RuntimeError(error)
-
-    from eth_account import Account as EthAccount
-
-    account = EthAccount.from_key(key)
-    gas_price = await _eth_gas_price()
-    gas_limit = await _release_gas_limit(to_address, amount_eth)
-    async with ETH_RELEASE_NONCE_LOCK:
-        nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
-        raw, eth_tx_hash = _sign_release_tx(account, to_address, amount_eth, nonce, gas_price, gas_limit)
-        sent = await _broadcast_release_tx(raw)
-    if sent.lower() != eth_tx_hash.lower():
-        logger.warning("eth_sendRawTransaction returned %s, expected signed hash %s", sent, eth_tx_hash)
-    return eth_tx_hash
-
-
 async def _refund_nonce() -> int:
     """Next free AIT-chain nonce for the refund sender.
 

@@ -116,6 +116,9 @@ def admin_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     saved_env = {k: os.environ.get(k) for k in env_keys}
     monkeypatch.delenv("ETH_WITHDRAW_GAS", raising=False)
+    # #2924 host gates: the CLI now refuses non-root / non-hub callers.
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setenv("BLOCKCHAIN_MODE", "hub")
 
     state: dict = {
         # per-endpoint per-method canned answers; tests fill in
@@ -956,3 +959,31 @@ class TestRefundRetry:
         assert row["status"] == "refunded"
         assert row["refund_tx_hash"] == "0x" + "ff" * 32
         assert "nonce collision recovery" in (row["error"] or "")
+
+
+class TestHostGates:
+    """#2924: withdraw_admin signs/broadcasts from the payout account — it
+    carries sell_admin's root+hub gate."""
+
+    def test_refuse_non_root(self, admin_env, monkeypatch, capsys):
+        _, env_path, db_path = admin_env
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "status", AIT_HASH])
+        assert rc == 2
+        assert "must run as root" in capsys.readouterr().out
+
+    def test_refuse_non_hub(self, admin_env, monkeypatch, capsys):
+        _, env_path, db_path = admin_env
+        monkeypatch.setenv("BLOCKCHAIN_MODE", "follower")
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "status", AIT_HASH])
+        assert rc == 2
+        assert "hub only" in capsys.readouterr().out
+
+    def test_gate_fires_before_db_init(self, admin_env, monkeypatch, tmp_path, capsys):
+        """A non-hub caller must not even create the ledger DB."""
+        _, env_path, _ = admin_env
+        monkeypatch.setenv("BLOCKCHAIN_MODE", "follower")
+        ghost = tmp_path / "ghost.db"
+        rc = _run(["--env-file", str(env_path), "--db", str(ghost), "status", AIT_HASH])
+        assert rc == 2
+        assert not ghost.exists()
