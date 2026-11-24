@@ -197,12 +197,13 @@ class TestSignedAuthBoundary:
 
 
 class TestRegistration:
-    def test_unseeded_address_rejected(self, server):
+    def test_unseeded_address_rejected(self, server, live_head):
         addr, key = _key()
         envelope = {
             "action": "exchange_register",
             "address": addr,
             "label": "ghost",
+            "expiry_height": 2000,
             "account_nonce": 0,
             "chain_id": CHAIN_ID,
         }
@@ -216,13 +217,14 @@ class TestRegistration:
         assert status == 403
         assert body.get("error") == "Node not registered"
 
-    def test_label_mismatch_rejected(self, server):
+    def test_label_mismatch_rejected(self, server, live_head):
         addr, key = _key()
         _seed(server[1], addr, "real-label")
         envelope = {
             "action": "exchange_register",
             "address": addr,
             "label": "spoofed-label",
+            "expiry_height": 2000,
             "account_nonce": 0,
             "chain_id": CHAIN_ID,
         }
@@ -243,6 +245,7 @@ class TestSignedLifecycle:
             "action": "exchange_register",
             "address": addr,
             "label": "node-lifecycle",
+            "expiry_height": 2000,
             "account_nonce": 0,
             "chain_id": CHAIN_ID,
         }
@@ -305,6 +308,7 @@ class TestSignedLifecycle:
             "action": "exchange_register",
             "address": addr,
             "label": "node-expiry",
+            "expiry_height": 2000,
             "account_nonce": 0,
             "chain_id": CHAIN_ID,
         }

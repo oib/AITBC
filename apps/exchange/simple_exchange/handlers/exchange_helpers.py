@@ -61,12 +61,12 @@ _ORDER_ENVELOPE_FIELDS = frozenset(
 # Cancel/registration shapes are left open by the design; an ``action``
 # discriminator keeps the envelope classes unambiguous.
 _CANCEL_ENVELOPE_FIELDS = frozenset({"action", "order_id", "expiry_height", "account_nonce", "chain_id"})
-_REGISTER_ENVELOPE_FIELDS = frozenset({"action", "address", "label", "account_nonce", "chain_id"})
+_REGISTER_ENVELOPE_FIELDS = frozenset({"action", "address", "label", "expiry_height", "account_nonce", "chain_id"})
 # ETH-8 phase 3: the node's ETH payout address is set once, deliberately, by
 # its own signed verb — the fixed order envelope (design section 1) never
 # carries it. History is appended to payout_address_audit; a change applies
 # to orders placed after the claim, never retroactively.
-_PAYOUT_ENVELOPE_FIELDS = frozenset({"action", "eth_address", "account_nonce", "chain_id"})
+_PAYOUT_ENVELOPE_FIELDS = frozenset({"action", "eth_address", "expiry_height", "account_nonce", "chain_id"})
 _CANCEL_ACTION = "exchange_cancel"
 _REGISTER_ACTION = "exchange_register"
 _PAYOUT_ACTION = "exchange_set_payout"

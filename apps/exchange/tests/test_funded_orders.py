@@ -141,6 +141,7 @@ def _register(db_path, address, privkey, label):
         "action": "exchange_register",
         "address": address,
         "label": label,
+        "expiry_height": 2000,
         "account_nonce": 0,
         "chain_id": "ait-localnet",
     }
@@ -155,6 +156,7 @@ def _set_payout(db_path, h, address, privkey, eth_address, nonce=1):
     env = {
         "action": "exchange_set_payout",
         "eth_address": eth_address,
+        "expiry_height": 2000,
         "account_nonce": nonce,
         "chain_id": "ait-localnet",
     }

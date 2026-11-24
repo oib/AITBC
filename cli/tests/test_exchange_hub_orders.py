@@ -554,7 +554,7 @@ class TestOrderMy:
 
 class TestNodeRegister:
     def test_register_envelope_and_path(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
-        mock_client.get_responses = _registered_doc(wallet_key[0], nonce=0, label="node2")
+        mock_client.get_responses = {**_head_response(1000), **_registered_doc(wallet_key[0], nonce=0, label="node2")}
         mock_client.get_responses["/api/exchange/my-orders"]["registered"] = False
         mock_client.post_responses = {"default": {"label": "node2", "status": "registered"}}
         result = runner.invoke(
@@ -570,6 +570,7 @@ class TestNodeRegister:
             "action": "exchange_register",
             "address": wallet_key[0],
             "label": "node2",  # default = seeded label
+            "expiry_height": 1000 + 1440,
             "account_nonce": 0,
             "chain_id": "ait-test-chain",
         }
@@ -991,7 +992,7 @@ class TestNodeSetPayout:
     _ETH = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
 
     def test_payout_envelope_checksums_and_posts(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
-        mock_client.get_responses = _registered_doc(wallet_key[0], nonce=4)
+        mock_client.get_responses = {**_head_response(1000), **_registered_doc(wallet_key[0], nonce=4)}
         mock_client.post_responses = {
             "default": {
                 "address": wallet_key[0],
@@ -1023,6 +1024,7 @@ class TestNodeSetPayout:
         assert env == {
             "action": "exchange_set_payout",
             "eth_address": self._ETH,
+            "expiry_height": 1000 + 1440,
             "account_nonce": 4,
             "chain_id": "ait-test-chain",
         }

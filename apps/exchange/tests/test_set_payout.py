@@ -94,6 +94,7 @@ def _register(db_path, address, privkey, label="sellernode", head=None):
         "action": "exchange_register",
         "address": address,
         "label": label,
+        "expiry_height": 2000,
         "account_nonce": 0,
         "chain_id": "ait-localnet",
     }
@@ -105,7 +106,13 @@ def _register(db_path, address, privkey, label="sellernode", head=None):
 
 
 def _payout_body(address, privkey, *, eth_address, nonce=1, action="exchange_set_payout", fields_full=True):
-    env = {"action": action, "eth_address": eth_address, "account_nonce": nonce, "chain_id": "ait-localnet"}
+    env = {
+        "action": action,
+        "eth_address": eth_address,
+        "expiry_height": 2000,
+        "account_nonce": nonce,
+        "chain_id": "ait-localnet",
+    }
     return {"envelope": env, "signature": _sign(env, privkey), "user_address": address}
 
 
@@ -245,7 +252,13 @@ def test_other_node_signature_cannot_set(db_path, settlement_on):
     _register(db_path, a.address, a.key.hex())
     _register(db_path, b.address, b.key.hex(), label="othernode")
     h = _handler()
-    env = {"action": "exchange_set_payout", "eth_address": payout.address, "account_nonce": 1, "chain_id": "ait-localnet"}
+    env = {
+        "action": "exchange_set_payout",
+        "eth_address": payout.address,
+        "expiry_height": 2000,
+        "account_nonce": 1,
+        "chain_id": "ait-localnet",
+    }
     # user_address says A, signature is B's -> verification fails before DB.
     body = {"envelope": env, "signature": _sign(env, b.key.hex()), "user_address": a.address}
     h._read_json_body = MagicMock(return_value=body)
