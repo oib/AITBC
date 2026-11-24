@@ -22,6 +22,7 @@ the manager stays purely in-memory.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 import uuid
@@ -42,6 +43,12 @@ class EscrowStatus(StrEnum):
     REFUNDED = "refunded"  # Funds refunded to requester (task failed/timeout)
     EXPIRED = "expired"  # Escrow expired without completion
     REJECTED = "rejected"  # Lock tx was apply-rejected on-chain; nothing ever moved (#2744)
+
+
+# #2866: upper bound for an escrow timeout — 30 days, the same horizon the
+# market job TTL uses. An unbounded/NaN/negative timeout either refunds the
+# moment it locks or is never swept.
+_MAX_TIMEOUT_SECONDS = 2_592_000.0
 
 
 @dataclass
@@ -178,9 +185,20 @@ class PaymentEscrow:
         """
         if amount <= 0:
             raise ValueError(f"Escrow amount must be positive, got {amount}")
+        # #2866: the timeout lands directly in expires_at — a NaN/inf timeout
+        # produces an un-sweepable row, a negative one refunds instantly, a
+        # huge one strands funds effectively forever. Bound it here too: the
+        # API layer validates, but this is the library's own money invariant.
+        # Validate the effective timeout so a bad default_timeout can't slip
+        # through the timeout=None path either.
+        effective_timeout = timeout if timeout is not None else self._default_timeout
+        if not math.isfinite(effective_timeout) or effective_timeout <= 0 or effective_timeout > _MAX_TIMEOUT_SECONDS:
+            raise ValueError(
+                f"Escrow timeout must be a finite value in (0, {_MAX_TIMEOUT_SECONDS}] seconds, got {effective_timeout!r}"
+            )
         with self._lock:
             escrow_id = str(uuid.uuid4())
-            expires_at = time.time() + (timeout if timeout is not None else self._default_timeout)
+            expires_at = time.time() + effective_timeout
             entry = EscrowEntry(
                 escrow_id=escrow_id,
                 task_id=task_id,
