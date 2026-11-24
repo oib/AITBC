@@ -789,3 +789,40 @@ async def test_bond_for_job_finds_bond_after_capabilities_wallet_removed(db_sess
     found = service._bond_for_job(job)
     assert found is not None
     assert found.id == bond.id
+
+
+@pytest.mark.asyncio
+async def test_sweeper_pages_past_ineligible_head(db_session, slash_env):
+    """#2811: >batch_size ineligible rows at the head must not starve a
+    genuinely stale bonded job — the bond_required/heartbeat filters run in
+    Python after the SQL LIMIT, so _find_stale_jobs must page until a short
+    page (same defect class as #2699)."""
+    miner = _miner(db_session)
+    miner.last_heartbeat = datetime.now(UTC) - timedelta(seconds=600)
+    db_session.add(miner)
+
+    # Two ineligible head rows: RUNNING + miner + payment, but no bond
+    # required — under LIMIT-before-filter they fill the batch.
+    for _ in range(2):
+        job = _bonded_job(db_session, bond_required=False, state="RUNNING")
+        job.assigned_miner_id = miner.id
+        db_session.add(job)
+    eligible = _bonded_job(db_session, bond_required=True, state="RUNNING")
+    eligible.assigned_miner_id = miner.id
+    db_session.add(eligible)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")
+
+    sweeper = BondSlashSweeper(
+        interval_seconds=1,
+        batch_size=2,
+        session_factory=lambda: _non_closing_session(db_session),
+    )
+    with patch("coordinator_api.contexts.market.services.bond_slash_sweeper.BondSlashingService") as mock_svc:
+        instance = mock_svc.return_value
+        instance.slash = AsyncMock(return_value={"slashed": True, "amount": 1})
+        counts = await sweeper.run_once()
+        assert counts["slashed"] == 1
+        _, args, _ = instance.slash.mock_calls[0]
+        assert args[0].id == eligible.id
+        assert args[1] == SlashingCondition.DOWNTIME

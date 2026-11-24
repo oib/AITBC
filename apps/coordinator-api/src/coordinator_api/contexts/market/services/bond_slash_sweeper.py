@@ -82,9 +82,21 @@ class BondSlashSweeper:
             .where(Job.state == "RUNNING")
             .where(Job.assigned_miner_id != None)  # noqa: E711
             .where(Job.payment_id != None)  # noqa: E711
-            .limit(self.batch_size)
         )
-        return list(session.execute(stmt).scalars().all())
+        # Page with OFFSET until a short page (#2811): bond_required and the
+        # heartbeat cutoff filter in Python, so a single LIMIT batch lets a
+        # head of ineligible rows starve genuinely stale bonded jobs — the
+        # same defect class #2699 fixed in the payment sweepers. The full
+        # candidate list is materialized before any slash mutation, so
+        # OFFSET pages stay consistent.
+        out: list[Job] = []
+        offset = 0
+        while True:
+            page = list(session.execute(stmt.order_by(Job.id).offset(offset).limit(self.batch_size)).scalars().all())
+            out.extend(page)
+            if len(page) < self.batch_size:
+                return out
+            offset += self.batch_size
 
     async def run_once(self) -> dict[str, int]:
         """One sweep. Returns counts for logging and tests."""
