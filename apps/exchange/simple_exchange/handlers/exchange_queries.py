@@ -146,28 +146,42 @@ class ExchangeQueriesMixin:
             # orders — an unfunded row must not inflate visible depth.
             funded_pred = "AND funded_state = 'funded'" if _settlement_enabled() else ""
 
+            # #2832: hide expired-but-unswept rows from visible depth —
+            # the lazy sweep only runs inside match transactions, so a
+            # quiet book could display dead orders as live. Best-effort:
+            # a dead RPC shows the book unfiltered rather than 503ing.
+            head = self._chain_head_height()
+            expiry_pred = "AND (expiry_height IS NULL OR expiry_height > ?)" if isinstance(head, int) else ""
+            book_params: tuple = (head,) if expiry_pred else ()
+
             # Sell orders — integer ticks sort; TEXT '10' would sort below '2'.
             # funded_pred is a fixed literal fragment, never input
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at,
                        user_address, expiry_height, funded_state
                 FROM orders
-                WHERE order_type = 'SELL' AND status = 'open' {funded_pred}
+                WHERE order_type = 'SELL' AND status = 'open' {funded_pred} {expiry_pred}
                 ORDER BY price_ticks ASC, id ASC
                 LIMIT 20
-            """)  # nosec
+            """,  # nosec B608 — fixed literal fragments, values bound
+                book_params,
+            )
             sells = [self._orderbook_row(row, labels, band) for row in cursor.fetchall()]
 
             # Buy orders — integer ticks, then id for deterministic FIFO ties.
             # same fixed fragment
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at,
                        user_address, expiry_height, funded_state
                 FROM orders
-                WHERE order_type = 'BUY' AND status = 'open' {funded_pred}
+                WHERE order_type = 'BUY' AND status = 'open' {funded_pred} {expiry_pred}
                 ORDER BY price_ticks DESC, id ASC
                 LIMIT 20
-            """)  # nosec
+            """,  # nosec B608 — fixed literal fragments, values bound
+                book_params,
+            )
             buys = [self._orderbook_row(row, labels, band) for row in cursor.fetchall()]
         finally:
             conn.close()
