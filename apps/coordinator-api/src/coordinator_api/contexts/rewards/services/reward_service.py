@@ -3,12 +3,11 @@ Agent Reward Engine Service
 Implements performance-based reward calculations, distributions, and tier management
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import uuid4
 
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, desc, distinct, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, and_, select
 
@@ -39,6 +38,30 @@ _OPS_ERRORS: tuple[type[BaseException], ...] = (
     RuntimeError,
     SQLAlchemyError,
 )
+
+# #2817: referral inputs arrive as an untyped dict off the wire — bound them
+# before they reach bonus math. The bonus is a flat addend (not scaled by
+# base_amount), so an unbounded count or quality is unbounded money.
+_MAX_REFERRAL_COUNT = 100
+_REFERRAL_QUALITY_DEFAULT = Decimal("1.0")
+
+
+def _bounded_referral_count(value: Any) -> int:
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return min(max(count, 0), _MAX_REFERRAL_COUNT)
+
+
+def _bounded_referral_quality(value: Any) -> Decimal:
+    try:
+        quality = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return _REFERRAL_QUALITY_DEFAULT
+    if not quality.is_finite():
+        return _REFERRAL_QUALITY_DEFAULT
+    return min(max(quality, Decimal("0")), Decimal("1"))
 
 
 class RewardCalculator:
@@ -142,11 +165,13 @@ class RewardCalculator:
 
     def calculate_referral_bonus(self, referral_data: dict[str, Any]) -> Decimal:
         """Calculate referral bonus"""
-        # referral_data is an untyped dict off the wire; both come back as Any
-        referral_count = int(referral_data.get("referral_count", 0))
-        referral_quality = referral_data.get("referral_quality", 1.0)
+        # referral_data is an untyped dict off the wire; both come back as Any.
+        # #2817: bound both — negative/huge/non-finite inputs must not produce
+        # negative or unbounded bonus money.
+        referral_count = _bounded_referral_count(referral_data.get("referral_count", 0))
+        referral_quality = _bounded_referral_quality(referral_data.get("referral_quality", 1.0))
         base_bonus = Decimal("0.05") * referral_count
-        quality_multiplier = Decimal("0.5") + Decimal(str(referral_quality)) * Decimal("0.5")
+        quality_multiplier = Decimal("0.5") + referral_quality * Decimal("0.5")
         return base_bonus * quality_multiplier
 
     def calculate_milestone_bonus(self, agent_id: str, session: Session) -> Decimal:
@@ -301,26 +326,14 @@ class RewardEngine:
             raise ValueError(f"Distribution {distribution_id} not found")
         if distribution.status != RewardStatus.PENDING:
             return distribution  # type: ignore[no-any-return]
-        try:
-            transaction_id = f"tx_{uuid4().hex[:8]}"
-            transaction_hash = f"0x{uuid4().hex}"
-            distribution.transaction_id = transaction_id
-            distribution.transaction_hash = transaction_hash
-            distribution.transaction_status = "confirmed"
-            distribution.status = RewardStatus.DISTRIBUTED
-            distribution.processed_at = datetime.now(UTC)
-            distribution.confirmed_at = datetime.now(UTC)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, distribution))
-            logger.info("Processed reward distribution %s for agent %s", distribution_id, distribution.agent_id)
-        except Exception as e:
-            distribution.status = RewardStatus.CANCELLED
-            distribution.error_message = str(e)
-            distribution.retry_count += 1
-            (await run_in_threadpool(self.session.commit))
-            logger.error("Failed to process reward distribution %s: %s", distribution_id, str(e))
-            raise
-        return distribution  # type: ignore[no-any-return]
+        # #2817: there is no on-chain payout rail. The old code fabricated a
+        # tx id/hash, stamped transaction_status='confirmed' and flipped the
+        # row to DISTRIBUTED — recording money movement that never happened.
+        # Refuse instead: the row stays PENDING so a real rail can pick it
+        # up, and callers see the failure rather than a phantom payout.
+        raise RuntimeError(
+            f"reward distribution {distribution_id} cannot be processed: on-chain reward payout is not implemented"
+        )
 
     async def update_agent_reward_profile(self, agent_id: str, reward_calculation: dict[str, Any]) -> None:
         """Update agent reward profile after reward distribution"""
@@ -526,23 +539,26 @@ class RewardEngine:
             start_date = datetime.now(UTC) - timedelta(days=30)
         if not end_date:
             end_date = datetime.now(UTC)
-        distributions = (
-            (
-                await run_in_threadpool(
-                    self.session.execute,
-                    select(RewardDistribution).where(
-                        and_(
-                            RewardDistribution.created_at >= start_date,
-                            RewardDistribution.created_at <= end_date,
-                            RewardDistribution.status == RewardStatus.DISTRIBUTED,
-                        )
-                    ),
-                )
-            )
-            .scalars()
-            .all()
+        # #2817: aggregate in SQL — the old code materialized every
+        # DISTRIBUTED row in the window just to sum/count them.
+        filters = and_(
+            RewardDistribution.created_at >= start_date,
+            RewardDistribution.created_at <= end_date,
+            RewardDistribution.status == RewardStatus.DISTRIBUTED,
         )
-        if not distributions:
+        total_rewards, total_distributions, unique_agents = (
+            await run_in_threadpool(
+                self.session.execute,
+                select(
+                    func.sum(RewardDistribution.reward_amount),
+                    func.count(RewardDistribution.id),  # type: ignore[arg-type]
+                    func.count(distinct(RewardDistribution.agent_id)),  # type: ignore[arg-type]
+                ).where(filters),
+            )
+        ).one()
+        total_distributions = int(total_distributions or 0)
+        unique_agents = int(unique_agents or 0)
+        if total_distributions == 0:
             return {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "period_type": period_type,
                 "start_date": start_date.isoformat(),
@@ -553,12 +569,21 @@ class RewardEngine:
                 "tier_distribution": {},
                 "total_distributions": 0,
             }
-        total_rewards = sum(d.reward_amount for d in distributions)
-        unique_agents = len({d.agent_id for d in distributions})
+        total_rewards = total_rewards or Decimal("0")
         average_reward = (
-            total_rewards / unique_agents if unique_agents > 0 else 0.0
+            total_rewards / unique_agents if unique_agents > 0 else Decimal("0")
         )  # not-money: ratio, threshold or configuration default — not an amount of money
-        agent_ids = list({d.agent_id for d in distributions})
+        agent_ids = [
+            row[0]
+            for row in (
+                (
+                    await run_in_threadpool(
+                        self.session.execute,
+                        select(distinct(RewardDistribution.agent_id)).where(filters),  # type: ignore[arg-type]
+                    )
+                ).all()
+            )
+        ]
         profiles = (
             (
                 await run_in_threadpool(
@@ -581,5 +606,5 @@ class RewardEngine:
             "total_agents_rewarded": unique_agents,
             "average_reward_per_agent": average_reward,
             "tier_distribution": tier_distribution,
-            "total_distributions": len(distributions),
+            "total_distributions": total_distributions,
         }
