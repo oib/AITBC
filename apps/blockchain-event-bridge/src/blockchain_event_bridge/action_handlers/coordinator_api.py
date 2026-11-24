@@ -1,5 +1,6 @@
 """Coordinator API action handler for triggering agent actions."""
 
+import re
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -7,6 +8,23 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
 logger = get_logger(__name__)
+
+# Path-segment allowlist for IDs interpolated into coordinator-api URLs.
+# job_id/listing_id/to come from sealed on-chain payloads — any tx submitter
+# controls them. Raw interpolation lets ``/``, ``?``, ``#``, ``%`` and
+# dot-segments rewrite the request path against an API that carries the
+# bridge's bearer key. Percent-encoding is NOT sufficient (%2F decodes to
+# ``/`` downstream), so unsafe values are dropped instead. Legit IDs —
+# 0x addresses, tx hashes, listing_NNN, UUIDs — all match.
+_SAFE_PATH_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+
+
+def _path_id(value: Any) -> str | None:
+    """Return ``value`` as a URL-path-safe segment, or None if unsafe."""
+    if not isinstance(value, (str, int)) or isinstance(value, bool):
+        return None
+    s = str(value)
+    return s if _SAFE_PATH_ID.fullmatch(s) else None
 
 
 class CoordinatorAPIHandler:
@@ -56,7 +74,9 @@ class CoordinatorAPIHandler:
         try:
             client = self._get_client()
             payload = tx_data.get("payload", {})
-            job_id = payload.get("job_id")
+            job_id = _path_id(payload.get("job_id"))
+            if job_id is None and payload.get("job_id"):
+                logger.warning("Skipping AI job notify: unsafe job_id in tx %s", tx_data.get("hash", "unknown"))
             if job_id:
                 await client.post(f"/v1/ai-jobs/{job_id}/notify", json=tx_data)
                 logger.info("Successfully notified coordinator about AI job %s", job_id)
@@ -70,7 +90,9 @@ class CoordinatorAPIHandler:
         try:
             client = self._get_client()
             payload = tx_data.get("payload", {})
-            recipient = tx_data.get("to")
+            recipient = _path_id(tx_data.get("to"))
+            if recipient is None and tx_data.get("to"):
+                logger.warning("Skipping agent message notify: unsafe recipient in tx %s", tx_data.get("hash", "unknown"))
             if recipient:
                 await client.post(f"/v1/agents/{recipient}/message", json={"transaction": tx_data, "payload": payload})
                 logger.info("Successfully notified coordinator about message to %s", recipient)
@@ -84,7 +106,9 @@ class CoordinatorAPIHandler:
         try:
             client = self._get_client()
             payload = tx_data.get("payload", {})
-            listing_id = payload.get("listing_id")
+            listing_id = _path_id(payload.get("listing_id"))
+            if listing_id is None and payload.get("listing_id"):
+                logger.warning("Skipping market sync: unsafe listing_id in tx %s", tx_data.get("hash", "unknown"))
             if listing_id:
                 await client.post(f"/v1/market/{listing_id}/sync", json={"transaction": tx_data})
                 logger.info("Successfully updated market listing %s", listing_id)
