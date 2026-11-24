@@ -616,9 +616,40 @@ async def mark_ratings_synced(rating_ids: list[str], svc: Annotated[MarketServic
         raise
 
 
+async def _transactions_offer_gate(
+    request: Request, transaction_data: dict[str, Any], svc: MarketService
+) -> JSONResponse | None:
+    """#2847/AUDIT-MONEY-36: run the ``/v1/market/offers`` provider gate on the
+    transactions offer body.
+
+    The signature binds the offer body, not the ``type``/``action`` envelope —
+    strip the wrapper so the same proof artifact verifies on both routes (the
+    gate's route binding stays "/v1/market/offers" for both). Provider aliases
+    resolve on the body itself, same order as ``/v1/market/offers``, so the
+    gate and ``create_offer`` see the same provider; ephemeral proof fields are
+    then stripped (``chain_id`` stays — it is a real ``MarketOffer`` field and
+    doubles as the signature chain), the same strip the offers route applies.
+    """
+    from .offers import _offer_create_gate
+
+    if "provider" not in transaction_data:
+        if "wallet" in transaction_data:
+            transaction_data["provider"] = transaction_data["wallet"]
+        elif "metadata" in transaction_data and "provider" in transaction_data.get("metadata", {}):
+            transaction_data["provider"] = transaction_data["metadata"]["provider"]
+    offer_body = {k: v for k, v in transaction_data.items() if k not in ("type", "action")}
+    offer_gate = await _offer_create_gate(request, offer_body, svc)
+    if offer_gate is not None:
+        return offer_gate
+    for ephemeral in ("signer_address", "issued_at", "signature"):
+        transaction_data.pop(ephemeral, None)
+    return None
+
+
 @router.post("/v1/transactions", dependencies=[Depends(require_market_api_key)])
 async def submit_transaction(
     transaction_data: dict[str, Any],
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
     session: Annotated[AsyncSession, Depends(get_session_dep)],
 ) -> Any:
@@ -628,6 +659,11 @@ async def submit_transaction(
     same status/money/expires_at validation and caller-id replay the
     ``/v1/market/offers`` route gets — instead of splatting the body into
     the model unchecked.
+
+    #2847/AUDIT-MONEY-36: the offer action also runs ``_offer_create_gate`` —
+    the same provider wallet-signature proof ``/v1/market/offers`` requires.
+    ``MARKET_API_KEY`` is user-tier; without the gate any key holder could
+    mint offers naming an arbitrary provider that later reach escrow.
     """
     from aitbc_shared import MarketOffer
 
@@ -637,8 +673,12 @@ async def submit_transaction(
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for market service"})
     try:
         if action == "offer":
+            offer_gate = await _transactions_offer_gate(request, transaction_data, svc)
+            if offer_gate is not None:
+                return offer_gate
             # #1553: a caller-supplied offer id is the natural idempotency
-            # key — a retry replays success instead of dying on the PK.
+            # key — a retry replays success instead of dying on the PK. The
+            # gate above already refused ids owned by a different provider.
             offer_id = transaction_data.get("id")
             if offer_id:
                 existing = await session.get(MarketOffer, str(offer_id))
