@@ -26,6 +26,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -380,7 +381,9 @@ def _fetch_job(market_url: str, job_id: str, provider_address: str) -> tuple[dic
     active job that fell outside the inspected listing page set is still a
     paid rental.
     """
-    route = f"/v1/market/jobs/{job_id}"
+    # #2914: job_id is market/buyer-influenced — encode it so it cannot
+    # rewrite the path; the signature covers this exact route string.
+    route = f"/v1/market/jobs/{quote(str(job_id), safe='')}"
     signed = _signed_request_params(provider_address, route)
     if signed is None:
         return None, False
@@ -405,7 +408,7 @@ def _pin_confirmed(job: dict[str, Any]) -> bool:
 
 
 def _confirm_pin(market_url: str, job_id: str, size: int | None, provider_address: str, cid: str | None = None) -> bool:
-    route = f"/v1/market/jobs/{job_id}/pin-confirm"
+    route = f"/v1/market/jobs/{quote(str(job_id), safe='')}/pin-confirm"
     # #1922: the market requires the provider attestation to be signed over
     # a {cid, size} binding that matches the job — an unbound signature no
     # longer marks the rental delivered.

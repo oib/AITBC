@@ -472,7 +472,7 @@ def test_publish_capacity_success(monkeypatch):
     seen: dict[str, Any] = {}
 
     class _Resp:
-        def read(self):
+        def read(self, n: int = -1):
             return b'{"ok": true}'
 
         def __enter__(self):
@@ -487,7 +487,7 @@ def test_publish_capacity_success(monkeypatch):
         seen["api_key"] = request.headers.get("X-api-key")
         return _Resp()
 
-    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
+    monkeypatch.setattr("gpu_app.capacity_publisher._open", _fake_urlopen)
     result = publish_capacity(
         "prov-1",
         4,
@@ -508,7 +508,7 @@ def test_publish_capacity_http_error_returns_error_dict(monkeypatch):
     def _boom(request, timeout=0):
         raise urllib.error.HTTPError(request.full_url, 500, "err", {}, io.BytesIO(b"server error"))
 
-    monkeypatch.setattr("urllib.request.urlopen", _boom)
+    monkeypatch.setattr("gpu_app.capacity_publisher._open", _boom)
     result = publish_capacity("prov-1", 1, coordinator_url="http://coord:8203")
     assert result["status"] == 500
     assert "error" in result
@@ -520,6 +520,6 @@ def test_publish_capacity_url_error_returns_503(monkeypatch):
     def _boom(request, timeout=0):
         raise urllib.error.URLError("no route")
 
-    monkeypatch.setattr("urllib.request.urlopen", _boom)
+    monkeypatch.setattr("gpu_app.capacity_publisher._open", _boom)
     result = publish_capacity("prov-1", 1, coordinator_url="http://coord:8203")
     assert result["status"] == 503
