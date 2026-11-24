@@ -63,12 +63,23 @@ def _resolve_private_key(
 ) -> str:
     """Return a raw hex private key from the supplied source."""
     if private_key:
+        # argv values are visible in `ps` to every local user and persist in
+        # shell history — same exposure class as the bridge keys (#2544).
+        warning(
+            "--private-key exposes the private key in the process list and shell history; "
+            "prefer --private-key-file or --wallet"
+        )
         return private_key.removeprefix("0x").strip()
     if private_key_file:
         path = Path(private_key_file)
         if not path.exists():
             raise ValueError(f"Private key file not found: {private_key_file}")
         raw = path.read_text().strip()
+        if not raw:
+            raise ValueError(f"Private key file {private_key_file} is empty")
+        mode = path.stat().st_mode & 0o777
+        if mode & 0o077:
+            warning(f"private key file {private_key_file} is group/other-accessible (mode {mode:o}); chmod 600 it")
         return raw.removeprefix("0x").strip()
     if wallet_name:
         # Search configured and service wallet directories (including /var/lib/aitbc/wallets).
