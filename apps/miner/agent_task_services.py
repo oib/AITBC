@@ -105,19 +105,28 @@ def _bounded_content(resp: requests.Response, cap: int) -> bytes:
 def _ipfs_object_size(cid: str) -> int | None:
     """Best-effort object size from the daemon; None when unknown.
 
-    ``object/stat`` was removed from current Kubo ("use 'ipfs dag'"), so the
-    cumulative size comes from ``dag/stat`` — a stream of JSON stat events
-    whose last ``TotalSize`` is the DAG total (#2802: the old endpoint
-    always errored, leaving every measure-then-reclaim check dead).
+    ``object/stat`` was removed from current Kubo — ``dag/stat`` answers
+    with progressive JSON lines; the largest TotalSize wins (#2907).
     """
     _require_cid_arg(cid)
     try:
-        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/dag/stat", params={"arg": cid}, timeout=60)
+        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/dag/stat", params={"arg": cid}, timeout=30)
         if resp.status_code == 200:
-            total = _last_total_size(resp.text)
-            return total if total and total > 0 else None
+            total: int | None = None
+            for line in resp.text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    size = json.loads(line).get("TotalSize")
+                    size = int(size) if size is not None else None
+                except (ValueError, TypeError, AttributeError):
+                    continue
+                if size is not None:
+                    total = size if total is None else max(total, size)
+            return total
     except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
-        logger.debug("ipfs dag stat failed for %s: %s", cid, exc)  # cat stream still bounds the read
+        logger.debug("ipfs dag/stat failed for %s: %s", cid, exc)  # cat stream still bounds the read
     return None
 
 

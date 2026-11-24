@@ -223,6 +223,31 @@ def _unpin_cid(cid: str) -> bool:
         return False
 
 
+def _dag_stat_total_size(resp: requests.Response) -> int | None:
+    """Final TotalSize from a ``dag/stat`` stream (#2907).
+
+    ``object/stat`` was removed from current Kubo, so the old measure call
+    always failed and every pin looked unmeasurable. ``dag/stat`` answers
+    with progressive JSON objects — take the largest TotalSize seen.
+    """
+    total: int | None = None
+    for line in resp.text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            size = json.loads(line).get("TotalSize")
+        except (ValueError, AttributeError):
+            continue
+        if size is not None:
+            try:
+                size = int(size)
+            except (TypeError, ValueError):
+                continue
+            total = size if total is None else max(total, size)
+    return total
+
+
 def _object_size(cid: str) -> int | None:
     """Cumulative DAG size via ``dag/stat`` (#2802).
 
@@ -234,24 +259,10 @@ def _object_size(cid: str) -> int | None:
     if not _valid_cid_arg(cid):
         return None
     try:
-        resp = _ipfs_post("/api/v0/dag/stat", params={"arg": cid}, timeout=60)
-        total: int | None = None
-        text = resp.text
-        idx = 0
-        decoder = json.JSONDecoder()
-        while idx < len(text):
-            while idx < len(text) and text[idx] in " \t\r\n":
-                idx += 1
-            if idx >= len(text):
-                break
-            try:
-                obj, end = decoder.raw_decode(text, idx)
-            except ValueError:
-                break
-            idx = end
-            if isinstance(obj, dict) and isinstance(obj.get("TotalSize"), int):
-                total = obj["TotalSize"]
-        return total if total and total > 0 else None
+        resp = _ipfs_post("/api/v0/dag/stat", params={"arg": cid}, timeout=30)
+        if resp.status_code != 200:
+            return None
+        return _dag_stat_total_size(resp)
     except (requests.RequestException, ValueError):
         return None
 
@@ -486,7 +497,16 @@ def _pin_new_job(
         result["errors"] += 1
         return False
     size = _object_size(cid)
-    if size is not None and not _pin_confirmed(job):
+    if size is None:
+        # #2907
+        # rather than letting it persist forever with size=None counted as
+        # handled (the old object/stat call always failed on current Kubo,
+        # so EVERY pin used to land here unmeasured).
+        _unpin_cid(cid)
+        result["errors"] += 1
+        logger.warning("Unpinned job %s: object size unmeasurable — cannot quota-account", job_id)
+        return False
+    if not _pin_confirmed(job):
         declared = _job_size(job)
         actual_total = usage_by_buyer.get(buyer, 0) - declared + size
         if actual_total > quota_bytes:
@@ -530,6 +550,21 @@ def _pin_active_job(
     if job_id not in state and not _pin_new_job(job, job_id, cid, usage_by_buyer, state, result):
         return
     size = state[job_id].get("size")
+    if size is None:
+        # #2907: pins recorded before measurement worked (or during a stat
+        # outage) carry size=None forever — re-stat each sweep so quota
+        # accounting converges instead of staying blind.
+        size = _object_size(cid)
+        if size is not None:
+            state[job_id]["size"] = size
+            if size > _job_quota_mb(job) * 1024 * 1024:
+                # Measured content alone exceeds the job's whole quota —
+                # reclaim rather than host it unaccounted.
+                _unpin_cid(cid)
+                state.pop(job_id, None)
+                result["skipped_quota"] += 1
+                logger.warning("Unpinned job %s: measured %s bytes exceeds %s MB quota", job_id, size, _job_quota_mb(job))
+                return
     if not _pin_confirmed(job):
         if _confirm_pin(market_url, job_id, size, provider_address, cid=cid):
             result["confirmed"] += 1
