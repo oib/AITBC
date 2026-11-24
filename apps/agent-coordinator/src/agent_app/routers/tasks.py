@@ -173,12 +173,22 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         # buyer's retry key hijack (or be hijacked by) another buyer's
         # payment. Mismatched terms are a conflict, not a replay.
         p = request.payment
+        # #2864: timeout_seconds and auto_reinvest_pct are escrow terms too —
+        # omitting them let a retry with different terms silently inherit the
+        # first submission's escrow. Both are recorded on the entry metadata
+        # at create time (auto_reinvest_pct already was; timeout_seconds is
+        # new). Entries written before this fix lack the keys and compare as
+        # None — a mismatched retry conflicts rather than replaying wrong
+        # terms, which is the safe direction for a money path.
         same_terms = (
             existing.requester == p.requester
             and existing.agent == p.agent
             and existing.amount == p.amount
             and existing.fee == p.fee
             and existing.chain_id == chain_id
+            and existing.metadata.get("timeout_seconds") == str(p.timeout_seconds)
+            and existing.metadata.get("auto_reinvest_pct")
+            == (str(p.auto_reinvest_pct) if p.auto_reinvest_pct is not None else None)
         )
         if not same_terms:
             raise ValueError(f"task_id {task_id} already has an active escrow with different payment terms")
@@ -193,12 +203,16 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
             fee=request.payment.fee,
             timeout=request.payment.timeout_seconds,
         )
-        # P2.4/GAP-43: the release path reads this back off the entry and forwards
-        # it to the chain; keep it on the entry so it survives a restart between
-        # submit and complete (the store serialises metadata).
+        # #2864: record the full payment terms on the entry so the replay
+        # check above can prove identical terms — timeout_seconds joins
+        # auto_reinvest_pct here (P2.4/GAP-43: the release path reads
+        # auto_reinvest_pct back off the entry and forwards it to the chain;
+        # keep it on the entry so it survives a restart between submit and
+        # complete — the store serialises metadata).
+        escrow.metadata["timeout_seconds"] = str(request.payment.timeout_seconds)
         if request.payment.auto_reinvest_pct is not None:
             escrow.metadata["auto_reinvest_pct"] = str(request.payment.auto_reinvest_pct)
-            state.payment_escrow.persist_entry(escrow)
+        state.payment_escrow.persist_entry(escrow)
     contract_id = _lock_escrow_on_chain_with_retry(escrow, request.payment, task_id)
     return escrow.escrow_id, contract_id, escrow.status.value
 
