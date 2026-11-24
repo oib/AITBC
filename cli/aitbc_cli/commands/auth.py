@@ -71,16 +71,7 @@ def _resolve_private_key(
         )
         return private_key.removeprefix("0x").strip()
     if private_key_file:
-        path = Path(private_key_file)
-        if not path.exists():
-            raise ValueError(f"Private key file not found: {private_key_file}")
-        raw = path.read_text().strip()
-        if not raw:
-            raise ValueError(f"Private key file {private_key_file} is empty")
-        mode = path.stat().st_mode & 0o777
-        if mode & 0o077:
-            warning(f"private key file {private_key_file} is group/other-accessible (mode {mode:o}); chmod 600 it")
-        return raw.removeprefix("0x").strip()
+        return _key_from_file(private_key_file)
     if wallet_name:
         # Search configured and service wallet directories (including /var/lib/aitbc/wallets).
         wallet_path = find_wallet_file(wallet_name)
@@ -96,6 +87,20 @@ def _resolve_private_key(
             raise ValueError("Password required to decrypt wallet")
         return decrypt_private_key(wallet_path, password)
     raise ValueError("Provide --wallet, --private-key, or --private-key-file")
+
+
+def _key_from_file(private_key_file: str) -> str:
+    """Read a raw hex key from ``--private-key-file``, warning on loose modes."""
+    path = Path(private_key_file)
+    if not path.exists():
+        raise ValueError(f"Private key file not found: {private_key_file}")
+    raw = path.read_text().strip()
+    if not raw:
+        raise ValueError(f"Private key file {private_key_file} is empty")
+    mode = path.stat().st_mode & 0o777
+    if mode & 0o077:
+        warning(f"private key file {private_key_file} is group/other-accessible (mode {mode:o}); chmod 600 it")
+    return raw.removeprefix("0x").strip()
 
 
 @auth.command(
