@@ -118,7 +118,7 @@ def main() -> int:
     existing_keystore = _find_matching_keystore(existing_proposer) if existing_proposer else None
     if existing_proposer and existing_keystore:
         _set_env(env_path, "PROPOSER_ID", existing_proposer)
-        creds_path.write_text(existing_proposer)
+        _write_secret(creds_path, existing_proposer)
         print(f"Existing proposer keystore found at {existing_keystore}, PROPOSER_ID={existing_proposer}")
         return 0
 
