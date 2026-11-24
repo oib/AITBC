@@ -583,3 +583,29 @@ def test_unrelated_chain_row_not_scanned(env):
     assert rec._reconcile_stale_pending(SRC) == 0
     with Session(eng[SRC]) as s:
         assert s.get(CrossChainTransfer, "t32").confirm_time is None
+
+
+def test_sealed_transfer_index_filters_in_sql(env):
+    """#2775: only wanted transfer_ids come back — decoy sealed txs of the
+    same type with other payloads are filtered by the query, not loaded."""
+    rec, eng = env
+    _tx(eng, DST, "rel-a", "BRIDGE_RELEASE", payload={"transfer_id": "want-1", "pad": "x" * 5000})
+    _tx(eng, DST, "rel-b", "BRIDGE_RELEASE", payload={"transfer_id": "other-1"})
+    _tx(eng, DST, "rel-c", "BRIDGE_RELEASE", payload={"unrelated": True})
+    _tx(eng, DST, "rel-d", "BRIDGE_RELEASE", payload={"transfer_id": 123})  # non-string id
+    _tx(eng, DST, "rel-e", "BRIDGE_LOCK", payload={"transfer_id": "want-2"})  # wrong type
+    _tx(eng, DST, "rel-f", "BRIDGE_RELEASE", height=None, payload={"transfer_id": "want-3"})  # unsealed
+
+    found = rec._sealed_transfer_index(DST, "BRIDGE_RELEASE", {"want-1", "want-2", "want-3"})
+    assert set(found) == {"want-1"}
+    assert found["want-1"][0] == "rel-a"
+
+
+def test_sealed_transfer_index_empty_wanted_and_chunking(env):
+    rec, eng = env
+    assert rec._sealed_transfer_index(DST, "BRIDGE_RELEASE", set()) == {}
+    _tx(eng, DST, "rel-z", "BRIDGE_RELEASE", payload={"transfer_id": "id-499"})
+    # >500 wanted ids exercises the IN-list chunking without needing 501 txs
+    wanted = {f"id-{i}" for i in range(501)}
+    found = rec._sealed_transfer_index(DST, "BRIDGE_RELEASE", wanted)
+    assert found == {"id-499": ("rel-z", found["id-499"][1])}

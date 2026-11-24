@@ -65,21 +65,32 @@ class ChainStoreUnavailableError(RuntimeError):
 
 class BridgeTransferReconcileMixin(BridgeBase):
     def _sealed_transfer_index(self, chain_id: str, tx_type: str, wanted: set[str]) -> dict[str, tuple[str, datetime | None]]:
-        """Map ``transfer_id`` -> (tx_hash, created_at) for sealed ``tx_type`` txs on ``chain_id``."""
+        """Map ``transfer_id`` -> (tx_hash, created_at) for sealed ``tx_type`` txs on ``chain_id``.
+
+        The ``wanted`` filter is applied in SQL (#2775): this used to load
+        every sealed tx of the type — payload included — into Python and
+        match ``transfer_id`` row by row, so each reconcile/backfill pass
+        materialized the chain's entire bridge-tx history.
+        """
+        if not wanted:
+            return {}
         found: dict[str, tuple[str, datetime | None]] = {}
+        tid_col = Transaction.payload["transfer_id"].as_string()
+        ids = sorted(wanted)
         with self._session_for(chain_id) as session:
-            rows = session.exec(
-                select(Transaction).where(
-                    Transaction.chain_id == chain_id,
-                    Transaction.type == tx_type,
-                    Transaction.block_height.is_not(None),  # type: ignore[union-attr]
-                )
-            ).all()
-            for row in rows:
-                payload = row.payload if isinstance(row.payload, dict) else {}
-                tid = payload.get("transfer_id")
-                if isinstance(tid, str) and tid in wanted:
-                    found[tid] = (row.tx_hash, row.created_at)
+            # Chunk the IN list — same 500 bound as _VOTE_TARGET_CHUNK, far
+            # inside SQLite's variable limit on old builds.
+            for i in range(0, len(ids), 500):
+                rows = session.exec(
+                    select(Transaction.tx_hash, Transaction.created_at, tid_col.label("transfer_id")).where(
+                        Transaction.chain_id == chain_id,
+                        Transaction.type == tx_type,
+                        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+                        tid_col.in_(ids[i : i + 500]),
+                    )
+                ).all()
+                for tx_hash, created_at, tid in rows:
+                    found[tid] = (tx_hash, created_at)
         return found
 
     @staticmethod
