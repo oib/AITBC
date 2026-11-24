@@ -107,7 +107,7 @@ def get_liquidity_stakes(
     return _json(_call_liquidity(role, host, path))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def build_liquidity_deposit(
     address: Annotated[
         str,
@@ -149,7 +149,7 @@ def build_liquidity_deposit(
     return _json(_call_liquidity(role, host, "liquidity/build-deposit", method="POST", body=body))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def build_liquidity_withdraw(
     address: Annotated[
         str,
@@ -186,7 +186,7 @@ def build_liquidity_withdraw(
     return _json(_call_liquidity(role, host, "liquidity/build-withdraw", method="POST", body=body))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def build_liquidity_claim(
     address: Annotated[
         str,
