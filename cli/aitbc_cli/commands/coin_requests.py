@@ -526,11 +526,24 @@ def _submit_signed_tx(ctx, tx_service, req, signed_tx) -> None:
   aitbc coin-requests execute --request-id req-123 --output json"""
 )
 @click.option("--request-id", "request_id", required=True, help="The Request id.")
+@click.option("--yes", "assume_yes", is_flag=True, help="Skip the execution confirmation prompt")
 @click.pass_context
-def execute(ctx, request_id):
+def execute(ctx, request_id, assume_yes):
     """Execute an approved coin transfer request by submitting a signed transaction."""
     with get_db_session() as session:
         req = _load_executable_request(ctx, session, request_id)
+        if req is None:
+            return
+
+        # AUDIT-EDGE-CLI-COINREQ-EXECUTE-NOCONFIRM (#2884): executing moves
+        # real funds (local genesis key or hub-forwarded) — gate it behind
+        # the same confirm pattern transactions send --key-env uses.
+        if not assume_yes:
+            click.confirm(
+                f"Execute coin request {req.id}: send "
+                f"{format_ait(req.amount) if req.amount is not None else 'N/A'} AIT to {req.wallet_address or 'unknown'}?",
+                abort=True,
+            )
 
         # Initialize transaction service
         tx_service = TransactionService()
@@ -888,8 +901,9 @@ def _execute_approved_request(
 @click.option("--sender", default=None, help="Sender id (defaults to hostname-wallet-suffix).")
 @click.option("--recipient", default="hub-coordinator", show_default=True, help="Recipient agent id.")
 @click.option("--request-id", default=None, help="Request id (defaults to a unique value).")
+@click.option("--yes", "assume_yes", is_flag=True, help="Skip the auto-execute confirmation prompt")
 @click.pass_context
-def request_coins(ctx, wallet, amount, sender, recipient, request_id):
+def request_coins(ctx, wallet, amount, sender, recipient, request_id, assume_yes):
     """Request a one-time initial coin grant from the hub for a local wallet.
 
     This is the follower-side entry point: it registers the request with the hub,
@@ -929,5 +943,11 @@ def request_coins(ctx, wallet, amount, sender, recipient, request_id):
     if not _register_with_hub(ctx, base_url, headers, request_id, sender, recipient, amount_units, wallet_address, now):
         return
 
-    # Auto-execute the approved request
+    # Auto-execute the approved request — real funds move, so confirm first
+    # unless --yes (AUDIT-EDGE-CLI-COINREQ-EXECUTE-NOCONFIRM #2884).
+    if not assume_yes:
+        click.confirm(
+            f"Hub approved {request_id}: send {format_ait(amount_units)} AIT to {wallet_address}?",
+            abort=True,
+        )
     _execute_approved_request(ctx, base_url, headers, request_id, sender, amount_units, wallet_address)
