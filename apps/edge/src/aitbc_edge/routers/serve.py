@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from aitbc.auth import AuthDep
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import DataError
 
 from ..config import settings
 from ..services.serve_service import EscrowAlreadyUsedError, ServeService
@@ -62,7 +63,20 @@ def _escrow_amount_ait(escrow: dict[str, Any]) -> Decimal | None:
         value = Decimal(str(raw))
     except InvalidOperation:
         return None
-    return value if value.is_finite() else None
+    if not value.is_finite():
+        return None
+    # #2779: the value is persisted into Numeric(20,8) — Postgres raises
+    # DataError on overflow (>11 integer digits) which escaped the
+    # EscrowAlreadyUsedError handler into a blanket 500. Round to the
+    # column's scale and treat anything that cannot fit as unusable,
+    # same as an unparseable amount.
+    try:
+        value = value.quantize(Decimal("0.00000001"))
+    except InvalidOperation:
+        return None
+    if value.adjusted() > 11 or value < 0:
+        return None
+    return value
 
 
 def _parse_expected_amount(raw: str) -> Decimal | None:
@@ -123,6 +137,11 @@ async def submit_compute_request(
         )
     except EscrowAlreadyUsedError:
         raise HTTPException(status_code=409, detail="Escrow already bound to a compute request") from None
+    except DataError:
+        # #2779: a value that still cannot fit its column (defensive — the
+        # boundary check above should have caught escrow_amount) is a
+        # client-data problem, not a 500.
+        raise HTTPException(status_code=422, detail="Value out of storable range") from None
     return result
 
 
