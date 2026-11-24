@@ -202,8 +202,11 @@ class OperationLedger:
             conn.execute("BEGIN IMMEDIATE")
         else:
             own = False
+            # #2846: the CREATE runs inside the caller's transaction — a later
+            # rollback drops it, so this must NOT mark the ledger schema-ready
+            # (a fresh-DB first-op failure would otherwise leave fail() hitting
+            # 'no such table: operations' on its own connection).
             self._ensure_schema_on(conn)
-            self._schema_ready = True
         try:
             row = conn.execute(
                 """

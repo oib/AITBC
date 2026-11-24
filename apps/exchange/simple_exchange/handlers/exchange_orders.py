@@ -567,7 +567,7 @@ class ExchangeOrdersMixin:
             if idempotency_key and not get_operation_ledger().complete(idempotency_key, operation_attempt, order, conn=conn):
                 raise RuntimeError("operation lease superseded mid-transaction")
             conn.commit()
-        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError):
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError, InvalidOperation):
             conn.rollback()
             if idempotency_key and operation_attempt:
                 get_operation_ledger().fail(idempotency_key, operation_attempt, "order placement failed")
