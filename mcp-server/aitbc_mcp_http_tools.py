@@ -19,6 +19,7 @@ from aitbc_mcp_server import (
     _json,
     _normalize_http_service_name,
     _run_http,
+    _validate_http_path,
     mcp,
 )
 
@@ -114,6 +115,8 @@ def call_aitbc_http(
                 "known_services": sorted(HTTP_SERVICE_NAMES),
             }
         )
+    if path_error := _validate_http_path(path):
+        return _json({"error": f"invalid http path: {path_error}"})
 
     if dry_run:
         command = _http_dry_run_command(service, path, method, params, body, auth, expect_status)

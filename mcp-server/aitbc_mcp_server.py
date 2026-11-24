@@ -351,6 +351,40 @@ def _normalize_http_service_name(service: str) -> str:
     return service
 
 
+# Percent-encoded bytes that decode to characters able to smuggle traversal
+# or separators past a naive segment check (#2882).
+_HTTP_PATH_DANGEROUS_ENCODINGS = ("%2e", "%2f", "%5c")
+
+
+def _validate_http_path(path: str) -> str | None:
+    """Return an error string when ``path`` is unsafe to append to a service base URL.
+
+    ``aitbc http call`` deliberately lets a leading ``/`` escape the service
+    mount prefix to the service origin (#2217), and the CLI only refuses
+    absolute ``http(s)://`` paths. Through MCP that meant ``call_aitbc_http``
+    (and every typed read tool interpolating a free-form id) could reach
+    origin-rooted endpoints, ``..`` traversal, or ``?``/``#`` query and
+    fragment injection on the named service — GET calls need no confirm
+    (#2882). MCP paths are documented as relative to the service base, so a
+    leading ``/`` is refused here even though the CLI permits it.
+    """
+    if not path or not path.strip():
+        return "path must be a non-empty URL path relative to the service base"
+    if path.startswith("/"):
+        return "path must be relative to the service base (no leading '/')"
+    if "?" in path or "#" in path:
+        return "path must not contain '?' or '#' (query/fragment injection)"
+    for segment in path.split("/"):
+        if segment in ("", ".", ".."):
+            return f"invalid path segment {segment!r} in {path!r}"
+        seg_lower = segment.lower()
+        if any(enc in seg_lower for enc in _HTTP_PATH_DANGEROUS_ENCODINGS):
+            return f"percent-encoded traversal/separator in path segment {segment!r}"
+        if any(ch.isspace() or ord(ch) < 0x20 for ch in segment):
+            return f"whitespace/control character in path segment {segment!r}"
+    return None
+
+
 # Canonical wallet directory on live AITBC nodes.  Used as AITBC_WALLET_DIR for
 # any CLI command that signs transactions or needs a wallet file.
 DEFAULT_WALLET_DIR = "/var/lib/aitbc/wallets"
@@ -957,6 +991,16 @@ def _aitbc_cli_read_tool(
                 "allowed_groups": sorted(ALL_AITBC_GROUPS),
             }
         )
+    # A read_only_hint tool has no confirm gate, so mutation-looking option
+    # names (``--send``, ``--force`` ...) must be refused outright — the same
+    # heuristic run_aitbc_cli uses to force confirmation (#2883).
+    if _options_suggest_mutation(options, group_options, subcommand_options):
+        return _json(
+            {
+                "error": "options suggest a mutating operation",
+                "note": "read-only tools refuse mutation-looking options; use run_aitbc_cli with dry_run=false and confirm=true.",
+            }
+        )
     return _json(
         _run_aitbc_cli(
             target,
@@ -997,6 +1041,8 @@ def _run_http(
             "error": f"unknown HTTP service: {service}",
             "known_services": sorted(HTTP_SERVICE_NAMES),
         }
+    if path_error := _validate_http_path(path):
+        return {"error": f"invalid http path: {path_error}"}
 
     options: dict[str, Any] = {"method": method.upper(), "timeout": str(timeout)}
     if params:
