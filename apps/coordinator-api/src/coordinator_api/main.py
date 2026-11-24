@@ -245,6 +245,10 @@ async def _start_sweepers(task_manager) -> None:
     from .contexts.payments.operations import get_operations_ledger
     from .contexts.payments.services.acceptance_sweeper import AcceptanceSweeper, sweeper_enabled
     from .contexts.payments.services.settlement_reconciler import SettlementReconciler, reconciler_enabled
+    from .contexts.payments.services.evm_payment_sweeper import (
+        EvmPaymentVerifySweeper,
+        evm_payment_sweeper_enabled,
+    )
     from .contexts.payments.services.stuck_escrow_sweeper import StuckEscrowSweeper, stuck_escrow_sweeper_enabled
     from .contexts.payments.services.zk_refund_sweeper import ZkRefundSweeper, zk_refund_sweeper_enabled
 
@@ -320,6 +324,18 @@ async def _start_sweepers(task_manager) -> None:
         "Stale job reaper started",
         "Stale job reaper disabled (COORDINATOR_STALE_JOB_REAPER_ENABLED=false)",
         stagger_index=7,
+    )
+    # EvmPaymentVerifySweeper (#2818): pending EVM protected payments are
+    # never escrowed, so no other sweeper sees them — re-drive the receipt
+    # check so a confirmed (or failed) on-chain rental unblocks the job.
+    await _maybe_start_sweeper(
+        task_manager,
+        "evm_payment_verify_sweeper",
+        evm_payment_sweeper_enabled,
+        EvmPaymentVerifySweeper,
+        "EVM payment verify sweeper started",
+        "EVM payment verify sweeper disabled (COORDINATOR_EVM_PAYMENT_SWEEP_ENABLED=false)",
+        stagger_index=8,
     )
 
 
