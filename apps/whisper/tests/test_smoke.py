@@ -89,6 +89,9 @@ class _FakeRequest:
 
 def _patch_probe(monkeypatch, seconds: float | None = 60.0) -> None:
     monkeypatch.setattr(whisper_main, "_probe_duration", lambda path: seconds)
+    # PyAV is not installed in the test venv; the guarded decode is pinned
+    # separately. The fake model ignores its input anyway.
+    monkeypatch.setattr(whisper_main, "_decode_audio_guarded", lambda path: None)
 
 
 def _transcribe(**overrides):
