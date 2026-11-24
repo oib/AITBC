@@ -87,6 +87,7 @@ def aitbc_coin_requests_approve(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_coin_requests_execute(
     request_id: Annotated[str, Field(description="The Request id.")],
+    assume_yes: Annotated[bool | None, Field(description="Skip the execution confirmation prompt")] = None,
     db_path: Annotated[
         str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
     ] = None,
@@ -99,7 +100,7 @@ def aitbc_coin_requests_execute(
     """Execute an approved coin transfer request by submitting a signed transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"assume_yes": "yes"},
         values={"request_id": "request-id"},
     )
     group_options: dict[str, Any] = _collect_options(
@@ -372,6 +373,7 @@ def aitbc_coin_requests_request(
     sender: Annotated[str | None, Field(description="Sender id (defaults to hostname-wallet-suffix).")] = None,
     recipient: Annotated[str | None, Field(description="Recipient agent id.")] = None,
     request_id: Annotated[str | None, Field(description="Request id (defaults to a unique value).")] = None,
+    assume_yes: Annotated[bool | None, Field(description="Skip the auto-execute confirmation prompt")] = None,
     db_path: Annotated[
         str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
     ] = None,
@@ -384,7 +386,7 @@ def aitbc_coin_requests_request(
     """Request a one-time initial coin grant from the hub for a local wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"assume_yes": "yes"},
         values={
             "wallet": "wallet",
             "amount": "amount",
