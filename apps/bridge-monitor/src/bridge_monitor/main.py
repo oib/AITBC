@@ -746,60 +746,86 @@ class BridgeMonitor(BridgeMonitorRuntime):
             return
         logger.info("Retry queue: %s deposit(s) to re-attempt", len(deposits))
         for d in deposits:
-            tx_hash = d["eth_tx_hash"]
-            ait_recipient = d["ait_recipient"]
-            ait_amount_str = d.get("ait_amount")
-            priced_amount = self._reprice_retry_if_needed(d, tx_hash)
-            if priced_amount is None:
-                continue
-            ait_amount_str = priced_amount
-            ait_amount = Decimal(ait_amount_str)
-            if d.get("signed_tx"):
-                # A payout envelope already exists — hand it to the
-                # confirmation sweep. Re-signing would risk a double payout.
-                # CAS (#1839): this flip runs BEFORE the admin lock, so an
-                # operator write-off landing in the snapshot→write window
-                # must win — a lost CAS means the row is already terminal.
-                logger.info("Retry deposit %s already has a signed payout, moving to SUBMITTED", tx_hash)
-                if not update_deposit(
-                    tx_hash,
-                    status=BridgeDepositStatus.SUBMITTED,
-                    expected_statuses={BridgeDepositStatus.PENDING_RETRY},
-                ):
-                    logger.warning("Retry deposit %s not flipped to SUBMITTED — row moved on", tx_hash)
-                continue
-            exceeds, why = self._exceeds_payout_cap(ait_amount)
-            if exceeds:
-                # Same resolution as first-sight over-cap: operator tops up
-                # the float and manual-pays, or refunds.
-                logger.critical(
-                    "ALERT: retry deposit %s payout exceeds per-deposit cap: %s — "
-                    "top up the float and manual-payout, or refund",
-                    tx_hash,
-                    why,
-                )
-                update_deposit(
-                    tx_hash,
-                    status=BridgeDepositStatus.FAILED,
-                    error_message=f"payout exceeds per-deposit cap: {why}",
-                    clear_fields=["next_retry_at"],
-                    expected_statuses={BridgeDepositStatus.PENDING_RETRY},
-                )
-                continue
-            # Same admin-lock serialization as first-sight payouts: the
-            # in-flight probe → signed SUBMITTED row sequence below is
-            # check-then-act and must not interleave with a manual-payout
-            # running under the admin flock. Non-blocking — defer and let
-            # the next cycle retry rather than stall the queue.
-            lock_fd = try_admin_lock()
-            if lock_fd is None:
-                logger.info("Retry deposit %s deferred — admin mutation holds the ledger lock", tx_hash)
-                self._defer_for_slot(tx_hash, reason="admin mutation in progress — payout slot locked")
-                continue
+            # One poisoned row must not abort the queue (#2826): an
+            # uncaught exception here propagates out of the poll cycle and
+            # starves every row behind it AND the SUBMITTED seal sweep —
+            # every cycle, since the same row sorts first again. Contain
+            # per deposit, re-queue it, and keep going.
             try:
-                self._submit_retry_payout(d, tx_hash, ait_recipient, ait_amount)
-            finally:
-                os.close(lock_fd)
+                self._process_retry_deposit(d)
+            except Exception:
+                tx_hash = d.get("eth_tx_hash") if isinstance(d, dict) else None
+                logger.exception("Retry queue: deposit %s failed unexpectedly — skipped this cycle", tx_hash)
+                if tx_hash:
+                    try:
+                        self._mark_for_retry(str(tx_hash), "Unexpected error during retry processing")
+                    except Exception:
+                        logger.exception("Failed to mark retry deposit %s for retry", tx_hash)
+
+    def _process_retry_deposit(self, d: dict) -> None:
+        """Re-attempt one PENDING_RETRY row end to end. Raises on unexpected
+        failure — the caller contains it per row (#2826)."""
+        tx_hash = d["eth_tx_hash"]
+        ait_recipient = d["ait_recipient"]
+        priced_amount = self._reprice_retry_if_needed(d, tx_hash)
+        if priced_amount is None:
+            return
+        try:
+            ait_amount = Decimal(priced_amount)
+            payable = ait_amount.is_finite() and ait_amount > 0
+        except ArithmeticError:
+            payable = False
+        if not payable:
+            # A stored amount_ait that cannot be paid (NaN, sNaN, negative,
+            # non-numeric) is a poisoned row — re-queue it loudly instead
+            # of letting Decimal() or the cap check kill the whole queue.
+            self._mark_for_retry(tx_hash, f"stored amount_ait not payable: {priced_amount!r}")
+            return
+        if d.get("signed_tx"):
+            # A payout envelope already exists — hand it to the
+            # confirmation sweep. Re-signing would risk a double payout.
+            # CAS (#1839): this flip runs BEFORE the admin lock, so an
+            # operator write-off landing in the snapshot→write window
+            # must win — a lost CAS means the row is already terminal.
+            logger.info("Retry deposit %s already has a signed payout, moving to SUBMITTED", tx_hash)
+            if not update_deposit(
+                tx_hash,
+                status=BridgeDepositStatus.SUBMITTED,
+                expected_statuses={BridgeDepositStatus.PENDING_RETRY},
+            ):
+                logger.warning("Retry deposit %s not flipped to SUBMITTED — row moved on", tx_hash)
+            return
+        exceeds, why = self._exceeds_payout_cap(ait_amount)
+        if exceeds:
+            # Same resolution as first-sight over-cap: operator tops up
+            # the float and manual-pays, or refunds.
+            logger.critical(
+                "ALERT: retry deposit %s payout exceeds per-deposit cap: %s — top up the float and manual-payout, or refund",
+                tx_hash,
+                why,
+            )
+            update_deposit(
+                tx_hash,
+                status=BridgeDepositStatus.FAILED,
+                error_message=f"payout exceeds per-deposit cap: {why}",
+                clear_fields=["next_retry_at"],
+                expected_statuses={BridgeDepositStatus.PENDING_RETRY},
+            )
+            return
+        # Same admin-lock serialization as first-sight payouts: the
+        # in-flight probe → signed SUBMITTED row sequence below is
+        # check-then-act and must not interleave with a manual-payout
+        # running under the admin flock. Non-blocking — defer and let
+        # the next cycle retry rather than stall the queue.
+        lock_fd = try_admin_lock()
+        if lock_fd is None:
+            logger.info("Retry deposit %s deferred — admin mutation holds the ledger lock", tx_hash)
+            self._defer_for_slot(tx_hash, reason="admin mutation in progress — payout slot locked")
+            return
+        try:
+            self._submit_retry_payout(d, tx_hash, ait_recipient, ait_amount)
+        finally:
+            os.close(lock_fd)
 
     def _reprice_retry_if_needed(self, d: dict, tx_hash: str) -> str | None:
         """Return the authoritative ait_amount string for a retry row, or
