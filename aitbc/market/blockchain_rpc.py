@@ -25,6 +25,8 @@ from typing import Any, cast
 
 import httpx
 
+from aitbc.utils import quote_path_segment
+
 logger = logging.getLogger(__name__)
 
 
@@ -138,7 +140,7 @@ class BlockchainRPCClient:
         if chain_id:
             params["chain_id"] = chain_id
         async with self._client() as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/gpu/info/{gpu_id}", params=params)
+            resp = await client.get(f"{self._rpc_url}/rpc/gpu/info/{quote_path_segment(gpu_id)}", params=params)
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
@@ -154,7 +156,7 @@ class BlockchainRPCClient:
         if chain_id:
             params["chain_id"] = chain_id
         async with self._client() as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
+            resp = await client.get(f"{self._rpc_url}/rpc/account/{quote_path_segment(address)}", params=params)
             if resp.status_code == 404:
                 return {"balance": 0, "nonce": 0}
             resp.raise_for_status()
@@ -192,7 +194,7 @@ class BlockchainRPCClient:
         if chain_id:
             params["chain_id"] = chain_id
         async with self._client() as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/transaction/{tx_hash}", params=params)
+            resp = await client.get(f"{self._rpc_url}/rpc/transaction/{quote_path_segment(tx_hash)}", params=params)
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
@@ -216,7 +218,7 @@ class BlockchainRPCClient:
         if not path_id:
             raise ValueError("verify_escrow requires job_id (or legacy escrow_id)")
         async with self._client() as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/escrow/{path_id}")
+            resp = await client.get(f"{self._rpc_url}/rpc/escrow/{quote_path_segment(path_id)}")
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
@@ -263,7 +265,7 @@ class BlockchainRPCClient:
             raise ValueError("release_escrow requires job_id")
         async with self._client() as client:
             resp = await client.post(
-                f"{self._rpc_url}/rpc/escrow/{job_id}/release",
+                f"{self._rpc_url}/rpc/escrow/{quote_path_segment(job_id)}/release",
                 json=body,
                 headers=self._settlement_headers(),
             )
@@ -284,7 +286,7 @@ class BlockchainRPCClient:
             raise ValueError("refund_escrow requires job_id")
         async with self._client() as client:
             resp = await client.post(
-                f"{self._rpc_url}/rpc/escrow/{job_id}/refund",
+                f"{self._rpc_url}/rpc/escrow/{quote_path_segment(job_id)}/refund",
                 json=body,
                 headers=self._settlement_headers(),
             )
