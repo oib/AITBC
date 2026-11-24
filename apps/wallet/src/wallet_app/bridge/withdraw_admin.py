@@ -21,6 +21,12 @@ Commands:
                                         pass then proves not_sent and refunds
                                         the AIT automatically (fallback for a
                                         retry that cannot land).
+    refund-retry <ait_tx_hash>           re-issue the AIT refund for a 'failed'
+                                        row — the escape path for a refund the
+                                        monitor could not land (#2917). Dry-run
+                                        by default; --confirm signs and submits
+                                        through the same pending-aware nonce
+                                        lane the monitor uses.
 
 Safety rules (ETH-14):
 - release-retry refuses unless the recorded release is proven failed on TWO
@@ -701,6 +707,56 @@ async def _cmd_mark_review(wdm: Any, db: Any, args: argparse.Namespace) -> int:
     return 0
 
 
+async def _cmd_refund_retry(wdm: Any, db: Any, args: argparse.Namespace) -> int:
+    """Re-issue the AIT refund for a 'failed' withdrawal row (#2917).
+
+    'failed' is the terminal state _refund_withdrawal writes when the refund
+    submission itself fails — the AIT burn is never returned and no other
+    path revisits the row. The retry runs the monitor's own refund lane, so
+    the pending-aware nonce and CAS-on-'failed' guards apply unchanged.
+    """
+    ait_tx_hash = args.ait_tx_hash
+    row = db.get_withdrawal_by_ait_tx_hash(ait_tx_hash)
+    if not row:
+        _emit(f"no withdrawal row {ait_tx_hash}")
+        return 1
+    _print_row(row)
+
+    if row.get("refund_tx_hash"):
+        _emit("refusing: refund already recorded — a retry would double-pay")
+        return 1
+    if row["status"] != "failed":
+        _emit(f"refusing: status={row['status']} — refund-retry only drives 'failed' rows")
+        return 1
+
+    amount_ait = Decimal(str(row["amount_ait"]))
+    recipient = row["from_address"]
+    if not args.confirm:
+        _emit(
+            f"dry-run: would refund {amount_ait} AIT to {recipient} via the pending-aware refund nonce. "
+            "Re-run with --confirm --note '…'."
+        )
+        return 0
+    if not args.note or not args.note.strip():
+        _emit("refusing: --confirm requires --note (a written justification is mandatory)")
+        return 2
+    if not wdm.GENESIS_WALLET_ADDRESS or not wdm.GENESIS_WALLET_PRIVATE_KEY:
+        _emit("refusing: GENESIS_WALLET_ADDRESS/PRIVATE_KEY not configured — the refund sender is unavailable here")
+        return 1
+
+    reason = f"operator refund-retry ({args.operator or getpass.getuser()}): {args.note.strip()}"
+    await wdm._refund_withdrawal(
+        ait_tx_hash,
+        recipient,
+        amount_ait,
+        reason,
+        expected_statuses={"failed"},
+    )
+    after = db.get_withdrawal_by_ait_tx_hash(ait_tx_hash)
+    _emit(f"row status now: {after['status'] if after else 'missing'}")
+    return 0 if after and after["status"] == "refunded" else 1
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="withdraw_admin",
@@ -734,6 +790,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_review.add_argument("--note", default=None, help="reason recorded on the row")
     p_review.add_argument("--operator", default=None, help="recorded operator name (default: current user)")
     p_review.add_argument("--confirm", action="store_true", help="perform the status write")
+
+    p_refund = sub.add_parser("refund-retry", help="re-issue the AIT refund for a 'failed' row (dry-run default)")
+    p_refund.add_argument("ait_tx_hash")
+    p_refund.add_argument("--note", default=None, help="written justification — mandatory with --confirm")
+    p_refund.add_argument("--operator", default=None, help="recorded operator name (default: current user)")
+    p_refund.add_argument("--confirm", action="store_true", help="actually sign and broadcast the refund")
     return parser
 
 
@@ -759,6 +821,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_cmd_release_retry(wdm, db, args))
     if args.command == "mark-review":
         return asyncio.run(_cmd_mark_review(wdm, db, args))
+    if args.command == "refund-retry":
+        return asyncio.run(_cmd_refund_retry(wdm, db, args))
     return 2
 
 
