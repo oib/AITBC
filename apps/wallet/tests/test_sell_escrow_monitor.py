@@ -479,6 +479,58 @@ class TestQuoteAndLockMatching:
         assert row["refund_tx_hash"] == "0x" + "77" * 32
 
     @pytest.mark.asyncio
+    async def test_dust_orphan_lock_parks_below_fee_no_sweep(self, sell_env):
+        """#2890/AUDIT-MONEY-60: a zero/dust-value lock must not trigger a
+        refund sweep that spends the 0.01 AIT sweep fee — it parks terminal
+        'below_fee' for operator review instead of draining the float."""
+        sell_env["transfers"] = [_lock_tx(None, tx_hash="0x" + "be" * 32, height=100, ait=Decimal("0"))]
+        sell_env["chain_height"] = 100
+
+        await sellmon.poll_sells_once()
+        assert get_sell_lock_by_ait_tx_hash("0x" + "be" * 32)["status"] == "orphaned"
+
+        sell_env["transfers"] = []
+        sell_env["chain_height"] = 300  # past SELL_LOCK_ORPHAN_BLOCKS
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "be" * 32)
+        assert row["status"] == "below_fee"
+        assert "sweep fee" in (row["error"] or "")
+        assert not sell_env["ait_sends"]
+
+        # Terminal: the open-status worklist never revisits it.
+        await sellmon.poll_sells_once()
+        assert get_sell_lock_by_ait_tx_hash("0x" + "be" * 32)["status"] == "below_fee"
+        assert not sell_env["ait_sends"]
+
+    @pytest.mark.asyncio
+    async def test_lock_at_fee_boundary_parks_below_fee(self, sell_env):
+        """#2890: amount == sweep fee is still uneconomic (returns X, spends
+        X + fee) — the <= bound parks it too."""
+        sell_env["transfers"] = [_lock_tx(None, tx_hash="0x" + "bf" * 32, height=100, ait=Decimal("0.01"))]
+        sell_env["chain_height"] = 300
+
+        await sellmon.poll_sells_once()
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "bf" * 32)
+        assert row["status"] == "below_fee"
+        assert not sell_env["ait_sends"]
+
+    @pytest.mark.asyncio
+    async def test_lock_above_fee_still_refunded(self, sell_env):
+        """#2890 guard is bounded: a lock worth more than the sweep fee still
+        gets its orphan refund."""
+        sell_env["transfers"] = [_lock_tx(None, tx_hash="0x" + "c0" * 32, height=100, ait=Decimal("0.02"))]
+        sell_env["chain_height"] = 100
+        await sellmon.poll_sells_once()
+
+        sell_env["transfers"] = []
+        sell_env["chain_height"] = 300
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "c0" * 32)
+        assert row["status"] == "refunding"
+        assert len(sell_env["ait_sends"]) == 1
+
+    @pytest.mark.asyncio
     async def test_lock_sender_mismatch_orphans_and_refunds_sender(self, sell_env):
         """A lock paying into a live quote id but sent by a DIFFERENT address
         than the quote's shop_ait_address is orphan-refunded — to the actual

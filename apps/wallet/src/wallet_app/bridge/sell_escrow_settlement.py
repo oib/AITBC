@@ -482,6 +482,29 @@ async def _refund_lock(cfg: SellConfig, row: dict[str, Any], reason: str) -> Non
     and ``_resolve_escrow_sweep`` owns it: sealed → 'refunded'; nonce spent
     by a foreign tx → 'needs_review_sweep'; never a second blind refund.
     """
+    amount_ait = Decimal(str(row["amount_ait"]))
+    if amount_ait <= _sweep_fee_ait():
+        # #2890/AUDIT-MONEY-60: a refund sweep spends _sweep_fee_ait on top
+        # of the returned amount — at/below the fee it can only drain the
+        # escrow's fee float (zero-value spam locks made this a free burn).
+        # Same bound the exchange lane's below_fee mark applies: terminal,
+        # logged once, the escrowed AIT left for operator review.
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "below_fee",
+            error=(
+                f"{reason} — lock {amount_ait} AIT at/below {_sweep_fee_ait()} AIT refund sweep fee; "
+                "escrowed AIT left for operator review"
+            ),
+            expected_statuses={row["status"]},
+        )
+        logger.warning(
+            "Sell lock %s: %s AIT at/below the %s AIT refund sweep fee — no refund sweep; operator review",
+            row["ait_tx_hash"],
+            amount_ait,
+            _sweep_fee_ait(),
+        )
+        return
     try:
         await _escrow_sweep(cfg, row, row["shop_ait_address"], reason, "refunding", "queued_fee_refund")
         return
