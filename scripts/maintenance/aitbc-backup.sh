@@ -708,6 +708,13 @@ else
     warn "This run produced no good snapshot (no nonzero chain_*_chain.db.gz) — pruning skipped entirely"
 fi
 
+# #2933: completion marker, written last — backup-verify.py's newest_set()
+# treats a generation without it and younger than its settle window as
+# still in progress and skips it, so a verify racing a running backup
+# checks the previous complete generation instead of false-FAILing on the
+# half-written one.
+touch "${BACKUP_DIR}/.backup-complete"
+
 KEPT=$(find "${BACKUP_BASE}" -maxdepth 1 -type d | grep -c "^${BACKUP_BASE}/[0-9]" || echo 0)
 log "Retained backup snapshots: ${KEPT}"
 
