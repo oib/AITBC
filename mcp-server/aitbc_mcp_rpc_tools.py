@@ -915,6 +915,27 @@ def register_agent_identity(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def _attach_request_signature(
+    body: dict[str, Any],
+    signature: str | None,
+    timestamp: float | None,
+    nonce: int | None,
+) -> None:
+    """Forward the signed-request fields governance writes require (#2773).
+
+    The node RPC reconstructs and verifies a message over ``action``,
+    ``chain_id``, the canonical-lowercase actor address, ``nonce``,
+    ``timestamp`` and the action's bound fields — callers must supply all
+    three or the route answers 403.
+    """
+    if signature is not None:
+        body["signature"] = signature
+    if timestamp is not None:
+        body["timestamp"] = timestamp
+    if nonce is not None:
+        body["nonce"] = nonce
+
+
 def create_governance_proposal(
     proposal_id: Annotated[
         str,
@@ -952,6 +973,18 @@ def create_governance_proposal(
         str | None,
         Field(description="Chain ID override."),
     ] = None,
+    signature: Annotated[
+        str | None,
+        Field(description="secp256k1 signature over the governance message (required by the route)."),
+    ] = None,
+    timestamp: Annotated[
+        float | None,
+        Field(description="Signing timestamp (freshness window, required with signature)."),
+    ] = None,
+    nonce: Annotated[
+        int | None,
+        Field(description="Signing nonce (required with signature)."),
+    ] = None,
     dry_run: Annotated[
         bool,
         Field(description="Show the command without executing it."),
@@ -987,6 +1020,7 @@ def create_governance_proposal(
         body["execution_payload"] = execution_payload
     if chain_id is not None:
         body["chain_id"] = chain_id
+    _attach_request_signature(body, signature, timestamp, nonce)
     return _http_write_tool(role, host, "blockchain-rpc", "governance/proposal", body, dry_run, confirm, auth="rpc")
 
 
@@ -1016,6 +1050,18 @@ def cast_governance_vote(
         str | None,
         Field(description="Chain ID override."),
     ] = None,
+    signature: Annotated[
+        str | None,
+        Field(description="secp256k1 signature over the governance message (required by the route)."),
+    ] = None,
+    timestamp: Annotated[
+        float | None,
+        Field(description="Signing timestamp (freshness window, required with signature)."),
+    ] = None,
+    nonce: Annotated[
+        int | None,
+        Field(description="Signing nonce (required with signature)."),
+    ] = None,
     dry_run: Annotated[
         bool,
         Field(description="Show the command without executing it."),
@@ -1044,6 +1090,7 @@ def cast_governance_vote(
         body["reason"] = reason
     if chain_id is not None:
         body["chain_id"] = chain_id
+    _attach_request_signature(body, signature, timestamp, nonce)
     return _http_write_tool(role, host, "blockchain-rpc", "governance/vote", body, dry_run, confirm, auth="rpc")
 
 

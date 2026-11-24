@@ -27,12 +27,15 @@ lowercase spelling exactly as before, gated on the
 
 from __future__ import annotations
 
+import json
+import time
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
 from eth_keys import keys
+from eth_utils import keccak
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
@@ -98,6 +101,69 @@ def _proposal(session: Session, proposal_id: str = "p1") -> GovernanceProposal:
     return proposal
 
 
+# --- Signed governance writes (#2773) ---------------------------------------
+#
+# The routes now require the actor address to sign the reconstructed message —
+# action, chain_id, the canonical-lowercase address, nonce, timestamp and the
+# action's bound fields — so these helpers produce real secp256k1 signatures
+# over exactly that dict.
+
+
+def _sign_message(message: dict, key: keys.PrivateKey = VOTER_KEY) -> str:
+    encoded = json.dumps(message, sort_keys=True, separators=(",", ":")).encode()
+    return key.sign_msg_hash(keccak(encoded)).to_hex()
+
+
+def _signed_vote_body(key: keys.PrivateKey = VOTER_KEY, **over) -> dict:
+    body = {
+        "chain_id": CHAIN,
+        "proposal_id": "p1",
+        "voter_address": VOTER,
+        "vote_type": "for",
+        "nonce": 7,
+        "timestamp": time.time(),
+    }
+    body.update(over)
+    body["signature"] = _sign_message(
+        {
+            "action": "voting",
+            "chain_id": CHAIN,
+            "voter_address": VOTER.lower(),
+            "nonce": body["nonce"],
+            "timestamp": body["timestamp"],
+            "proposal_id": body["proposal_id"],
+            "vote_type": body["vote_type"],
+        },
+        key,
+    )
+    return body
+
+
+def _signed_proposal_body(key: keys.PrivateKey = VOTER_KEY, **over) -> dict:
+    body = {
+        "chain_id": CHAIN,
+        "proposal_id": "p-new",
+        "proposer_address": VOTER,
+        "title": "t",
+        "description": "d",
+        "nonce": 3,
+        "timestamp": time.time(),
+    }
+    body.update(over)
+    body["signature"] = _sign_message(
+        {
+            "action": "proposing",
+            "chain_id": CHAIN,
+            "proposer_address": VOTER.lower(),
+            "nonce": body["nonce"],
+            "timestamp": body["timestamp"],
+            "proposal_id": body["proposal_id"],
+        },
+        key,
+    )
+    return body
+
+
 # --- _request_address ------------------------------------------------------
 
 
@@ -120,9 +186,7 @@ def test_request_address_passes_non_addresses_through_lowercased() -> None:
 async def test_vote_route_stores_canonical_voter_address(rpc_db) -> None:
     with Session(rpc_db) as session:
         _proposal(session)
-    result = rpc_staking.cast_governance_vote(
-        Mock(), {"chain_id": CHAIN, "proposal_id": "p1", "voter_address": VOTER.lower(), "vote_type": "for"}
-    )
+    result = rpc_staking.cast_governance_vote(Mock(), _signed_vote_body(voter_address=VOTER.lower()))
     assert result["success"] is True
     assert result["voter_address"] == VOTER
     with Session(rpc_db) as session:
@@ -138,9 +202,7 @@ async def test_vote_route_counts_stakes_of_either_spelling(rpc_db) -> None:
         session.add(Stake(chain_id=CHAIN, address=VOTER, amount=500, locked_until=datetime.now(UTC), status="active"))
         session.add(Stake(chain_id=CHAIN, address=VOTER.lower(), amount=300, locked_until=datetime.now(UTC), status="active"))
         session.commit()
-    result = rpc_staking.cast_governance_vote(
-        Mock(), {"chain_id": CHAIN, "proposal_id": "p1", "voter_address": VOTER.lower(), "vote_type": "for"}
-    )
+    result = rpc_staking.cast_governance_vote(Mock(), _signed_vote_body(voter_address=VOTER.lower()))
     assert result["voting_power"] == 800
 
 
@@ -154,9 +216,7 @@ async def test_lowercase_legacy_row_blocks_canonical_revote(rpc_db) -> None:
         session.add(GovernanceVote(chain_id=CHAIN, proposal_id="p1", voter_address=VOTER.lower(), vote_type="against"))
         session.commit()
     with pytest.raises(HTTPException) as exc:
-        rpc_staking.cast_governance_vote(
-            Mock(), {"chain_id": CHAIN, "proposal_id": "p1", "voter_address": VOTER, "vote_type": "for"}
-        )
+        rpc_staking.cast_governance_vote(Mock(), _signed_vote_body(voter_address=VOTER))
     assert exc.value.status_code == 400
     assert "Already voted" in exc.value.detail
 
@@ -204,3 +264,91 @@ async def test_vote_route_rejects_missing_or_unknown_vote_type(rpc_db) -> None:
         with pytest.raises(HTTPException) as exc:
             rpc_staking.cast_governance_vote(Mock(), body)
         assert exc.value.status_code == 400
+
+
+# --- Signature requirement (#2773) ------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_vote_route_rejects_unsigned_body(rpc_db) -> None:
+    """An API-key holder naming a whale must not inherit its voting power."""
+    from fastapi import HTTPException
+
+    with Session(rpc_db) as session:
+        _proposal(session)
+    body = {
+        "chain_id": CHAIN,
+        "proposal_id": "p1",
+        "voter_address": VOTER,
+        "vote_type": "for",
+        "nonce": 1,
+        "timestamp": time.time(),
+    }
+    with pytest.raises(HTTPException) as exc:
+        rpc_staking.cast_governance_vote(Mock(), body)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_vote_route_rejects_signature_from_other_key(rpc_db) -> None:
+    from fastapi import HTTPException
+
+    with Session(rpc_db) as session:
+        _proposal(session)
+    body = _signed_vote_body(key=keys.PrivateKey(b"\x44" * 32))
+    with pytest.raises(HTTPException) as exc:
+        rpc_staking.cast_governance_vote(Mock(), body)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_vote_route_rejects_stale_timestamp(rpc_db) -> None:
+    """A captured signature expires with the freshness window."""
+    from fastapi import HTTPException
+
+    with Session(rpc_db) as session:
+        _proposal(session)
+    stale = time.time() - (rpc_staking.STAKE_AUTH_MAX_AGE_SECONDS + 60)
+    body = _signed_vote_body(timestamp=stale)
+    with pytest.raises(HTTPException) as exc:
+        rpc_staking.cast_governance_vote(Mock(), body)
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_vote_route_signature_binds_vote_type(rpc_db) -> None:
+    """A signature made for 'for' must not authorize 'against'."""
+    from fastapi import HTTPException
+
+    with Session(rpc_db) as session:
+        _proposal(session)
+    body = _signed_vote_body()
+    body["vote_type"] = "against"  # tamper after signing
+    with pytest.raises(HTTPException) as exc:
+        rpc_staking.cast_governance_vote(Mock(), body)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_proposal_route_requires_signature(rpc_db) -> None:
+    from fastapi import HTTPException
+
+    body = {
+        "chain_id": CHAIN,
+        "proposal_id": "p-unsigned",
+        "proposer_address": VOTER,
+        "title": "t",
+        "nonce": 1,
+        "timestamp": time.time(),
+    }
+    with pytest.raises(HTTPException) as exc:
+        rpc_staking.create_governance_proposal(Mock(), body)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_proposal_route_accepts_valid_signature(rpc_db) -> None:
+    result = rpc_staking.create_governance_proposal(Mock(), _signed_proposal_body())
+    assert result["success"] is True
+    assert result["proposer_address"] == VOTER
+    assert result["proposal_id"] == "p-new"
