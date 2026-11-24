@@ -200,6 +200,149 @@ class EscrowReleaseRelayService(EscrowRelayService):
             "duplicate": True,
         }
 
+    @staticmethod
+    def _chain_release_settled(chain_response: Any) -> bool:
+        """True only for a chain answer that proves the release settled.
+
+        ``success: true`` alone is not proof — the dedup row replays
+        ``success: true`` forever, so a response without a transaction hash
+        (absent ``success``, ``success: null``, a proxy error body) must not
+        become one (#2813).
+        """
+        return (
+            isinstance(chain_response, dict) and chain_response.get("success") is True and bool(chain_response.get("tx_hash"))
+        )
+
+    def _dedup_replay(self, existing: EscrowReleaseRelay | None) -> dict[str, Any] | None:
+        """Stored result for a trustworthy dedup row; None means re-drive.
+
+        A row is replayed as-is only when it carries a tx_hash — the chain
+        may still be sealing that transaction, so re-driving is pointless.
+        A hashless row falls through either way: on a released escrow the
+        caller heals it from chain state, on an unreleased one it is a
+        wedge recorded before tx_hash verification (#2813) and the release
+        re-drives.
+        """
+        if existing is not None and existing.tx_hash:
+            return self._stored_result(existing)
+        return None
+
+    def _fill_dedup_row(self, row: EscrowReleaseRelay, *, tx_hash: Any, contract_id: Any) -> None:
+        """Heal a dedup row recorded without a tx_hash once the release verifies."""
+        row.tx_hash = tx_hash
+        row.contract_id = contract_id
+        self.session.add(row)
+        self.session.commit()
+
+    async def _record_settled_release(
+        self,
+        client_id: str,
+        job_id: str,
+        escrow: dict[str, Any],
+        existing: EscrowReleaseRelay | None,
+    ) -> dict[str, Any]:
+        """Record (or heal) the dedup row for an escrow already released on-chain."""
+        tx_hash = escrow.get("release_tx_hash")
+        contract_id = escrow.get("contract_id")
+        if existing is not None:
+            await run_in_threadpool(self._fill_dedup_row, existing, tx_hash=tx_hash, contract_id=contract_id)
+            return self._stored_result(existing)
+        row = EscrowReleaseRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
+        stored = await run_in_threadpool(self._insert_or_existing, row)
+        return self._stored_result(stored if stored is not None else row)
+
+    async def _ambiguous_release_result(
+        self,
+        client: AsyncAITBCHTTPClient,
+        client_id: str,
+        job_id: str,
+        chain_response: Any,
+        existing: EscrowReleaseRelay | None,
+    ) -> dict[str, Any]:
+        """Handle a chain answer that is not a verified settle.
+
+        Re-reads the escrow: if the release landed anyway (ambiguous
+        post-send failure, ``success`` absent), record the dedup row from
+        the on-chain state. Otherwise return a retryable failure — no dedup
+        row, so the next request re-attempts the chain call (#2813).
+        """
+        logger.warning(
+            "Escrow release answer not a verified settle: client_id=%s job_id=%s response=%r",
+            client_id,
+            job_id,
+            chain_response,
+        )
+        escrow_now = await self._fetch_escrow(client, job_id)
+        if escrow_now.get("state") == "released" or escrow_now.get("released_at"):
+            return await self._record_settled_release(client_id, job_id, escrow_now, existing)
+        failure: dict[str, Any] = dict(chain_response) if isinstance(chain_response, dict) else {}
+        failure["success"] = False
+        failure["duplicate"] = False
+        return failure
+
+    async def _release_answer_result(
+        self,
+        client: AsyncAITBCHTTPClient,
+        client_id: str,
+        job_id: str,
+        chain_response: Any,
+        existing: EscrowReleaseRelay | None,
+    ) -> dict[str, Any]:
+        """Turn the chain's release answer into the relay result.
+
+        Only a verified settle (``success: true`` + tx_hash) records the
+        dedup row; anything else re-checks the escrow on-chain or returns
+        a retryable failure (#2813).
+        """
+        if not self._chain_release_settled(chain_response):
+            return await self._ambiguous_release_result(client, client_id, job_id, chain_response, existing)
+
+        tx_hash = chain_response["tx_hash"]
+        contract_id = chain_response.get("contract_id")
+        stored = await self._record_relay_row(client_id, job_id, tx_hash, contract_id, existing)
+        if stored is not None:
+            if stored.tx_hash:
+                # Concurrent identical release: the row landed first — the chain
+                # call may or may not have sealed; return the stored result.
+                return self._stored_result(stored)
+            # A concurrent wedge row (no tx_hash) won the insert — heal it
+            # with the verified hash and return this call's fresh result.
+            await run_in_threadpool(self._fill_dedup_row, stored, tx_hash=tx_hash, contract_id=contract_id)
+        # Audit: one line per relay — client, job and the tx, never payload detail.
+        logger.info(
+            "Escrow release relayed: client_id=%s job_id=%s contract_id=%s tx_hash=%s",
+            client_id,
+            job_id,
+            contract_id,
+            tx_hash,
+        )
+        result: dict[str, Any] = dict(chain_response)
+        result["success"] = True
+        result["contract_id"] = contract_id
+        result["tx_hash"] = tx_hash
+        result["duplicate"] = False
+        return result
+
+    async def _record_relay_row(
+        self,
+        client_id: str,
+        job_id: str,
+        tx_hash: Any,
+        contract_id: Any,
+        existing: EscrowReleaseRelay | None,
+    ) -> EscrowReleaseRelay | None:
+        """Persist the dedup row for a verified release.
+
+        Returns the concurrently-stored row when another request won the
+        insert (caller replays it), or None when this call's row is the
+        record — including the healed pre-existing wedge row.
+        """
+        if existing is not None:
+            await run_in_threadpool(self._fill_dedup_row, existing, tx_hash=tx_hash, contract_id=contract_id)
+            return None
+        row = EscrowReleaseRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
+        return await run_in_threadpool(self._insert_or_existing, row)
+
     def _insert_or_existing(self, row: EscrowReleaseRelay) -> EscrowReleaseRelay | None:
         """Insert *row*; on a concurrent duplicate insert return the stored row instead.
 
@@ -252,28 +395,27 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 )
             await run_in_threadpool(self._check_buyer_binding, client_id, buyer)
 
+        state = escrow.get("state")
+        settled_on_chain = state == "released" or bool(escrow.get("released_at"))
+
         # Dedup: a prior relay row settles the job — return it without a
-        # chain call so a replayed request can never double-release.
+        # chain call so a replayed request can never double-release. The
+        # escrow state was fetched fresh above, so a row is only replayed
+        # when it carries a tx_hash or the escrow verifies released now;
+        # a hashless row on an unreleased escrow is a wedge and re-drives.
         existing: EscrowReleaseRelay | None = await run_in_threadpool(
             lambda: (
                 self.session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == job_id)).scalars().first()
             )
         )
-        if existing is not None:
-            return self._stored_result(existing)
+        replay = self._dedup_replay(existing)
+        if replay is not None:
+            return replay
 
-        state = escrow.get("state")
-        if state == "released" or escrow.get("released_at"):
+        if settled_on_chain:
             # Already settled on-chain: record the outcome and return it —
             # a second release POST is unnecessary and unsafe to repeat.
-            row = EscrowReleaseRelay(
-                client_id=client_id,
-                job_id=job_id,
-                tx_hash=escrow.get("release_tx_hash"),
-                contract_id=escrow.get("contract_id"),
-            )
-            stored = await run_in_threadpool(self._insert_or_existing, row)
-            return self._stored_result(stored if stored is not None else row)
+            return await self._record_settled_release(client_id, job_id, escrow, existing)
         if state == "refunded" or escrow.get("refunded_at"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -285,40 +427,4 @@ class EscrowReleaseRelayService(EscrowRelayService):
             forward["job_tx_hash"] = job_tx_hash
 
         chain_response = await self._post_release(client, job_id, forward)
-
-        if isinstance(chain_response, dict) and chain_response.get("success") is False:
-            # The chain rolled the release back (unsettled): recording a
-            # dedup row would replay success:true with a null tx_hash on
-            # every retry and wedge the escrow lock. Return the failure so
-            # a fresh request re-attempts the chain call.
-            logger.warning(
-                "Escrow release unsettled on-chain: client_id=%s job_id=%s; no relay row recorded",
-                client_id,
-                job_id,
-            )
-            failure: dict[str, Any] = dict(chain_response)
-            failure["duplicate"] = False
-            return failure
-
-        tx_hash = chain_response.get("tx_hash") if isinstance(chain_response, dict) else None
-        contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
-        row = EscrowReleaseRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
-        stored = await run_in_threadpool(self._insert_or_existing, row)
-        if stored is not None:
-            # Concurrent identical release: the row landed first — the chain
-            # call may or may not have sealed; return the stored result.
-            return self._stored_result(stored)
-        # Audit: one line per relay — client, job and the tx, never payload detail.
-        logger.info(
-            "Escrow release relayed: client_id=%s job_id=%s contract_id=%s tx_hash=%s",
-            client_id,
-            job_id,
-            contract_id,
-            tx_hash,
-        )
-        result: dict[str, Any] = dict(chain_response) if isinstance(chain_response, dict) else {}
-        result.setdefault("success", True)
-        result["contract_id"] = contract_id
-        result["tx_hash"] = tx_hash
-        result["duplicate"] = bool(result.get("duplicate", False))
-        return result
+        return await self._release_answer_result(client, client_id, job_id, chain_response, existing)

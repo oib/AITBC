@@ -173,3 +173,112 @@ class TestRefundUnsettled:
             assert third.status_code == 200, third.text
             assert third.json()["duplicate"] is True
             assert mock_client.post.await_count == 2
+
+
+class TestReleaseAmbiguousAnswer:
+    """#2813: only a verified settle (success:true + tx_hash) may become a
+    dedup row. Absent/malformed success re-checks the escrow on-chain and
+    stays retryable; a landed release is recorded from chain state."""
+
+    def test_absent_success_records_no_row_and_retry_reattempts(self, client, db_session):
+        headers = _actor(db_session, "u-amb-1")
+        mock_client = _chain_client(
+            _escrow("job_a1"),
+            [
+                {"detail": "upstream hiccup"},
+                {"success": True, "tx_hash": "0xrel_ok", "contract_id": "0xc1"},
+            ],
+        )
+        with _release_patch() as cls:
+            cls.return_value = mock_client
+            first = client.post("/v1/escrow/release", json={"job_id": "job_a1"}, headers=headers)
+            assert first.status_code == 200, first.text
+            assert first.json()["success"] is False
+            assert db_session.execute(select(EscrowReleaseRelay)).scalars().all() == []
+
+            second = client.post("/v1/escrow/release", json={"job_id": "job_a1"}, headers=headers)
+            assert second.status_code == 200, second.text
+            assert second.json()["success"] is True
+            assert second.json()["tx_hash"] == "0xrel_ok"
+            rows = db_session.execute(select(EscrowReleaseRelay)).scalars().all()
+            assert len(rows) == 1 and rows[0].tx_hash == "0xrel_ok"
+
+    def test_success_true_without_tx_hash_is_retryable(self, client, db_session):
+        headers = _actor(db_session, "u-amb-2")
+        mock_client = _chain_client(
+            _escrow("job_a2"),
+            [
+                {"success": True, "contract_id": "0xc1"},
+                {"success": True, "tx_hash": "0xrel_ok", "contract_id": "0xc1"},
+            ],
+        )
+        with _release_patch() as cls:
+            cls.return_value = mock_client
+            first = client.post("/v1/escrow/release", json={"job_id": "job_a2"}, headers=headers)
+            assert first.status_code == 200, first.text
+            assert first.json()["success"] is False
+            assert db_session.execute(select(EscrowReleaseRelay)).scalars().all() == []
+
+    def test_ambiguous_answer_but_escrow_released_records_from_chain(self, client, db_session):
+        headers = _actor(db_session, "u-amb-3")
+        released = _escrow("job_a3")
+        released.update({"state": "released", "released_at": "2026-11-24T00:00:00+00:00", "release_tx_hash": "0xchain_rel"})
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = [_escrow("job_a3"), released]
+        mock_client.post.return_value = {"detail": "ambiguous"}
+        with _release_patch() as cls:
+            cls.return_value = mock_client
+            resp = client.post("/v1/escrow/release", json={"job_id": "job_a3"}, headers=headers)
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+            assert body["success"] is True
+            assert body["tx_hash"] == "0xchain_rel"
+            rows = db_session.execute(select(EscrowReleaseRelay)).scalars().all()
+            assert len(rows) == 1 and rows[0].tx_hash == "0xchain_rel"
+
+
+class TestHashlessDedupRow:
+    """#2813: a dedup row recorded without tx_hash (pre-fix wedge) must not
+    replay success forever — it re-drives the release and heals."""
+
+    def _hashless_row(self, db_session: Session, job_id: str) -> None:
+        db_session.add(EscrowReleaseRelay(client_id="u-wedge", job_id=job_id, tx_hash=None))
+        db_session.commit()
+
+    def test_hashless_row_redrives_and_heals(self, client, db_session):
+        headers = _actor(db_session, "u-wedge-1")
+        self._hashless_row(db_session, "job_w1")
+        mock_client = _chain_client(
+            _escrow("job_w1"),
+            [{"success": True, "tx_hash": "0xnew_rel", "contract_id": "0xc1"}],
+        )
+        with _release_patch() as cls:
+            cls.return_value = mock_client
+            resp = client.post("/v1/escrow/release", json={"job_id": "job_w1"}, headers=headers)
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+            assert body["success"] is True
+            assert body["tx_hash"] == "0xnew_rel"
+            assert body["duplicate"] is False
+            row = db_session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == "job_w1")).scalars().one()
+            assert row.tx_hash == "0xnew_rel"
+            # Next replay returns the healed stored row without a chain POST.
+            again = client.post("/v1/escrow/release", json={"job_id": "job_w1"}, headers=headers)
+            assert again.json()["duplicate"] is True
+            assert again.json()["tx_hash"] == "0xnew_rel"
+            assert mock_client.post.await_count == 1
+
+    def test_hashless_row_on_released_escrow_heals_from_chain(self, client, db_session):
+        headers = _actor(db_session, "u-wedge-2")
+        self._hashless_row(db_session, "job_w2")
+        released = _escrow("job_w2")
+        released.update({"state": "released", "released_at": "2026-11-24T00:00:00+00:00", "release_tx_hash": "0xchain_rel"})
+        mock_client = _chain_client(released, [])
+        with _release_patch() as cls:
+            cls.return_value = mock_client
+            resp = client.post("/v1/escrow/release", json={"job_id": "job_w2"}, headers=headers)
+            assert resp.status_code == 200, resp.text
+            assert resp.json()["tx_hash"] == "0xchain_rel"
+            row = db_session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == "job_w2")).scalars().one()
+            assert row.tx_hash == "0xchain_rel"
+            assert mock_client.post.await_count == 0
