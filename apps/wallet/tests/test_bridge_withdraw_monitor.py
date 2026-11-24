@@ -2025,3 +2025,68 @@ class TestShallowRevertedReceipt:
         assert second["failed"] == 1
         assert len(refunded) == 1
         assert get_withdrawal_by_ait_tx_hash("0x" + "b8" * 32)["status"] == "refunded"
+
+class TestMempoolPendingCanonical:
+    """#2920: the canonical re-check treated a mempool-pending view
+    (``state: "pending"``, no sealed status) the same as a failed leg —
+    terminal 'orphaned'. A reorged-out withdraw that later re-seals then
+    loses its payout forever. Pending must keep the row rechecking."""
+
+    @pytest.mark.asyncio
+    async def test_pending_canonical_view_parks_awaiting_depth(self, monitor_env, monkeypatch):
+        tx = TestWithdrawSealDepth()._tx(1, 50)
+
+        async def _pending(h):
+            # The #2457 pending view: pooled envelope, no sealed fields.
+            return {"tx_hash": tx["tx_hash"], "state": "pending"}
+
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _pending)
+        outcome = await monitor_env._process_withdrawal(tx, head_height=100)
+
+        assert outcome == "awaiting_depth"
+        row = get_withdrawal_by_ait_tx_hash(tx["tx_hash"])
+        assert row["status"] == "awaiting_depth"
+        assert "mempool-pending" in (row["error"] or "")
+
+    @pytest.mark.asyncio
+    async def test_drain_keeps_pending_row_waiting_then_releases(self, monitor_env, monkeypatch):
+        """An awaiting_depth row whose canonical view is mempool-pending
+        stays put; once the tx re-seals deep enough it releases."""
+        released = TestWithdrawSealDepth()._wire_poll(monitor_env, monkeypatch, head=200)
+        ait = f"0x{9:064x}"
+        insert_withdrawal(
+            ait_tx_hash=ait,
+            from_address="0x" + "11" * 20,
+            eth_address="0x" + "22" * 20,
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal("0"),
+            net_ait=Decimal("1"),
+            amount_eth=Decimal("0"),
+            status="awaiting_depth",
+            ait_block_height=190,
+            ait_block_hash="0x" + "ab" * 32,
+        )
+        view = {"mode": "pending"}
+
+        async def _canonical(h):
+            if view["mode"] == "pending":
+                return {"tx_hash": ait, "state": "pending"}
+            return {"block_height": 190, "block_hash": "0x" + "ab" * 32, "status": "confirmed"}
+
+        async def _fetch(before_id=None):
+            return []
+
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+
+        drained = await monitor_env._drain_awaiting_depth(200)
+        assert drained["still_waiting"] == 1
+        assert drained["orphaned"] == 0
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "awaiting_depth"
+        assert released == []
+
+        # The tx re-seals — the next drain promotes and releases it.
+        view["mode"] = "sealed"
+        await monitor_env._drain_awaiting_depth(200)
+        assert len(released) == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
