@@ -801,6 +801,23 @@ def tx_sealed_confirmed(tx: dict[str, Any]) -> bool:
     return tx.get("block_height") is not None and (tx.get("status") or "") == "confirmed"
 
 
+def canonical_recheck_verdict(canonical: dict[str, Any] | None) -> tuple[str, str | None]:
+    """#2920: classify the canonical re-check view before release.
+
+    Returns ``("orphaned", reason)`` when the tx provably left the chain or
+    its AIT leg failed, ``("pending", None)`` for the mempool-pending view
+    (``state == 'pending'``, no sealed status — pooled but unsealed, a
+    reorged-out withdraw awaiting re-seal), and ``("confirmed", None)``
+    when the sealed canonical row may proceed to the depth check."""
+    if canonical is None:
+        return "orphaned", "withdraw tx no longer sealed in the canonical chain — the reorg un-burned the AIT"
+    if canonical.get("state") == "pending" or (canonical.get("status") or "") == "pending":
+        return "pending", None
+    if (canonical.get("status") or "") != "confirmed":
+        return "orphaned", f"canonical AIT leg status {canonical.get('status')!r} — the burn never applied"
+    return "confirmed", None
+
+
 async def _fetch_withdraw_tx(ait_tx_hash: str) -> dict[str, Any] | None:
     """Canonical view of a BRIDGE_WITHDRAW tx, or None if the chain no longer seals it."""
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -896,7 +913,10 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
     # Canonical re-check just before release: between the page fetch and now
     # the tx may have reorged to a different block — or off the chain entirely.
     canonical = await _fetch_withdraw_tx(ait_tx_hash)
-    if canonical is None:
+    verdict, orphan_reason = canonical_recheck_verdict(canonical)
+    if verdict == "orphaned":
+        # #1916: height alone is not proof value moved — a vanished or
+        # failed-sealed AIT leg orphans the row; no ETH, no refund.
         insert_withdrawal(
             ait_tx_hash=ait_tx_hash,
             from_address=sender,
@@ -906,15 +926,17 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
             net_ait=gross_ait,
             amount_eth=Decimal("0"),
             status="orphaned",
-            error="withdraw tx no longer sealed in the canonical chain — the reorg un-burned the AIT",
+            error=orphan_reason,
             ait_block_height=block_height,
             ait_block_hash=block_hash,
         )
-        logger.error("Withdrawal %s orphaned before release — no ETH sent, no refund needed", ait_tx_hash)
+        logger.error("Withdrawal %s orphaned before release — %s", ait_tx_hash, orphan_reason)
         return "orphaned"
-    if (canonical.get("status") or "") != "confirmed":
-        # #1916: the canonical row says the AIT leg failed — height alone is
-        # not proof value moved. Orphan, never release, never refund.
+    if verdict == "pending":
+        # #2920: the canonical lookup found the tx pooled but unsealed — a
+        # reorged-out withdraw awaiting re-seal, not a dead one. Park it at
+        # awaiting_depth so the drain rechecks; 'orphaned' here would lose
+        # the payout forever when the tx re-seals.
         insert_withdrawal(
             ait_tx_hash=ait_tx_hash,
             from_address=sender,
@@ -923,15 +945,16 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
             fee_ait=Decimal("0"),
             net_ait=gross_ait,
             amount_eth=Decimal("0"),
-            status="orphaned",
-            error=f"canonical AIT leg status {canonical.get('status')!r} — the burn never applied",
-            ait_block_height=block_height,
-            ait_block_hash=block_hash,
+            status="awaiting_depth",
+            error="canonical view is mempool-pending — awaiting re-seal",
+            ait_block_height=None,
+            ait_block_hash=None,
         )
-        logger.error("Withdrawal %s orphaned before release — canonical status %r", ait_tx_hash, canonical.get("status"))
-        return "orphaned"
-    canon_height = canonical.get("block_height")
-    canon_hash = canonical.get("block_hash")
+        return "awaiting_depth"
+    # verdict == "confirmed" implies a sealed view; the guards keep mypy
+    # honest without an assert (banned in production code).
+    canon_height = canonical.get("block_height") if canonical else None
+    canon_hash = canonical.get("block_hash") if canonical else None
     if canon_height != block_height or (canon_hash and block_hash and canon_hash != block_hash):
         # Re-sealed in a different block — restart the depth wait on the
         # canonical position rather than trusting the reorged page row.
@@ -1363,29 +1386,27 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
         ait_tx_hash = row["ait_tx_hash"]
         try:
             canonical = await _fetch_withdraw_tx(ait_tx_hash)
-            if canonical is None:
+            verdict, orphan_reason = canonical_recheck_verdict(canonical)
+            if verdict == "orphaned":
+                # #1916: a vanished or failed-sealed canonical leg — the
+                # burn never applied; orphan, never release, never refund.
                 update_withdrawal_status(
                     ait_tx_hash,
                     "orphaned",
-                    error="withdraw tx no longer sealed in the canonical chain — the reorg un-burned the AIT",
+                    error=orphan_reason,
                     expected_statuses={row["status"]},
                 )
                 drained["orphaned"] += 1
-                logger.error("Withdrawal %s orphaned — its block left the canonical chain", ait_tx_hash)
+                logger.error("Withdrawal %s orphaned — %s", ait_tx_hash, orphan_reason)
                 continue
-            if (canonical.get("status") or "") != "confirmed":
-                # #1916: failed-sealed canonical leg — the burn never applied.
-                update_withdrawal_status(
-                    ait_tx_hash,
-                    "orphaned",
-                    error=f"canonical AIT leg status {canonical.get('status')!r} — the burn never applied",
-                    expected_statuses={row["status"]},
-                )
-                drained["orphaned"] += 1
-                logger.error("Withdrawal %s orphaned — canonical status %r", ait_tx_hash, canonical.get("status"))
+            if verdict == "pending":
+                # #2920: pooled but unsealed — a reorged-out tx awaiting
+                # re-seal; keep waiting, never orphan a live payout.
+                drained["still_waiting"] += 1
                 continue
-            canon_height = canonical.get("block_height")
-            canon_hash = canonical.get("block_hash")
+            # verdict == "confirmed" implies a sealed view.
+            canon_height = canonical.get("block_height") if canonical else None
+            canon_hash = canonical.get("block_hash") if canonical else None
             if canon_height != row["ait_block_height"] or (
                 canon_hash and row["ait_block_hash"] and canon_hash != row["ait_block_hash"]
             ):
