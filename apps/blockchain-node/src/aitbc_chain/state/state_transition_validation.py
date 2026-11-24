@@ -195,7 +195,7 @@ class _ValidationMixin(_ValidationGpuMixin):
             try:
                 if "value" in ctx.tx_data and int(ctx.value) != int(ctx.tx_data["amount"]):
                     return (False, "transaction value must equal signed amount")
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 return (False, "transaction value/amount must be integers")
         ctx.tx_record = ctx.session.exec(
             select(Transaction).where(Transaction.chain_id == ctx.chain_id, Transaction.tx_hash == ctx.tx_hash)
@@ -218,6 +218,31 @@ class _ValidationMixin(_ValidationGpuMixin):
                 )
             except ValueError as e:
                 return (False, str(e))
+        return None
+
+    def _vt_finite_amounts(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        """v31 (#2789): ``value``/``fee``/``amount`` must be JSON integers.
+
+        ``ctx.value``/``ctx.fee`` are read raw from ``tx_data`` in
+        ``_vt_prepare``; a float NaN survives every downstream ``<0`` /
+        ``>MAX`` / ``balance < cost`` comparison (all False for NaN), then
+        ``balance ± NaN`` binds NULL through sqlite3 and silently NULLs the
+        account balance column — and ``Infinity`` raises OverflowError
+        inside ``int()``. Strict ``int`` (``bool`` excluded) closes both:
+        ``normalize_transaction_data`` already emits int ``value``/``fee``/
+        ``amount`` for every mempool-admitted tx, so no legitimate sealed
+        shape is refused. Below v31 the rules are unchanged so historical
+        blocks replay identically.
+        """
+        if ctx.block_version < 31:
+            return None
+        for field, raw in (("value", ctx.value), ("fee", ctx.fee)):
+            if not isinstance(raw, int) or isinstance(raw, bool):
+                return (False, f"transaction {field} must be an integer")
+        if "amount" in ctx.tx_data:
+            amount = ctx.tx_data["amount"]
+            if not isinstance(amount, int) or isinstance(amount, bool):
+                return (False, "transaction amount must be an integer")
         return None
 
     def _vt_protocol_auth_replay(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:

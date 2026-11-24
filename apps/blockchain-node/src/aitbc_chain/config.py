@@ -320,6 +320,17 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # pin fleet-wide only after every validator runs the code, since a
     # mixed set would apply different rules and fork.
     state_transition_v30_height: int | None = None
+    # v31 (#2789 AUDIT-CHAIN-TX-NAN-VALUE-1): at or above this height a
+    # transaction's ``value``, ``fee`` — and ``amount`` when present — must
+    # be JSON integers (``bool`` excluded). NaN survives every ``<0`` /
+    # ``>MAX`` / balance comparison (all False), then ``balance ± NaN``
+    # binds NULL through sqlite3 and silently NULLs account balances;
+    # ``Infinity`` escapes ``int()`` as OverflowError inside validation.
+    # Below the height the rules are unchanged so historical blocks replay
+    # identically. ``None`` (the default) keeps the rung dormant: pin
+    # fleet-wide only after every validator runs the code, since a mixed
+    # set would apply different rules and fork.
+    state_transition_v31_height: int | None = None
     # #2257: node-local reconciler for stale ``pending`` bridge transfer rows.
     # Bookkeeping only (no tx, no consensus effect). Off by default; with
     # ``dry_run`` on (default) it only logs what it would change.
