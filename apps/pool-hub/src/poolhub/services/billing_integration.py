@@ -18,7 +18,7 @@ from aitbc.async_tasks import create_task_with_logging
 from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
-from ..models import MatchRequest, MatchResult, Miner
+from ..models import MatchResult, Miner
 from ..settings import settings
 
 logger = get_logger(__name__)
@@ -194,15 +194,22 @@ class BillingIntegration:
                     "details": [],
                 }
 
-            # Batch 1: API call counts (global, not per-miner — MatchRequest has no miner_id)
-            count_stmt = select(func.count(MatchRequest.id)).where(
-                and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
-            )
-            total_api_calls = (await self.db.execute(count_stmt)).scalar() or 0
-
-            # Batch 2: Match results for all miners in one query
-            result_stmt = (
-                select(MatchResult)
+            # Batch 2: per-miner aggregates in SQL — one GROUP BY row per miner,
+            # never the raw MatchResult rows (#2866: the old select() materialized
+            # every result in the window and summed eta_ms in Python).
+            #
+            # api_calls attribution (#2866): MatchRequest has no miner_id, so the
+            # old code billed EVERY miner an equal share of the GLOBAL request
+            # count. A miner's honest share is the match requests it actually
+            # appeared in — COUNT(DISTINCT request_id) over its MatchResult rows.
+            # SUM(eta_ms) skips NULLs exactly like the old Python `or 0` sum, so
+            # the eta_ms.is_not(None) filter is no longer needed.
+            agg_stmt = (
+                select(
+                    MatchResult.miner_id,
+                    func.coalesce(func.sum(MatchResult.eta_ms), 0).label("compute_ms"),
+                    func.count(func.distinct(MatchResult.request_id)).label("api_calls"),
+                )
                 .where(
                     and_(
                         MatchResult.miner_id.in_(miner_ids),
@@ -210,16 +217,16 @@ class BillingIntegration:
                         MatchResult.created_at <= end_date,
                     )
                 )
-                # is_not, not isnot_ (V23-97) — see _collect_miner_usage below.
-                .where(MatchResult.eta_ms.is_not(None))
+                .group_by(MatchResult.miner_id)
             )
-            all_results = (await self.db.execute(result_stmt)).scalars().all()
+            agg_rows = (await self.db.execute(agg_stmt)).all()
 
         # Group by miner_id and aggregate (outside the transaction — pure computation)
         compute_ms_by_miner: dict[str, int] = {}
-        for r in all_results:
-            compute_ms_by_miner[r.miner_id] = compute_ms_by_miner.get(r.miner_id, 0) + (r.eta_ms or 0)
-        api_calls_per_miner = Decimal(str(total_api_calls)) / Decimal(str(len(miner_ids)))
+        api_calls_by_miner: dict[str, int] = {}
+        for miner_id_col, compute_ms, api_calls in agg_rows:
+            compute_ms_by_miner[miner_id_col] = int(compute_ms or 0)
+            api_calls_by_miner[miner_id_col] = int(api_calls or 0)
 
         results: dict[str, Any] = {
             "sync_period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
@@ -236,7 +243,9 @@ class BillingIntegration:
                 gpu_hours = compute_hours * Decimal("1.5")
                 usage_data = {
                     "gpu_hours": gpu_hours,
-                    "api_calls": api_calls_per_miner,
+                    # #2866: per-miner attributed count — requests this miner
+                    # appeared in, not an equal split of the global total.
+                    "api_calls": Decimal(str(api_calls_by_miner.get(miner_id, 0))),
                     "compute_hours": compute_hours,
                 }
                 sync_details = []
@@ -280,28 +289,25 @@ class BillingIntegration:
     async def _collect_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, Decimal]:
         """Collect usage data for a miner from pool-hub"""
         usage_data: dict[str, Decimal] = {"gpu_hours": Decimal("0"), "api_calls": Decimal("0"), "compute_hours": Decimal("0")}
-        count_stmt = select(func.count(MatchRequest.id)).where(
-            and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
-        )
-        api_calls = (await self.db.execute(count_stmt)).scalar() or 0
-        usage_data["api_calls"] = Decimal(str(api_calls))
-        result_stmt = (
-            select(MatchResult)
-            .where(
-                and_(
-                    MatchResult.miner_id == miner_id, MatchResult.created_at >= start_date, MatchResult.created_at <= end_date
-                )
+        # #2866: one aggregate row — SQL SUM/GROUP BY semantics, no row
+        # materialization. api_calls counts the distinct match requests this
+        # miner appeared in (MatchRequest itself has no miner_id, so the old
+        # code billed the miner for EVERY request in the window).
+        agg_stmt = select(
+            func.coalesce(func.sum(MatchResult.eta_ms), 0),
+            func.count(func.distinct(MatchResult.request_id)),
+        ).where(
+            and_(
+                MatchResult.miner_id == miner_id,
+                MatchResult.created_at >= start_date,
+                MatchResult.created_at <= end_date,
             )
-            # is_not, not isnot_ (V23-97).  `isnot_` is not a SQLAlchemy operator, so
-            # every billing sync raised AttributeError here before touching the database.
-            .where(MatchResult.eta_ms.is_not(None))
         )
-        results = (await self.db.execute(result_stmt)).scalars().all()
-        total_compute_time_ms = sum(r.eta_ms for r in results if r.eta_ms)
-        compute_hours = Decimal(str(total_compute_time_ms)) / Decimal("1000") / Decimal("3600") if results else Decimal("0")
+        total_compute_time_ms, api_calls = (await self.db.execute(agg_stmt)).one()
+        compute_hours = Decimal(str(int(total_compute_time_ms or 0))) / Decimal("1000") / Decimal("3600")
         usage_data["compute_hours"] = compute_hours
-        gpu_hours = compute_hours * Decimal("1.5")
-        usage_data["gpu_hours"] = gpu_hours
+        usage_data["gpu_hours"] = compute_hours * Decimal("1.5")
+        usage_data["api_calls"] = Decimal(str(int(api_calls or 0)))
         return usage_data
 
     async def _send_billing_event(self, billing_event: dict[str, Any]) -> dict[str, Any]:
