@@ -13,7 +13,7 @@ import uuid
 from collections.abc import Collection
 from contextlib import closing
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -263,6 +263,7 @@ def init_db() -> None:
                 tx_hash       TEXT PRIMARY KEY,
                 to_address    TEXT NOT NULL,
                 value_eth     NUMERIC NOT NULL,
+                value_wei     INTEGER,
                 gas_wei       INTEGER,
                 block_height  INTEGER NOT NULL,
                 kind          TEXT NOT NULL,
@@ -271,6 +272,18 @@ def init_db() -> None:
                 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # value_wei is the exact integer leg; value_eth's NUMERIC affinity
+        # stores REAL, so sub-wei precision is already gone there (#2927).
+        cursor.execute("PRAGMA table_info(bridge_outbound)")
+        outbound_columns = {row[1] for row in cursor.fetchall()}
+        if "value_wei" not in outbound_columns:
+            try:
+                cursor.execute("ALTER TABLE bridge_outbound ADD COLUMN value_wei INTEGER")
+            except sqlite3.OperationalError:
+                cursor.execute("PRAGMA table_info(bridge_outbound)")
+                if "value_wei" not in {row[1] for row in cursor.fetchall()}:
+                    raise
 
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_eth_deposits_tx_hash ON eth_deposits(tx_hash)
@@ -750,13 +763,14 @@ def record_outbound(
         cursor.execute(
             """
             INSERT OR IGNORE INTO bridge_outbound
-            (tx_hash, to_address, value_eth, gas_wei, block_height, kind, matched_deposit_tx, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (tx_hash, to_address, value_eth, value_wei, gas_wei, block_height, kind, matched_deposit_tx, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 tx_hash,
                 to_address,
                 str(Decimal(value_wei) / Decimal(10**18)),
+                int(value_wei),
                 gas_wei,
                 block_height,
                 kind,
@@ -855,23 +869,39 @@ def release_tx_hashes() -> set[str]:
     return set(release_sources())
 
 
+def _outbound_row_wei(value_wei: object, value_eth: object) -> int:
+    """Exact wei for one bridge_outbound leg. ``value_wei`` is authoritative;
+    pre-column rows fall back to the decimal text (value_eth's NUMERIC
+    affinity already rounded it to REAL at insert — best available)."""
+    if value_wei is not None:
+        return int(value_wei)
+    return int((Decimal(str(value_eth or 0)) * Decimal(10**18)).to_integral_value(rounding=ROUND_DOWN))
+
+
 def outbound_totals_wei() -> dict[str, int]:
     """Ledger-derived outbound terms for the reconcile (design section 5)."""
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT kind, SUM(CAST(value_eth AS REAL)), SUM(gas_wei) FROM bridge_outbound GROUP BY kind")
-        except sqlite3.OperationalError:
+        cursor.execute("PRAGMA table_info(bridge_outbound)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if not columns:
             return {"refund": 0, "withdrawal": 0, "unidentified": 0, "gas_wei": 0}
+        # No CAST AS REAL / SUM in SQL: value_eth is REAL-affinity and a
+        # float64 sum loses wei-level precision (#2927). Rows are summed as
+        # exact integer wei in Python instead.
+        if "value_wei" in columns:
+            cursor.execute("SELECT kind, value_eth, value_wei, gas_wei FROM bridge_outbound")
+        else:
+            cursor.execute("SELECT kind, value_eth, NULL, gas_wei FROM bridge_outbound")
         terms: dict[str, int] = {"refund": 0, "withdrawal": 0, "unidentified": 0}
         gas_total = 0
-        for kind, value_eth, gas_wei in cursor.fetchall():
+        for kind, value_eth, value_wei, gas_wei in cursor.fetchall():
             kind = str(kind)
             # self_send rows return their value to the same wallet — only
             # their gas is outbound. Unknown kinds still count (a hand-written
             # kind must not be silently dropped from the books).
             if kind != "self_send":
-                terms[kind] = int(Decimal(str(value_eth or 0)) * Decimal(10**18))
+                terms[kind] = terms.get(kind, 0) + _outbound_row_wei(value_wei, value_eth)
             gas_total += int(gas_wei or 0)
         terms["gas_wei"] = gas_total
         return terms

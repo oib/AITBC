@@ -1739,6 +1739,38 @@ class TestOutboundLedger:
         assert terms["self_send"] if "self_send" in terms else True
         assert terms["gas_wei"] == 3500
 
+    def test_value_wei_recorded_and_summed_exactly(self, monitor):
+        """#2927: value_eth's NUMERIC affinity stores REAL — the exact leg
+        must live in value_wei and be what the totals read."""
+        import sqlite3
+        from bridge_monitor import storage
+        from bridge_monitor.storage import outbound_totals_wei, record_outbound
+
+        value = 123456789012345678  # REAL path rounds this to ...680
+        assert record_outbound("0xp1", "0xd1", value, 1, "refund", gas_wei=7)
+        with sqlite3.connect(storage.DB_PATH) as con:
+            row = con.execute("SELECT value_eth, value_wei FROM bridge_outbound WHERE tx_hash='0xp1'").fetchone()
+        assert row[1] == value
+        terms = outbound_totals_wei()
+        assert terms["refund"] == value
+        assert terms["gas_wei"] == 7
+
+    def test_totals_legacy_null_value_wei_falls_back(self, monitor):
+        """Pre-#2927 rows have value_wei NULL — totals must still count them
+        from the (REAL-rounded) value_eth rather than dropping the leg."""
+        import sqlite3
+        from bridge_monitor import storage
+        from bridge_monitor.storage import outbound_totals_wei
+
+        with sqlite3.connect(storage.DB_PATH) as con:
+            con.execute(
+                "INSERT INTO bridge_outbound (tx_hash, to_address, value_eth, gas_wei, block_height, kind)"
+                " VALUES ('0xleg', '0xd', '0.25', 9, 1, 'withdrawal')"
+            )
+        terms = outbound_totals_wei()
+        assert terms["withdrawal"] == 25 * 10**16
+        assert terms["gas_wei"] == 9
+
     def _create_release_table(self, name: str, hashes: list[str | None]) -> None:
         import sqlite3
         from bridge_monitor import storage
