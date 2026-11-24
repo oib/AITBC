@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import sys
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
@@ -86,6 +86,26 @@ def _recipient_from_decoded_bytes(decoded_bytes: bytes) -> str | None:
     if len(decoded_bytes) == 20:
         return "0x" + decoded_bytes.hex()
     return None
+
+
+def _positive_finite_prices(eth_usd: object, ait_usd: object) -> tuple[Decimal, Decimal] | None:
+    """Coerce oracle prices and reject anything non-finite or non-positive.
+
+    ``json.loads`` accepts NaN/Infinity literals and ``Decimal(str(...))``
+    parses them happily; a transiently negative or NaN quote must defer the
+    payout to PENDING_RETRY like an oracle outage — never reach the
+    below-minimum FAILED gate with a bogus amount (#2825).
+    """
+    try:
+        eth_price = Decimal(str(eth_usd))
+        ait_price = Decimal(str(ait_usd))
+    except (InvalidOperation, ValueError):
+        return None
+    if not (eth_price.is_finite() and ait_price.is_finite()):
+        return None
+    if eth_price <= 0 or ait_price <= 0:
+        return None
+    return eth_price, ait_price
 
 
 class BridgeMonitor(BridgeMonitorRuntime):
@@ -264,10 +284,20 @@ class BridgeMonitor(BridgeMonitorRuntime):
             if eth_usd is None or ait_usd is None:
                 logger.error("Cannot get prices for ETH/USD or AIT/USD")
                 return None
-            if ait_usd == 0:
-                logger.error("AIT/USD price is zero")
+            prices = _positive_finite_prices(eth_usd, ait_usd)
+            if prices is None:
+                logger.error("Rejecting non-positive/non-finite oracle prices: ETH/USD=%s AIT/USD=%s", eth_usd, ait_usd)
                 return None
-            ait_amount = eth_amount * Decimal(eth_usd) / Decimal(ait_usd)
+            eth_price, ait_price = prices
+            ait_amount = eth_amount * eth_price / ait_price
+            if not ait_amount.is_finite():
+                logger.error(
+                    "Non-finite AIT amount %s from prices ETH/USD=%s AIT/USD=%s",
+                    ait_amount,
+                    eth_usd,
+                    ait_usd,
+                )
+                return None
             logger.info("Price calculation: %s ETH * $%s / $%s = %s AIT", eth_amount, eth_usd, ait_usd, ait_amount)
             return ait_amount
         except Exception as e:  # noqa: BLE001 - price calc containment — a failure defers the payout to retry
