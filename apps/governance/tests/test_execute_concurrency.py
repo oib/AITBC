@@ -21,13 +21,20 @@ from governance_service.storage import get_session
 
 
 class _ExecuteListSession:
-    """Stub session: SELECTs return the proposal; UPDATEs report ``rowcount``."""
+    """Stub session: SELECTs return the proposal; UPDATEs report ``rowcount``.
 
-    def __init__(self, proposal: Proposal, *, rowcount: int = 1) -> None:
+    ``claim_rowcount`` answers the #2874 SUCCEEDED->EXECUTING claim UPDATE
+    (always the first UPDATE); ``rowcount`` answers every later UPDATE
+    (the EXECUTING->EXECUTED stamp or the failure revert).
+    """
+
+    def __init__(self, proposal: Proposal, *, rowcount: int = 1, claim_rowcount: int = 1) -> None:
         self._proposal = proposal
         self.added: list = []
         self.statements: list[str] = []
         self.rowcount = rowcount
+        self.claim_rowcount = claim_rowcount
+        self._updates = 0
         self.commits = 0
 
     def add(self, obj: object) -> None:
@@ -42,7 +49,9 @@ class _ExecuteListSession:
     async def execute(self, stmt: object, *args: object, **kwargs: object) -> SimpleNamespace:
         self.statements.append(str(stmt))
         if isinstance(stmt, Update):
-            return SimpleNamespace(rowcount=self.rowcount)
+            self._updates += 1
+            rc = self.claim_rowcount if self._updates == 1 else self.rowcount
+            return SimpleNamespace(rowcount=rc)
         return SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: self._proposal))
 
 
@@ -74,8 +83,40 @@ async def test_execute_proposal_stamp_is_conditional_update(monkeypatch: pytest.
 
 
 @pytest.mark.asyncio
-async def test_execute_lost_race_marks_log_failed_not_completed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """rowcount 0 → refresh, no completed stamp on the execution log."""
+async def test_execute_claim_loser_never_reaches_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2874: claim rowcount 0 → refuse BEFORE chain submit / apply / log."""
+    monkeypatch.setattr(settings, "enable_onchain_submission", False)
+    monkeypatch.setattr(settings, "require_execution_timelock", False)
+
+    proposal = Proposal(
+        proposal_id="prop_exec_claim_lost",
+        proposer_id="p",
+        title="t",
+        description="d",
+        status=ProposalStatus.SUCCEEDED,
+        voting_starts=datetime.now(UTC) - timedelta(days=2),
+        voting_ends=datetime.now(UTC) - timedelta(days=1),
+    )
+    session = _ExecuteListSession(proposal, claim_rowcount=0)
+    bc = SimpleNamespace(
+        get_block_height=AsyncMock(return_value=10**9),
+        get_sealed_governance_proposal=AsyncMock(return_value=None),
+        submit_governance_tx=AsyncMock(),
+        submit_signed_governance_tx=AsyncMock(),
+    )
+    svc = GovernanceService(session=session, blockchain_client=bc)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="already in progress"):
+        await svc.execute_proposal("prop_exec_claim_lost")
+
+    bc.submit_governance_tx.assert_not_called()
+    bc.submit_signed_governance_tx.assert_not_called()
+    assert not [o for o in session.added if isinstance(o, ProposalExecutionLog)]
+
+
+@pytest.mark.asyncio
+async def test_execute_lost_stamp_race_marks_log_failed_not_completed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Claim won but stamp rowcount 0 → refresh, log failed, no completed stamp."""
     monkeypatch.setattr(settings, "enable_onchain_submission", False)
     monkeypatch.setattr(settings, "require_execution_timelock", False)
 

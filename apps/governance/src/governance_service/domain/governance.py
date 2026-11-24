@@ -21,6 +21,10 @@ class ProposalStatus(StrEnum):
     SUCCEEDED = "succeeded"
     DEFEATED = "defeated"
     EXECUTED = "executed"
+    # #2874: claimed-but-not-finished execution. execute_proposal moves
+    # SUCCEEDED -> EXECUTING atomically before any side effect (chain tx,
+    # parameter apply) so a concurrent racer loses before it can double-submit.
+    EXECUTING = "executing"
     CANCELLED = "cancelled"
     # #1646: window ended without a close call. Tallies are frozen at
     # voting_ends either way; close_proposal still accepts EXPIRED and

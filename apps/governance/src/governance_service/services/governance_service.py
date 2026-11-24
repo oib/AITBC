@@ -307,7 +307,7 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         block_height: int | None,
         automation_result: dict[str, Any] | None,
     ) -> Proposal:
-        """Conditionally move a SUCCEEDED proposal to EXECUTED (#1803)."""
+        """Conditionally move a claimed proposal to EXECUTED (#1803, #2874)."""
         executed_at = datetime.now(UTC)
         metadata = proposal.proposal_metadata
         if block_height is not None:
@@ -327,7 +327,7 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
             update(Proposal)
             .where(
                 col(Proposal.proposal_id) == proposal_id,
-                col(Proposal.status) == ProposalStatus.SUCCEEDED,
+                col(Proposal.status) == ProposalStatus.EXECUTING,
             )
             .values(**values)
         )
