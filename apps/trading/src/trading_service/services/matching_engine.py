@@ -19,22 +19,19 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import and_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from ..domain.base import utcnow_naive as _utcnow_naive
 from ..domain.inter_chain import InterChainTrade
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_TRADE_TTL_SECONDS = 7 * 24 * 3600
-
-
-def _utcnow_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 async def _expire_stale_pending(session: AsyncSession) -> None:

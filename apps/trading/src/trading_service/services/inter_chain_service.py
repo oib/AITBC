@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -19,6 +19,7 @@ from sqlmodel import select
 
 from aitbc.trading.types import InterChainTradeStatus
 
+from ..domain.base import utcnow_naive as _utcnow_naive
 from ..domain.inter_chain import InterChainTrade
 
 logger = logging.getLogger(__name__)
@@ -41,10 +42,6 @@ def _trade_ttl() -> timedelta:
     except (TypeError, ValueError):
         seconds = _DEFAULT_TRADE_TTL_SECONDS
     return timedelta(seconds=max(60, seconds))
-
-
-def _utcnow_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class InterChainTradeService:
@@ -220,7 +217,7 @@ class InterChainTradeService:
             )
             return None
         trade.status = new_status.value
-        trade.updated_at = datetime.now(UTC)
+        trade.updated_at = _utcnow_naive()
         if matched_trade_id:
             trade.matched_trade_id = matched_trade_id
         await self.session.commit()
@@ -242,7 +239,7 @@ class InterChainTradeService:
             logger.warning("cancel_trade: refusing to cancel trade %s in status %r", trade_id, trade.status)
             return trade
         trade.status = InterChainTradeStatus.CANCELLED.value
-        trade.updated_at = datetime.now(UTC)
+        trade.updated_at = _utcnow_naive()
         await self.session.commit()
         await self.session.refresh(trade)
         logger.info("Cancelled inter-chain trade %s", trade_id)

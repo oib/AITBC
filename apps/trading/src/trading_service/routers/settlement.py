@@ -10,7 +10,6 @@ so existing trades remain inspectable.
 """
 
 import os
-from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -24,6 +23,7 @@ from aitbc.settlement.client import SettlementClient
 from aitbc.settlement.types import SettlementConfig
 from aitbc.trading.types import InterChainTradeStatus, SettlementPhase
 from ..dependencies import get_inter_chain_service
+from ..domain.base import utcnow_naive
 from ..domain.inter_chain import InterChainTrade
 
 from ..services.inter_chain_service import InterChainTradeService
@@ -148,7 +148,7 @@ async def _sync_trade_from_escrow_status(
         changed = True
     if not changed:
         return trade
-    trade.updated_at = datetime.now(UTC)
+    trade.updated_at = utcnow_naive()
     await svc.session.commit()
     await svc.session.refresh(trade)
     return trade

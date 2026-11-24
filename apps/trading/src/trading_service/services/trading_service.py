@@ -4,7 +4,7 @@ Trading service for managing trading operations
 
 import math
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, TypeVar
 from uuid import uuid4
@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
+from ..domain.base import utcnow_naive as _utcnow
 from ..domain.trading import (
     NegotiationStatus,
     SettlementType,
@@ -126,13 +127,6 @@ def _legacy_ttl() -> timedelta:
     except (TypeError, ValueError):
         seconds = _DEFAULT_LEGACY_TTL_SECONDS
     return timedelta(seconds=max(60, seconds))
-
-
-def _utcnow() -> datetime:
-    # The legacy DateTime columns are timezone-naive (same convention as
-    # InterChainTrade); bind a naive UTC value so sqlite comparisons stay
-    # lexicographic-correct.
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class LegacyCreateConflictError(Exception):
@@ -483,7 +477,7 @@ class TradingService:
         _validate_settlement_data(data)
         settlement = _model_or_value_error(TradeSettlement, data)
         settlement.status = TradeStatus.SETTLING
-        settlement.expires_at = datetime.now(UTC).replace(tzinfo=None) + _settlement_ttl()
+        settlement.expires_at = _utcnow() + _settlement_ttl()
         return await self._insert_legacy(settlement, TradeSettlement, data, "settlement_id", caller_id)
 
     async def _expire_stale_settlements(self) -> int:
@@ -495,9 +489,7 @@ class TradingService:
         alone — no created_at fallback because a settlement legitimately
         waits on counterparty action and there is no safe age guess.
         """
-        # Naive UTC like the inter-chain trade expiry — sqlite drops tzinfo
-        # and lexicographic comparison needs both sides in the same shape.
-        now = datetime.now(UTC).replace(tzinfo=None)
+        now = _utcnow()
         result = await self.session.execute(
             update(TradeSettlement)
             .where(col(TradeSettlement.status) == TradeStatus.SETTLING)

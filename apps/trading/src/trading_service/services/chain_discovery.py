@@ -7,7 +7,6 @@ status, and providing chain discovery for the matching engine.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -20,6 +19,7 @@ from aitbc.network.url_safety import avalidate_fleet_outbound_url
 
 from ..clients.blockchain import BlockchainClient
 from ..config import settings
+from ..domain.base import utcnow_naive
 from ..domain.inter_chain import IslandRegistryEntry
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class ChainDiscoveryService:
         if entry:
             entry.endpoint = endpoint
             entry.status = "active"
-            entry.last_sync = datetime.now(UTC)
+            entry.last_sync = utcnow_naive()
         else:
             entry = IslandRegistryEntry(chain_id=chain_id, endpoint=endpoint, status="active")
             self.session.add(entry)
@@ -129,7 +129,7 @@ class ChainDiscoveryService:
             # Update registry entry — capture values before commit; the
             # session expires ORM attrs on commit (MissingGreenlet on read).
             endpoint = entry.endpoint
-            now = datetime.now(UTC)
+            now = utcnow_naive()
             entry.block_height = block_height
             entry.status = "active"
             entry.last_sync = now
@@ -146,7 +146,7 @@ class ChainDiscoveryService:
         except _OPS_ERRORS as e:
             logger.warning("Chain %s health check failed: %s", chain_id, e)
             endpoint = entry.endpoint
-            now = datetime.now(UTC)
+            now = utcnow_naive()
             entry.status = "unreachable"
             entry.last_sync = now
             await self.session.commit()
@@ -173,12 +173,12 @@ class ChainDiscoveryService:
                 block_height = await client.get_block_height(chain.chain_id)
                 chain.block_height = block_height
                 chain.status = "active"
-                chain.last_sync = datetime.now(UTC)
+                chain.last_sync = utcnow_naive()
                 results["synced"] += 1
             except _OPS_ERRORS as e:
                 logger.warning("Failed to sync chain %s: %s", chain.chain_id, e)
                 chain.status = "unreachable"
-                chain.last_sync = datetime.now(UTC)
+                chain.last_sync = utcnow_naive()
                 results["unreachable"] += 1
 
         await self.session.commit()

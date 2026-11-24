@@ -13,14 +13,14 @@ create → match → agree lifecycle.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import Column, Numeric
 from sqlmodel import Field, Index
 
-from .base import TradingBase
+from .base import TradingBase, utcnow_naive
 
 
 class InterChainTrade(TradingBase, table=True):
@@ -46,8 +46,8 @@ class InterChainTrade(TradingBase, table=True):
     source_tx_hash: str | None = None  # set in v0.9.0 (escrow lock)
     dest_tx_hash: str | None = None  # set in v0.9.0 (settlement)
     matched_trade_id: str | None = None  # ID of the counterparty trade (if matched)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: utcnow_naive())
+    updated_at: datetime = Field(default_factory=lambda: utcnow_naive())
     # #1562: pending trades need a finite lifetime — a trade that never
     # matches must not sit 'pending' forever. NULL = no expiry (legacy rows).
     expires_at: datetime | None = None
@@ -71,5 +71,5 @@ class IslandRegistryEntry(TradingBase, table=True):
     status: str = Field(default="active", index=True)  # active, inactive, unreachable
     block_height: int = Field(default=0)
     offers_count: int = Field(default=0)
-    registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_sync: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    registered_at: datetime = Field(default_factory=lambda: utcnow_naive())
+    last_sync: datetime = Field(default_factory=lambda: utcnow_naive())
