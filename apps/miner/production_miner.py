@@ -797,7 +797,9 @@ def submit_result(job_id, result):
     headers = {"X-Api-Key": AUTH_TOKEN, "X-Miner-ID": MINER_ID, "Content-Type": "application/json"}
     try:
         client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=10)
-        response = client.post(f"/v1/miners/{job_id}/result", json=result)
+        # #2914: encode job_id — it flows from coordinator payloads and must
+        # stay a single path segment.
+        response = client.post(f"/v1/miners/{urllib.parse.quote(str(job_id), safe='')}/result", json=result)
         if response:
             logger.info("Result submitted for job %s", job_id)
         else:

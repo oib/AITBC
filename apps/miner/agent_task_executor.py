@@ -42,6 +42,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -95,6 +96,17 @@ STATE_PATH = Path(os.environ.get("AGENT_EXECUTOR_STATE", "/var/lib/aitbc/data/ag
 HTTP_TIMEOUT = int(os.environ.get("AGENT_EXECUTOR_HTTP_TIMEOUT", "30"))
 
 _MAX_DONE = 2000
+
+
+def _url_id(value: str) -> str:
+    """Percent-encode a path segment (#2914).
+
+    task_id/message_id/agent_id arrive from coordinator or buyer-controlled
+    payloads; interpolated raw they can rewrite the request path while the
+    auth headers still attach. Encoding keeps the segment a single path
+    component — the server decodes it back to the original id.
+    """
+    return quote(str(value), safe="")
 
 
 # --- State file -------------------------------------------------------------
@@ -388,7 +400,7 @@ def _send_message(sender: str, recipient: str, message_type: str, content: dict[
 def _mark_read(message_id: str) -> None:
     try:
         requests.post(
-            f"{COORDINATOR_URL}/api/v1/agent/messages/id/{message_id}/read",
+            f"{COORDINATOR_URL}/api/v1/agent/messages/id/{_url_id(message_id)}/read",
             headers=_agent_request_headers(AGENT_EXECUTOR_ID),
             timeout=HTTP_TIMEOUT,
         )
@@ -434,7 +446,7 @@ def _fetch_registration_nonce(agent_id: str) -> dict[str, str] | None:
 def _bound_identity(agent_id: str) -> str | None:
     """The ``identity_address`` the registry has bound to ``agent_id``, if any."""
     try:
-        resp = requests.get(f"{COORDINATOR_URL}/v1/agents/{agent_id}", timeout=HTTP_TIMEOUT)
+        resp = requests.get(f"{COORDINATOR_URL}/v1/agents/{_url_id(agent_id)}", timeout=HTTP_TIMEOUT)
         if resp.status_code == 200:
             agent = resp.json().get("agent")
             if isinstance(agent, dict):
@@ -524,7 +536,7 @@ def _register_agent(agent_id: str, wallet: str, services: list[str]) -> bool:
 def _task_escrow_status(task_id: str) -> dict[str, Any] | None:
     try:
         resp = requests.get(
-            f"{COORDINATOR_URL}/v1/tasks/{task_id}/escrow",
+            f"{COORDINATOR_URL}/v1/tasks/{_url_id(task_id)}/escrow",
             headers=_agent_request_headers(AGENT_EXECUTOR_ID),
             timeout=HTTP_TIMEOUT,
         )
@@ -602,7 +614,7 @@ def _complete_task(task_id: str, provider_wallet: str, amount_units: int | None 
             nonce=body.get("nonce") if isinstance(body.get("nonce"), str) else None,
         )
         resp = requests.post(
-            f"{COORDINATOR_URL}/v1/tasks/{task_id}/complete", json=body, headers=headers, timeout=HTTP_TIMEOUT
+            f"{COORDINATOR_URL}/v1/tasks/{_url_id(task_id)}/complete", json=body, headers=headers, timeout=HTTP_TIMEOUT
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -622,7 +634,7 @@ def _fail_task(task_id: str, provider_wallet: str, reason: str | None = None) ->
             timestamp=body.get("timestamp") if isinstance(body.get("timestamp"), str) else None,
             nonce=body.get("nonce") if isinstance(body.get("nonce"), str) else None,
         )
-        requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/fail", json=body, headers=headers, timeout=HTTP_TIMEOUT)
+        requests.post(f"{COORDINATOR_URL}/v1/tasks/{_url_id(task_id)}/fail", json=body, headers=headers, timeout=HTTP_TIMEOUT)
     except requests.RequestException as e:
         logger.warning("Task fail call error: %s", e)
 
