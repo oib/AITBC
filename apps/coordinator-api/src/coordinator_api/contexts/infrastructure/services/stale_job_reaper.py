@@ -124,9 +124,21 @@ class StaleJobReaper:
             .where(col(Job.state).in_(_ACTIVE_STATES))
             .where(col(Job.expires_at).is_not(None))
             .where(col(Job.expires_at) < now)
-            .limit(self.batch_size)
         )
-        return list(session.execute(stmt).scalars().all())
+        # Page with OFFSET until a short page (#2811): _gpu_rental_window_open
+        # filters in Python, so a single LIMIT batch lets a head of
+        # window-open rows starve genuinely expired jobs behind them — the
+        # same defect class #2699 fixed in the payment sweepers. The full
+        # candidate list is materialized before any _expire mutation, so
+        # OFFSET pages stay consistent.
+        out: list[Job] = []
+        offset = 0
+        while True:
+            page = list(session.execute(stmt.order_by(Job.id).offset(offset).limit(self.batch_size)).scalars().all())
+            out.extend(page)
+            if len(page) < self.batch_size:
+                return out
+            offset += self.batch_size
 
     def _find_miner_dead(self, session: Any) -> list[Job]:
         """RUNNING jobs whose assigned miner has been OFFLINE past the grace period.
@@ -141,9 +153,17 @@ class StaleJobReaper:
             .where(Job.state == "RUNNING")
             .where(Miner.status == "OFFLINE")
             .where(col(Miner.last_heartbeat) < cutoff)
-            .limit(self.batch_size)
         )
-        return list(session.execute(stmt).scalars().all())
+        # Same #2811 paging as _find_ttl_expired — the Python
+        # _gpu_rental_window_open filter must not starve the tail.
+        out: list[Job] = []
+        offset = 0
+        while True:
+            page = list(session.execute(stmt.order_by(Job.id).offset(offset).limit(self.batch_size)).scalars().all())
+            out.extend(page)
+            if len(page) < self.batch_size:
+                return out
+            offset += self.batch_size
 
     def _expire(self, session: Any, job: Job, reason: str) -> bool:
         """Apply the same transition JobService._ensure_not_expired already uses.
