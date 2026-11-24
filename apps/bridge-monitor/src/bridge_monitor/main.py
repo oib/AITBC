@@ -8,6 +8,7 @@ from decimal import Decimal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
 from aitbc.utils.chain_id import resolve_chain_id
@@ -24,7 +25,6 @@ from .storage import (
     init_db,
     try_admin_lock,
     update_deposit,
-    valid_ait_recipient,
     WALLET_LIFECYCLE_STATUSES,
 )
 
@@ -66,6 +66,26 @@ def _parse_payout_caps() -> tuple[Decimal, Decimal | None]:
         except ArithmeticError:
             logger.warning("BRIDGE_MAX_PAYOUT_AIT %r unparseable — ignored", raw_abs)
     return fraction, max_payout_ait
+
+
+def _recipient_from_decoded_bytes(decoded_bytes: bytes) -> str | None:
+    """Resolve an AIT recipient from decoded tx-input bytes (#2824).
+
+    UTF-8 text is stripped and canonicalized to EIP-55 — the same
+    acceptance the wallet side's ``_parse_recipient_from_input`` applies.
+    Non-text input falls back to the raw-20-byte address form.
+    """
+    try:
+        decoded = decoded_bytes.decode("utf-8").strip()
+        if decoded:
+            canonical = canonical_address(decoded)
+            if canonical.startswith("0x") and len(canonical) == 42:
+                return canonical
+    except UnicodeDecodeError:
+        pass
+    if len(decoded_bytes) == 20:
+        return "0x" + decoded_bytes.hex()
+    return None
 
 
 class BridgeMonitor(BridgeMonitorRuntime):
@@ -185,7 +205,15 @@ class BridgeMonitor(BridgeMonitorRuntime):
             return None
 
     def parse_ait_recipient(self, tx_data: str | bytes) -> str | None:
-        """Parse AIT recipient address from transaction data field."""
+        """Parse AIT recipient address from transaction data field.
+
+        Mirrors the wallet side's ``_parse_recipient_from_input`` (#2824):
+        the decoded UTF-8 is stripped and canonicalized to EIP-55, and the
+        raw-20-byte fallback covers inputs that are not UTF-8 text. The two
+        services share ``eth_deposits`` — a parse the wallet accepts but the
+        monitor rejects lands the deposit FAILED on a row the wallet meant
+        to pay.
+        """
         if isinstance(tx_data, bytes | bytearray):
             tx_data = "0x" + tx_data.hex()
         if not tx_data or tx_data == "0x":
@@ -194,18 +222,10 @@ class BridgeMonitor(BridgeMonitorRuntime):
             data = tx_data[2:] if tx_data.startswith("0x") else tx_data
             if len(data) % 2:
                 data = "0" + data
-            decoded = bytes.fromhex(data).decode("utf-8")
-            if valid_ait_recipient(decoded):
-                return decoded
-        except (ValueError, UnicodeDecodeError):
-            pass
-        try:
-            data = tx_data[2:] if tx_data.startswith("0x") else tx_data
-            if len(data) == 40 and valid_ait_recipient("0x" + data):
-                return "0x" + data
+            decoded_bytes = bytes.fromhex(data)
         except ValueError:
-            pass
-        return None
+            return None
+        return _recipient_from_decoded_bytes(decoded_bytes)
 
     @staticmethod
     def _parse_exchange_deposit_tag(tx_data: str | bytes | None) -> str | None:
@@ -474,6 +494,34 @@ class BridgeMonitor(BridgeMonitorRuntime):
             return None, eth_usd, ait_usd
         return ait_amount, eth_usd, ait_usd
 
+    def _fail_unparseable_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> None:
+        """Record an unpayable deposit as FAILED — only when this monitor
+        created the row.
+
+        A pre-existing row is owned by the wallet side, whose
+        parser/default-recipient resolution may still pay it — flipping its
+        'pending' row terminal here would strand the deposit (#2824).
+        """
+        logger.warning("Could not parse AIT recipient from tx data: %s", tx_data)
+        if not create_deposit(tx_hash, from_address, str(eth_amount), "", deposit_address=self.bridge_eth_address):
+            logger.info(
+                "Deposit %s already recorded (unparseable recipient here); leaving its status to the owning writer",
+                tx_hash,
+            )
+            return
+        update_deposit(
+            tx_hash,
+            status=BridgeDepositStatus.FAILED,
+            error_message="Invalid AIT recipient address",
+            expected_statuses={BridgeDepositStatus.PENDING},
+        )
+        logger.critical(
+            "ALERT: deposit %s permanently FAILED — %s ETH from %s received but cannot be paid (no recipient)",
+            tx_hash,
+            eth_amount,
+            from_address,
+        )
+
     def process_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> None:
         """Process a single ETH deposit.
 
@@ -490,20 +538,7 @@ class BridgeMonitor(BridgeMonitorRuntime):
 
         ait_recipient = self.parse_ait_recipient(tx_data)
         if not ait_recipient:
-            logger.warning("Could not parse AIT recipient from tx data: %s", tx_data)
-            create_deposit(tx_hash, from_address, str(eth_amount), "", deposit_address=self.bridge_eth_address)
-            update_deposit(
-                tx_hash,
-                status=BridgeDepositStatus.FAILED,
-                error_message="Invalid AIT recipient address",
-                expected_statuses={BridgeDepositStatus.PENDING},
-            )
-            logger.critical(
-                "ALERT: deposit %s permanently FAILED — %s ETH from %s received but cannot be paid (no recipient)",
-                tx_hash,
-                eth_amount,
-                from_address,
-            )
+            self._fail_unparseable_deposit(tx_hash, from_address, eth_amount, tx_data)
             return
         ait_amount, eth_usd, ait_usd = self._compute_amount_and_gate(tx_hash, from_address, eth_amount, ait_recipient)
         if ait_amount is None:

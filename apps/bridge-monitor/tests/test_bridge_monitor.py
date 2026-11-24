@@ -17,6 +17,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
+from aitbc.crypto.signature_recovery import canonical_address
 from bridge_monitor.main import BridgeMonitor
 from bridge_monitor.storage import BridgeDepositStatus
 
@@ -2180,3 +2181,69 @@ class TestTxHashCaseDedupe2823:
         dep = get_deposit(canon)
         assert dep is not None
         assert dep["id"] == "deposit_legacy001"  # earliest created_at wins
+
+
+class TestRecipientParseParity2824:
+    """#2824: parse_ait_recipient must accept everything the wallet side's
+    parser accepts — strip + EIP-55 canonicalization — and must not flip a
+    pre-existing (wallet-owned) pending row to FAILED."""
+
+    @staticmethod
+    def _utf8_hex(text: str) -> str:
+        return "0x" + text.encode("utf-8").hex()
+
+    def test_whitespace_padded_address_parses(self, monitor):
+        addr = "0x" + "d" * 40
+        padded = "  " + addr + " \n"
+        result = monitor.parse_ait_recipient(self._utf8_hex(padded))
+        assert result is not None
+        # Canonical EIP-55 — same spelling the wallet side stores.
+        assert result == canonical_address(addr)
+
+    def test_plain_address_returns_eip55(self, monitor):
+        addr = "0x" + "ab" * 20
+        result = monitor.parse_ait_recipient(self._utf8_hex(addr))
+        assert result == canonical_address(addr)
+
+    def test_raw_20_byte_input_parses(self, monitor):
+        raw = bytes(range(20))
+        result = monitor.parse_ait_recipient("0x" + raw.hex())
+        assert result == "0x" + raw.hex()
+
+    def test_garbage_still_rejected(self, monitor):
+        assert monitor.parse_ait_recipient("0x" + "zz" * 20) is None
+        assert monitor.parse_ait_recipient("0x") is None
+        assert monitor.parse_ait_recipient("") is None
+
+    def test_unparseable_does_not_flip_preexisting_pending_row(self, monitor):
+        """A wallet-side 'pending' row for the same tx must survive: the
+        monitor only fails rows it created itself."""
+        from bridge_monitor.storage import create_deposit, get_deposit
+
+        tx_hash = "0x" + "b" * 64
+        # Simulate the wallet side's row winning the insert race: it lands
+        # after the monitor's existence check but before its FAILED write.
+        assert create_deposit(tx_hash, "0xfrom", "1.0", "0x" + "e" * 40) is not None
+
+        real_get = __import__("bridge_monitor.storage", fromlist=["get_deposit"]).get_deposit
+        calls = {"n": 0}
+
+        def get_then_none(h):
+            calls["n"] += 1
+            return None if calls["n"] == 1 else real_get(h)
+
+        with patch("bridge_monitor.main.get_deposit", side_effect=get_then_none):
+            monitor.process_deposit(tx_hash, "0xfrom", Decimal("0.01"), "0x68656c6c6f")
+
+        dep = get_deposit(tx_hash)
+        assert dep["status"] == "pending"  # untouched — not flipped FAILED
+
+    def test_unparseable_fails_row_it_created(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        tx_hash = "0x" + "c" * 64
+        monitor.process_deposit(tx_hash, "0xfrom", Decimal("0.01"), "0x68656c6c6f")
+
+        dep = get_deposit(tx_hash)
+        assert dep["status"] == "failed"
+        assert "recipient" in (dep["error_message"] or "").lower()
