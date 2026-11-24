@@ -68,23 +68,16 @@ def _eth_rpc_stub(receipts: dict[str, Any] | None = None, nonces: dict[str, int]
 
 
 def _sell_lock_tx_stub(state: dict[str, Any]):
-    """#2889 canonical-recheck stub for the sell lane's ``_fetch_tx_by_hash``:
-    default = the chain agrees with the ledger row; ``state["canonical_txs"]``
-    overrides per-test (None = reorged out, dict = re-sealed/mempool view)."""
+    """#2888/#2889 canonical-recheck stub for ``_fetch_tx_by_hash``: default =
+    the chain seals every queried tx 'confirmed' at height 1 (deep enough for
+    any seal-depth gate); ``state["canonical_txs"]`` overrides per-test
+    (None = reorged out, dict = re-sealed/mempool/failed view)."""
 
     async def _fetch_tx(tx_hash: str) -> dict | None:
         canon = state.setdefault("canonical_txs", {})
         if tx_hash in canon:
             return canon[tx_hash]
-        row = get_sell_lock_by_ait_tx_hash(tx_hash)
-        if row is None:
-            return None
-        return {
-            "tx_hash": tx_hash,
-            "status": "confirmed",
-            "block_height": row.get("locked_height") or 1,
-            "block_hash": row.get("lock_block_hash"),
-        }
+        return {"tx_hash": tx_hash, "status": "confirmed", "block_height": 1, "block_hash": None}
 
     return _fetch_tx
 
@@ -277,6 +270,7 @@ _TRADE_INSERT_KEYS = {
     "seller_address",
     "seller_eth_address",
     "amount_ait",
+    "lock_tx_hash",
     "eth_amount",
     "fee_ait",
 }
@@ -1353,7 +1347,7 @@ class TestDriver:
         check→nonce→sign→intent→broadcast must serialize on
         ``AIT_ESCROW_SWEEP_LOCK`` — the loser sees the winner's persisted
         intent and defers, never signing a colliding nonce."""
-        from wallet_app.bridge.bridge_db import get_sell_lock_by_ait_tx_hash, insert_sell_lock
+        from wallet_app.bridge.bridge_db import insert_sell_lock
 
         sell_tx = "0x" + "a1" * 32
         assert insert_sell_lock(
@@ -1647,3 +1641,113 @@ async def test_loop_warns_on_preflight_skip(exchange_env, monkeypatch, caplog):
         with pytest.raises(asyncio.CancelledError):
             await task
     assert "Exchange settlement monitor poll skipped (1 consecutive): escrow key slot unusable" in caplog.text
+
+
+class TestCanonicalAndDepthGuards:
+    """#2888/AUDIT-MONEY-58: the exchange lane funded orders and released ETH
+    on a depth-0 'confirmed' lock — no seal-depth, no canonical recheck, no
+    daily cap. The sell lane's #1269/#2889 guards are now ported."""
+
+    @pytest.mark.asyncio
+    async def test_shallow_lock_waits_for_seal_depth(self, exchange_env):
+        """A lock sealed fewer than EXCHANGE_SETTLEMENT_SEAL_DEPTH blocks
+        below head is neither funded nor refunded — unmarked, retried."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, funded_state="unfunded")
+        lock = _lock_tx(oid, "0xshallow", SELLER_AIT, 3_636_000_000)
+        lock["block_height"] = 999  # head=1000 -> depth 1 < seal_depth 3
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["funded"] == 0 and stats["refunds"] == 0
+        assert not any(p["event"] == "order_funded" for p in exchange_env["posts"])
+        assert monitor_mark("lock:0xshallow") is None
+
+        # Three more blocks bury the lock -> funded on the next scan.
+        stats = await esm._scan_order_locks(cfg, head=1003)
+        assert stats["funded"] == 1
+        assert any(p["event"] == "order_funded" for p in exchange_env["posts"])
+
+    @pytest.mark.asyncio
+    async def test_reorged_lock_never_releases_eth(self, exchange_env):
+        """The settlement row's recorded lock tx vanished from the canonical
+        chain — the ETH release must refuse, fail closed, and stay visible."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(lock_tx_hash="0x" + "aa" * 32)
+        exchange_env["canonical_txs"] = {"0x" + "aa" * 32: None}
+
+        await esm._handle_locked(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "locked"
+        assert "no longer canonically sealed" in str(fresh["error"])
+        assert exchange_env["eth_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_shallow_canonical_lock_waits_for_depth(self, exchange_env):
+        """The lock re-sealed near head — canonical but not yet deep enough;
+        the release waits rather than paying against a depth-0 backing."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(lock_tx_hash="0x" + "bb" * 32)
+        exchange_env["canonical_txs"] = {
+            "0x" + "bb" * 32: {"status": "confirmed", "block_height": 999, "block_hash": "0x" + "cc" * 32}
+        }
+
+        await esm._handle_locked(cfg, row)
+        assert get_exchange_settlement("trade", 1)["status"] == "locked"
+        assert exchange_env["eth_sends"] == []
+
+        # Deep enough now -> releases.
+        exchange_env["canonical_txs"] = {}
+        exchange_env["chain_height"] = 1004
+        await esm._handle_locked(cfg, get_exchange_settlement("trade", 1))
+        assert len(exchange_env["eth_sends"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_daily_cap_parks_release(self, exchange_env, monkeypatch):
+        """EXCHANGE_SETTLEMENT_MAX_ETH_PER_DAY bounds the 24h release window —
+        the sell lane's daily cap the exchange duplicate omitted."""
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_MAX_ETH_PER_DAY", "0.0005")
+        cfg = _cfg(exchange_env)
+        row = _trade_row(lock_tx_hash="0x" + "dd" * 32)
+
+        await esm._handle_locked(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "queued_reserve"
+        assert "MAX_ETH_PER_DAY" in str(fresh["error"])
+        assert exchange_env["eth_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_reorged_lock_refuses_settle_sweep(self, exchange_env):
+        """A released row whose inbound lock reorged out must not sweep AIT
+        to treasury — the outflow would be unbacked."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(status="released", lock_tx_hash="0x" + "ee" * 32)
+        exchange_env["canonical_txs"] = {"0x" + "ee" * 32: None}
+
+        outcome = await esm._escrow_sweep(cfg, row, "settling", "queued_fee_settle", expected_status="released")
+        assert outcome == "reorged"
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "needs_review_sweep"
+        assert exchange_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_reorged_lock_refuses_order_refund(self, exchange_env):
+        """Same gate on the refund spine: an order_refund row whose lock
+        vanished parks for operator review instead of paying float."""
+        cfg = _cfg(exchange_env)
+        sid = insert_exchange_settlement(
+            "order_refund",
+            -77,
+            seller_address=SELLER_AIT,
+            amount_ait=Decimal("2"),
+            fee_ait=Decimal(0),
+            lock_tx_hash="0x" + "ff" * 32,
+        )
+        assert sid
+        exchange_env["canonical_txs"] = {"0x" + "ff" * 32: None}
+
+        await esm._process_settlement(cfg, get_exchange_settlement("order_refund", -77))
+        fresh = get_exchange_settlement("order_refund", -77)
+        assert fresh["status"] == "needs_review_sweep"
+        assert exchange_env["ait_sends"] == []

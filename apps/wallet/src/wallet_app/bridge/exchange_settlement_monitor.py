@@ -129,6 +129,8 @@ class ExchangeCfg:
     exchange_db_path: str
     poll_interval: int
     max_eth_per_tx: Decimal
+    max_eth_per_day: Decimal
+    seal_depth: int
     min_reserve_eth: Decimal
     max_payout_fraction: Decimal
 
@@ -155,6 +157,8 @@ def _exchange_config() -> ExchangeCfg:
         exchange_db_path=_exchange_db_path(),
         poll_interval=sellmon._positive_int_env("EXCHANGE_SETTLEMENT_POLL_INTERVAL", "30"),
         max_eth_per_tx=sellmon._decimal_env("EXCHANGE_SETTLEMENT_MAX_ETH_PER_TX", "0.05"),
+        max_eth_per_day=sellmon._decimal_env("EXCHANGE_SETTLEMENT_MAX_ETH_PER_DAY", "0.5"),
+        seal_depth=int(os.getenv("EXCHANGE_SETTLEMENT_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3"))),
         min_reserve_eth=sellmon._decimal_env("ETH_WITHDRAW_MIN_RESERVE", "0.005"),
         max_payout_fraction=sellmon._decimal_env("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"),
     )
@@ -370,6 +374,13 @@ async def _order_lock_outcome(
     """The monitor-mark outcome for one escrow-bound lock tx — None when the
     endpoint refused non-terminally and the lock must stay unmarked."""
     lock_ait = units_to_ait(int(tx.get("value", 0) or 0))
+    # #2888: same seal-depth discipline as the sell lane — a depth-0 lock can
+    # still reorg out, and funding or refunding it now spends against AIT
+    # that may never stay sealed. Unmarked → retried once deep enough (or
+    # once the head probe recovers).
+    lock_height = tx.get("block_height")
+    if head is None or lock_height is None or head - int(lock_height) < cfg.seal_depth:
+        return None
     if order is None:
         return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
     if _norm_tx_hash(order["backing_tx_hash"]) == _norm_tx_hash(tx_hash):
@@ -451,6 +462,7 @@ async def _ensure_order_refund(
         seller_address=canonical_address(sender),
         amount_ait=amount_ait,
         fee_ait=Decimal(0),
+        lock_tx_hash=tx_hash,
     )
     lock_keyed = False
     if row_id is None and not remainder and owner_lock:
@@ -469,6 +481,7 @@ async def _ensure_order_refund(
             seller_address=canonical_address(sender),
             amount_ait=amount_ait,
             fee_ait=Decimal(0),
+            lock_tx_hash=tx_hash,
         )
         lock_keyed = row_id is not None
     if row_id is None:

@@ -483,9 +483,13 @@ def init_db() -> None:
             released_at TIMESTAMP,
             settled_at TIMESTAMP,
             refunded_at TIMESTAMP,
+            lock_tx_hash TEXT,
             UNIQUE(kind, ref_id)
         )
     """)
+    # #2888: the inbound escrow lock tx this settlement settles/refunds —
+    # the canonical recheck anchor (same role as sell locks' ait_tx_hash).
+    _add_column_if_not_exists(conn, "exchange_settlements", "lock_tx_hash", "TEXT")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_exchange_settlements_status ON exchange_settlements(status)")
 
     # Monitor-private dedupe/audit marks — one row per processed chain
