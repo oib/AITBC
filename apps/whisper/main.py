@@ -424,7 +424,16 @@ async def _transcribe_job(tmp_path: str, language: str | None, task: str, beam_s
             # so it never gets to see it (CE-001, #1170).
             logger.info("refusing unprobeable media container", exc_info=True)
             raise HTTPException(status_code=415, detail="Unsupported or unreadable media container") from None
-        if seconds is not None and seconds > _MAX_AUDIO_SECONDS:
+        if seconds is None:
+            # AUDIT-EDGE-WHISPER-DECODE-UNBOUNDED (#2806): a container that
+            # opens but reports no duration — and ffprobe absent or equally
+            # silent — used to decode for hours inside to_thread, which
+            # cannot be killed; the 3600s wait_for only abandoned the await
+            # while _inflight stayed held, wedging the single-slot service.
+            # Fail closed: an unmeasurable container is refused, not decoded.
+            logger.info("refusing media container with undeterminable duration")
+            raise HTTPException(status_code=415, detail="Cannot determine media duration")
+        if seconds > _MAX_AUDIO_SECONDS:
             raise HTTPException(
                 status_code=413,
                 detail=(f"Audio is {seconds / 60:.1f} minutes; the limit is {_MAX_AUDIO_SECONDS / 60:.0f} minutes"),
