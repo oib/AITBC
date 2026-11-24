@@ -678,7 +678,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 ## `script`
 
 - [`aitbc script list`](script-list.md) — List available scripts in the script directory.
-- [`aitbc script run`](script-run.md) — Run a script with optional arguments.
+- [`aitbc script run`](script-run.md) — Run an allowlisted AITBC script with optional arguments.
 
 ## `security`
 

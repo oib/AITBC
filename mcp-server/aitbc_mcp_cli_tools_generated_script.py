@@ -52,7 +52,7 @@ def aitbc_script_list(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_script_run(
-    script_path: Annotated[str, Field(description="Path to script file")],
+    script_path: Annotated[str, Field(description="Path to script file under an allowed AITBC prefix")],
     args: Annotated[str | None, Field(description="Script arguments (shell-quoted, e.g. '--verbose \"a b\"')")] = None,
     timeout_opt: Annotated[float | None, Field(description="Kill the script after N seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -61,7 +61,7 @@ def aitbc_script_run(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run a script with optional arguments."""
+    """Run an allowlisted AITBC script with optional arguments."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

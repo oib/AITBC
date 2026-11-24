@@ -2,7 +2,7 @@
 
 # `aitbc script run`
 
-Run a script with optional arguments.
+Run an allowlisted AITBC script with optional arguments.
 
 ## Usage
 
@@ -14,9 +14,9 @@ aitbc script run [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--script-path` | text | — | yes | Path to script file |
+| `--script-path` | text | — | yes | Path to script file under an allowed AITBC prefix |
 | `--args` | text | — | no | Script arguments (shell-quoted, e.g. '--verbose "a b"') |
-| `--timeout` | float | — | no | Kill the script after N seconds |
+| `--timeout` | float | `300` | no | Kill the script after N seconds |
 
 ## Examples
 
