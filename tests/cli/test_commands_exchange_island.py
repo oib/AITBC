@@ -53,10 +53,29 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` displays the order book from the mocked RPC."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
+        # #2506: the book scan reads unfiltered EXCHANGE rows and folds
+        # cancels itself — live orders are payload dicts carrying
+        # pair/side/status/order_id.
         mock_client.get_json.return_value = {
             "transactions": [
-                {"order_id": "ord1", "side": "buy", "amount": 10.0, "max_price": 0.001, "user_id": "user1"},
-                {"order_id": "ord2", "side": "sell", "amount": 5.0, "min_price": 0.002, "user_id": "user2"},
+                {
+                    "order_id": "ord1",
+                    "pair": "AIT/ETH",
+                    "side": "buy",
+                    "status": "open",
+                    "amount": 10.0,
+                    "max_price": 0.001,
+                    "user_id": "user1",
+                },
+                {
+                    "order_id": "ord2",
+                    "pair": "AIT/ETH",
+                    "side": "sell",
+                    "status": "open",
+                    "amount": 5.0,
+                    "min_price": 0.002,
+                    "user_id": "user2",
+                },
             ]
         }
 
@@ -65,11 +84,13 @@ class TestExchangeIslandCommands:
         result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
-        # #2338: orderbook fetches open rows plus the cancelled rows needed
-        # for cancel correlation — two get_json calls, both on TX_QUERY_PATH.
-        assert mock_client.get_json.call_count == 2
-        for call in mock_client.get_json.call_args_list:
-            assert call[0][0] == TX_QUERY_PATH
+        # #2506: one paged unfiltered scan (cancel rows ride the same stream);
+        # the page is short so the scan stops after the first call.
+        assert mock_client.get_json.call_count == 1
+        call = mock_client.get_json.call_args_list[0]
+        assert call[0][0] == TX_QUERY_PATH
+        assert call[1]["params"]["transaction_type"] == "EXCHANGE"
+        assert call[1]["params"]["island_id"] == "island-test-123"
         # Assert the exact path, not a substring. The commands used to call a bare
         # "/transactions", which the RPC does not serve -- every router is mounted
         # under /rpc (or /v1), so the bare path 404s and orderbook silently fell

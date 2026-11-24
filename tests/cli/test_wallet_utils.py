@@ -21,7 +21,7 @@ class TestDecryptPrivateKey:
         keystore_data = {
             "crypto": {
                 "cipher": "aes-256-gcm",
-                "kdfparams": {"salt": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "c": 1000},
+                "kdfparams": {"salt": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "c": 100000},
                 "cipherparams": {"nonce": "0123456789abcdef01234567"},
                 "ciphertext": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             }
@@ -92,7 +92,7 @@ class TestDecryptPrivateKey:
         """Test decryption with flat crypto structure (no nested 'crypto' key)"""
         keystore_data = {
             "cipher": "aes-256-gcm",
-            "kdfparams": {"salt": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "c": 1000},
+            "kdfparams": {"salt": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "c": 100000},
             "cipherparams": {"nonce": "0123456789abcdef01234567"},
             "ciphertext": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         }

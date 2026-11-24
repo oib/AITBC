@@ -39,6 +39,11 @@ class _Response:
         self.status_code = status_code
         self.text = "" if status_code == 200 else "not found"
 
+    def json(self):
+        # A sealed payout: confirmed with a block height — the tri-state
+        # check counts it as paid.
+        return {"status": "confirmed", "block_height": 7}
+
 
 @pytest.fixture
 def chain(monkeypatch):
@@ -121,7 +126,7 @@ def test_annotate_records_the_discrepancy_but_still_does_not_clear_it(db, chain)
 
     with agent_db.get_db_session() as session:
         lost = session.query(CoinRequest).filter(CoinRequest.id == "req-lost").first()
-        assert "absent from chain" in (lost.audit_log or "")
+        assert "not settled on chain" in (lost.audit_log or "")
         assert lost.transaction_hash == LOST_HASH
 
 

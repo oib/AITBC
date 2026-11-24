@@ -14,10 +14,13 @@ in-process and stub the client, so they check the error handling and nothing els
 
 import pytest
 from click.testing import CliRunner
+from eth_account import Account
 
 from aitbc.exceptions import NetworkError
 from aitbc_cli.commands.market import market
 from aitbc_cli.commands.market import ratings as ratings_module
+
+_SIGNER = Account.create()
 
 
 class _Client:
@@ -43,6 +46,15 @@ def runner():
 
 def _stub(monkeypatch, error: Exception):
     monkeypatch.setattr(ratings_module, "AITBCHTTPClient", _Client(error))
+
+
+def _stub_signing(monkeypatch):
+    """#2508: ``rate`` signs the request with the resolved market wallet —
+    there is no self-declared ``--reviewer-id`` anymore."""
+    monkeypatch.setattr(
+        ratings_module, "get_market_wallet", lambda *a, **kw: (_SIGNER.address, _SIGNER.key.hex(), "test-wallet")
+    )
+    monkeypatch.setattr(ratings_module, "get_chain_id", lambda *a, **kw: "test-chain")
 
 
 def _http_error(status_code: int) -> NetworkError:
@@ -94,6 +106,7 @@ def test_ratings_unreachable_with_status_digits_is_not_a_404(runner, monkeypatch
 
 def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):
     _stub(monkeypatch, NOT_FOUND)
+    _stub_signing(monkeypatch)
     result = runner.invoke(
         market,
         [
@@ -102,8 +115,6 @@ def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):
             "no-such-service",
             "--rating",
             "5.0",
-            "--reviewer-id",
-            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
         ],
         obj={},
     )
@@ -114,6 +125,7 @@ def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):
 
 def test_rate_still_reports_an_unreachable_service_as_unreachable(runner, monkeypatch):
     _stub(monkeypatch, UNREACHABLE)
+    _stub_signing(monkeypatch)
     result = runner.invoke(
         market,
         [
@@ -122,8 +134,6 @@ def test_rate_still_reports_an_unreachable_service_as_unreachable(runner, monkey
             "no-such-service",
             "--rating",
             "5.0",
-            "--reviewer-id",
-            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
         ],
         obj={},
     )
@@ -153,8 +163,6 @@ def test_rate_rejects_an_out_of_range_rating_before_any_request(runner, monkeypa
             "some-service",
             "--rating",
             "9.0",
-            "--reviewer-id",
-            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
         ],
         obj={},
     )
@@ -196,6 +204,7 @@ def test_rate_uses_market_url_override(runner, monkeypatch):
         return _CaptureClient(base_url, **kwargs)
 
     monkeypatch.setattr(ratings_module, "AITBCHTTPClient", _client_factory)
+    _stub_signing(monkeypatch)
     result = runner.invoke(
         market,
         [
@@ -204,8 +213,6 @@ def test_rate_uses_market_url_override(runner, monkeypatch):
             "svc-1",
             "--rating",
             "5.0",
-            "--reviewer-id",
-            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
             "--market-url",
             "https://market.example.com/v1/",
         ],

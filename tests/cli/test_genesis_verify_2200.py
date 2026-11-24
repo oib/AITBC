@@ -25,7 +25,9 @@ def data_dir(tmp_path):
 
     genesis_json = {
         "chain_id": chain,
-        "genesis_hash": "0x" + "ab" * 32,
+        # #2543: the file hash must equal the sealed block-0 hash — the
+        # crosscheck fails the verify when they differ.
+        "genesis_hash": "0x" + "cd" * 32,
         "allocations": [{"address": "0x" + "11" * 20, "balance": 1, "nonce": 0}],
         "parameters": {},
         "state_root": "0x" + "00" * 32,
@@ -74,7 +76,7 @@ def test_verify_genesis_hash_from_top_level_key(data_dir):
     """genesis_hash renders from the document's top-level key (#2200)."""
     result = _verify(data_dir)
     assert result.exit_code == 0, result.output
-    assert "0x" + "ab" * 32 in result.output
+    assert "0x" + "cd" * 32 in result.output
 
 
 def test_verify_missing_treasury_wallet_is_warning_not_failure(data_dir):
