@@ -268,29 +268,36 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
     reorg_margin = int(os.getenv("BRIDGE_ETH_REORG_MARGIN", "2"))
     if reorg_margin < 0:
         reorg_margin = 0
+    # #2862: only scan blocks buried BRIDGE_CONFIRMATIONS deep — the same
+    # head-minus-confirmations gate the dedicated bridge-monitor applies.
+    # A deposit in a reorged-out tip block must never mint unbacked AIT.
+    confirmations = int(os.getenv("BRIDGE_CONFIRMATIONS", "3"))
+    if confirmations < 0:
+        confirmations = 0
 
     try:
         latest_hex = await _rpc("eth_blockNumber", [], req_id=0)
         latest = int(latest_hex, 16)
+        confirmed_head = max(0, latest - confirmations)
 
         # Cold start / recovery: use the configured lookback window.
         # Steady state: scan only new blocks, overlapping by reorg_margin so a
         # short reorg does not let a deposit slip past us.
         if _LAST_SCANNED_BLOCK is None:
-            start = max(0, latest - lookback + 1)
+            start = max(0, confirmed_head - lookback + 1)
         else:
             start = max(0, _LAST_SCANNED_BLOCK - reorg_margin + 1)
 
         # If the monitor fell behind (long pause, error, etc.) do not scan more
         # than the configured lookback.
-        start = max(start, latest - lookback + 1)
+        start = max(start, confirmed_head - lookback + 1)
 
         target = address.lower()
         relevant_txs: list[dict[str, Any]] = []
-        block_numbers = list(range(start, latest + 1))
+        block_numbers = list(range(start, confirmed_head + 1))
 
         if not block_numbers:
-            _LAST_SCANNED_BLOCK = latest
+            _LAST_SCANNED_BLOCK = confirmed_head
             return relevant_txs
 
         batch_payloads = [
@@ -311,7 +318,7 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
                 any_error = True
 
         if not any_error:
-            _LAST_SCANNED_BLOCK = latest
+            _LAST_SCANNED_BLOCK = confirmed_head
 
         return relevant_txs
     except _OPS_ERRORS as e:

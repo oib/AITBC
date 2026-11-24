@@ -60,6 +60,9 @@ def monitor_env(tmp_path, monkeypatch):
     monkeypatch.setenv("ETH_WALLET_ADDRESS", BRIDGE_ADDRESS)
     monkeypatch.setenv("BRIDGE_ETH_LOOKBACK_BLOCKS", "5")
     monkeypatch.setenv("BRIDGE_ETH_REORG_MARGIN", "2")
+    # Legacy window assertions assume tip-inclusive scanning; the
+    # confirmation-depth gate has its own pins below.
+    monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "0")
     monkeypatch.setattr(monitor, "_LAST_SCANNED_BLOCK", None)
     monkeypatch.setattr(monitor, "ETH_RPC_URL", "http://test-rpc")
     monkeypatch.setattr(monitor, "SharedHttpClient", FakeClient)
@@ -209,3 +212,101 @@ class TestGetEthTransactions:
         batch = calls[1]
         assert isinstance(batch, list)
         assert [p["id"] for p in batch] == [106, 107, 108, 109, 110]
+
+
+class TestConfirmationDepthGate:
+    """#2862: the embedded deposit monitor must not scan/mint from tip blocks —
+    the dedicated bridge-monitor buries the head by BRIDGE_CONFIRMATIONS."""
+
+    @pytest.mark.asyncio
+    async def test_tip_blocks_excluded_until_confirmed(self, monitor_env, monkeypatch):
+        monitor = monitor_env
+        monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "3")
+        calls: list[Any] = []
+
+        async def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+            request = kwargs.get("json")
+            calls.append(request)
+            if isinstance(request, dict) and request.get("method") == "eth_blockNumber":
+                return FakeResponse({"jsonrpc": "2.0", "id": 0, "result": "0x64"})  # head=100
+            if isinstance(request, list):
+                results = []
+                for payload in request:
+                    bn = payload["id"]
+                    # A deposit sitting in an unconfirmed tip block.
+                    txs = [DEPOSIT_TX] if bn >= 98 else []
+                    results.append({"jsonrpc": "2.0", "id": bn, "result": _block_for_number(bn, txs)})
+                return FakeResponse(results)
+            return FakeResponse({})
+
+        monkeypatch.setattr(FakeClient, "post", staticmethod(fake_post))  # type: ignore[arg-type]
+
+        txs = await monitor.get_eth_transactions(BRIDGE_ADDRESS)
+
+        # confirmed_head = 100 - 3 = 97; lookback 5 -> scan 93..97 only.
+        batch = calls[1]
+        assert isinstance(batch, list)
+        assert [p["id"] for p in batch] == [93, 94, 95, 96, 97]
+        assert txs == []  # tip deposits (98..100) never reach process_transaction
+        assert monitor._LAST_SCANNED_BLOCK == 97
+
+    @pytest.mark.asyncio
+    async def test_confirmed_deposit_still_found(self, monitor_env, monkeypatch):
+        monitor = monitor_env
+        monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "3")
+
+        async def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+            request = kwargs.get("json")
+            if isinstance(request, dict) and request.get("method") == "eth_blockNumber":
+                return FakeResponse({"jsonrpc": "2.0", "id": 0, "result": "0x64"})
+            if isinstance(request, list):
+                results = []
+                for payload in request:
+                    bn = payload["id"]
+                    txs = [DEPOSIT_TX] if bn == 95 else []
+                    results.append({"jsonrpc": "2.0", "id": bn, "result": _block_for_number(bn, txs)})
+                return FakeResponse(results)
+            return FakeResponse({})
+
+        monkeypatch.setattr(FakeClient, "post", staticmethod(fake_post))  # type: ignore[arg-type]
+
+        txs = await monitor.get_eth_transactions(BRIDGE_ADDRESS)
+        assert [t["hash"] for t in txs] == [DEPOSIT_TX["hash"]]
+
+    @pytest.mark.asyncio
+    async def test_steady_state_cursor_tracks_confirmed_head(self, monitor_env, monkeypatch):
+        """Second poll: head advanced to 103 -> confirmed 100; cursor was 97,
+        so the reorg margin rescans 96..100 — blocks 98..100 enter scope only
+        once buried 3 deep."""
+        monitor = monitor_env
+        monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "3")
+        heads = iter(["0x64", "0x67"])  # 100 then 103
+        calls: list[Any] = []
+
+        async def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+            request = kwargs.get("json")
+            calls.append(request)
+            if isinstance(request, dict) and request.get("method") == "eth_blockNumber":
+                return FakeResponse({"jsonrpc": "2.0", "id": 0, "result": next(heads)})
+            if isinstance(request, list):
+                results = []
+                for payload in request:
+                    bn = payload["id"]
+                    txs = [DEPOSIT_TX] if bn == 99 else []
+                    results.append({"jsonrpc": "2.0", "id": bn, "result": _block_for_number(bn, txs)})
+                return FakeResponse(results)
+            return FakeResponse({})
+
+        monkeypatch.setattr(FakeClient, "post", staticmethod(fake_post))  # type: ignore[arg-type]
+
+        await monitor.get_eth_transactions(BRIDGE_ADDRESS)
+        assert monitor._LAST_SCANNED_BLOCK == 97
+
+        txs = await monitor.get_eth_transactions(BRIDGE_ADDRESS)
+        # start = 97 - 2 + 1 = 96; confirmed_head = 103 - 3 = 100 -> 96..100
+        batch = calls[3]
+        assert isinstance(batch, list)
+        assert [p["id"] for p in batch] == [96, 97, 98, 99, 100]
+        # The deposit at block 99 is now 4 deep — admitted.
+        assert [t["hash"] for t in txs] == [DEPOSIT_TX["hash"]]
+        assert monitor._LAST_SCANNED_BLOCK == 100
