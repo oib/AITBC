@@ -211,6 +211,17 @@ def test_keep_alive_is_bounded(client):
             assert resp.status_code == 400, keep_alive
             mock_send.assert_not_called()
 
+        # NaN is not JSON-strict but Python's json.loads admits the literal —
+        # send it raw so the gate's own parser sees it (#2915).
+        with patch.object(gate._client, "send", AsyncMock()) as mock_send:
+            resp = client.post(
+                "/api/generate",
+                content=b'{"model":"m","prompt":"hi","keep_alive":NaN}',
+                headers={**_headers(), "content-type": "application/json"},
+            )
+        assert resp.status_code == 400
+        mock_send.assert_not_called()
+
         with patch.object(gate._client, "send", AsyncMock(return_value=_backend_response())):
             resp = client.post(
                 "/api/generate",
