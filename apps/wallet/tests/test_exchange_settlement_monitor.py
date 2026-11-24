@@ -1970,3 +1970,21 @@ class TestExchangeConfigEnvValidation:
         monkeypatch.delenv("EXCHANGE_SETTLEMENT_SEAL_DEPTH", raising=False)
         monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "9")
         assert _cfg(exchange_env).seal_depth == 9
+
+
+class TestReleaseAmountGuard:
+    """#2896: _release_eth_for_settlement lacked the sell lane's
+    amount_eth <= 0 guard — a corrupt trades.total (zero/negative ETH
+    owed) reached gas estimation and signing."""
+
+    @pytest.mark.parametrize("bad_amount", ["0", "-0.5"])
+    @pytest.mark.asyncio
+    async def test_non_positive_amount_refuses_release(self, exchange_env, bad_amount):
+        row = _trade_row(ref_id=71, eth_amount=Decimal(bad_amount), status="locked")
+        cfg = _cfg(exchange_env)
+
+        with pytest.raises(RuntimeError, match="no ETH amount"):
+            await esm._release_eth_for_settlement(cfg, row)
+
+        assert exchange_env["eth_sends"] == []
+        assert get_exchange_settlement("trade", 71)["status"] == "locked"

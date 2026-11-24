@@ -378,12 +378,24 @@ async def _mirror_trade_state(cfg: ExchangeCfg, ref_id: str, target: str, row: d
 # --- ETH release (buyer's owed ETH → seller payout) --------------------------
 
 
+def _release_eth_terms(row: dict[str, Any]) -> tuple[str, Decimal]:
+    """(seller payout address, ETH owed) for a settlement release.
+
+    #2896: same non-positive guard the sell lane has — a corrupt
+    trades.total signs an invalid/negative-value tx otherwise.
+    """
+    seller_eth = str(row.get("seller_eth_address") or "")
+    amount_eth = Decimal(str(row["eth_amount"]))
+    if amount_eth <= 0:
+        raise RuntimeError(f"Settlement {row['id']} has no ETH amount to release")
+    return seller_eth, amount_eth
+
+
 async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     """Send the trade's ETH cost to the seller's payout address — wdm
     machinery: estimated gas, shared-float reserve, deterministic hash +
     nonce persisted before broadcast."""
-    seller_eth = str(row.get("seller_eth_address") or "")
-    amount_eth = Decimal(str(row["eth_amount"]))
+    seller_eth, amount_eth = _release_eth_terms(row)
     # CAS predicate (#1918): the caller's snapshot may be stale — predicate
     # on the status the ledger holds right now.
     fresh = get_exchange_settlement(str(row["kind"]), int(row["ref_id"]))
