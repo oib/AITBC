@@ -23,6 +23,8 @@ from pydantic import Field
 from aitbc_mcp_server import (
     SCRATCH_ROOT,
     NodeRole,
+    _build_dry_run,
+    _execution_context,
     _host_for_role,
     _json,
     _run_remote,
@@ -195,6 +197,14 @@ def aitbc_scratch_file(
         int,
         Field(description="Timeout in seconds.", ge=5, le=600),
     ] = 60,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the remote command without executing it (write/delete only)."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm a mutating action (required with dry_run=false for write/delete)."),
+    ] = False,
 ) -> str:
     """Create, read, delete or list scratch files under ``/var/tmp`` on a node.
 
@@ -203,10 +213,14 @@ def aitbc_scratch_file(
     ``cwd``/``env`` paths. Paths outside ``/var/tmp`` are refused, so the tool
     cannot touch ``/etc``, ``/var/lib/aitbc`` or user homes.
 
+    ``write`` and ``delete`` mutate node state and require ``dry_run=false``
+    plus ``confirm=true`` — the same contract as every other mutating tool.
+    ``read`` and ``list`` execute immediately.
+
     Examples:
-      - action="write", path="/var/tmp/s76/quote.json", content='{"price": "1.5"}'
+      - action="write", path="/var/tmp/s76/quote.json", content='{"price": "1.5"}', dry_run=false, confirm=true
       - action="read", path="/var/tmp/s76/quote.json"
-      - action="delete", path="/var/tmp/s76/quote.json"
+      - action="delete", path="/var/tmp/s76/quote.json", dry_run=false, confirm=true
       - action="list", path="/var/tmp/s76"
     """
     target = _host_for_role(role, host)
@@ -233,6 +247,22 @@ def aitbc_scratch_file(
         command = f"python3 -c {shlex.quote(_PY_DELETE)} {qpath}"
     else:  # list
         command = f"python3 -c {shlex.quote(_PY_LIST)} {qpath}"
+
+    # #2792: write/delete mutate node state (as root over SSH) but ran with no
+    # gate at all — every other mutating tool requires dry_run=false +
+    # confirm=true. read/list stay immediate.
+    if action in ("write", "delete"):
+        if dry_run:
+            return _json(_build_dry_run("Set dry_run=false and confirm=true to execute.", command, host=target))
+        if not confirm:
+            return _json(
+                {
+                    "error": "Confirmation required",
+                    "command": command,
+                    **_execution_context(target),
+                    "note": "Scratch write/delete require dry_run=false and confirm=true.",
+                }
+            )
 
     result = _run_remote(target, command, timeout, stdin_text=stdin_text)
     if action == "read":
