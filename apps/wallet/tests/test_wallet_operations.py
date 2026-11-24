@@ -95,7 +95,12 @@ def test_send_exception_marks_uncertain(client):
     assert r2.status_code == 409
 
 
-def test_send_without_key_unaffected(client):
-    tc, _ = client
+def test_send_requires_idempotency_key(client):
+    """#2930: an unkeyed send has no dedup backstop — a retry after an
+    ambiguous broadcast would sign a new tx at the advanced nonce and
+    double-pay, so the route refuses before touching the keystore."""
+    tc, keystore = client
     r = tc.post("/v1/wallets/w1/send", json=BODY)
-    assert r.status_code == 200
+    assert r.status_code == 400
+    assert "Idempotency-Key" in r.json()["detail"]
+    keystore.sign_and_submit_transaction.assert_not_called()

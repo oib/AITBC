@@ -28,7 +28,7 @@ Local FastAPI service that manages encrypted keys, signs transactions/receipts, 
   - `GET /v1/receipts/{job_id}/history` (full history + validations)
   - `GET /v1/wallets`, `POST /v1/wallets`
   - `GET /v1/wallets/{wallet_id}/balance`
-  - `POST /v1/wallets/{wallet_id}/unlock`, `POST /v1/wallets/{wallet_id}/sign`, `POST /v1/wallets/{wallet_id}/send`
+  - `POST /v1/wallets/{wallet_id}/unlock`, `POST /v1/wallets/{wallet_id}/sign`, `POST /v1/wallets/{wallet_id}/send` (the send route requires an `Idempotency-Key` header — retries of the same logical payment must reuse it)
   - `GET /health`
 - **Auth:** every `/v1/wallets*` route (list/create/balance/unlock/sign/send) requires the admin API key as `X-API-Key` (`require_admin_api_key` → `APIKeyAuthenticator`; key from `WALLET_API_KEY` or `COORDINATOR_API_KEY`, gated by `WALLET_AUTH_ENABLED`). Receipt verification routes are not admin-gated.
 - JSON-RPC interface (`POST /rpc`):

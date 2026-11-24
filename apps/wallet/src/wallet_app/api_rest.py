@@ -395,6 +395,14 @@ def send_transaction(
     using the wallet's private key.
     """
     idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
+    if not idempotency_key:
+        # #2930: an unkeyed send has no dedup backstop — a retry after an
+        # ambiguous broadcast signs a NEW transaction at the advanced nonce
+        # and double-pays. Require the key so every send is replay-safe.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Idempotency-Key header is required for POST /wallets/{id}/send",
+        )
     operation_attempt = 0
     try:
         operation_attempt, replay = _begin_send_operation(idempotency_key, wallet_id, tx_request)
