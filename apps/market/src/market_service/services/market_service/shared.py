@@ -740,3 +740,65 @@ async def active_rental_token_covers(session: Any, job_id: str) -> bool:
         return False
     job = await session.get(MarketJob, job_id)
     return bool(job is not None and (job.payload or {}).get("provider_confirmed"))
+
+
+def resolve_escrow_key(job: MarketJob) -> str:
+    """#2851: the on-chain escrow path key for a market job.
+
+    ``payload["escrow_job_id"]`` (#2737) declares an alias when the escrow
+    was locked under a different id (coordinator-rail host payments, ``ai
+    submit`` tokens); every settlement read/write must use the same key the
+    escrow was verified under — keying on ``job.id`` strands alias escrows.
+    """
+    return str((job.payload or {}).get("escrow_job_id") or job.id)
+
+
+async def escrow_key_claimed_by_job(session: AsyncSession, job: MarketJob, escrow_key: str) -> bool:
+    """#2325/#2851: session-param form of the exclusive-claim check.
+
+    Identical rule to the settlement mixin's ``_escrow_key_claimed_by_this_job``
+    — among active claimants the earliest-created job wins an escrow key —
+    shared so the sweeper's settle paths enforce the same binding.
+    """
+    now = datetime.now(UTC).replace(tzinfo=None)
+    stmt = (
+        select(col(MarketJob.id))
+        .where(
+            col(MarketJob.state).in_(_ACCESS_TOKEN_ACTIVE_STATES),
+            or_(col(MarketJob.expires_at).is_(None), col(MarketJob.expires_at) > now),
+            or_(col(MarketJob.payment_amount).is_(None), col(MarketJob.payment_amount) > 0),
+            or_(
+                col(MarketJob.id) == escrow_key,
+                col(MarketJob.payload)["escrow_job_id"].as_string() == escrow_key,
+            ),
+        )
+        .order_by(col(MarketJob.created_at), col(MarketJob.id))
+        .limit(1)
+    )
+    earliest = (await session.execute(stmt)).scalar_one_or_none()
+    return earliest == job.id
+
+
+async def alias_lock_binds_market_job(rpc_client: Any, escrow: dict, job: MarketJob) -> bool:
+    """#2326/#2851: rpc-param form of the alias lock-binding check.
+
+    The escrow's signed ESCROW_LOCK tx must name this market job — without
+    it an ``escrow_job_id`` alias is an unverified caller claim. Escrows
+    locked before ``market_job_id`` existed carry no binding and fail
+    closed.
+    """
+    from ...config import settings
+
+    lock_tx_hash = escrow.get("lock_tx_hash")
+    if not lock_tx_hash:
+        return False
+    try:
+        from aitbc.utils.chain_id import resolve_chain_id
+
+        chain_id = settings.default_chain_id or resolve_chain_id()
+        tx = await rpc_client.get_transaction(str(lock_tx_hash), chain_id=chain_id)
+    except Exception as e:  # noqa: BLE001 - unverifiable binding must deny, not 500
+        logger.warning("Alias escrow lock lookup failed for job %s: %s", job.id, e)
+        return False
+    payload = (tx or {}).get("payload") or {}
+    return payload.get("market_job_id") == job.id
