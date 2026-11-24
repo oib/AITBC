@@ -59,7 +59,10 @@ def test_json_mode_children_write_to_stderr(monkeypatch, tmp_path):
         "deployed": True,
     }
     children = [stdout for cmd, stdout in calls if _is_child(cmd)]
-    assert children == ["stderr", "stderr"]
+    # CliRunner's stderr has no real fd, so _machine_child_stdout degrades
+    # to inherited streams instead of crashing (#2940); the real-fd stderr
+    # redirect is pinned by test_machine_child_stdout_* below.
+    assert children == ["INHERITED", "INHERITED"]
 
 
 def test_table_mode_children_keep_inherited_stdout(monkeypatch, tmp_path):
@@ -73,4 +76,27 @@ def test_yaml_mode_children_write_to_stderr(monkeypatch, tmp_path):
     result, calls = _setup(monkeypatch, tmp_path, "yaml")
     assert result.exit_code == 0
     children = [stdout for cmd, stdout in calls if _is_child(cmd)]
-    assert children == ["stderr", "stderr"]
+    assert children == ["INHERITED", "INHERITED"]
+
+
+def test_machine_child_stdout_redirects_when_stderr_has_fd(monkeypatch):
+    import io
+
+    import aitbc_cli.commands.update as up
+
+    class _FdErr:
+        def fileno(self):
+            return 2
+
+    fd_err = _FdErr()
+    monkeypatch.setattr(sys, "stderr", fd_err)
+    assert up._machine_child_stdout("json") is fd_err
+    assert up._machine_child_stdout("yaml") is fd_err
+    assert up._machine_child_stdout("table") is None
+
+    class _NoFdErr:
+        def fileno(self):
+            raise io.UnsupportedOperation("fileno")
+
+    monkeypatch.setattr(sys, "stderr", _NoFdErr())
+    assert up._machine_child_stdout("json") is None
