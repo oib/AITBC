@@ -245,6 +245,52 @@ def identity_attestation_fields(
     }
 
 
+def agent_verify_signature_fields(
+    client,
+    agent_id: str,
+    verifier_address: str,
+    chain_id: str,
+    private_key: str,
+) -> dict[str, Any]:
+    """Build the ``nonce``/``timestamp``/``signature`` fields for ``POST /rpc/identity/verify``.
+
+    The node requires the verifier to sign the freshness-bound message
+    ``{"action": "agent_verify", "agent_id", "chain_id", "nonce",
+    "timestamp", "verifier_address"}`` (canonical JSON, keccak256) — the same
+    contract as the signed staking writes (#2936). ``client`` is an
+    ``AITBCHTTPClient`` pointed at the blockchain RPC; ``verifier_address``
+    must be the canonical address the signature recovers to (the node
+    lowercases it inside the signed message).
+    """
+    import json
+    import time
+
+    from eth_utils import keccak
+
+    from aitbc.crypto.crypto import sign_transaction_hash
+
+    account = client.get(f"/rpc/account/{verifier_address}?chain_id={chain_id}")
+    nonce = account.get("nonce") if isinstance(account, dict) else None
+    if nonce is None:
+        raise ValueError(f"/rpc/account/{verifier_address} response carried no nonce")
+    nonce = int(nonce)
+    timestamp = int(time.time())
+    sign_data = {
+        "action": "agent_verify",
+        "agent_id": agent_id,
+        "chain_id": chain_id,
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "verifier_address": verifier_address.lower(),
+    }
+    message = json.dumps(sign_data, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "signature": sign_transaction_hash(keccak(message).hex(), str(private_key)),
+    }
+
+
 def check_registry_binding(client, agent_id: str, address: str, private_key: str | None = None) -> str | None:
     """Check that ``agent_id`` is registered and bound to ``address``.
 

@@ -96,6 +96,18 @@ def test_register_identity_explicit_chain_id_wins(runner):
 # --- agent verify-identity (mutating POST /rpc/identity/verify) ---
 
 
+def _signing_patches(signer=PROVIDER):
+    """#2937: verify-identity requires a verifier signature — stub the wallet
+    load (signer must equal --verifier-address) and the field builder."""
+    return (
+        patch("aitbc_cli.commands.agent_sdk.load_signing_wallet", return_value=(signer, "0x" + "42" * 32)),
+        patch(
+            "aitbc_cli.commands.agent_sdk.agent_verify_signature_fields",
+            return_value={"nonce": 7, "timestamp": 1700000000, "signature": "0xsig"},
+        ),
+    )
+
+
 def test_verify_identity_aborts_when_chain_probe_fails(runner):
     cfg_p, client_p, probe, client = _agent_patches(_failing_probe())
     with cfg_p, client_p, probe:
@@ -104,10 +116,23 @@ def test_verify_identity_aborts_when_chain_probe_fails(runner):
     client.post.assert_not_called()
 
 
-def test_verify_identity_env_chain_id_wins(runner, monkeypatch):
+def test_verify_identity_requires_wallet(runner, monkeypatch):
+    """#2937: no --wallet/AITBC_DEFAULT_WALLET -> clear abort before any POST."""
+    monkeypatch.delenv("AITBC_DEFAULT_WALLET", raising=False)
     monkeypatch.setenv("CHAIN_ID", "env-chain")
     cfg_p, client_p, probe, client = _agent_patches(_failing_probe())
     with cfg_p, client_p, probe:
+        result = _invoke_agent(runner, ["verify-identity", "--agent-id", "a1", "--verifier-address", PROVIDER])
+    assert result.exit_code != 0
+    assert "--wallet" in result.output
+    client.post.assert_not_called()
+
+
+def test_verify_identity_env_chain_id_wins(runner, monkeypatch):
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    cfg_p, client_p, probe, client = _agent_patches(_failing_probe())
+    sign_p, fields_p = _signing_patches()
+    with cfg_p, client_p, probe, sign_p, fields_p:
         result = _invoke_agent(runner, ["verify-identity", "--agent-id", "a1", "--verifier-address", PROVIDER])
     assert result.exit_code == 0, result.output
     assert client.post.call_args.kwargs["json"]["chain_id"] == "env-chain"
@@ -150,11 +175,19 @@ def test_identity_commands_send_blockchain_rpc_api_key(runner, monkeypatch):
         _failing_probe(),
     ):
         r1 = _invoke_agent(runner, ["register-identity", "--agent-id", "a1", "--agent-address", ACCOUNT])
-        r2 = _invoke_agent(runner, ["verify-identity", "--agent-id", "a1", "--verifier-address", PROVIDER])
         r3 = _invoke_agent(runner, ["get-identity", "--agent-id", "a1"])
     assert r1.exit_code == 0, r1.output
-    assert r2.exit_code == 0, r2.output
     assert r3.exit_code == 0, r3.output
-    assert client_cls.call_count == 3
-    for call in client_cls.call_args_list:
+    sign_p, fields_p = _signing_patches()
+    with (
+        patch("aitbc_cli.commands.agent_sdk.get_config", return_value=config),
+        patch("aitbc_cli.commands.agent_sdk.AITBCHTTPClient", return_value=client) as client_cls2,
+        sign_p,
+        fields_p,
+    ):
+        r2 = _invoke_agent(runner, ["verify-identity", "--agent-id", "a1", "--verifier-address", PROVIDER])
+    assert r2.exit_code == 0, r2.output
+    assert client_cls.call_count == 2
+    assert client_cls2.call_count == 1
+    for call in [*client_cls.call_args_list, *client_cls2.call_args_list]:
         assert call.kwargs["api_key"] == "rpc-key-123"

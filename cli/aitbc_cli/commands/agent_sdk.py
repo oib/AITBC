@@ -23,6 +23,7 @@ from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
 from ..utils import info, output, resolve_output_format, success
 from ..utils.agent_signing import (
+    agent_verify_signature_fields,
     identity_attestation_fields,
     load_signing_wallet,
     read_signing_options,
@@ -1020,15 +1021,23 @@ try:
     @agent.command(
         epilog="""Examples:
 
-  aitbc agent verify-identity --agent-id shop-agent --verifier-address 0xAbc...
+  aitbc agent verify-identity --agent-id shop-agent --verifier-address 0xAbc... --wallet verifier
 
   aitbc agent verify-identity --agent-id provider-1 --verifier-address 0xC10... --output json"""
     )
     @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
     @click.option("--verifier-address", "verifier_address", required=True, help="The Verifier address.")
+    @click.option(
+        "--wallet",
+        "wallet_name",
+        default=None,
+        help="Wallet signing the verification (must control --verifier-address; "
+        "default: $AITBC_DEFAULT_WALLET) — required: the node rejects unsigned verifies",
+    )
+    @wallet_password_options
     @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
-    def verify_identity(ctx, agent_id, verifier_address, format):
+    def verify_identity(ctx, agent_id, verifier_address, wallet_name, password, password_file, password_stdin, format):
         """Verify an agent's identity using a verifier address on the blockchain."""
         config = get_config()
 
@@ -1041,13 +1050,39 @@ try:
 
             chain_id = resolve_chain_id(ctx, rpc_url)
 
+            signing = load_signing_wallet(
+                ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+            )
+            if signing is None:
+                abort(
+                    ctx,
+                    "--wallet (or AITBC_DEFAULT_WALLET) is required: /rpc/identity/verify rejects "
+                    "unsigned requests — the verifier must sign the freshness-bound agent_verify message",
+                )
+                return
+            signer_address, private_key = signing
+            signer_canonical = canonical_address(signer_address)
+            verifier_canonical = canonical_address(verifier_address)
+            if signer_canonical.lower() != verifier_canonical.lower():
+                abort(
+                    ctx,
+                    f"Wallet '{wallet_name or signer_address}' controls {signer_canonical}, "
+                    f"which does not match --verifier-address {verifier_canonical}",
+                )
+
             # Submit verification to blockchain RPC
             http_client = AITBCHTTPClient(
                 base_url=rpc_url,
                 timeout=30,
                 api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
             )
-            verification_data = {"agent_id": agent_id, "verifier_address": verifier_address, "chain_id": chain_id}
+            signature_fields = agent_verify_signature_fields(http_client, agent_id, verifier_canonical, chain_id, private_key)
+            verification_data = {
+                "agent_id": agent_id,
+                "verifier_address": verifier_canonical,
+                "chain_id": chain_id,
+                **signature_fields,
+            }
             result = http_client.post("/rpc/identity/verify", json=verification_data)
 
             success(f"Agent identity verified: {agent_id}")
