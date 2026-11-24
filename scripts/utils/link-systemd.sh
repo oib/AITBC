@@ -346,9 +346,17 @@ for entry in "$ACTIVE_SYSTEMD_DIR"/aitbc-*; do
     base="${base%.service}";  base="${base%.timer}"
 
     if is_disabled "$base"; then
-        rm -rf "$entry" 2>/dev/null \
-            && echo "  🗑️  Removed (DISABLED_SERVICES): $name" \
-            || { echo "    ❌ Failed to remove disabled unit: $name"; ((error_count++)); }
+        # #2785: only links (incl. dangling) are ours to remove — a regular
+        # file matching a disabled name is operator-installed config, the
+        # same preservation policy as the "Kept operator-installed file"
+        # branch below. rm -rf here used to delete it unconditionally.
+        if [ -L "$entry" ]; then
+            rm -rf "$entry" 2>/dev/null \
+                && echo "  🗑️  Removed (DISABLED_SERVICES): $name" \
+                || { echo "    ❌ Failed to remove disabled unit: $name"; ((error_count++)); }
+        else
+            echo "  ⚠️  Kept operator-installed file for disabled unit: $name"
+        fi
         continue
     fi
 
@@ -379,6 +387,26 @@ for entry in "$ACTIVE_SYSTEMD_DIR"/aitbc-*; do
         echo "  ⚠️  Kept operator-installed file (not a link): $name"
     fi
 done
+
+# Link a repo <unit>.d drop-in directory (#2785): a real directory or file
+# at the target is operator-maintained config — the same "not ours to
+# delete" policy as regular unit files — so it is preserved and the repo
+# dir is NOT linked. Only symlinks (incl. dangling) and absent paths are
+# (re)linked.
+link_dropin_dir() {
+    local source_dir="$1" target_dir="$2" label="$3"
+    if [ -e "$target_dir" ] && [ ! -L "$target_dir" ]; then
+        echo "    ⚠️  Kept operator drop-in path (not a link): $label.d — repo drop-ins not linked"
+        return 0
+    fi
+    rm -rf "$target_dir" 2>/dev/null || true
+    if ln -sf "$source_dir" "$target_dir" 2>/dev/null; then
+        echo "    ✅ Successfully linked directory: ${label}.d"
+    else
+        echo "    ❌ Failed to link directory: ${label}.d"
+        ((error_count++))
+    fi
+}
 
 # Create symbolic links
 echo "🔗 Creating symbolic links..."
@@ -412,21 +440,8 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
 
         # Handle .d directories
         if [[ -d "${file}.d" ]]; then
-            target_dir="${target}.d"
-            source_dir="${file}.d"
-
-            echo "    📁 Linking directory: ${filename}.d -> ${source_dir}"
-
-            # Remove existing directory
-            rm -rf "$target_dir" 2>/dev/null || true
-
-            # Create symbolic link for directory
-            if ln -sf "$source_dir" "$target_dir" 2>/dev/null; then
-                echo "    ✅ Successfully linked directory: ${filename}.d"
-            else
-                echo "    ❌ Failed to link directory: ${filename}.d"
-                ((error_count++))
-            fi
+            echo "    📁 Linking directory: ${filename}.d -> ${file}.d"
+            link_dropin_dir "${file}.d" "${target}.d" "$filename"
         fi
 
         ((linked_files++))
@@ -465,21 +480,8 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
 
         # Handle .d directories
         if [[ -d "${file}.d" ]]; then
-            target_dir="${target}.d"
-            source_dir="${file}.d"
-
-            echo "    📁 Linking directory: ${filename}.d -> ${source_dir}"
-
-            # Remove existing directory
-            rm -rf "$target_dir" 2>/dev/null || true
-
-            # Create symbolic link for directory
-            if ln -sf "$source_dir" "$target_dir" 2>/dev/null; then
-                echo "    ✅ Successfully linked directory: ${filename}.d"
-            else
-                echo "    ❌ Failed to link directory: ${filename}.d"
-                ((error_count++))
-            fi
+            echo "    📁 Linking directory: ${filename}.d -> ${file}.d"
+            link_dropin_dir "${file}.d" "${target}.d" "$filename"
         fi
 
         ((linked_files++))
