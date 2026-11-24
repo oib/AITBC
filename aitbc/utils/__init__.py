@@ -76,6 +76,7 @@ from .units import (
     format_ait,
     units_to_ait,
 )
+from .url import quote_path_segment
 from .validation import (
     validate_address,
     validate_address_strict,
@@ -149,6 +150,7 @@ __all__ = [
     "merge_json",
     "parse_duration",
     "parse_iso8601",
+    "quote_path_segment",
     "resolve_path",
     "retry_until_deadline",
     "save_json",

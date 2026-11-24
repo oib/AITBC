@@ -4,6 +4,8 @@ from typing import Any, Self, cast
 
 import httpx
 
+from aitbc.utils import quote_path_segment
+
 from ..config import settings
 
 
@@ -57,7 +59,7 @@ class BlockchainRPCClient:
 
     async def get_island_info(self, island_id: str) -> dict[str, Any] | None:
         """Get island info via blockchain RPC"""
-        response = await self.client.get(f"{self.base_url}/rpc/islands/{island_id}")
+        response = await self.client.get(f"{self.base_url}/rpc/islands/{quote_path_segment(island_id)}")
         if response.status_code == 404:
             return None
         response.raise_for_status()
