@@ -142,7 +142,9 @@ _ATTACKER = "0x" + "cc" * 20
 
 
 async def _job_with_parties(session: AsyncSession, jid: str) -> str:
-    pay = MarketJobPayment(job_id=jid, amount=10, status="escrowed")
+    # #2858: the settle floor is the locked amount — fixtures lock 5 AIT so
+    # the 5-AIT settle txs below cover it.
+    pay = MarketJobPayment(job_id=jid, amount=5, status="escrowed")
     job = MarketJob(
         id=jid,
         state="COMPLETED",
@@ -212,7 +214,8 @@ class TestSettleTxPartyAndAmountBinding:
 
     @pytest.mark.asyncio
     async def test_refund_binds_buyer_recipient_and_amount(self, session):
-        pay = MarketJobPayment(job_id="job-refund-1", amount=10, status="escrowed")
+        # #2858: lock matches the 5-AIT settle tx so the floor is covered.
+        pay = MarketJobPayment(job_id="job-refund-1", amount=5, status="escrowed")
         job = MarketJob(
             id="job-refund-1",
             state="CANCELED",
