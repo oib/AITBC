@@ -255,8 +255,19 @@ async def _release_verdict(wdm: Any, rpc_url: str, row: dict[str, Any]) -> dict[
         out["detail"] = "tx is known to the node but unmined — it may still seal"
         return out
     if latest_nonce <= int(nonce):
-        out["verdict"] = "never_mined"
-        out["detail"] = "hash absent from chain and its nonce is still free"
+        # 'latest' only counts mined txs — a still-pending tx can hold the
+        # recorded nonce while the count says it is free. The 'pending'
+        # tag includes mempool txs, so the nonce is provably free only when
+        # BOTH counts leave it open (#2921). An endpoint that cannot answer
+        # 'pending' raises here and _gather_proofs reports ambiguous.
+        pending_nonce = int(await _rpc_call(rpc_url, "eth_getTransactionCount", [wdm.ETH_WALLET_ADDRESS, "pending"]), 16)
+        out["pending_nonce"] = pending_nonce
+        if pending_nonce <= int(nonce):
+            out["verdict"] = "never_mined"
+            out["detail"] = "hash absent from chain and its nonce is still free"
+            return out
+        out["verdict"] = "ambiguous"
+        out["detail"] = "hash absent and nonce free on 'latest', but held by a still-pending tx"
         return out
     out["verdict"] = "ambiguous"
     out["detail"] = "hash absent but the recorded nonce was consumed by another tx"
