@@ -805,7 +805,7 @@ def swarm_key(
     if output_path:
         _write_swarm_key(output_path, key)
 
-    result_data = _swarm_result_data(data, key, bootstrap)
+    result_data = _swarm_result_data(data, key, bootstrap, written_to_file=bool(output_path))
     click.echo(json.dumps({"success": True, "data": result_data}, indent=2))
 
 
@@ -895,13 +895,18 @@ def _write_swarm_key(output_path: str, key: str) -> None:
     success(f"Swarm key written to {output_path}")
 
 
-def _swarm_result_data(data: dict[str, Any], key: str, bootstrap: bool) -> dict[str, Any]:
+def _swarm_result_data(data: dict[str, Any], key: str, bootstrap: bool, *, written_to_file: bool = False) -> dict[str, Any]:
     result_data: dict[str, Any] = {
         "island_id": data.get("island_id"),
         "chain_id": data.get("chain_id"),
         "member_address": data.get("member_address"),
-        "swarm_key": key,
+        # #2798: once the key is safely on disk (0600) echoing it again just
+        # leaks it into scrollback/CI logs/`tee`. Without --output the JSON
+        # echo is the only delivery, so the key stays.
+        "swarm_key": "***" if written_to_file else key,
     }
+    if written_to_file:
+        result_data["swarm_key_note"] = "key written to --output file (0600); value not echoed"
     if bootstrap and data.get("hub_multiaddr_template"):
         template = data.get("hub_multiaddr_template", "")
         # The template contains <hub_peer_id>; keep it as a hint if peer id not known.
