@@ -2,7 +2,7 @@
 
 # `aitbc config set-secret`
 
-Set an encoded secret value in the local secrets file.
+Set a secret value in the local secrets file. Values are base64-encoded for CLI compatibility, not encrypted — anyone who can read ``~/.config/aitbc/secrets.json`` recovers the plaintext (#2797). The file is mode 0600 in a 0700 directory; treat it like a password store, not a vault.
 
 ## Usage
 
@@ -15,7 +15,7 @@ aitbc config set-secret [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--key` | text | — | yes | The Key. |
-| `--value` | text | — | yes | The Value. |
+| `--value` | text | — | yes | The Value (stored base64-encoded — NOT encrypted). |
 
 ## Examples
 
