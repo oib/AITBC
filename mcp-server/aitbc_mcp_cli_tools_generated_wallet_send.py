@@ -38,10 +38,8 @@ def aitbc_wallet_send(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wallet_name_override: Annotated[str | None, Field(description="Wallet name (overrides the group-level value)")] = None,
-    wallet_path_override: Annotated[
-        str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")
-    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
     use_daemon: Annotated[
         bool | None,
         Field(
@@ -67,14 +65,12 @@ def aitbc_wallet_send(
             "fee": "fee",
             "password_file": "password-file",
             "rpc_url": "rpc-url",
-            "wallet_name_override": "wallet-name",
-            "wallet_path_override": "wallet-path",
         },
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
         dual_flags={"use_daemon": ("use-daemon", "no-daemon")},
     )
     args = None
