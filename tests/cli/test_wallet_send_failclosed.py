@@ -181,9 +181,17 @@ class TestMarketChainIdFailClosed:
     def test_credentials_win(self):
         from aitbc_cli.commands.market import get_chain_id
 
-        with patch(
-            "aitbc_cli.commands.market.load_island_credentials",
-            return_value={"island_chain_id": "ait-credchain"},
+        # The serving-RPC probe must not answer — credentials are the
+        # fallback. Without a dead-probe stub the test depends on the host's
+        # configured RPC being unreachable (#2940).
+        client = Mock()
+        client.get = Mock(side_effect=NetworkError("connection refused"))
+        with (
+            patch(
+                "aitbc_cli.commands.market.load_island_credentials",
+                return_value={"island_chain_id": "ait-credchain"},
+            ),
+            patch("aitbc_cli.utils.chain_id.AITBCHTTPClient", return_value=client),
         ):
             assert get_chain_id() == "ait-credchain"
 
