@@ -48,8 +48,13 @@ Safety rules (ETH-13):
 - Serialization holds: 'requeue' and 'sweep-now' refuse while a
   'settling'/'refunding' row is in flight — the one-sweep rule applies to
   manual actions too.
-- write-off refuses rows with a live send in flight ('releasing',
-  'settling', 'refunding') — those are machine-owned until resolved.
+- write-off is a pre-release abandon only: it refuses every status past
+  the release decision — 'released'/'queued_fee_settle' already sent ETH
+  and still owe the AIT settle, 'refund_pending'/'queued_fee_refund'/
+  'orphaned'/'needs_review*' still owe an AIT leg, and 'releasing'/
+  'settling'/'refunding' have a live send in flight. Abandoning those
+  strands money with no sweep owner (#2923); resolve the open leg
+  (confirm-swept / requeue / sweep-now) instead.
 - Every mutating verb is a dry-run by default; --confirm requires a
   non-empty --note. Resolutions stamp resolved_by/resolved_at/operator_note
   and carry 'operator:<verb>' in the row's error field (confirm-swept,
@@ -85,10 +90,11 @@ _OPERATOR_GATED_STATUS = "needs_review_sweep"
 # Fee-parked rows sweep-now may accelerate.
 _FEE_QUEUED_STATUSES = ("queued_fee_settle", "queued_fee_refund")
 
-# Rows with a live send in flight are machine-owned: a release blob or a
-# sweep blob may still seal — abandoning the row under it strands the
-# ledger truth. write-off refuses these.
-_IN_FLIGHT_STATUSES = ("releasing", "settling", "refunding")
+# write-off is allowed only before the release decision: nothing has left
+# and no AIT leg is owed yet. Every later status either already spent ETH
+# or still owes a settle/refund — terminally abandoning it would strand
+# the money outside every worklist (#2923).
+_WRITE_OFF_STATUSES = ("locked", "stale_price", "queued_reserve")
 
 # Literal requeue targets (decided 14 Oct): the row returns to the lane it
 # was in and the monitor's normal path runs — no quote/cap re-check.
@@ -385,10 +391,11 @@ async def _cmd_write_off(db: Any, args: argparse.Namespace) -> int:
     if row["status"] not in db._SELL_OPEN_STATUSES:
         click.echo(f"refusing: status={row['status']} is already terminal")
         return 1
-    if row["status"] in _IN_FLIGHT_STATUSES:
+    if row["status"] not in _WRITE_OFF_STATUSES:
         click.echo(
-            f"refusing: status={row['status']} has a live send in flight — "
-            "resolve it first (confirm-swept / requeue / let the monitor decide)"
+            f"refusing: status={row['status']} is past the release decision — "
+            "write-off abandons pre-release rows only; resolve the open leg "
+            "(confirm-swept / requeue / sweep-now) or let the monitor decide"
         )
         return 1
 
