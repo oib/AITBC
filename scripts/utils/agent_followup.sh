@@ -47,19 +47,23 @@ agent_followup_get_node_role() {
     # AITBC_ETC_DIR mirrors setup.sh's override so a scratch run reports the
     # scratch role, not the host's installed one.
     local etc_dir="${AITBC_ETC_DIR:-/etc/aitbc}"
-    if [ -f "$etc_dir/blockchain.env" ]; then
-        # shellcheck disable=SC1091
-        source "$etc_dir/blockchain.env" 2>/dev/null || true
-    fi
-    if [ -f "$etc_dir/node.env" ]; then
-        # shellcheck disable=SC1091
-        source "$etc_dir/node.env" 2>/dev/null || true
-    fi
-    if [ "${BLOCKCHAIN_MODE:-}" = "hub" ]; then
+    # #2787: parse, never source — env files can carry $(...)/backticks that
+    # `source` would execute. Pre-set env vars still act as the base values,
+    # files override per key, node.env last (old source order).
+    local env_reader="$(dirname "${BASH_SOURCE[0]}")/systemd-env.sh"
+    local blockchain_mode="${BLOCKCHAIN_MODE:-}" market_role="${MARKET_ROLE:-}" hardware_profile="${HARDWARE_PROFILE:-}"
+    local f v
+    for f in "$etc_dir/blockchain.env" "$etc_dir/node.env"; do
+        [ -f "$f" ] || continue
+        v=$("$env_reader" get "$f" BLOCKCHAIN_MODE 2>/dev/null || true); [ -n "$v" ] && blockchain_mode="$v"
+        v=$("$env_reader" get "$f" MARKET_ROLE 2>/dev/null || true); [ -n "$v" ] && market_role="$v"
+        v=$("$env_reader" get "$f" HARDWARE_PROFILE 2>/dev/null || true); [ -n "$v" ] && hardware_profile="$v"
+    done
+    if [ "$blockchain_mode" = "hub" ]; then
         echo "hub"
-    elif [ "${MARKET_ROLE:-}" = "shop" ] && [ "${HARDWARE_PROFILE:-}" = "gpu" ]; then
+    elif [ "$market_role" = "shop" ] && [ "$hardware_profile" = "gpu" ]; then
         echo "shop"
-    elif [ "${MARKET_ROLE:-}" = "customer" ]; then
+    elif [ "$market_role" = "customer" ]; then
         echo "customer"
     else
         echo "follower"
