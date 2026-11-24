@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hmac
+import json
 import math
 import os
 from contextlib import asynccontextmanager
@@ -14,6 +15,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import field_validator
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
 
@@ -94,6 +96,86 @@ async def get_client_id(
 
 _TERMINAL_STATES = {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}
 
+# #2913: bounds for the examples service — request bodies, task_data and
+# per-client active jobs were all unbounded.
+MAX_BODY_BYTES = int(os.getenv("AITBC_AI_MAX_BODY_BYTES", "1048576"))
+TASK_DATA_MAX_BYTES = int(os.getenv("AITBC_AI_MAX_TASK_DATA_BYTES", "65536"))
+MAX_ACTIVE_JOBS_PER_CLIENT = int(os.getenv("AITBC_AI_MAX_ACTIVE_JOBS", "1000"))
+
+
+class _BodyTooLarge(Exception):
+    pass
+
+
+async def _send_413(send) -> None:
+    body = b'{"detail":"request body too large"}'
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
+
+
+def _declared_body_length(scope) -> int:
+    try:
+        return int(dict(scope.get("headers") or []).get(b"content-length", b"0") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+class _BodySizeLimitMiddleware:
+    """Pure-ASGI request-body cap (#2913).
+
+    Rejects on a declared Content-Length up front and counts streamed
+    (chunked) bodies as they are consumed — an oversized chunked body
+    aborts the request rather than reaching a handler unbounded.
+    """
+
+    def __init__(self, app, max_bytes: int = MAX_BODY_BYTES) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        if _declared_body_length(scope) > self.max_bytes:
+            await _send_413(send)
+            return
+        await self._call_http(scope, receive, send)
+
+    async def _call_http(self, scope, receive, send) -> None:
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise _BodyTooLarge
+            return message
+
+        response_started = False
+
+        async def watched_send(message):
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, watched_send)
+        except _BodyTooLarge:
+            if not response_started:
+                await _send_413(send)
+
+
+app.add_middleware(_BodySizeLimitMiddleware)
+
 
 async def _expire_if_due(session: AsyncSession, job: Job) -> bool:
     """Lazily transition a non-terminal job past ``expires_at`` to EXPIRED.
@@ -144,6 +226,14 @@ class JobCreate(SQLModel):
             raise ValueError("payment_amount must be finite")
         return value
 
+    @field_validator("task_data")
+    @classmethod
+    def _task_data_bounded(cls, value: dict) -> dict:
+        # #2913: task_data lands in a DB row — bound its serialized size.
+        if len(json.dumps(value, default=str)) > TASK_DATA_MAX_BYTES:
+            raise ValueError(f"task_data exceeds the {TASK_DATA_MAX_BYTES}-byte cap")
+        return value
+
 
 class JobView(SQLModel):
     id: str
@@ -173,6 +263,16 @@ async def submit_job(
     client_id: Annotated[str, Depends(get_client_id)],
 ):
     """Submit a job for execution."""
+    active_count = (
+        await session.execute(
+            select(func.count(Job.id)).where(
+                Job.client_id == client_id,
+                Job.state.in_([JobState.PENDING, JobState.RUNNING]),
+            )
+        )
+    ).scalar_one()
+    if active_count >= MAX_ACTIVE_JOBS_PER_CLIENT:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="too many active jobs for client")
     try:
         job = Job(
             client_id=client_id,
@@ -349,7 +449,10 @@ async def list_jobs(
 
 
 @app.post("/multimodal/process")
-async def process_multimodal(request: dict[str, Any]) -> dict[str, Any]:
+async def process_multimodal(
+    request: dict[str, Any],
+    client_id: Annotated[str, Depends(get_client_id)],
+) -> dict[str, Any]:
     """Process multimodal AI requests (text, image, audio, video)"""
     return {
         "task_id": "multimodal_123",
@@ -362,7 +465,10 @@ async def process_multimodal(request: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.post("/multimodal/benchmark")
-async def benchmark_multimodal(request: dict[str, Any]) -> dict[str, Any]:
+async def benchmark_multimodal(
+    request: dict[str, Any],
+    client_id: Annotated[str, Depends(get_client_id)],
+) -> dict[str, Any]:
     """Benchmark multimodal AI performance"""
     return {
         "benchmark_id": "bench_456",
@@ -376,7 +482,7 @@ async def benchmark_multimodal(request: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.get("/multimodal/agents")
-async def list_multimodal_agents() -> dict[str, Any]:
+async def list_multimodal_agents(client_id: Annotated[str, Depends(get_client_id)]) -> dict[str, Any]:
     """List available multimodal AI agents"""
     return {
         "agents": [
@@ -390,7 +496,7 @@ async def list_multimodal_agents() -> dict[str, Any]:
 
 
 @app.get("/multimodal/health")
-async def multimodal_health() -> dict[str, Any]:
+async def multimodal_health(client_id: Annotated[str, Depends(get_client_id)]) -> dict[str, Any]:
     """Multi-Modal Agent Service Health"""
     return {
         "status": "healthy",
@@ -419,7 +525,7 @@ async def multimodal_health() -> dict[str, Any]:
 
 
 @app.get("/multimodal/health/deep")
-async def multimodal_deep_health() -> dict[str, Any]:
+async def multimodal_deep_health(client_id: Annotated[str, Depends(get_client_id)]) -> dict[str, Any]:
     """Deep Multi-Modal Service Health with modality tests"""
     return {
         "status": "healthy",
@@ -438,7 +544,10 @@ async def multimodal_deep_health() -> dict[str, Any]:
 
 
 @app.post("/optimization/tune")
-async def tune_optimization(request: dict[str, Any]) -> dict[str, Any]:
+async def tune_optimization(
+    request: dict[str, Any],
+    client_id: Annotated[str, Depends(get_client_id)],
+) -> dict[str, Any]:
     """Tune AI model optimization parameters"""
     return {
         "tuning_id": "tune_789",
@@ -451,7 +560,10 @@ async def tune_optimization(request: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.post("/optimization/predict")
-async def predict_optimization(request: dict[str, Any]) -> dict[str, Any]:
+async def predict_optimization(
+    request: dict[str, Any],
+    client_id: Annotated[str, Depends(get_client_id)],
+) -> dict[str, Any]:
     """Predict optimal model performance"""
     return {
         "prediction_id": "pred_101",
@@ -464,7 +576,7 @@ async def predict_optimization(request: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.get("/optimization/agents")
-async def list_optimization_agents() -> dict[str, Any]:
+async def list_optimization_agents(client_id: Annotated[str, Depends(get_client_id)]) -> dict[str, Any]:
     """List available optimization agents"""
     return {
         "agents": [
@@ -478,7 +590,7 @@ async def list_optimization_agents() -> dict[str, Any]:
 
 
 @app.get("/optimization/health")
-async def optimization_health() -> dict[str, Any]:
+async def optimization_health(client_id: Annotated[str, Depends(get_client_id)]) -> dict[str, Any]:
     """Optimization Service Health"""
     return {
         "status": "healthy",
