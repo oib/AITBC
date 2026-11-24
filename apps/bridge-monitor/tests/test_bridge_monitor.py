@@ -1060,7 +1060,8 @@ class TestPayoutHardening:
     - The first computed ait_amount is locked: a retry pays exactly the
       stored amount, never a moved oracle's answer.
     - A single payout may not exceed BRIDGE_MAX_PAYOUT_FRACTION of the
-      wallet balance — over-cap fails permanently and alerts.
+      *available* float — balance minus committed unsealed/queued payouts
+      and one fee — over-cap fails permanently and alerts (#2828).
     - The float check alerts on *available* float: balance minus the sum
       committed to non-terminal payouts.
     """
@@ -1224,7 +1225,7 @@ class TestPayoutHardening:
 
         dep = get_deposit("0xcap6")
         assert dep["status"] == BridgeDepositStatus.FAILED.value
-        assert "of float" in (dep["error_message"] or "")
+        assert "available float" in (dep["error_message"] or "")
         build.assert_not_called()
 
     def test_absolute_cap_unset_by_default(self, monitor):
@@ -1250,6 +1251,57 @@ class TestPayoutHardening:
         assert "BRIDGE_MAX_PAYOUT_AIT" in (dep["error_message"] or "")
         assert "balance unknown" in (dep["error_message"] or "")
         build.assert_not_called()
+
+    def test_committed_payouts_shrink_the_cap(self, monitor):
+        """#2828: a 60-AIT SUBMITTED envelope commits most of a 100-AIT float;
+        a 30-AIT deposit that fit the raw-balance cap (50) must fail against
+        the available float (~40 minus fee → cap ~20)."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+        from aitbc.utils.units import ait_to_units
+
+        create_deposit("0xcommitted1", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit(
+            "0xcommitted1",
+            ait_amount="60",
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("30")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(100)),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_deposit("0xcap8", "0xfrom", Decimal("0.01"), "0xdata")
+
+        dep = get_deposit("0xcap8")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "committed" in (dep["error_message"] or "")
+        build.assert_not_called()
+
+    def test_retry_cap_excludes_its_own_row(self, monitor):
+        """#2828: the retried row is itself non-terminal — its amount_ait is
+        already inside sum_committed_ait; excluding it keeps a 40-AIT retry
+        under the ~50-AIT cap on a 100-AIT float instead of double-counting."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+        from aitbc.utils.units import ait_to_units
+
+        create_deposit("0xselfcap", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit(
+            "0xselfcap",
+            ait_amount="40",
+            status=BridgeDepositStatus.PENDING_RETRY,
+        )
+        with (
+            patch.object(monitor, "_payout_in_flight", return_value=False),
+            patch.object(monitor, "_head_height", return_value=100),
+            patch.object(monitor, "_build_signed_transfer", return_value={"tx": 1}),
+            patch.object(monitor, "_post_signed_tx", return_value="0xhash"),
+            patch.object(monitor, "_envelope_tx_hash", return_value="0xhash"),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(100)),
+        ):
+            monitor.process_retry_queue()
+
+        assert get_deposit("0xselfcap")["status"] == BridgeDepositStatus.SUBMITTED.value
 
     def test_float_alert_counts_committed_payouts(self, monitor, caplog):
         """Balance above threshold, but a 990-AIT SUBMITTED envelope commits

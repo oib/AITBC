@@ -13,7 +13,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import get_logger
-from aitbc.utils.units import ait_to_units, units_to_ait
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 
 from .storage import (
     BridgeDepositStatus,
@@ -156,14 +156,18 @@ class BridgeMonitorRuntime:
             logger.warning("payout balance fetch failed: %s", e)
         return None
 
-    def _exceeds_payout_cap(self, ait_amount: Decimal) -> tuple[bool, str]:
-        """True when a single payout exceeds BRIDGE_MAX_PAYOUT_FRACTION of
-        the wallet balance — one outsized send cannot drain the float.
-        RPC failure fails open on the fraction check only — an absolute
-        BRIDGE_MAX_PAYOUT_AIT still applies since it needs no balance. The
-        float check already alerts on balance visibility loss, and blocking
-        payouts entirely on a probe failure would trade a soft cap for a
-        hard outage."""
+    def _exceeds_payout_cap(self, ait_amount: Decimal, *, exclude_tx_hash: str | None = None) -> tuple[bool, str]:
+        """True when a single payout exceeds BRIDGE_MAX_PAYOUT_FRACTION of the
+        *available* float — balance minus AIT already committed to
+        non-terminal payouts (``exclude_tx_hash`` drops the row being
+        evaluated so a retry does not double-count itself) minus one
+        tx-fee headroom. Without the committed term two ~fraction-sized
+        payouts both pass while the first envelope is still unsealed and
+        the float is not there for both (#2828). RPC failure fails open on
+        the fraction check only — an absolute BRIDGE_MAX_PAYOUT_AIT still
+        applies since it needs no balance. The float check already alerts
+        on balance visibility loss, and blocking payouts entirely on a
+        probe failure would trade a soft cap for a hard outage."""
         # is_finite() is belt-and-braces: __init__ rejects non-finite env
         # values, but a programmatically-set cap must not reach ait_to_units
         # either — Decimal('Infinity') raises OverflowError there, which the
@@ -183,13 +187,17 @@ class BridgeMonitorRuntime:
                     f"{ait_amount} AIT > payout cap {units_to_ait(abs_cap)} AIT (BRIDGE_MAX_PAYOUT_AIT; balance unknown)"
                 )
             return False, "balance unknown — cap unevaluated"
-        cap = Decimal(balance) * self.max_payout_fraction
-        origin = f"{self.max_payout_fraction} of float"
+        committed_units = ait_to_units(sum_committed_ait(exclude_tx_hash=exclude_tx_hash))
+        available = max(0, balance - committed_units - DEFAULT_TX_FEE_UNITS)
+        cap = Decimal(available) * self.max_payout_fraction
+        origin = f"{self.max_payout_fraction} of available float"
         if abs_cap is not None and abs_cap < cap:
             cap, origin = abs_cap, "BRIDGE_MAX_PAYOUT_AIT"
         if Decimal(ait_to_units(ait_amount)) > cap:
             return True, (
-                f"{ait_amount} AIT > payout cap {units_to_ait(cap)} AIT ({origin}; float {units_to_ait(balance)} AIT)"
+                f"{ait_amount} AIT > payout cap {units_to_ait(cap)} AIT "
+                f"({origin}; float {units_to_ait(balance)} AIT, "
+                f"{units_to_ait(committed_units)} AIT committed)"
             )
         return False, ""
 
