@@ -23,10 +23,13 @@ def _job(job_id: str, state: str = "RUNNING", cid: str | None = CID, **payload_e
     }
 
 
-def _resp(json_data=None, status=200):
+def _resp(json_data=None, status=200, text=""):
     r = Mock()
     r.status_code = status
     r.json.return_value = json_data if json_data is not None else {}
+    r.text = text
+    r.iter_content = lambda *a, **k: iter([b""])
+    r.close = Mock()
     r.raise_for_status = Mock()
     if status >= 400:
         import requests
@@ -65,6 +68,10 @@ def sweeper(monkeypatch):
         calls["ipfs"].append(url)
         if url.endswith("/api/v0/object/stat"):
             return _resp({"CumulativeSize": 1000})
+        if url.endswith("/api/v0/dag/stat"):
+            return _resp({}, text='{"TotalSize": 1000}')
+        if url.endswith("/api/v0/cat"):
+            return _resp({})
         return _resp({})
 
     def fake_get(url, **kwargs):

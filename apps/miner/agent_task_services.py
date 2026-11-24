@@ -103,16 +103,73 @@ def _bounded_content(resp: requests.Response, cap: int) -> bytes:
 
 
 def _ipfs_object_size(cid: str) -> int | None:
-    """Best-effort object size from the daemon; None when unknown."""
+    """Best-effort object size from the daemon; None when unknown.
+
+    ``object/stat`` was removed from current Kubo ("use 'ipfs dag'"), so the
+    cumulative size comes from ``dag/stat`` — a stream of JSON stat events
+    whose last ``TotalSize`` is the DAG total (#2802: the old endpoint
+    always errored, leaving every measure-then-reclaim check dead).
+    """
     _require_cid_arg(cid)
     try:
-        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/object/stat", params={"arg": cid}, timeout=30)
+        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/dag/stat", params={"arg": cid}, timeout=60)
         if resp.status_code == 200:
-            size = resp.json().get("CumulativeSize") or resp.json().get("DataSize")
-            return int(size) if size is not None else None
+            total = _last_total_size(resp.text)
+            return total if total and total > 0 else None
     except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
-        logger.debug("ipfs object stat failed for %s: %s", cid, exc)  # cat stream still bounds the read
+        logger.debug("ipfs dag stat failed for %s: %s", cid, exc)  # cat stream still bounds the read
     return None
+
+
+def _last_total_size(text: str) -> int | None:
+    """Parse the ``dag/stat`` NDJSON stream; return the final TotalSize."""
+    total: int | None = None
+    decoder = json.JSONDecoder()
+    idx = 0
+    while idx < len(text):
+        while idx < len(text) and text[idx] in " \t\r\n":
+            idx += 1
+        if idx >= len(text):
+            break
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+        except ValueError:
+            break
+        idx = end
+        if isinstance(obj, dict) and isinstance(obj.get("TotalSize"), int):
+            total = obj["TotalSize"]
+    return total
+
+
+def _ipfs_cat_within_cap(cid: str, cap: int) -> bool | None:
+    """Bounded pre-flight fetch probe (#2802).
+
+    ``pin/add`` pulls the whole DAG before anything can measure it, so a
+    paid job pointing at an oversized CID spends the provider's disk first
+    and reclaims after. ``cat`` streams the same content but the client can
+    abort at ``cap`` bytes — Kubo stops fetching once the consumer hangs
+    up, so the swarm spend is bounded to ~cap instead of unbounded.
+
+    Returns True when the content streamed within cap (it is now local, so
+    the subsequent pin/add is cheap), False when it exceeded cap (caller
+    must refuse — never pin), None when cat cannot serve the CID
+    (directory/other dag shape) and the caller falls back to pin+measure.
+    """
+    _require_cid_arg(cid)
+    try:
+        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/cat", params={"arg": cid}, timeout=120, stream=True)
+        if resp.status_code != 200:
+            return None
+        received = 0
+        for chunk in resp.iter_content(1024 * 1024):
+            received += len(chunk)
+            if received > cap:
+                resp.close()
+                return False
+        return True
+    except requests.RequestException as exc:
+        logger.debug("ipfs cat probe failed for %s: %s", cid, exc)
+        return None
 
 
 def _shop_access_headers(req: dict[str, Any]) -> dict[str, str]:
@@ -179,10 +236,15 @@ def _exec_ipfs(req: dict[str, Any], payload: bytes) -> bytes:
     if not cid:
         raise ValueError("ipfs task requires payload_ref (CID)")
     _require_cid_arg(cid)
+    cap = _task_max_payload_bytes()
+    # #2802: bound the swarm fetch BEFORE pin/add — an oversized file CID is
+    # refused after ~cap streamed bytes instead of pulling the whole DAG.
+    probe = _ipfs_cat_within_cap(cid, cap)
+    if probe is False:
+        raise ValueError(f"IPFS object {cid} exceeds the {cap}-byte cap — refused before pinning")
     resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/pin/add", params={"arg": cid}, timeout=120)
     resp.raise_for_status()
     size = _ipfs_object_size(cid)
-    cap = _task_max_payload_bytes()
     if size is not None and size > cap:
         _ipfs_unpin(cid)
         raise ValueError(f"IPFS object {cid} is {size} bytes, over the {cap} cap — pin reclaimed")
