@@ -322,6 +322,65 @@ def reconcile_rejected_lock(escrow_rpc: ChainEscrowClient | None, entry: Any) ->
     return True
 
 
+def _settle_tx_rejected(escrow_rpc: ChainEscrowClient, entry: Any, tx_hash: Any, chain_id: Any) -> str | None:
+    """Return the rejection reason when ``tx_hash`` is proven dead on-chain.
+
+    ``None`` for every non-proof: probe failure, still pending/confirmed, or
+    a mempool-pending view (``state == "pending"``) — only a durable rejected
+    row settles the question, same rule as ``reconcile_rejected_lock``.
+    """
+    if not tx_hash:
+        return None
+    info = escrow_rpc.transaction_status(str(tx_hash), chain_id=chain_id)
+    if not isinstance(info, dict) or info.get("status") != "rejected" or info.get("state") == "pending":
+        return None
+    return str(info.get("rejected_reason") or "settlement transaction rejected on-chain")
+
+
+def reconcile_rejected_release(escrow_rpc: ChainEscrowClient | None, entry: Any) -> bool:
+    """Revert a RELEASED entry to LOCKED when its release tx died on-chain (#2926).
+
+    ``PaymentEscrow.release`` records RELEASED on mempool admission, not on
+    seal — an apply-time rejection leaves the bookkeeping claiming the
+    provider was paid while the funds stay locked in the escrow contract,
+    stranded forever (the sweeper only touches LOCKED rows). A proven
+    rejection restores LOCKED — the honest pre-settle state — clears
+    ``released_at``, and records ``metadata["release_rejected_reason"]`` so
+    the expire sweep can refund or an operator can retry the release. The
+    dead ``tx_hash_release`` is kept for audit; a later successful release
+    overwrites it. The caller persists the entry.
+    """
+    if escrow_rpc is None or getattr(entry, "status", None) != EscrowStatus.RELEASED:
+        return False
+    reason = _settle_tx_rejected(escrow_rpc, entry, getattr(entry, "tx_hash_release", None), getattr(entry, "chain_id", None))
+    if reason is None:
+        return False
+    entry.status = EscrowStatus.LOCKED
+    entry.released_at = None
+    entry.metadata["release_rejected_reason"] = reason
+    return True
+
+
+def reconcile_rejected_refund(escrow_rpc: ChainEscrowClient | None, entry: Any) -> bool:
+    """Revert a REFUNDED entry to LOCKED when its refund tx died on-chain (#2926).
+
+    Same mempool-admission asymmetry as the release path: a proven-rejected
+    refund means the buyer was never made whole and the funds remain locked.
+    Restoring LOCKED hands the row back to the expire sweep (which retries
+    the refund) and to operator inspection. ``metadata["refund_rejected_reason"]``
+    carries the chain's reason; ``tx_hash_refund`` is kept for audit. The
+    caller persists the entry.
+    """
+    if escrow_rpc is None or getattr(entry, "status", None) != EscrowStatus.REFUNDED:
+        return False
+    reason = _settle_tx_rejected(escrow_rpc, entry, getattr(entry, "tx_hash_refund", None), getattr(entry, "chain_id", None))
+    if reason is None:
+        return False
+    entry.status = EscrowStatus.LOCKED
+    entry.metadata["refund_rejected_reason"] = reason
+    return True
+
+
 def make_refund_submitter(client: ChainEscrowClient, task_id: str, reason: str = "timeout") -> EscrowCallback:
     """Build a submitter that refunds the on-chain escrow for ``task_id``."""
 
