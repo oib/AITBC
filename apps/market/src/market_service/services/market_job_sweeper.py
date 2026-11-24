@@ -26,7 +26,14 @@ from ..config import settings
 from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer
 from ..domain.offer_status import spellings_of
 from ..storage import get_session_context
-from .market_service.shared import active_rental_token_covers, locked_escrow_matches
+from .market_service.shared import (
+    active_rental_token_covers,
+    alias_lock_binds_market_job,
+    escrow_addresses_match,
+    escrow_key_claimed_by_job,
+    locked_escrow_matches,
+    resolve_escrow_key,
+)
 
 logger = get_logger(__name__)
 
@@ -402,8 +409,12 @@ class MarketJobSweeper:
         now_naive: datetime,
     ) -> bool:
         """Prove + CAS one pending payment to escrowed. False = not adopted."""
+        # #2851: settle under the escrow's real key — an ``escrow_job_id``
+        # alias (#2737) is invisible to a job.id probe, which used to read
+        # 'no escrow' and dead-end payments whose funds were really locked.
+        escrow_key = resolve_escrow_key(job)
         try:
-            escrow = await self._rpc_client.verify_escrow(job.id)
+            escrow = await self._rpc_client.verify_escrow(escrow_key)
         except Exception as e:  # noqa: BLE001 - an unverifiable escrow must not be adopted
             logger.debug("Pending-payment escrow check failed for job %s: %s", job.id, e)
             return False
@@ -417,7 +428,9 @@ class MarketJobSweeper:
             # bound — a present-but-mismatched row is real locked money
             # and must keep probing for an operator, never expire.
             if not escrow and job.state in _TERMINAL_JOB_STATES:
-                await self._dead_end_pending_payment(session, job, payment, now_naive)
+                await self._dead_end_pending_payment(session, job, payment, now_naive, escrow_key)
+            return False
+        if escrow_key != job.id and not await self._alias_adoption_proven(session, job, escrow_key, escrow):
             return False
         async with session.begin_nested():
             flipped = await self._cas_payment_status(
@@ -434,12 +447,34 @@ class MarketJobSweeper:
         logger.info("Adopted locked escrow for pending payment %s (job %s)", payment.id, job.id)
         return True
 
+    async def _alias_adoption_proven(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        escrow_key: str,
+        escrow: dict[str, Any],
+    ) -> bool:
+        """#2851: an ``escrow_job_id`` alias adoption needs the same proof
+        ``_require_locked_escrow`` demands at pin-confirm — buyer presence +
+        match (the shared matcher skips absent fields), the job's exclusive
+        claim on the key, and the signed ESCROW_LOCK naming this market job.
+        Without it a caller-declared alias would adopt a foreign escrow.
+        """
+        actual = escrow.get("buyer")
+        expected = job.buyer_address
+        if not expected or not actual or not escrow_addresses_match(actual, expected):
+            return False
+        if not await escrow_key_claimed_by_job(session, job, escrow_key):
+            return False
+        return await alias_lock_binds_market_job(self._rpc_client, escrow, job)
+
     async def _dead_end_pending_payment(
         self,
         session: AsyncSession,
         job: MarketJob,
         payment: MarketJobPayment,
         now_naive: datetime,
+        escrow_key: str,
     ) -> bool:
         """#2442: expire a pending payment on a terminal job whose escrow
         stays confirmed-absent past the settle bound.
@@ -472,7 +507,7 @@ class MarketJobSweeper:
         elapsed = (now - first_at).total_seconds()
         if elapsed <= self.settle_max_seconds:
             return False
-        phantom = await self._phantom_lock_check(job)
+        phantom = await self._phantom_lock_check(job, escrow_key)
         if phantom is not True:
             logger.error(
                 "Pending payment %s on terminal job %s deferred %.0fs past the %ss bound; "
@@ -583,11 +618,13 @@ class MarketJobSweeper:
         payment: MarketJobPayment,
     ) -> bool:
         """Release escrow to the provider. Returns True on success."""
-        # The chain escrow is keyed by job_id — the market job id IS the
-        # escrow's job_id. escrow_contract_id persists that same job.id at
-        # creation (#1634) but is informational only; the RPC path key is
-        # always job.id, never the column (#1564).
-        escrow_key = job.id
+        # #2851: settle under the escrow's real key — ``payload["escrow_job_id"]``
+        # (#2737) names an alias when the lock lives under a different id;
+        # keying on job.id left alias escrows unsettleable forever. The
+        # escrowed payment status is itself the binding proof: it is only
+        # written after _require_locked_escrow/_alias_adoption_proven
+        # verified the alias claim and lock binding.
+        escrow_key = resolve_escrow_key(job)
         try:
             # #2365: provider-attested billing releases the priced actual
             # for metered jobs; the unbilled remainder returns to the buyer
@@ -673,9 +710,8 @@ class MarketJobSweeper:
         payment: MarketJobPayment,
     ) -> bool:
         """Refund escrow to the buyer. Returns True on success."""
-        # Same canonical binding as release: the escrow path key is the
-        # market job id, not escrow_contract_id (#1564).
-        escrow_key = job.id
+        # Same alias-aware key as release (#2851) — escrowed is the proof.
+        escrow_key = resolve_escrow_key(job)
         try:
             result = await self._rpc_client.refund_escrow(escrow_key)
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
@@ -843,7 +879,7 @@ class MarketJobSweeper:
             # decides: no sealed ESCROW_LOCK means the escrow row is
             # phantom — the lock tx never landed, no money moved, and
             # deferring forever is noise (#2386).
-            phantom = await self._phantom_lock_check(job)
+            phantom = await self._phantom_lock_check(job, contract_id)
             if phantom is True:
                 return await self._mark_settlement_failed(
                     session,
@@ -881,16 +917,17 @@ class MarketJobSweeper:
         )
         return False
 
-    async def _phantom_lock_check(self, job: MarketJob) -> bool | None:
+    async def _phantom_lock_check(self, job: MarketJob, escrow_key: str) -> bool | None:
         """Chain-truth check for a locked-looking escrow past the bound.
 
         Returns True when no sealed ESCROW_LOCK exists for the job (the
         escrow row is phantom — the lock tx never landed, so no funds
         moved), False when a sealed lock is found, and None when the
         lookup itself failed (unknown, not absent — keep deferring).
+        ``escrow_key`` is the resolved on-chain key (#2851 alias-aware).
         """
         try:
-            lock_tx = await self._rpc_client.find_escrow_lock(job.id)
+            lock_tx = await self._rpc_client.find_escrow_lock(escrow_key)
         except Exception as e:  # noqa: BLE001 - probe failure is "unknown", never "absent"
             logger.warning(
                 "Escrow lock lookup for job %s failed (%s); cannot confirm phantom state",

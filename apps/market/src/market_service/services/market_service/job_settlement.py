@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import or_, update
-from sqlmodel import col, select
+from sqlmodel import col
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.chain_id import resolve_chain_id
@@ -21,10 +21,12 @@ from ...config import settings
 from ...domain.market import MarketJob, MarketJobPayment
 
 from .shared import (
-    _ACCESS_TOKEN_ACTIVE_STATES,
     ESCROW_LOCKED_STATES,
+    alias_lock_binds_market_job,
     escrow_addresses_match,
+    escrow_key_claimed_by_job,
     locked_escrow_matches,
+    resolve_escrow_key,
 )
 from .jobs import _JobsMixin
 
@@ -169,7 +171,7 @@ class _JobsSettlementMixin(_JobsMixin):
         # must pass the same exclusivity + lock-binding checks the
         # access-token path enforces (#2325/#2326), or a caller could point
         # pin-confirm's pending->escrowed flip at a foreign escrow.
-        escrow_key = str((job.payload or {}).get("escrow_job_id") or job.id)
+        escrow_key = resolve_escrow_key(job)
         if escrow_key != job.id and not await self._escrow_key_claimed_by_this_job(job, escrow_key):
             raise ValueError(f"Escrow key {escrow_key} is claimed by another market job")
         escrow = await self._fetch_locked_escrow(job, payment, escrow_key)
@@ -269,7 +271,7 @@ class _JobsSettlementMixin(_JobsMixin):
         floor = await self._offer_price_floor(job)
         if floor is not None and payment.amount < floor:
             return False
-        escrow_key = str((job.payload or {}).get("escrow_job_id") or job.id)
+        escrow_key = resolve_escrow_key(job)
         if not await self._escrow_key_claimed_by_this_job(job, escrow_key):
             return False
         if payment.status == "escrowed" and escrow_key == job.id:
@@ -297,17 +299,7 @@ class _JobsSettlementMixin(_JobsMixin):
         binding and fail closed: their in-flight alias tokens expire with the
         job TTL.
         """
-        lock_tx_hash = escrow.get("lock_tx_hash")
-        if not lock_tx_hash:
-            return False
-        try:
-            chain_id = settings.default_chain_id or resolve_chain_id()
-            tx = await self._rpc_client.get_transaction(str(lock_tx_hash), chain_id=chain_id)
-        except Exception as e:  # noqa: BLE001 - unverifiable binding must deny, not 500
-            logger.warning("Alias escrow lock lookup failed for job %s: %s", job.id, e)
-            return False
-        payload = (tx or {}).get("payload") or {}
-        return payload.get("market_job_id") == job.id
+        return await alias_lock_binds_market_job(self._rpc_client, escrow, job)
 
     async def _escrow_key_claimed_by_this_job(self, job: MarketJob, escrow_key: str) -> bool:
         """#2325 MARKET-ESCROW-ALIAS-1: is ``job`` the earliest active claimant of ``escrow_key``?
@@ -333,26 +325,7 @@ class _JobsSettlementMixin(_JobsMixin):
         # jobs cannot hold an escrow claim — a year-2100 expires_at or a
         # zero-amount registration used to squat a key indefinitely and
         # deny the legitimate claimant its token.
-        now = datetime.now(UTC).replace(tzinfo=None)
-        stmt = (
-            select(col(MarketJob.id))
-            .where(
-                col(MarketJob.state).in_(_ACCESS_TOKEN_ACTIVE_STATES),
-                or_(col(MarketJob.expires_at).is_(None), col(MarketJob.expires_at) > now),
-                # NULL payment_amount = pre-denormalization row — unknown
-                # stake, kept claimable; an explicit 0 is a free job and
-                # has no escrow to bind.
-                or_(col(MarketJob.payment_amount).is_(None), col(MarketJob.payment_amount) > 0),
-                or_(
-                    col(MarketJob.id) == escrow_key,
-                    col(MarketJob.payload)["escrow_job_id"].as_string() == escrow_key,
-                ),
-            )
-            .order_by(col(MarketJob.created_at), col(MarketJob.id))
-            .limit(1)
-        )
-        earliest = (await self.session.execute(stmt)).scalar_one_or_none()
-        return earliest == job.id
+        return await escrow_key_claimed_by_job(self.session, job, escrow_key)
 
     def _locked_escrow_matches(self, escrow: dict, job: MarketJob, payment: MarketJobPayment) -> bool:
         """Bool form of ``_require_locked_escrow``'s checks for the token path.
@@ -496,8 +469,11 @@ class _JobsSettlementMixin(_JobsMixin):
         if tx_type != expected_type:
             raise ValueError(f"Transaction {tx_hash} is type {tx_type!r}, not {expected_type}")
         payload = tx.get("payload") or {}
-        if payload.get("job_id") != job.id:
-            raise ValueError(f"Transaction {tx_hash} is not bound to escrow for job {job.id}")
+        # #2851: the on-chain escrow's job_id IS the escrow key — the
+        # ``escrow_job_id`` alias for alias-bound jobs, job.id otherwise.
+        escrow_key = resolve_escrow_key(job)
+        if payload.get("job_id") != escrow_key:
+            raise ValueError(f"Transaction {tx_hash} is not bound to escrow {escrow_key} for job {job.id}")
 
         is_release = expected_type == "ESCROW_RELEASE"
         payee_field = "provider_escrow_addr" if is_release else "buyer_escrow_addr"
@@ -640,11 +616,12 @@ class _JobsSettlementMixin(_JobsMixin):
                 # the amount the verified transaction actually moved (#1584).
                 released_amount = self._settled_amount_ait(tx)
             else:
-                # The chain escrow is keyed by job_id — the market job id is
-                # the escrow's job_id (the buyer CLI escrows under it).
-                # escrow_contract_id now persists that same job.id at
-                # creation (#1634) but remains informational only — the RPC
-                # path key is always job.id, never the column (#1564).
+                # #2851: settle under the escrow's real key — an
+                # ``escrow_job_id`` alias (#2737) names the on-chain id when
+                # it differs from the market job id. The escrowed payment
+                # status is the binding proof (written only after the alias
+                # claim + lock binding verified at flip time).
+                escrow_key = resolve_escrow_key(job)
                 # #2365: a job with provider-attested billing releases the
                 # priced actual, not the locked estimate; the node's change
                 # pass refunds the unbilled remainder. No attestation ->
@@ -653,9 +630,9 @@ class _JobsSettlementMixin(_JobsMixin):
 
                 billed = await attested_release_amount(self.session, job, payment)
                 if billed is not None:
-                    result = await self._rpc_client.release_escrow(job.id, {"amount": str(billed)})
+                    result = await self._rpc_client.release_escrow(escrow_key, {"amount": str(billed)})
                 else:
-                    result = await self._rpc_client.release_escrow(job.id)
+                    result = await self._rpc_client.release_escrow(escrow_key)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow release failed for job {job_id}: {result}")
                 tx_hash = result.get("tx_hash") or None
@@ -726,9 +703,9 @@ class _JobsSettlementMixin(_JobsMixin):
                 # never the caller-supplied figure (#1584).
                 refunded_amount = self._settled_amount_ait(tx)
             else:
-                # Same canonical binding as release: the escrow path key is
-                # the market job id, not escrow_contract_id (#1564).
-                result = await self._rpc_client.refund_escrow(job.id)
+                # Same alias-aware key as release (#2851).
+                escrow_key = resolve_escrow_key(job)
+                result = await self._rpc_client.refund_escrow(escrow_key)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
                 tx_hash = result.get("tx_hash") or None

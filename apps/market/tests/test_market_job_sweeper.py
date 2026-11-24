@@ -22,6 +22,7 @@ class StubRPC:
         self.refunded: list[str] = []
         self.escrow_rows: dict[str, dict] = {}
         self.lock_txs: dict[str, str] = {}
+        self.txs: dict[str, dict] = {}
         self.omit_tx_hash = False
 
     async def verify_escrow(self, job_id: str):
@@ -29,6 +30,9 @@ class StubRPC:
 
     async def find_escrow_lock(self, job_id: str):
         return self.lock_txs.get(job_id)
+
+    async def get_transaction(self, tx_hash: str, chain_id: int | None = None):
+        return self.txs.get(tx_hash)
 
     async def release_escrow(self, job_id: str, body: dict | None = None):
         self.released.append(job_id)
@@ -1516,3 +1520,179 @@ async def test_standalone_token_registration_refused(sweeper) -> None:
     service, _sw, _rpc = sweeper
     with pytest.raises(ValueError, match="rental_id"):
         await service.register_ipfs_rental_token({"access_key": "ak-legacy", "access_secret": "sec-1", "cid": "QmA"})
+
+
+# --- #2851: escrow_job_id alias settlement ----------------------------------
+#
+# #2737 let a market job declare payload["escrow_job_id"] — the on-chain
+# escrow lives under that alias, not job.id. Verification paths resolved
+# the alias, but every settlement write still keyed on job.id: adoption
+# read 'no escrow' and dead-ended the payment, release/refund RPCs hit a
+# nonexistent escrow, and _require_confirmed_settle_tx rejected settle
+# txs naming the alias. Locked AIT under the alias had no settle path.
+
+
+async def _alias_job(
+    service, rpc, alias: str, *, state: str = "RUNNING", payment_status: str = "pending", expires_at: str | None = None
+) -> str:
+    """Create a job bound to an alias escrow and seed the chain side."""
+    buyer = "0x" + "11" * 20
+    provider = "0x" + "22" * 20
+    data: dict = {
+        "service_type": "ipfs",
+        "buyer_address": buyer,
+        "provider_address": provider,
+        "payload": {"cid": "QmAlias", "escrow_job_id": alias},
+        "payment": {"amount": "1.0"},
+    }
+    if expires_at is not None:
+        data["expires_at"] = expires_at
+    created = await service.create_market_job(data)
+    job_id = created["job_id"]
+    rpc.escrow_rows[alias] = {
+        "state": "locked",
+        "amount": "1.0",
+        "buyer": buyer,
+        "provider": provider,
+        "lock_tx_hash": "0xlock_" + alias,
+    }
+    rpc.txs["0xlock_" + alias] = {"payload": {"market_job_id": job_id}}
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        job.state = state
+        job.payment_status = payment_status
+        session.add(job)
+        if payment_status == "escrowed":
+            payment = await session.get(MarketJobPayment, job.payment_id)
+            payment.status = "escrowed"
+            payment.escrowed_at = datetime.now(UTC).replace(tzinfo=None)
+            session.add(payment)
+        await session.commit()
+    return job_id
+
+
+@pytest.mark.asyncio
+async def test_alias_pending_payment_is_adopted(sweeper) -> None:
+    """A pending payment whose escrow lives under the alias flips to
+    escrowed — the alias probe replaces the job.id probe that read absent."""
+    service, sw, rpc = sweeper
+    job_id = await _alias_job(service, rpc, "alias_adopt")
+
+    counts = await sw.sweep_once()
+    assert counts["adopted"] == 1
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment.status == "escrowed"
+        assert job.payment_status == "escrowed"
+
+
+@pytest.mark.asyncio
+async def test_alias_adoption_rejected_when_lock_names_other_job(sweeper) -> None:
+    """The alias adoption keeps the pin-confirm proof: the signed lock tx
+    must name THIS market job — a foreign binding never adopts."""
+    service, sw, rpc = sweeper
+    job_id = await _alias_job(service, rpc, "alias_foreign")
+    rpc.txs["0xlock_alias_foreign"] = {"payload": {"market_job_id": "some_other_job"}}
+
+    counts = await sw.sweep_once()
+    assert counts["adopted"] == 0
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_alias_escrow_released_under_alias_key(sweeper) -> None:
+    """A COMPLETED job's escrowed payment releases the ALIAS escrow —
+    release_escrow(job.id) used to hit a nonexistent escrow forever."""
+    service, sw, rpc = sweeper
+    job_id = await _alias_job(
+        service,
+        rpc,
+        "alias_release",
+        state="COMPLETED",
+        payment_status="escrowed",
+        expires_at=(datetime.now(UTC) - timedelta(days=2)).isoformat(),
+    )
+    await _age_job(job_id)
+
+    counts = await sw.sweep_once()
+    assert counts["released"] == 1
+    assert "alias_release" in rpc.released
+    assert job_id not in rpc.released
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job.state == "RELEASED"
+        assert job.payment_status == "released"
+
+
+@pytest.mark.asyncio
+async def test_alias_escrow_refunded_under_alias_key(sweeper) -> None:
+    """A failed job's escrowed payment refunds the ALIAS escrow."""
+    service, sw, rpc = sweeper
+    job_id = await _alias_job(
+        service,
+        rpc,
+        "alias_refund",
+        state="FAILED",
+        payment_status="escrowed",
+        expires_at=(datetime.now(UTC) - timedelta(days=2)).isoformat(),
+    )
+    await _age_job(job_id)
+
+    counts = await sw.sweep_once()
+    assert counts["refunded"] == 1
+    assert "alias_refund" in rpc.refunded
+    assert job_id not in rpc.refunded
+
+
+@pytest.mark.asyncio
+async def test_manual_release_uses_alias_key_and_settle_tx_binding(sweeper) -> None:
+    """release_market_job_payment RPCs the alias key, and a caller-supplied
+    settle tx is accepted when its payload names the alias escrow."""
+    service, sw, rpc = sweeper
+    service._rpc_client = rpc
+    buyer = "0x" + "11" * 20
+    provider = "0x" + "22" * 20
+    job_id = await _alias_job(
+        service,
+        rpc,
+        "alias_manual",
+        state="COMPLETED",
+        payment_status="escrowed",
+        expires_at=(datetime.now(UTC) - timedelta(days=2)).isoformat(),
+    )
+
+    result = await service.release_market_job_payment(job_id)
+    assert result["state"] == "RELEASED"
+    assert "alias_manual" in rpc.released
+    assert job_id not in rpc.released
+
+    # Caller-supplied settle tx bound to the alias escrow verifies.
+    job_id2 = await _alias_job(
+        service,
+        rpc,
+        "alias_tx",
+        state="COMPLETED",
+        payment_status="escrowed",
+        expires_at=(datetime.now(UTC) - timedelta(days=2)).isoformat(),
+    )
+    rpc.txs["0xsettle_alias"] = {
+        "status": "confirmed",
+        "type": "ESCROW_RELEASE",
+        "payload": {
+            "job_id": "alias_tx",
+            "provider_escrow_addr": provider,
+            "buyer_escrow_addr": buyer,
+        },
+        "recipient": provider,
+        "value": "1.0",
+    }
+    result2 = await service.release_market_job_payment(job_id2, {"tx_hash": "0xsettle_alias"})
+    assert result2["state"] == "RELEASED"
+    assert "alias_tx" not in rpc.released  # supplied-tx path does not re-RPC
