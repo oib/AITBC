@@ -769,9 +769,7 @@ def _generator_secret_policy():
 # Param names that match the generator's secret pattern but are NOT secret
 # values. One-line reason per entry — adding an entry is the deliberate act
 # the schema gate exists to force.
-SECRET_PARAM_TEST_ALLOWLIST = {
-    "show_secrets": "display toggle on `aitbc system config` — it controls whether stored secrets print in the output; the flag itself is not a secret value",
-}
+SECRET_PARAM_TEST_ALLOWLIST = {}
 
 
 def _is_secret_param(name: str) -> bool:

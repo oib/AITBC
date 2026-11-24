@@ -887,6 +887,9 @@ _FIELD_DENY_TOKENS = frozenset(
         "privkey",
         "seedphrase",
         "salt",
+        # AUDIT-EDGE-MCP-SHOW-SECRETS (#2880): JWTs are bearer credentials —
+        # AITBC_JWT-style names carry tokens, not config.
+        "jwt",
     }
 )
 # A separator-less name still ends in a deny word: "pgpassword" ends in
@@ -1362,10 +1365,19 @@ def config(ctx, show_secrets: bool):
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                # Hide secrets unless explicitly requested
-                if not show_secrets and any(secret in key.lower() for secret in ["key", "secret", "password", "token"]):
+                key = key.strip()
+                value = value.strip()
+                # Hide secrets unless explicitly requested. The deny check is
+                # the same _field_name_denied table the env-set/file paths
+                # use (covers jwt and every token/suffix rule the naive
+                # substring list missed), plus the secret-value shapes so an
+                # innocuous name carrying a key-shaped value still hides.
+                # AUDIT-EDGE-MCP-SHOW-SECRETS (#2880).
+                if not show_secrets and (
+                    _field_name_denied(key, deny_conn_strings=False) or _field_value_shape_denied(value) is not None
+                ):
                     value = "***HIDDEN***"
-                config_data[key.strip()] = value.strip()
+                config_data[key] = value
 
         success("System Configuration:")
         output(config_data, ctx.obj.get("output_format", "table"))
