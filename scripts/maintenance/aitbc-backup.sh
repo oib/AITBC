@@ -51,7 +51,22 @@ _BACKUP_RC=0
 # with the subshell, so the flag is a file: any error anywhere flips the
 # final exit status (#895).
 _BACKUP_ERR_FLAG="$(mktemp)"
-trap 'rm -f "$_BACKUP_ERR_FLAG"' EXIT
+# #2932: permission normalization must run on EVERY exit path. The finalize
+# block used to be the only place modes were tightened, so any hard `set -e`
+# exit between `mkdir -m 0700` and Finalize left the generation
+# drwx------ root:root — unreadable to the User=aitbc backup-metrics
+# exporter, which cascaded into unit failures and stale freshness metrics
+# (node0, 24 Nov). Running it from the EXIT trap covers every exit,
+# including the `exit "${_BACKUP_RC}"` at the bottom.
+_normalize_perms() {
+    [ -d "${BACKUP_DIR:-}" ] || return 0
+    find "${BACKUP_DIR}" -type f -exec chmod 600 {} + 2>/dev/null || true
+    find "${BACKUP_DIR}" -maxdepth 1 -type f \( -name 'chain_*_chain.db.gz' -o -name 'varlib-state.skipped.txt' \) -exec chmod 640 {} + 2>/dev/null || true
+    find "${BACKUP_DIR}" -maxdepth 1 -type f \( -name 'chain_*_chain.db.gz' -o -name 'varlib-state.skipped.txt' \) -exec chgrp aitbc {} + 2>/dev/null || true
+    find "${BACKUP_DIR}" -type d -exec chmod 750 {} + 2>/dev/null || true
+    find "${BACKUP_DIR}" -type d -exec chgrp aitbc {} + 2>/dev/null || true
+}
+trap '_normalize_perms; rm -f "$_BACKUP_ERR_FLAG"' EXIT
 
 # Use the active project Python if available, falling back to whatever is on PATH.
 # This keeps the backup compatible with both Poetry `.venv` and `venv` layouts.
@@ -348,8 +363,8 @@ done
 # weights re-download, ffmpeg cache rebuilds, hermes/node is a Node.js
 # install — backing them up daily would be pure weight (MON-BACKUP-MISC-CAP).
 BACKUP_MISC_MAX_KB="${BACKUP_MISC_MAX_KB:-65536}"
-_MISC_LIST="$(mktemp)"
-_misc_skip_list="$(mktemp)"
+_MISC_LIST="$(mktemp)" || _MISC_LIST=""
+_misc_skip_list="$(mktemp)" || _misc_skip_list=""
 if [ -d "$SVC_DB_DIR" ]; then
     ( cd "$SVC_DB_DIR" && find . -type f \
         -not -name "*.db" -not -name "*.db-*" -not -name "*.db.*" \
@@ -406,12 +421,18 @@ if [ -s "$_MISC_LIST" ]; then
         _archived_rc=0
         _archived_members="$(tar -tzf "${BACKUP_DIR}/varlib-state.tar.gz" 2>/dev/null)" || _archived_rc=$?
         if [ "$_archived_rc" -eq 0 ]; then
-            _expected_members="$(mktemp)"
-            _archived_names="$(mktemp)"
-            _expected_count=$(tr '\0' '\n' < "$_MISC_LIST" | sed 's|^\./||; s|/$||' | LC_ALL=C sort -u | tee "$_expected_members" | wc -l)
-            _archived_count=$(printf '%s\n' "$_archived_members" | sed 's|^\./||; s|/$||; /^$/d' | LC_ALL=C sort -u | tee "$_archived_names" | wc -l)
-            _missing_members="$(comm -23 "$_expected_members" "$_archived_names")"
-            rm -f "$_expected_members" "$_archived_names"
+            # mktemp/comm failures here are diagnostics-only — degrade to
+            # "no diff reported" instead of a hard set -e exit that would
+            # strand the generation at 0700 root:root (#2932).
+            _expected_members="$(mktemp)" || _expected_members=""
+            _archived_names="$(mktemp)" || _archived_names=""
+            _missing_members=""
+            if [ -n "$_expected_members" ] && [ -n "$_archived_names" ]; then
+                _expected_count=$(tr '\0' '\n' < "$_MISC_LIST" | sed 's|^\./||; s|/$||' | LC_ALL=C sort -u | tee "$_expected_members" | wc -l)
+                _archived_count=$(printf '%s\n' "$_archived_members" | sed 's|^\./||; s|/$||; /^$/d' | LC_ALL=C sort -u | tee "$_archived_names" | wc -l)
+                _missing_members="$(comm -23 "$_expected_members" "$_archived_names" 2>/dev/null)" || _missing_members=""
+                rm -f "$_expected_members" "$_archived_names"
+            fi
             warn "varlib-state: tar rc=${_varlib_tar_rc} during archive (live churn); accepting readable snapshot"
             if [ -n "$_missing_members" ]; then
                 _missing_count=$(printf '%s\n' "$_missing_members" | grep -c .)
@@ -453,21 +474,26 @@ fi
 # nowhere else. Archive the whole aitbc-* set, dirs included recursively.
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 if [ -d "$SYSTEMD_DIR" ]; then
-    _unit_list="$(mktemp)"
-    ( cd "$SYSTEMD_DIR" && find . -maxdepth 1 -name "aitbc-*" -print0 ) > "$_unit_list" 2>/dev/null || true
-    if [ -s "$_unit_list" ]; then
-        if tar czf "${BACKUP_DIR}/systemd-aitbc.tar.gz" -C "$SYSTEMD_DIR" --null --files-from "$_unit_list" 2>/dev/null; then
-            chmod 600 "${BACKUP_DIR}/systemd-aitbc.tar.gz"
-            log "systemd aitbc units: OK ($(du -sh "${BACKUP_DIR}/systemd-aitbc.tar.gz" | cut -f1))"
+    # mktemp failure must degrade to "no unit backup", not a hard exit that
+    # strands the generation at 0700 root:root (#2932).
+    if _unit_list="$(mktemp)"; then
+        ( cd "$SYSTEMD_DIR" && find . -maxdepth 1 -name "aitbc-*" -print0 ) > "$_unit_list" 2>/dev/null || true
+        if [ -s "$_unit_list" ]; then
+            if tar czf "${BACKUP_DIR}/systemd-aitbc.tar.gz" -C "$SYSTEMD_DIR" --null --files-from "$_unit_list" 2>/dev/null; then
+                chmod 600 "${BACKUP_DIR}/systemd-aitbc.tar.gz"
+                log "systemd aitbc units: OK ($(du -sh "${BACKUP_DIR}/systemd-aitbc.tar.gz" | cut -f1))"
+            else
+                rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
+                rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
+                error "systemd aitbc units backup FAILED"
+            fi
         else
-            rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
-            rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
-            error "systemd aitbc units backup FAILED"
+            log "systemd aitbc units: none found"
         fi
+        rm -f "$_unit_list"
     else
-        log "systemd aitbc units: none found"
+        warn "systemd aitbc units: mktemp failed — skipping unit backup"
     fi
-    rm -f "$_unit_list"
 else
     warn "${SYSTEMD_DIR} not found, skipping systemd unit backup"
 fi
@@ -502,8 +528,12 @@ if command -v redis-cli >/dev/null 2>&1; then
     if [ "$_redis_ok" = true ]; then
         log "Redis BGSAVE: ${_redis_out}"
         sleep 2
-        REDIS_RDB=$(redis-cli CONFIG GET dir 2>/dev/null | tail -1)
-        REDIS_FILE=$(redis-cli CONFIG GET dbfilename 2>/dev/null | tail -1)
+        # CONFIG GET can fail after a successful BGSAVE (redis restart,
+        # dropped connection) — under pipefail the failed substitution used
+        # to hard-exit here, stranding the generation (#2932). Degrade to
+        # the not-found error path instead.
+        REDIS_RDB=$(redis-cli CONFIG GET dir 2>/dev/null | tail -1) || true
+        REDIS_FILE=$(redis-cli CONFIG GET dbfilename 2>/dev/null | tail -1) || true
         if [ -f "${REDIS_RDB}/${REDIS_FILE}" ]; then
             if cp "${REDIS_RDB}/${REDIS_FILE}" "${BACKUP_DIR}/redis.rdb"; then
                 log "Redis RDB: OK ($(du -sh "${BACKUP_DIR}/redis.rdb" | cut -f1))"
@@ -606,11 +636,9 @@ log "Backup complete: ${BACKUP_DIR} (total: ${TOTAL})"
 # varlib-state.skipped.txt skip manifest (#2189), so those alone get
 # group-read — chain state / skip metadata, not key material. chgrp is
 # best-effort: a host without an aitbc group keeps root-only access.
-find "${BACKUP_DIR}" -type f -exec chmod 600 {} + 2>/dev/null || true
-find "${BACKUP_DIR}" -maxdepth 1 -type f \( -name 'chain_*_chain.db.gz' -o -name 'varlib-state.skipped.txt' \) -exec chmod 640 {} + 2>/dev/null || true
-find "${BACKUP_DIR}" -maxdepth 1 -type f \( -name 'chain_*_chain.db.gz' -o -name 'varlib-state.skipped.txt' \) -exec chgrp aitbc {} + 2>/dev/null || true
-find "${BACKUP_DIR}" -type d -exec chmod 750 {} + 2>/dev/null || true
-find "${BACKUP_DIR}" -type d -exec chgrp aitbc {} + 2>/dev/null || true
+# Same normalization the EXIT trap runs (#2932) — kept explicit here so the
+# happy path tightens modes before pruning rather than only at exit.
+_normalize_perms
 
 # ── Prune old backups ─────────────────────────────────────────────────────────
 # Age is read from the directory NAME (YYYYMMDD_HHMMSS), never mtime — any
