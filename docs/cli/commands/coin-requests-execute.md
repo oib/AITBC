@@ -15,6 +15,7 @@ aitbc coin-requests execute [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--request-id` | text | — | yes | The Request id. |
+| `--yes` | flag | `false` | no | Skip the execution confirmation prompt |
 
 ## Examples
 
