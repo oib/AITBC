@@ -10,7 +10,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 
 from sqlalchemy import text
 from sqlmodel import Session
@@ -67,6 +67,56 @@ def _v18_apply_time(block_version: int | None, block_time: datetime | None) -> d
     return None
 
 
+class _DepositLock(NamedTuple):
+    pool_id: Any
+    lock_days: int
+    now: datetime
+    v18_now: datetime | None
+    locked_until: datetime
+
+
+def _deposit_lock_params(
+    payload: dict[str, Any],
+    block_version: int | None,
+    block_time: datetime | None,
+) -> _DepositLock | str:
+    """#2834: parse the deposit's lock/pool scalars before any mutation.
+
+    Returns ``_DepositLock`` on success or an error message. Only
+    crash-shaped ``pool_id`` values are refused — dict/list are unhashable
+    in the PK lookup, None/NaN bind NULL into the pool primary key;
+    coercible values (int/float/bool) keep their historical apply verdict
+    so sealed pre-v31 txs replay identically (the v31 validation gate
+    rejects all non-str ``pool_id`` going forward). ``lock_days`` keeps
+    ``int()`` coercion for the same reason; ``"x"``/``Infinity``/NaN and
+    ``now + delta`` overflows — which crashed apply before and therefore
+    can never appear in a sealed block — become clean rejections.
+    """
+    pool_id = payload.get("pool_id", "main")
+    if pool_id is None or isinstance(pool_id, (dict, list)) or pool_id != pool_id:
+        return "pool_id must be a string"
+    try:
+        lock_days = int(payload.get("lock_days", 0))
+        lock_delta = timedelta(days=lock_days)
+    except (TypeError, ValueError, OverflowError):
+        return "lock_days must be a valid integer"
+    if lock_days < 0:
+        return "lock_days cannot be negative"
+    v18_now = _v18_apply_time(block_version, block_time)
+    # v18: the id derives from tx_hash (unique per tx) and every stored
+    # timestamp from the sealed header — two hosts applying the same sealed
+    # tx commit byte-identical rows. Below v18 the volatile shapes stay for
+    # replay of the (empty) pre-v18 era of this type.
+    now = v18_now or datetime.now(UTC)
+    try:
+        # ``now + lock_delta`` overflows datetime for lock_days beyond
+        # ~2.9M — timedelta itself accepts up to ~1e9 days.
+        locked_until = now + lock_delta
+    except OverflowError:
+        return "lock_days out of range"
+    return _DepositLock(pool_id, lock_days, now, v18_now, locked_until)
+
+
 def apply_liquidity_deposit(
     session: Session,
     chain_id: str,
@@ -80,10 +130,14 @@ def apply_liquidity_deposit(
     """Apply a LIQUIDITY_DEPOSIT transaction."""
     sender = _to_ait_address(tx_data.get("from", ""))
     payload = tx_data.get("payload") or {}
-    pool_id = payload.get("pool_id", "main")
-    lock_days = int(payload.get("lock_days", 0))
-    if lock_days < 0:
-        return (False, "lock_days cannot be negative")
+    params = _deposit_lock_params(payload, block_version, block_time)
+    if isinstance(params, str):
+        return (False, params)
+    pool_id = params.pool_id
+    lock_days = params.lock_days
+    now = params.now
+    v18_now = params.v18_now
+    locked_until = params.locked_until
     value = tx_data.get("value", tx_data.get("amount", 0))
     fee = tx_data.get("fee", 0)
     if value <= 0:
@@ -111,12 +165,6 @@ def apply_liquidity_deposit(
     session.add(main_account)
 
     pool = _get_or_create_pool(session, chain_id, pool_id)
-    v18_now = _v18_apply_time(block_version, block_time)
-    # v18: the id derives from tx_hash (unique per tx) and every stored
-    # timestamp from the sealed header — two hosts applying the same sealed
-    # tx commit byte-identical rows. Below v18 the volatile shapes stay for
-    # replay of the (empty) pre-v18 era of this type.
-    now = v18_now or datetime.now(UTC)
     stake = LiquidityStake(
         stake_id=f"liq_{tx_hash[:16]}" if v18_now is not None else _generate_stake_id(),
         chain_id=chain_id,
@@ -124,7 +172,7 @@ def apply_liquidity_deposit(
         address=sender,
         amount=value,
         lock_days=lock_days,
-        locked_until=now + timedelta(days=lock_days),
+        locked_until=locked_until,
         reward_per_share_at_stake=pool.reward_per_share,
         rewards_claimed=0,
         status="active",
@@ -145,6 +193,29 @@ def apply_liquidity_deposit(
     return (True, f"Deposited {value} compute-units to pool {pool_id}")
 
 
+def _active_stake_for(
+    session: Session,
+    chain_id: str,
+    sender: str,
+    pool_id: Any,
+    stake_id: Any,
+) -> LiquidityStake | str:
+    """Shared stake lookup for CLAIM/WITHDRAW: returns the active stake or
+    an error message. #2834: dict/list ``stake_id`` is unhashable in the
+    composite-PK lookup and crashed apply; every other type keeps its
+    historical verdict."""
+    if isinstance(stake_id, (dict, list)):
+        return "stake_id must be a string"
+    stake = session.get(LiquidityStake, (stake_id, chain_id))
+    if not stake:
+        return f"Stake {stake_id} not found"
+    if stake.address != sender or stake.pool_id != pool_id:
+        return "Stake does not belong to sender"
+    if stake.status != "active":
+        return f"Stake is not active: {stake.status}"
+    return stake
+
+
 def apply_liquidity_claim(
     session: Session,
     chain_id: str,
@@ -162,13 +233,9 @@ def apply_liquidity_claim(
     stake_id = payload.get("stake_id", "")
     fee = tx_data.get("fee", 0)
 
-    stake = session.get(LiquidityStake, (stake_id, chain_id))
-    if not stake:
-        return (False, f"Stake {stake_id} not found")
-    if stake.address != sender or stake.pool_id != pool_id:
-        return (False, "Stake does not belong to sender")
-    if stake.status != "active":
-        return (False, f"Stake is not active: {stake.status}")
+    stake = _active_stake_for(session, chain_id, sender, pool_id, stake_id)
+    if isinstance(stake, str):
+        return (False, stake)
 
     sender_account = session.get(Account, (chain_id, sender))
     if not sender_account:
@@ -252,7 +319,7 @@ def _validate_liquidity_withdraw(
     chain_id: str,
     sender: str,
     pool_id: str,
-    stake_id: str,
+    stake_id: Any,
     fee: int,
     *,
     block_version: int | None,
@@ -263,13 +330,9 @@ def _validate_liquidity_withdraw(
     Returns ``(stake, sender_account, now, error)`` — ``error`` is the
     ``(False, message)`` result to return when validation fails.
     """
-    stake = session.get(LiquidityStake, (stake_id, chain_id))
-    if not stake:
-        return None, None, None, (False, f"Stake {stake_id} not found")
-    if stake.address != sender or stake.pool_id != pool_id:
-        return None, None, None, (False, "Stake does not belong to sender")
-    if stake.status != "active":
-        return None, None, None, (False, f"Stake is not active: {stake.status}")
+    stake = _active_stake_for(session, chain_id, sender, pool_id, stake_id)
+    if isinstance(stake, str):
+        return None, None, None, (False, stake)
     now = _v18_apply_time(block_version, block_time) or datetime.now(UTC)
     lock_error = _withdraw_lock_error(stake, now)
     if lock_error is not None:

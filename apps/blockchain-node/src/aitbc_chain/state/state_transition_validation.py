@@ -347,6 +347,10 @@ class _ValidationMixin(_ValidationGpuMixin):
         if ctx.tx_type in {"LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
             if not ctx.payload.get("stake_id"):
                 return (False, f"{ctx.tx_type} payload must include stake_id")
+        if ctx.block_version >= 31:
+            verdict = self._vt_liquidity_payload_v31(ctx)
+            if verdict is not None:
+                return verdict
         # Ensure the pool reserve/treasury/emission accounts and the sender
         # and recipient accounts exist before the generic recipient check.
         # v22 (CONSENSUS-STATE-001, #1169): validation is read-only — a
@@ -355,6 +359,29 @@ class _ValidationMixin(_ValidationGpuMixin):
         if ctx.block_version < 22:
             _ensure_account(ctx.session, ctx.chain_id, ctx.sender_addr)
             _ensure_account(ctx.session, ctx.chain_id, _to_ait_address(ctx.tx_data.get("to") or ""))
+        return None
+
+    def _vt_liquidity_payload_v31(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        """v31 (#2834): strict payload scalar types for liquidity txs.
+
+        ``lock_days`` reaches ``int()``/``timedelta()`` at apply unchecked —
+        ``"x"``/``Infinity``/NaN raise uncaught inside the block-apply loop
+        (chain-availability kill) and NaN silently bypasses ``< 0``;
+        ``pool_id=None`` reaches ``_get_or_create_pool`` as a NULL primary
+        key and non-str ``stake_id`` reaches ``session.get`` unhashable.
+        ``_vt_finite_amounts`` already gates value/fee/amount for every
+        type, so this covers only the payload-internal fields.
+        """
+        if ctx.tx_type == "LIQUIDITY_DEPOSIT":
+            lock_days = ctx.payload.get("lock_days")
+            if not isinstance(lock_days, int) or isinstance(lock_days, bool):
+                return (False, "LIQUIDITY_DEPOSIT lock_days must be an integer")
+            if not 0 <= lock_days <= 36500:
+                return (False, "LIQUIDITY_DEPOSIT lock_days out of range (0-36500)")
+        if "pool_id" in ctx.payload and not isinstance(ctx.payload["pool_id"], str):
+            return (False, f"{ctx.tx_type} pool_id must be a string")
+        if ctx.tx_type in {"LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"} and not isinstance(ctx.payload.get("stake_id"), str):
+            return (False, f"{ctx.tx_type} stake_id must be a string")
         return None
 
     def _vt_bridge_credit(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
