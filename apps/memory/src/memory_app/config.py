@@ -49,6 +49,13 @@ class Settings(ServiceSettings):
     # <= 0 configuration.
     memory_max_total_bytes: int = 1024**3
 
+    # AUDIT-EDGE-MEMORY-METADATA-BOUNDS (#2910): owner/tags are stored
+    # verbatim and were excluded from byte accounting — a ~20MB envelope
+    # could hang ~40MB of heap metadata per 1-byte blob. Tags serialize
+    # under this cap, owner is Field(max_length=256), and both count
+    # toward memory_max_total_bytes via the record's accounted_bytes.
+    memory_max_metadata_bytes: int = 64 * 1024
+
     # Optional shared-secret gate (#1682): when set, /store, /retrieve and
     # DELETE require the X-API-Key header (constant-time compare). Unset
     # keeps the previous open behavior — deployments that expose the port

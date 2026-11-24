@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
@@ -63,7 +63,8 @@ async def require_api_key(request: Request) -> str | None:
 class StoreRequest(BaseModel):
     """Payload for storing a blob."""
 
-    owner: str
+    # #2910: owner/tags are heap-resident metadata — bound both.
+    owner: str = Field(max_length=256)
     data: str  # base64-encoded bytes
     tags: dict[str, Any] = {}
 
@@ -105,6 +106,9 @@ async def store_blob(request: Request, body: StoreRequest, identity: str | None 
     # materialises as bytes (base64 inflates by ~4/3 plus padding).
     if len(body.data) > (settings.memory_max_blob_bytes * 4) // 3 + 4:
         raise HTTPException(status_code=413, detail=f"blob exceeds the {settings.memory_max_blob_bytes}-byte cap")
+    # #2910: tags serialize into heap verbatim — cap them like the blob.
+    if len(json.dumps(body.tags, default=str).encode()) > settings.memory_max_metadata_bytes:
+        raise HTTPException(status_code=413, detail=f"tags exceed the {settings.memory_max_metadata_bytes}-byte metadata cap")
     try:
         data = base64.b64decode(body.data)
         blob = store.store_blob(owner, data, body.tags)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -96,7 +97,9 @@ class MemoryStore:
     def _drop(self, content_address: str) -> None:
         """Remove a record and decrement the byte accounting."""
         record = self._store.pop(content_address)
-        self._total_bytes -= record["size"]
+        # accounted_bytes covers data + owner/tags metadata (#2910); records
+        # written before it existed fall back to the data size.
+        self._total_bytes -= record.get("accounted_bytes", record["size"])
 
     def _evict_expired(self, now: datetime) -> int:
         """Drop all TTL-expired records; returns the number evicted."""
@@ -165,7 +168,12 @@ class MemoryStore:
                     tags=existing["tags"],
                     created_at=existing["created_at"],
                 )
-        self._make_room(len(data))
+        # #2910: owner + serialized tags are heap-resident too — count them
+        # toward the store's byte bound or ~40MB of metadata hangs off a
+        # 1-byte blob.
+        meta_bytes = len(owner.encode("utf-8", "replace")) + len(json.dumps(tags or {}, default=str).encode())
+        accounted_bytes = len(data) + meta_bytes
+        self._make_room(accounted_bytes)
         stored_data = data
         encrypted = self._fernet is not None
         if self._fernet:
@@ -176,6 +184,7 @@ class MemoryStore:
             "owner": owner,
             "owners": {owner},
             "size": len(data),
+            "accounted_bytes": accounted_bytes,
             "stored_data": stored_data,
             "encrypted": encrypted,
             "tags": tags or {},
@@ -183,7 +192,7 @@ class MemoryStore:
             "last_accessed": now,
             "expires_at": self._expires_at(created_at),
         }
-        self._total_bytes += len(data)
+        self._total_bytes += accounted_bytes
         return ContentAddressedBlob(
             content_address=content_address,
             owner=owner,
