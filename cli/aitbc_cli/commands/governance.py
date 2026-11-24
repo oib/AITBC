@@ -327,6 +327,23 @@ def _service_env_api_key() -> str | None:
     """
     env_file = _GOVERNANCE_ENV_FILE
     try:
+        st = env_file.stat()
+    except OSError:
+        return None
+    # AUDIT-EDGE-CLI-GOV-SERVICE-KEY (#2885): only adopt the service key from
+    # a tightly-permissioned file — the same bar island_credentials enforces.
+    # A group/other-readable env file, or one owned by someone else, would
+    # turn `aitbc governance` into a confused deputy: any local user gets
+    # admin API calls without ever handling the key. Refuse and let the
+    # caller pass --api-key / GOVERNANCE_API_KEY explicitly.
+    if st.st_mode & 0o077 or (st.st_uid != os.geteuid() and os.geteuid() != 0):
+        logger.warning(
+            "Not adopting GOVERNANCE_API_KEY from %s: mode/owner too permissive "
+            "(need 0600 and owned by you or root); pass --api-key explicitly",
+            env_file,
+        )
+        return None
+    try:
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line.startswith("GOVERNANCE_API_KEY="):
