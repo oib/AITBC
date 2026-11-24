@@ -46,9 +46,9 @@ def deploy_messaging_contract(request: Request, deploy_data: dict[str, Any]) -> 
 
 
 @rate_limit(rate=200, per=60)
-def list_contracts(request: Request) -> dict[str, Any]:
-    """List all deployed contracts from the database"""
-    return contract_service.list_contracts()
+def list_contracts(request: Request, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+    """List deployed contracts from the database (bounded page, #2774)."""
+    return contract_service.list_contracts(limit=limit, offset=offset)
 
 
 _MAX_CONTRACT_NAME = 128
