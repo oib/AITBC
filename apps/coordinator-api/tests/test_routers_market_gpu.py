@@ -2052,3 +2052,42 @@ def test_pricing_get_is_read_only_no_price_rows(client, client_token, miner_toke
 
     assert calls, "dynamic pricer was not invoked"
     assert all(c.get("persist") is False for c in calls)
+
+
+def test_native_energy_profile_rejects_implausible_tbp(client, miner_token):
+    """#2820: tbp_watts is miner-writable and feeds the protected floor —
+    an unbounded value must 400 at admission, not overflow int64 at insert."""
+    _register_gpu(client, miner_token)
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": 100_000, "eur_per_kwh": "0.30"},
+    )
+    assert resp.status_code == 400
+    assert "tbp_watts" in resp.json()["detail"]
+
+
+def test_native_energy_profile_rejects_implausible_eur_per_kwh(client, miner_token):
+    """#2820: eur_per_kwh gets the same plausibility banding as the global
+    AIT/EUR rate — absurd magnitudes must not move the energy floor."""
+    _register_gpu(client, miner_token)
+    for bad in ("3", "0.0001"):
+        resp = client.post(
+            "/v1/market/native-energy/profile",
+            headers={"Authorization": f"Bearer {miner_token}"},
+            json={"resource_id": RESOURCE, "tbp_watts": 165, "eur_per_kwh": bad},
+        )
+        assert resp.status_code == 400, f"eur_per_kwh={bad}: {resp.text}"
+        assert "plausible band" in resp.json()["detail"]
+
+
+def test_native_energy_profile_rejects_int64_overflow(client, miner_token):
+    """#2820: a scaled eur_per_kwh above int64 must 400, not 500 on insert."""
+    _register_gpu(client, miner_token)
+    resp = client.post(
+        "/v1/market/native-energy/profile",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"resource_id": RESOURCE, "tbp_watts": 165, "eur_per_kwh_scaled": 10_000_000_000_000_000_000},
+    )
+    assert resp.status_code == 400
+    assert "int64" in resp.json()["detail"]
