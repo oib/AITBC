@@ -222,6 +222,7 @@ def aitbc_exchange_node_register(
     label: Annotated[
         str | None, Field(description="Registry label (must equal the seeded label; default: use seeded)")
     ] = None,
+    expires_in: Annotated[int | None, Field(description="Blocks until the register envelope expires")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -240,6 +241,7 @@ def aitbc_exchange_node_register(
         values={
             "wallet": "wallet",
             "label": "label",
+            "expires_in": "expires-in",
             "password_file": "password-file",
             "chain_id": "chain-id",
             "exchange_url": "exchange-url",
@@ -282,6 +284,7 @@ def aitbc_exchange_node_register(
 def aitbc_exchange_node_set_payout(
     eth_address: Annotated[str, Field(description="Sepolia ETH payout address (any case — checksummed before signing)")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path — the node's registered AIT wallet")] = None,
+    expires_in: Annotated[int | None, Field(description="Blocks until the set-payout envelope expires")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -300,6 +303,7 @@ def aitbc_exchange_node_set_payout(
         values={
             "eth_address": "eth-address",
             "wallet": "wallet",
+            "expires_in": "expires-in",
             "password_file": "password-file",
             "chain_id": "chain-id",
             "exchange_url": "exchange-url",

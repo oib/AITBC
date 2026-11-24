@@ -536,11 +536,18 @@ The label is pinned by the exchange's registry seed; --label must match it.""",
 )
 @click.option("--wallet", default=None, help="Wallet name or file path — the node's registered AIT wallet")
 @click.option("--label", default=None, help="Registry label (must equal the seeded label; default: use seeded)")
+@click.option(
+    "--expires-in",
+    type=int,
+    default=DEFAULT_EXPIRES_IN,
+    show_default=True,
+    help="Blocks until the register envelope expires",
+)
 @wallet_password_options
 @click.option("--chain-id", default=None, help="Envelope chain_id (default: island credentials)")
 @click.option("--exchange-url", default=None, help="Override exchange service base URL")
 @click.pass_context
-def node_register(ctx, wallet, label, password, password_file, password_stdin, chain_id, exchange_url):
+def node_register(ctx, wallet, label, expires_in, password, password_file, password_stdin, chain_id, exchange_url):
     """Claim this node's seeded registry row with a signed envelope."""
     address, private_key, _wallet_id = _load_signer(ctx, wallet, password, password_file, password_stdin)
     client = _exchange_client(ctx, exchange_url)
@@ -558,6 +565,7 @@ def node_register(ctx, wallet, label, password, password_file, password_stdin, c
         "action": _REGISTER_ACTION,
         "address": address,
         "label": label,
+        "expiry_height": _chain_head(ctx) + expires_in,
         "account_nonce": nonce,
         "chain_id": _envelope_chain_id(ctx, chain_id),
     }
@@ -580,11 +588,18 @@ exchange refuses anything else. Applies to orders placed after the claim.""",
     "--eth-address", "eth_address", required=True, help="Sepolia ETH payout address (any case — checksummed before signing)"
 )
 @click.option("--wallet", default=None, help="Wallet name or file path — the node's registered AIT wallet")
+@click.option(
+    "--expires-in",
+    type=int,
+    default=DEFAULT_EXPIRES_IN,
+    show_default=True,
+    help="Blocks until the set-payout envelope expires",
+)
 @wallet_password_options
 @click.option("--chain-id", default=None, help="Envelope chain_id (default: island credentials)")
 @click.option("--exchange-url", default=None, help="Override exchange service base URL")
 @click.pass_context
-def node_set_payout(ctx, eth_address, wallet, password, password_file, password_stdin, chain_id, exchange_url):
+def node_set_payout(ctx, eth_address, wallet, expires_in, password, password_file, password_stdin, chain_id, exchange_url):
     """Claim this node's ETH payout address with a signed envelope
     (dark while EXCHANGE_SETTLEMENT_ENABLED is off — a flag-off exchange
     answers 404, which is surfaced as-is)."""
@@ -608,6 +623,7 @@ def node_set_payout(ctx, eth_address, wallet, password, password_file, password_
     envelope = {
         "action": _PAYOUT_ACTION,
         "eth_address": checksummed,
+        "expiry_height": _chain_head(ctx) + expires_in,
         "account_nonce": nonce,
         "chain_id": _envelope_chain_id(ctx, chain_id),
     }

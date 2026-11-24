@@ -37,6 +37,43 @@ from .exchange_helpers import (
 logger = get_logger(__name__)
 
 
+def _register_envelope_error(envelope: dict, address: str) -> str | None:
+    """Static field checks on a verified register envelope; None = clean."""
+    if envelope["action"] != _REGISTER_ACTION:
+        return "Invalid register action"
+    if envelope["address"] != address:
+        return "Envelope address mismatch"
+    if not isinstance(envelope["label"], str) or not envelope["label"].strip():
+        return "Invalid label"
+    if not _is_int64(envelope["account_nonce"]):
+        return "Invalid account_nonce"
+    if not _is_int64(envelope["expiry_height"]):
+        return "Invalid expiry_height"
+    return None
+
+
+def _payout_envelope_error(envelope: dict) -> tuple[str | None, str | None]:
+    """(error, eth_address) for a verified set-payout envelope.
+
+    error set ⇒ reject with 400; otherwise eth_address is the validated
+    EIP-55 claim the commit path consumes.
+    """
+    if envelope["action"] != _PAYOUT_ACTION:
+        return "Invalid set_payout action", None
+    from eth_utils import is_checksum_address
+
+    eth_address = envelope["eth_address"]
+    if not isinstance(eth_address, str) or not is_checksum_address(eth_address):
+        return "Invalid eth_address (EIP-55 checksum form required)", None
+    if _payout_address_blocked(eth_address):
+        return "Invalid eth_address (reserved address)", None
+    if not _is_int64(envelope["account_nonce"]):
+        return "Invalid account_nonce", None
+    if not _is_int64(envelope["expiry_height"]):
+        return "Invalid expiry_height", None
+    return None, eth_address
+
+
 class ExchangeNodesMixin:
     """Node registration, payout claims, participants board, watchlist."""
 
@@ -56,17 +93,13 @@ class ExchangeNodesMixin:
         if verified is None:
             return
         envelope, address, env_hash = verified
-        if envelope["action"] != _REGISTER_ACTION:
-            self.send_error(400, "Invalid register action")  # type: ignore[attr-defined]
+        err = _register_envelope_error(envelope, address)
+        if err is not None:
+            self.send_error(400, err)  # type: ignore[attr-defined]
             return
-        if envelope["address"] != address:
-            self.send_error(400, "Envelope address mismatch")  # type: ignore[attr-defined]
-            return
-        if not isinstance(envelope["label"], str) or not envelope["label"].strip():
-            self.send_error(400, "Invalid label")  # type: ignore[attr-defined]
-            return
-        if not _is_int64(envelope["account_nonce"]):
-            self.send_error(400, "Invalid account_nonce")  # type: ignore[attr-defined]
+        # #2843: a leaked signed claim must not stay valid until its nonce is
+        # consumed — bound it by chain height like order/cancel envelopes.
+        if self._live_head_if_unexpired(envelope["expiry_height"], "Register") is None:
             return
         self._commit_register(envelope, address, env_hash)
 
@@ -136,20 +169,12 @@ class ExchangeNodesMixin:
         if verified is None:
             return
         envelope, address, env_hash = verified
-        if envelope["action"] != _PAYOUT_ACTION:
-            self.send_error(400, "Invalid set_payout action")  # type: ignore[attr-defined]
+        err, eth_address = _payout_envelope_error(envelope)
+        if err is not None:
+            self.send_error(400, err)  # type: ignore[attr-defined]
             return
-        from eth_utils import is_checksum_address
-
-        eth_address = envelope["eth_address"]
-        if not isinstance(eth_address, str) or not is_checksum_address(eth_address):
-            self.send_error(400, "Invalid eth_address (EIP-55 checksum form required)")  # type: ignore[attr-defined]
-            return
-        if _payout_address_blocked(eth_address):
-            self.send_error(400, "Invalid eth_address (reserved address)")  # type: ignore[attr-defined]
-            return
-        if not _is_int64(envelope["account_nonce"]):
-            self.send_error(400, "Invalid account_nonce")  # type: ignore[attr-defined]
+        # #2843: same time bound as register — see handle_node_register.
+        if self._live_head_if_unexpired(envelope["expiry_height"], "Payout") is None:
             return
         self._commit_payout(envelope, address, env_hash, eth_address)
 

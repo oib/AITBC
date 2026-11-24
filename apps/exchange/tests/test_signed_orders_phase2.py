@@ -61,10 +61,12 @@ def _seed_and_register(db_path, address, privkey, label, head=1000):
     conn.commit()
     conn.close()
     h = _handler()
+    h._chain_head_height = MagicMock(return_value=1000)
     env = {
         "action": "exchange_register",
         "address": address,
         "label": label,
+        "expiry_height": 2000,
         "account_nonce": 0,
         "chain_id": "ait-localnet",
     }
@@ -474,10 +476,12 @@ class TestAbuseLimits:
                 "action": "exchange_register",
                 "address": acct.address,
                 "label": f"n-rl{i}",
+                "expiry_height": 2000,
                 "account_nonce": 0,
                 "chain_id": "ait-localnet",
             }
             h = _handler()
+            h._chain_head_height = MagicMock(return_value=1000)
             h._read_json_body = MagicMock(
                 return_value={"envelope": env, "signature": _sign(env, acct.key.hex()), "user_address": acct.address}
             )
