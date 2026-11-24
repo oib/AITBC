@@ -1,5 +1,6 @@
 """Market matching service for matching GPU providers with consumers"""
 
+import math
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -148,6 +149,18 @@ class MatchingService:
                 raise ValueError("requirements.capacity must be a finite number") from exc
             if not cap.is_finite() or cap <= 0:
                 raise ValueError("requirements.capacity must be a positive finite number")
+            # #2849: validation used to parse a COPY — a string capacity
+            # ('4') passed here then TypeError'd in _calculate_match_score
+            # (offer.capacity / '4') AFTER the offer CAS commit and the
+            # coordinator submit. Coerce in place so every downstream
+            # consumer sees a number; float is JSON-safe for the task
+            # payload (capacity is a GPU count, not money). A Decimal that
+            # overflows float ('1e999') would serialize as Infinity —
+            # reject it here instead.
+            cap_f = float(cap)
+            if not math.isfinite(cap_f):
+                raise ValueError("requirements.capacity must be a positive finite number")
+            requirements["capacity"] = cap_f
 
     def _calculate_match_score(self, offer: MarketOffer, requirements: dict[str, Any]) -> float:
         """
