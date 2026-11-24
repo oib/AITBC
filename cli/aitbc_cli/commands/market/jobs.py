@@ -26,6 +26,33 @@ from ...utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
+# Provider endpoints are offer-controlled: bound both the upload we buffer
+# and the response body we parse so a hostile or buggy provider cannot
+# exhaust CLI memory (#2796). Input caps mirror the services' own upload
+# defaults (apps/whisper WHISPER_MAX_UPLOAD_MB=100, apps/ffmpeg
+# FFMPEG_MAX_UPLOAD_MB=512); the response cap matches the 64 MiB precedent
+# in agent_task._RESULT_MAX_BYTES.
+_PROVIDER_RESPONSE_MAX_BYTES = 64 * 1024 * 1024
+_WHISPER_UPLOAD_MAX_BYTES = 100 * 1024 * 1024
+_FFMPEG_UPLOAD_MAX_BYTES = 512 * 1024 * 1024
+
+
+def _read_response_json_capped(resp: Any, what: str) -> Any:
+    """``json.loads`` of a provider response body, refusing oversized payloads."""
+    data = resp.read(_PROVIDER_RESPONSE_MAX_BYTES + 1)
+    if len(data) > _PROVIDER_RESPONSE_MAX_BYTES:
+        raise ValueError(f"{what} response exceeds {_PROVIDER_RESPONSE_MAX_BYTES} bytes")
+    return json.loads(data)
+
+
+def _checked_input_size(path: str, max_bytes: int, what: str) -> None:
+    """Refuse an input file above ``max_bytes`` before it is buffered whole."""
+    size = os.path.getsize(path)
+    if size > max_bytes:
+        error(f"{what} input {path} is {size} bytes — over the {max_bytes // (1024 * 1024)}MB limit")
+        raise click.Abort()
+
+
 # Expected failure surface for the job fallbacks below (#1860): aitbc error
 # hierarchy plus filesystem, crypto-shape and data-shape builtins.
 _JOBS_ERRORS = (
@@ -503,7 +530,7 @@ def _run_ollama(
     # URL validated
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-            resp_data = json.loads(resp.read())
+            resp_data = _read_response_json_capped(resp, "Ollama")
     except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
@@ -682,7 +709,7 @@ def _post_whisper_audio(
     # endpoint scheme validated
     try:
         with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
-            return json.loads(resp.read())
+            return _read_response_json_capped(resp, "Whisper")
     except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
@@ -743,6 +770,7 @@ def _run_whisper(
 
     # Read the input file BEFORE locking escrow — a missing/unreadable file
     # must fail before funds are locked, not leak the escrow afterwards.
+    _checked_input_size(audio_file, _WHISPER_UPLOAD_MAX_BYTES, "Whisper")
     with open(audio_file, "rb") as af:
         audio_bytes = af.read()
 
@@ -868,6 +896,7 @@ def _run_ffmpeg(
 
     # Read the input file BEFORE locking escrow — a missing/unreadable file
     # must fail before funds are locked, not leak the escrow afterwards.
+    _checked_input_size(input_file, _FFMPEG_UPLOAD_MAX_BYTES, "FFmpeg")
     with open(input_file, "rb") as af:
         video_bytes = af.read()
 
@@ -927,7 +956,7 @@ def _run_ffmpeg(
     # endpoint scheme validated
     try:
         with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310
-            resp_data = json.loads(resp.read())
+            resp_data = _read_response_json_capped(resp, "FFmpeg")
     except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
