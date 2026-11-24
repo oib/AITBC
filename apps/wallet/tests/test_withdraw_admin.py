@@ -164,13 +164,20 @@ def _reverted_rpc(latest_nonce: int = 1) -> dict:
     }
 
 
-def _never_mined_rpc(latest_nonce: int = 1) -> dict:
-    """The recorded retry hash absent everywhere; its nonce still free."""
+def _never_mined_rpc(latest_nonce: int = 1, pending_nonce: int | None = None) -> dict:
+    """The recorded retry hash absent everywhere; its nonce still free.
+
+    ``pending_nonce`` defaults to ``latest_nonce`` — no pooled txs. Pass a
+    higher value to simulate a still-pending tx holding the recorded slot
+    (#2921): 'latest' alone cannot see it."""
     return {
         "eth_getTransactionReceipt": {},
         "eth_getTransactionByHash": {},
         "eth_blockNumber": hex(0xB5C200),
-        "eth_getTransactionCount": {"latest": hex(latest_nonce)},
+        "eth_getTransactionCount": {
+            "latest": hex(latest_nonce),
+            "pending": hex(latest_nonce if pending_nonce is None else pending_nonce),
+        },
     }
 
 
@@ -449,6 +456,37 @@ class TestReleaseRetry:
         )
         assert rc == 1
         assert len(state["sent"]) == 1
+
+    def test_retry_refused_when_nonce_held_by_pending_tx(self, admin_env):
+        """#2921: 'latest' reports the recorded nonce free, but 'pending'
+        shows a still-pooled tx occupying it — never_mined is unproven and
+        the retry must refuse."""
+        state, env_path, db_path = admin_env
+        _seed_completed_row()
+        state["rpc"][RPC_A] = _reverted_rpc()
+        state["rpc"][RPC_B] = _reverted_rpc()
+        state["verify_outcome"] = "not_sent"
+
+        rc = _run(
+            ["--env-file", str(env_path), "--db", str(db_path), "release-retry", AIT_HASH, "--confirm", "--note", "retry 1"]
+        )
+        assert rc == 1
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "needs_review_release"
+        assert row["release_nonce"] == 1
+
+        # Nonce 1 free on 'latest' but held by a pending tx (count 2).
+        state["rpc"][RPC_A] = _never_mined_rpc(latest_nonce=1, pending_nonce=2)
+        state["rpc"][RPC_B] = _never_mined_rpc(latest_nonce=1, pending_nonce=2)
+        state["verify_outcome"] = "sent"
+
+        rc = _run(
+            ["--env-file", str(env_path), "--db", str(db_path), "release-retry", AIT_HASH, "--confirm", "--note", "retry 2"]
+        )
+        assert rc == 1
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "needs_review_release"
+        assert len(state["sent"]) == 1  # no second broadcast
 
 
 class TestReleaseRetryLock:
