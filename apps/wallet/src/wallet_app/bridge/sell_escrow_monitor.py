@@ -430,6 +430,19 @@ async def _fetch_transfers(address: str, limit: int = 0) -> list[dict[str, Any]]
     return cast(list[dict[str, Any]], txs) if isinstance(txs, list) else []
 
 
+async def _fetch_tx_by_hash(tx_hash: str) -> dict[str, Any] | None:
+    """Canonical view of a single AIT tx, or None if the chain no longer
+    seals it (#2889 — the sell lane's reorg recheck; same endpoint shape as
+    the withdrawal lane's ``_fetch_withdraw_tx``)."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(f"{wdm.BLOCKCHAIN_RPC_URL}/rpc/transaction/{tx_hash}")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        data = resp.json()
+    return cast(dict[str, Any], data) if isinstance(data, dict) else None
+
+
 async def _account_view(address: str) -> tuple[int, Decimal]:
     """(nonce, balance in AIT) from the AITBC RPC in one call. A 404 (the
     account has no on-chain record yet) reads as zero."""
@@ -524,6 +537,7 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
             quote_id=str(quote_id) if quote_id else None,
             status=status,
             locked_height=int(tx["block_height"]),
+            lock_block_hash=tx.get("block_hash"),
             error=error,
         )
         recorded += 1

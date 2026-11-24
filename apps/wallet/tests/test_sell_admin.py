@@ -89,8 +89,25 @@ def admin_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         state["ait_sends"].append(tx)
         return "0x" + "ff" * 32
 
+    async def _fetch_tx(tx_hash: str) -> dict | None:
+        # #2889 canonical recheck: default = chain agrees with the ledger
+        # row; state["canonical_txs"] overrides per-test (None = reorged out).
+        canon = state.setdefault("canonical_txs", {})
+        if tx_hash in canon:
+            return canon[tx_hash]
+        row = get_sell_lock_by_ait_tx_hash(tx_hash)
+        if row is None:
+            return None
+        return {
+            "tx_hash": tx_hash,
+            "status": "confirmed",
+            "block_height": row.get("locked_height") or 1,
+            "block_hash": row.get("lock_block_hash"),
+        }
+
     monkeypatch.setattr(sellmon, "_account_view", _account_view)
     monkeypatch.setattr(sellmon, "_fetch_transfers", _transfers)
+    monkeypatch.setattr(sellmon, "_fetch_tx_by_hash", _fetch_tx)
     monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _broadcast)
     monkeypatch.setattr(sellmon, "_db_initialized", False)
 

@@ -61,6 +61,7 @@ _SELL_LOCK_KEYS = [
     "resolved_by",
     "resolved_at",
     "operator_note",
+    "lock_block_hash",
 ]
 
 # Lock statuses whose ETH release is still possible — they reserve float.
@@ -233,6 +234,7 @@ def insert_sell_lock(
     eth_amount: Decimal | None = None,
     status: str = "locked",
     locked_height: int | None = None,
+    lock_block_hash: str | None = None,
     error: str | None = None,
 ) -> str | None:
     """Record a new escrow lock. Returns the lock id, or None when the
@@ -246,9 +248,10 @@ def insert_sell_lock(
         """
         INSERT OR IGNORE INTO bridge_sell_locks (
             id, quote_id, ait_tx_hash, shop_ait_address, shop_eth_address,
-            amount_ait, eth_amount, status, locked_height, locked_at, error, created_at
+            amount_ait, eth_amount, status, locked_height, locked_at, error, created_at,
+            lock_block_hash
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             lock_id,
@@ -263,6 +266,7 @@ def insert_sell_lock(
             utc_now_iso(),
             error,
             utc_now_iso(),
+            lock_block_hash,
         ),
     )
     inserted = cursor.rowcount > 0
@@ -517,6 +521,22 @@ def update_sell_lock_status(
         query += f" AND status IN ({', '.join('?' for _ in expected)})"
         params = (*params, *expected)
     cursor.execute(query, params)
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
+def update_sell_lock_block(ait_tx_hash: str, locked_height: int, lock_block_hash: str | None) -> bool:
+    """Re-anchor a lock's recorded chain position after the canonical view
+    shows the inbound tx re-sealed at a different height/hash (#2889) — the
+    seal-depth wait restarts on the new position."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE bridge_sell_locks SET locked_height = ?, lock_block_hash = ? WHERE ait_tx_hash = ?",
+        (locked_height, lock_block_hash, ait_tx_hash),
+    )
     conn.commit()
     rows_affected = cursor.rowcount
     conn.close()

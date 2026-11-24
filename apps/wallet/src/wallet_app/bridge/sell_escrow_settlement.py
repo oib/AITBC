@@ -40,6 +40,7 @@ from .bridge_db import (
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_quote_id,
     get_sell_quote,
+    update_sell_lock_block,
     update_sell_quote_status,
 )
 from .price_api import apply_bridge_fee, calculate_eth_amount
@@ -72,6 +73,13 @@ async def _fetch_transfers(address: str, limit: int = 0) -> list[dict[str, Any]]
     from . import sell_escrow_monitor as _sem
 
     return await _sem._fetch_transfers(address, limit=limit)
+
+
+async def _fetch_tx_by_hash(tx_hash: str) -> dict[str, Any] | None:
+    """Deferred delegate to ``sell_escrow_monitor._fetch_tx_by_hash``."""
+    from . import sell_escrow_monitor as _sem
+
+    return await _sem._fetch_tx_by_hash(tx_hash)
 
 
 async def _account_view(address: str) -> tuple[int, Decimal]:
@@ -304,6 +312,33 @@ async def _find_escrow_outflow(
     return None
 
 
+async def _check_inbound_lock(row: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+    """Canonical recheck of the inbound lock tx before any spend (#2889).
+
+    The seal-depth gate is arithmetic only — it cannot see a reorg that
+    removed the lock tx after the row was recorded. Before ETH is released
+    or escrowed AIT is swept out, the tx must still be canonically sealed
+    ``confirmed``. Returns ``("ok", tx)`` when it is, ``("wait", tx|None)``
+    for a transient view (RPC error, or the tx back in the mempool after a
+    reorg — recheck next poll), and ``("reorged", tx|None)`` when the chain
+    no longer seals it confirmed — the AIT never arrived, so nothing may be
+    paid out against it.
+    """
+    try:
+        tx = await _fetch_tx_by_hash(str(row["ait_tx_hash"]))
+    except Exception as e:  # noqa: BLE001 - RPC containment: fail closed, retry next poll
+        logger.error("Canonical recheck of sell lock %s failed: %s", row["ait_tx_hash"], e)
+        return "wait", None
+    if tx is None:
+        return "reorged", None
+    if wdm.tx_sealed_confirmed(tx):
+        return "ok", tx
+    # Present but not sealed-confirmed: mempool-pending means a reorg
+    # un-sealed it and it may re-seal — wait; a failed-sealed canonical tx
+    # means the AIT leg never applied — terminal.
+    return ("wait", tx) if tx.get("block_height") is None else ("reorged", tx)
+
+
 async def _escrow_sweep(
     cfg: SellConfig,
     row: dict[str, Any],
@@ -338,6 +373,26 @@ async def _escrow_sweep(
                 row["ait_tx_hash"],
                 reason,
             )
+            return "deferred"
+
+        # #2889: never build an escrow outflow on an inbound lock the
+        # canonical chain no longer seals — that pays out AIT that never
+        # arrived (settle) or "refunds" AIT that was never escrowed.
+        state, _canonical_tx = await _check_inbound_lock(row)
+        if state == "reorged":
+            update_sell_lock_status(
+                row["ait_tx_hash"],
+                "reorged",
+                error=f"{reason}: inbound lock tx no longer canonically sealed — refusing unbacked escrow outflow",
+                expected_statuses={row["status"]},
+            )
+            logger.error(
+                "Sell lock %s: inbound lock vanished from the canonical chain — %s sweep refused",
+                row["ait_tx_hash"],
+                reason,
+            )
+            return "reorged"
+        if state == "wait":
             return "deferred"
 
         amount_ait = Decimal(str(row["amount_ait"]))
@@ -726,20 +781,75 @@ async def _price_lock_eth_amount(cfg: SellConfig, row: dict[str, Any], quote: di
     return Decimal(str(eth_amount))
 
 
-async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
-    """Admission path for a recorded lock: quote match → deadline →
-    expiry/requote → feed freshness → caps → release."""
-    # #1269: seal-depth gate — nothing is spent (ETH release or AIT refund)
-    # until the inbound lock is buried SELL_SEAL_DEPTH blocks deep. A depth-0
-    # lock can still reorg out; the row stays 'locked' and is rechecked next
-    # poll. Head-fetch failure fails closed (skip this row this poll).
+async def _release_canonical_gate(row: dict[str, Any]) -> bool:
+    """#2889: canonical recheck gating the ETH-release path. Returns True only
+    when the inbound lock is still canonically sealed 'confirmed' at its
+    recorded position. A vanished/failed-sealed lock marks the row terminal
+    'reorged' (the reorg un-burned the AIT — nothing is owed either way); a
+    transient view or a re-seal at a new position re-anchors and waits."""
+    state, canonical_tx = await _check_inbound_lock(row)
+    if state == "reorged":
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "reorged",
+            error="inbound lock tx no longer canonically sealed — the reorg un-burned the AIT; no ETH release, no refund",
+            expected_statuses={row["status"]},
+        )
+        logger.error(
+            "Sell lock %s: inbound lock tx vanished from the canonical chain — marked reorged, nothing paid out",
+            row["ait_tx_hash"],
+        )
+        return False
+    if state == "wait":
+        return False
+    # Re-sealed at a different position: restart the depth wait on the new
+    # height/hash rather than releasing against the stale anchor.
+    recorded_height = row.get("locked_height")
+    new_height = (canonical_tx or {}).get("block_height")
+    new_hash = (canonical_tx or {}).get("block_hash")
+    position_moved = (
+        recorded_height is not None and new_height is not None and int(new_height) != int(recorded_height)
+    ) or bool(row.get("lock_block_hash") and new_hash and new_hash != row.get("lock_block_hash"))
+    if not position_moved:
+        return True
+    moved_height = new_height if new_height is not None else recorded_height
+    if moved_height is None:
+        return False  # a sealed-confirmed canonical tx always has a height; fail closed
+    update_sell_lock_block(
+        str(row["ait_tx_hash"]),
+        int(moved_height),
+        new_hash if isinstance(new_hash, str) else None,
+    )
+    logger.warning(
+        "Sell lock %s: inbound tx re-sealed at height %s (was %s) — depth wait restarts",
+        row["ait_tx_hash"],
+        new_height,
+        recorded_height,
+    )
+    return False
+
+
+async def _admission_precheck(cfg: SellConfig, row: dict[str, Any]) -> bool:
+    """#1269 seal-depth gate + #2889 canonical recheck — nothing is spent
+    (ETH release or AIT refund) until the inbound lock is buried
+    ``SELL_SEAL_DEPTH`` blocks deep AND still canonically sealed. A
+    depth-0 lock can still reorg out; the row stays put and is rechecked
+    next poll. Head/recheck-fetch failure fails closed (skip this poll)."""
     locked_height = row.get("locked_height")
     try:
         head = await _chain_height()
     except Exception as e:  # noqa: BLE001 - height probe containment — release skipped
         logger.error("Could not read chain height for seal-depth check on %s: %s", row["ait_tx_hash"], e)
-        return
+        return False
     if locked_height is None or head - int(locked_height) < cfg.sell_seal_depth:
+        return False
+    return await _release_canonical_gate(row)
+
+
+async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
+    """Admission path for a recorded lock: quote match → deadline →
+    expiry/requote → feed freshness → caps → release."""
+    if not await _admission_precheck(cfg, row):
         return
     quote = get_sell_quote(str(row["quote_id"])) if row.get("quote_id") else None
     if quote is None or not _quote_admits_lock(row, quote):

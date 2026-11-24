@@ -166,10 +166,29 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     async def _height() -> int:
         return int(state["chain_height"])
 
+    async def _fetch_tx(tx_hash: str) -> dict | None:
+        # #2889 canonical recheck: default = the chain agrees with the
+        # ledger row (sealed 'confirmed' at the recorded position).
+        # ``state["canonical_txs"][hash]`` overrides per-test — set to None
+        # for a reorged-out lock, a dict for a re-sealed/mempool view.
+        canon = state.setdefault("canonical_txs", {})
+        if tx_hash in canon:
+            return canon[tx_hash]
+        row = get_sell_lock_by_ait_tx_hash(tx_hash)
+        if row is None:
+            return None
+        return {
+            "tx_hash": tx_hash,
+            "status": "confirmed",
+            "block_height": row.get("locked_height") or 1,
+            "block_hash": row.get("lock_block_hash"),
+        }
+
     monkeypatch.setattr(wdm, "_broadcast_release_tx", _broadcast)
     monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _ait_broadcast)
     monkeypatch.setattr(sellmon, "_account_view", _account_view)
     monkeypatch.setattr(sellmon, "_fetch_transfers", _transfers)
+    monkeypatch.setattr(sellmon, "_fetch_tx_by_hash", _fetch_tx)
     monkeypatch.setattr(sellmon, "_chain_height", _height)
     monkeypatch.setattr(sellmon, "get_eth_prices_fresh", lambda: _coro(_fresh_feed()))
     monkeypatch.setattr(sellmon, "_db_initialized", False)
@@ -1770,3 +1789,92 @@ async def test_loop_warns_on_preflight_skip(sell_env, monkeypatch, caplog):
         with pytest.raises(asyncio.CancelledError):
             await task
     assert "Sell escrow monitor poll skipped (1 consecutive): escrow key slot unusable" in caplog.text
+
+
+class TestCanonicalRecheck:
+    """#2889/AUDIT-MONEY-59: the seal-depth gate is arithmetic only — the
+    inbound lock tx must still be canonically sealed 'confirmed' before ETH
+    is released or escrowed AIT is swept out. A reorged-out lock pays
+    nothing and is marked terminal 'reorged' (the reorg un-burned the AIT —
+    there is nothing to refund)."""
+
+    @pytest.mark.asyncio
+    async def test_reorged_out_lock_never_releases_eth(self, sell_env):
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        sell_env["canonical_txs"] = {"0x" + "aa" * 32: None}
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "reorged"
+        assert sell_env["eth_sends"] == []
+        assert sell_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_resealed_lock_restarts_depth_wait(self, sell_env):
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        # Canonical view: the lock re-sealed at head — depth 0 on the new position.
+        sell_env["canonical_txs"] = {
+            "0x" + "aa" * 32: {"status": "confirmed", "block_height": 1000, "block_hash": "0x" + "cc" * 32}
+        }
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "locked"
+        assert row["locked_height"] == 1000
+        assert row["lock_block_hash"] == "0x" + "cc" * 32
+        assert sell_env["eth_sends"] == []
+
+        # Bury the new position past seal depth -> releases normally.
+        sell_env["chain_height"] = 1004
+        sell_env["canonical_txs"] = {}
+        await sellmon.poll_sells_once()
+        assert len(sell_env["eth_sends"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_mempool_lock_waits_for_reseal(self, sell_env):
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        sell_env["canonical_txs"] = {"0x" + "aa" * 32: {"status": "pending", "block_height": None}}
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "locked"
+        assert sell_env["eth_sends"] == []
+
+        sell_env["canonical_txs"] = {}
+        sell_env["transfers"] = []
+        await sellmon.poll_sells_once()
+        assert len(sell_env["eth_sends"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_orphan_refund_refused_on_reorged_lock(self, sell_env):
+        sell_env["transfers"] = [_lock_tx(None, tx_hash="0x" + "bb" * 32, height=100)]
+        sell_env["chain_height"] = 300
+        # The lock reorged out before the orphan window even elapsed — the
+        # refund sweep must refuse to pay out AIT that never arrived.
+        sell_env["canonical_txs"] = {"0x" + "bb" * 32: None}
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "bb" * 32)
+        assert row["status"] == "reorged"
+        assert sell_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_settle_refused_on_reorged_lock(self, sell_env):
+        insert_sell_lock(
+            ait_tx_hash="0x" + "f5" * 32,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        sell_env["canonical_txs"] = {"0x" + "f5" * 32: None}
+        cfg = sellmon._sell_config()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f5" * 32)
+        await sellmon._settle_lock(cfg, row)
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f5" * 32)
+        assert row["status"] == "reorged"
+        assert sell_env["ait_sends"] == []
