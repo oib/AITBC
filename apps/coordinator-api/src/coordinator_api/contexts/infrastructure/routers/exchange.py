@@ -8,6 +8,7 @@ v1.0.0: Converted from Bitcoin to ETH (AITBC only supports ETH + native AIT coin
 import time
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from coordinator_api.contexts.infrastructure.services.redis_state import RedisStateManager
@@ -97,13 +98,16 @@ async def create_payment(
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Create payment record
+    # Create payment record. Amounts are stored as strings: the doc goes
+    # through json.dumps on the Redis path, which cannot serialize Decimal
+    # (#2816) — strings keep full precision and the response models coerce
+    # them back to Decimal.
     payment_id = str(uuid.uuid4())
     payment = {
         "payment_id": payment_id,
         "user_id": user_id,
-        "aitbc_amount": payment_request.aitbc_amount,
-        "eth_amount": payment_request.eth_amount,
+        "aitbc_amount": str(payment_request.aitbc_amount),
+        "eth_amount": str(payment_request.eth_amount),
         "payment_address": deposit_address,
         "status": "pending",
         "created_at": int(time.time()),
@@ -184,10 +188,12 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
     # the unbounded HGETALL of the whole exchange hash.
     all_payments = (await _state.docs(_NAMESPACE)).values()
 
-    daily_volume = 0
+    daily_volume = Decimal("0")
     for payment in all_payments:
         if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
-            daily_volume += payment["aitbc_amount"]
+            # Stored amounts are strings (#2816); Decimal(str(...)) also
+            # tolerates legacy docs holding Decimal/float values.
+            daily_volume += Decimal(str(payment["aitbc_amount"]))
 
     # The AITBC/ETH rate is a configured peg (ETH_CONFIG["exchange_rate"]) — there is no
     # price discovery, so the honest 24h change is 0 until a real rate feed exists.
