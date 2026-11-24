@@ -235,21 +235,23 @@ class IpfsRentalSweeper:
         should_refund = refund_flagged or not token.pinned or not delivered
 
         if should_refund:
-            tx_hash = await self._refund_escrow(job_id)
-            if tx_hash:
-                token.status = "refunded"
+            outcome = await self._refund_escrow(job_id)
+            if outcome is not None:
+                tx_hash, verdict = outcome
+                token.status = "refunded" if verdict == "refunded" else "released"
                 token.tx_hash = tx_hash
                 token.settle_deferral_first_at = None
-                return False, True
+                return verdict == "released", verdict == "refunded"
             await self._settle_deferred(token, job_id, "refund")
             return False, False
 
-        tx_hash = await self._release_escrow(job_id)
-        if tx_hash:
-            token.status = "released"
+        outcome = await self._release_escrow(job_id)
+        if outcome is not None:
+            tx_hash, verdict = outcome
+            token.status = "released" if verdict == "released" else "refunded"
             token.tx_hash = tx_hash
             token.settle_deferral_first_at = None
-            return True, False
+            return verdict == "released", verdict == "refunded"
         await self._settle_deferred(token, job_id, "release")
         return False, False
 
@@ -317,27 +319,83 @@ class IpfsRentalSweeper:
             logger.warning("Escrow presence probe for %s failed: %s; treating as transient", job_id, e)
             return False
 
-    async def _release_escrow(self, job_id: str) -> str | None:
-        """Call the blockchain RPC to release escrow to the provider."""
+    async def _release_escrow(self, job_id: str) -> tuple[str, str] | None:
+        """Release escrow to the provider; returns ``(tx_hash, escrow state)``."""
         try:
             result = await self._rpc_client.release_escrow(job_id)
             if result and result.get("success"):
-                return result.get("tx_hash") or None
+                tx_hash = result.get("tx_hash")
+                if isinstance(tx_hash, str) and tx_hash:
+                    return tx_hash, "released"
+                return await self._adopt_sealed_verdict(job_id)
             logger.warning("Escrow release for %s was not successful: %s", job_id, result)
         except _OPS_ERRORS as e:
             logger.error("Failed to release escrow %s: %s", job_id, e)
         return None
 
-    async def _refund_escrow(self, job_id: str) -> str | None:
-        """Call the blockchain RPC to refund escrow to the buyer."""
+    async def _refund_escrow(self, job_id: str) -> tuple[str, str] | None:
+        """Refund escrow to the buyer; returns ``(tx_hash, escrow state)``."""
         try:
             result = await self._rpc_client.refund_escrow(job_id)
             if result and result.get("success"):
-                return result.get("tx_hash") or None
+                tx_hash = result.get("tx_hash")
+                if isinstance(tx_hash, str) and tx_hash:
+                    return tx_hash, "refunded"
+                return await self._adopt_sealed_verdict(job_id)
             logger.warning("Escrow refund for %s was not successful: %s", job_id, result)
         except _OPS_ERRORS as e:
             logger.error("Failed to refund escrow %s: %s", job_id, e)
         return None
+
+    async def _adopt_sealed_verdict(self, job_id: str) -> tuple[str, str] | None:
+        """Adopt the escrow row's settled verdict when the settle response
+        carried ``success`` but no ``tx_hash`` (#2860).
+
+        Same rule as the job sweeper's ``_settlement_verdict``: a hashless
+        success is not proof nothing settled — the chain may have recorded
+        the verdict and its tx hash on the escrow row. Adopt only a
+        released/refunded verdict whose hash is proven sealed
+        (``GET /rpc/transaction/{hash}`` returns a block height); anything
+        else stays deferred for the next pass.
+        """
+        try:
+            escrow = await self._rpc_client.verify_escrow(job_id)
+        except _OPS_ERRORS as e:
+            logger.warning("Escrow verdict read for %s failed (%s); still deferring", job_id, e)
+            return None
+        if not escrow:
+            return None
+        state = escrow.get("state")
+        if state not in {"released", "refunded"}:
+            return None
+        tx_hash = escrow.get("release_tx_hash") if state == "released" else escrow.get("refund_tx_hash")
+        if not isinstance(tx_hash, str) or not tx_hash:
+            logger.error(
+                "Escrow %s reports %s but carries no tx hash; still deferring",
+                job_id,
+                state,
+            )
+            return None
+        try:
+            tx = await self._rpc_client.get_transaction(tx_hash)
+        except _OPS_ERRORS as e:
+            logger.warning("Seal check for escrow %s tx %s failed (%s); still deferring", job_id, tx_hash, e)
+            return None
+        if tx is None or tx.get("block_height") is None:
+            logger.warning(
+                "Escrow %s reports %s but tx %s is not sealed; still deferring",
+                job_id,
+                state,
+                tx_hash,
+            )
+            return None
+        logger.warning(
+            "Escrow %s settle response lacked tx_hash; adopted sealed %s verdict %s",
+            job_id,
+            state,
+            tx_hash,
+        )
+        return tx_hash, state
 
 
 def _env_int(name: str, default: int) -> int:

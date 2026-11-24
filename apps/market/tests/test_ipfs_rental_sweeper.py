@@ -584,3 +584,150 @@ async def test_refund_pending_status_is_now_swept() -> None:
         assert token.status == "refunded"
     assert "r_flagged" in rpc.refunded
     assert "r_flagged" not in rpc.released
+
+
+class HashlessSettleRPC(ScriptedRPC):
+    """Settle answers ``{success: true}`` with no ``tx_hash`` — the chain may
+    still have settled and recorded the verdict on the escrow row (#2860)."""
+
+    def __init__(
+        self,
+        escrow_rows: dict[str, dict[str, Any]] | None = None,
+        txs: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
+        super().__init__()
+        self.escrow_rows = escrow_rows or {}
+        self.txs = txs or {}
+        self.get_tx_calls: list[str] = []
+
+    async def release_escrow(self, job_id: str) -> dict[str, Any] | None:
+        self.released.append(job_id)
+        return {"success": True}
+
+    async def refund_escrow(self, job_id: str) -> dict[str, Any] | None:
+        self.refunded.append(job_id)
+        return {"success": True}
+
+    async def verify_escrow(self, job_id: str) -> dict[str, Any] | None:
+        row = self.escrow_rows.get(job_id)
+        return dict(row) if row is not None else None
+
+    async def get_transaction(self, tx_hash: str) -> dict[str, Any] | None:
+        self.get_tx_calls.append(tx_hash)
+        return self.txs.get(tx_hash)
+
+
+@pytest.mark.asyncio
+async def test_hashless_release_success_adopts_sealed_verdict() -> None:
+    """#2860: {success:true} without tx_hash on a settled escrow must adopt the
+    escrow row's sealed release hash — not defer to settlement_failed."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_hl_rel", "r_hl_rel"))
+        session.add(_confirmed_job("r_hl_rel"))
+        await session.commit()
+
+    rpc = HashlessSettleRPC(
+        escrow_rows={"r_hl_rel": {"state": "released", "release_tx_hash": "0xrel_sealed"}},
+        txs={"0xrel_sealed": {"block_height": 42}},
+    )
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_hl_rel")
+        assert token is not None
+        assert token.status == "released"
+        assert token.tx_hash == "0xrel_sealed"
+        assert token.settle_deferral_first_at is None
+    assert rpc.get_tx_calls == ["0xrel_sealed"]
+
+
+@pytest.mark.asyncio
+async def test_hashless_refund_success_adopts_sealed_verdict() -> None:
+    """#2860: same adoption on the refund leg."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_hl_ref", "r_hl_ref", status="refund_pending"))
+        session.add(_confirmed_job("r_hl_ref"))
+        await session.commit()
+
+    rpc = HashlessSettleRPC(
+        escrow_rows={"r_hl_ref": {"state": "refunded", "refund_tx_hash": "0xref_sealed"}},
+        txs={"0xref_sealed": {"block_height": 43}},
+    )
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_hl_ref")
+        assert token is not None
+        assert token.status == "refunded"
+        assert token.tx_hash == "0xref_sealed"
+        assert token.settle_deferral_first_at is None
+
+
+@pytest.mark.asyncio
+async def test_hashless_success_adopts_opposite_verdict() -> None:
+    """#2860: the escrow row is authoritative — a release request that finds a
+    sealed refunded verdict adopts 'refunded', not 'released'."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_hl_opp", "r_hl_opp"))
+        session.add(_confirmed_job("r_hl_opp"))
+        await session.commit()
+
+    rpc = HashlessSettleRPC(
+        escrow_rows={"r_hl_opp": {"state": "refunded", "refund_tx_hash": "0xref_opp"}},
+        txs={"0xref_opp": {"block_height": 44}},
+    )
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_hl_opp")
+        assert token is not None
+        assert token.status == "refunded"
+        assert token.tx_hash == "0xref_opp"
+
+
+@pytest.mark.asyncio
+async def test_hashless_success_with_locked_escrow_still_defers() -> None:
+    """Guard: hashless success + escrow still locked → ordinary deferral."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_hl_lock", "r_hl_lock"))
+        session.add(_confirmed_job("r_hl_lock"))
+        await session.commit()
+
+    rpc = HashlessSettleRPC(escrow_rows={"r_hl_lock": {"state": "funded"}})
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_hl_lock")
+        assert token is not None
+        assert token.status == "expired"
+        assert token.tx_hash is None
+        assert token.settle_deferral_first_at is not None
+    assert rpc.get_tx_calls == []
+
+
+@pytest.mark.asyncio
+async def test_hashless_success_unsealed_hash_still_defers() -> None:
+    """Guard: an adopted verdict needs a SEALED tx — an unsealed or unknown
+    hash keeps deferring (S-8 dead-hash shape)."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_hl_unsealed", "r_hl_unsealed"))
+        session.add(_confirmed_job("r_hl_unsealed"))
+        await session.commit()
+
+    rpc = HashlessSettleRPC(
+        escrow_rows={"r_hl_unsealed": {"state": "released", "release_tx_hash": "0xnot_sealed"}},
+        txs={"0xnot_sealed": {}},  # present but no block_height
+    )
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_hl_unsealed")
+        assert token is not None
+        assert token.status == "expired"
+        assert token.tx_hash is None
+        assert token.settle_deferral_first_at is not None
