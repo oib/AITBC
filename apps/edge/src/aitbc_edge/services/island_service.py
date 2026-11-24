@@ -14,6 +14,9 @@ from ..config import settings
 from ..schemas.island import BridgeRequest, IslandMembership, IslandStatus
 from ..storage import get_session
 
+# Upper bound for membership scans — the router exposes no pagination (#2778).
+MAX_LIST_ROWS = 1000
+
 logger = get_logger(__name__)
 
 # Node identity for bridge request attribution.
@@ -124,7 +127,14 @@ class IslandService:
     async def list_memberships_by_region(self, region: str) -> list[IslandMembership]:
         """List edge node island memberships for a given region."""
         async with get_session() as session:
-            stmt = select(IslandMembership)
+            # #2778: filter in SQL (extra_data.region) and bound the scan —
+            # this used to load EVERY membership row then filter region in
+            # Python. The python-side check stays as an exact-match guard.
+            stmt = (
+                select(IslandMembership)
+                .where(IslandMembership.extra_data["region"].as_string() == region)
+                .limit(MAX_LIST_ROWS)
+            )
             result = await session.execute(stmt)
             memberships = result.scalars().all()
             return [m for m in memberships if m.extra_data.get("region") == region]

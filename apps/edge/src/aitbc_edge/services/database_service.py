@@ -6,6 +6,10 @@ from sqlmodel import delete, select
 from ..schemas.database import EdgeDatabase
 from ..storage import get_session
 
+# Upper bound for list_databases — the router exposes no pagination, so
+# an unbounded select would load the whole table per request (#2778).
+MAX_LIST_ROWS = 1000
+
 # V23-17: there is no sync implementation behind this service. sync_database used to set
 # last_sync_at to now, advance records_synced by a literal 100 and answer
 # {"success": True} -- committing the fiction to the database, where monitoring, schedulers
@@ -129,10 +133,13 @@ class DatabaseService:
     async def list_databases(self, island_id: str | None = None) -> list[dict[str, Any]]:
         """List databases, optionally filtered by island_id"""
         async with get_session() as session:
+            # #2778: bound the scan — this endpoint had no limit and loaded
+            # every row (metrics_service clamps the same way).
             if island_id:
-                result = await session.execute(select(EdgeDatabase).where(EdgeDatabase.island_id == island_id))
+                stmt = select(EdgeDatabase).where(EdgeDatabase.island_id == island_id).limit(MAX_LIST_ROWS)
             else:
-                result = await session.execute(select(EdgeDatabase))
+                stmt = select(EdgeDatabase).limit(MAX_LIST_ROWS)
+            result = await session.execute(stmt)
             databases = result.scalars().all()
 
             return [

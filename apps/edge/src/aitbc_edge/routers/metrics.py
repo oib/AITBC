@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from aitbc.auth import AdminDep, AuthDep
 from pydantic import BaseModel
@@ -38,7 +38,7 @@ async def list_metrics(
     _user: AuthDep,
     svc: Annotated[MetricsService, Depends(get_metrics_service)],
     gpu_id: str | None = None,
-    limit: int = 100,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
 ) -> dict[str, Any]:
     """List metrics, optionally filtered by gpu_id"""
     metrics = await svc.list_metrics(gpu_id, limit)
