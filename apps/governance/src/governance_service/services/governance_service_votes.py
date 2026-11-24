@@ -34,6 +34,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Caller-settable fields on POST /v1/governance/votes (and the transaction
+# relay). Everything else — weight snapshots, delegated_from, signature,
+# block_height, tx_hash, created_at, vote_id — is server-controlled (#2934).
+_VOTE_CALLER_FIELDS = frozenset(
+    {
+        "proposal_id",
+        "voter_id",
+        "voter_address",
+        "vote_type",
+        "reason",
+        "chain_id",
+    }
+)
+
 
 class _VotesMixin:
     if TYPE_CHECKING:
@@ -134,11 +148,15 @@ class _VotesMixin:
         # Client-signed on-chain submission (GAP-50) — not a Vote column.
         signed_tx = vote_data.pop("signed_tx", None)
 
-        # Client-supplied weight fields are advisory at best and a forgery
-        # vector at worst (#1091): power always comes from the server-side
-        # snapshot below, never from the request.
-        for key in ("voting_power", "voting_power_used", "power_at_snapshot", "delegated_power_at_snapshot", "vote_weight"):
-            vote_data.pop(key, None)
+        # #2934: caller-settable fields only. The request signature proves key
+        # ownership, not field sanity — everything else (weight snapshots,
+        # delegated_from, signature, block_height, tx_hash, created_at,
+        # vote_id) is server-controlled. Weight fields were already popped
+        # for #1091; the allowlist makes that structural instead of a list.
+        dropped = sorted(set(vote_data) - _VOTE_CALLER_FIELDS)
+        if dropped:
+            logger.info("create_vote ignoring non-caller fields: %s", ", ".join(dropped))
+        vote_data = {k: v for k, v in vote_data.items() if k in _VOTE_CALLER_FIELDS}
 
         voter_id = vote_data.get("voter_id") or "anonymous"
         vote_proposal_id = str(vote_data.get("proposal_id") or "")
