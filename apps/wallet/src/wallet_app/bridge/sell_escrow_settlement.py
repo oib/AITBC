@@ -681,7 +681,10 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
     gas_cost = Decimal(gas_price * gas_limit) / Decimal(10**18)
     required = amount_eth + gas_cost
     balance = await wdm._eth_balance(wdm.ETH_WALLET_ADDRESS)
-    available = balance - wdm._pending_eth_reserve()
+    # #2894: exclude this lock's own eth_amount — it is already inside
+    # `required` below; counting it in the reserve double-charges the row
+    # and a max-size release queues forever on a small float.
+    available = balance - wdm._pending_eth_reserve(exclude_sell_lock=str(row["ait_tx_hash"]))
     # The stricter of SELL_MAX_ETH_PER_TX and BRIDGE_MAX_PAYOUT_FRACTION binds
     # (the fraction shrinks as the float drains — operator decision (c)).
     fraction_cap = balance * cfg.max_payout_fraction

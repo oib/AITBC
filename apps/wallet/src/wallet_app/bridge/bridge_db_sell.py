@@ -543,21 +543,30 @@ def update_sell_lock_block(ait_tx_hash: str, locked_height: int, lock_block_hash
     return rows_affected > 0
 
 
-def get_sell_pending_eth_reserve() -> Decimal:
+def get_sell_pending_eth_reserve(exclude_ait_tx_hash: str | None = None) -> Decimal:
     """ETH committed to sell locks that may still release — reserves float.
 
     Excludes `failed` rows: a failed lock's refund moves AIT, not ETH, so
     counting it would park float forever (the wart ETH-7 §4 flagged in
     get_pending_withdrawals does not repeat here).
+
+    ``exclude_ait_tx_hash`` (#2894) lets a release pass discount its own
+    row: the row's eth_amount is already inside ``required`` for the
+    payment being checked, so counting it in the reserve double-charges
+    it and a max-size release can never clear the available-balance gate.
     """
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _SELL_RESERVE_STATUSES)
-    cursor.execute(
+    sql = (
         # placeholders are literal '?' generated from _SELL_RESERVE_STATUSES; all values bound
-        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",  # nosec
-        _SELL_RESERVE_STATUSES,
+        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})"  # nosec
     )
+    params: tuple = _SELL_RESERVE_STATUSES
+    if exclude_ait_tx_hash is not None:
+        sql += " AND ait_tx_hash != ?"
+        params = (*params, exclude_ait_tx_hash)
+    cursor.execute(sql, params)
     total = cursor.fetchone()[0]
     conn.close()
     return Decimal(str(total)) if total is not None else Decimal("0")

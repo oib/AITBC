@@ -413,7 +413,9 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
     gas_cost = Decimal(gas_price * gas_limit) / Decimal(10**18)
     required = amount_eth + gas_cost
     balance = await wdm._eth_balance(wdm.ETH_WALLET_ADDRESS)
-    available = balance - wdm._pending_eth_reserve()
+    # #2894: exclude this settlement's own eth_amount — same double-count
+    # as the sell lane; it is already inside `required` below.
+    available = balance - wdm._pending_eth_reserve(exclude_settlement=str(row["id"]))
     fraction_cap = balance * cfg.max_payout_fraction
     if amount_eth > cfg.max_eth_per_tx:
         await _update_with_retry(

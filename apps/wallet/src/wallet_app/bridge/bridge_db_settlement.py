@@ -219,19 +219,26 @@ def get_exchange_inflight_sweep() -> dict[str, Any] | None:
     return _row_to_settlement(row, _SETTLEMENT_SELECT_COLS)
 
 
-def get_exchange_pending_eth_reserve() -> Decimal:
+def get_exchange_pending_eth_reserve(exclude_id: str | None = None) -> Decimal:
     """ETH owed by open exchange settlements — counted against the shared
     bridge float alongside withdrawals and sell locks. Rows are summed as
     Decimal in Python: SQL SUM() would run the NUMERIC column through float
-    arithmetic before the Decimal converter ever saw it."""
+    arithmetic before the Decimal converter ever saw it.
+
+    ``exclude_id`` (#2894) lets a release pass discount its own row —
+    same double-count rationale as get_sell_pending_eth_reserve."""
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_RESERVE_STATUSES)
-    cursor.execute(
+    sql = (
         # same literal-placeholder pattern
-        f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec
-        _EXCHANGE_SETTLEMENT_RESERVE_STATUSES,
+        f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})"  # nosec
     )
+    params: tuple = _EXCHANGE_SETTLEMENT_RESERVE_STATUSES
+    if exclude_id is not None:
+        sql += " AND id != ?"
+        params = (*params, exclude_id)
+    cursor.execute(sql, params)
     total = Decimal(0)
     for (amount,) in cursor.fetchall():
         if amount is not None:

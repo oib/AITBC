@@ -1916,3 +1916,35 @@ class TestReleaseAdmissibleStatusGate:
 
         assert exchange_env["eth_sends"] == []
         assert get_exchange_settlement("trade", 1)["status"] == "failed"
+
+
+class TestReleaseReserveSelfExclusion:
+    """#2894: same double-count as the sell lane — the settlement's own
+    eth_amount sits in _EXCHANGE_SETTLEMENT_RESERVE_STATUSES, so
+    _pending_eth_reserve() counted it AND the check subtracted it again
+    inside `required`."""
+
+    @pytest.mark.asyncio
+    async def test_max_size_release_not_double_counted(self, exchange_env):
+        exchange_env["eth_balance"] = Decimal("0.022")
+        row = _trade_row(ref_id=61, eth_amount=Decimal("0.01"), status="locked")
+        cfg = _cfg(exchange_env)
+
+        await esm._release_eth_for_settlement(cfg, row)
+
+        assert len(exchange_env["eth_sends"]) == 1
+        assert get_exchange_settlement("trade", 61)["status"] == "releasing"
+
+    @pytest.mark.asyncio
+    async def test_other_pending_settlements_still_reserve(self, exchange_env):
+        """Exclusion is by row id — a second open settlement's eth_amount
+        still counts against the float."""
+        exchange_env["eth_balance"] = Decimal("0.022")
+        _trade_row(ref_id=62, eth_amount=Decimal("0.05"), status="locked")
+        row = _trade_row(ref_id=63, eth_amount=Decimal("0.01"), status="locked")
+        cfg = _cfg(exchange_env)
+
+        await esm._release_eth_for_settlement(cfg, row)
+
+        assert exchange_env["eth_sends"] == []
+        assert get_exchange_settlement("trade", 63)["status"] == "queued_reserve"
