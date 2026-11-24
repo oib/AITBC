@@ -18,8 +18,11 @@ directly.
 import logging
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import update
+from sqlmodel import col
+
 from ..config import settings
-from ..domain.governance import Proposal, ProposalExecutionLog
+from ..domain.governance import Proposal, ProposalExecutionLog, ProposalStatus
 from .governance_service_common import _OPS_ERRORS
 
 if TYPE_CHECKING:
@@ -88,6 +91,26 @@ class _ExecutionMixin:
         if proposal.status != "succeeded":
             raise ValueError(f"Proposal not in succeeded state: {proposal.status}")
 
+        # #2874: claim the execution atomically BEFORE any side effect. Two
+        # concurrent racers both pass the status read above; without this
+        # claim each submits its own GOVERNANCE_EXECUTE tx and applies the
+        # parameter change before the once-only stamp notices. The
+        # conditional UPDATE is the mutex — only one session flips
+        # SUCCEEDED -> EXECUTING.
+        claim = await self.session.execute(
+            update(Proposal)
+            .where(
+                col(Proposal.proposal_id) == proposal_id,
+                col(Proposal.status) == ProposalStatus.SUCCEEDED,
+            )
+            .values(status=ProposalStatus.EXECUTING)
+        )
+        await self.session.commit()
+        if getattr(claim, "rowcount", None) == 0:
+            await self.session.refresh(proposal)
+            raise ValueError(f"Proposal execution already in progress: {proposal.status}")
+        proposal.status = ProposalStatus.EXECUTING
+
         # Log execution start
         execution_log = ProposalExecutionLog(proposal_id=proposal_id, execution_step="start", status="pending", result={})
         self.session.add(execution_log)
@@ -133,9 +156,23 @@ class _ExecutionMixin:
                 automation_result=automation_result,
             )
         except Exception as e:
-            # Log execution failure
+            # Log execution failure and release the #2874 claim so a later
+            # retry can run — same retry semantics as before the claim
+            # existed (a failed execute always left the proposal
+            # succeeded). The conditional UPDATE only reverts a row still
+            # in EXECUTING; a reconcile stamp that already moved it to
+            # EXECUTED is left alone.
             execution_log.status = "failed"
             execution_log.error_message = str(e)
+            await self.session.execute(
+                update(Proposal)
+                .where(
+                    col(Proposal.proposal_id) == proposal_id,
+                    col(Proposal.status) == ProposalStatus.EXECUTING,
+                )
+                .values(status=ProposalStatus.SUCCEEDED)
+            )
+            proposal.status = ProposalStatus.SUCCEEDED
             await self.session.commit()
             raise
 
