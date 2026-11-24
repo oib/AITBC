@@ -78,6 +78,9 @@ def _freshness_fields(data: dict[str, Any], *, action: str) -> tuple[int, int | 
     if (
         not isinstance(timestamp, (int, float))
         or isinstance(timestamp, bool)
+        # #2768: NaN makes ``abs(now - ts) > MAX_AGE`` False — the freshness
+        # window never expires for a signed request carrying it.
+        or not math.isfinite(timestamp)
         or abs(time.time() - float(timestamp)) > STAKE_AUTH_MAX_AGE_SECONDS
     ):
         raise HTTPException(status_code=400, detail=f"A fresh timestamp is required for {action}")
