@@ -224,7 +224,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc config profiles save`](config-profiles-save.md) — Save the current configuration as a named profile.
 - [`aitbc config reset`](config-reset.md) — Reset the local or global configuration to defaults.
 - [`aitbc config set`](config-set.md) — Set a configuration value in the local or global config file.
-- [`aitbc config set-secret`](config-set-secret.md) — Set an encoded secret value in the local secrets file.
+- [`aitbc config set-secret`](config-set-secret.md) — Set a secret value in the local secrets file.
 - [`aitbc config show`](config-show.md) — Show the current configuration, with API keys redacted.
 - [`aitbc config unset`](config-unset.md) — Remove a configuration key from the local or global config file.
 - [`aitbc config validate`](config-validate.md) — Validate the current configuration for missing or invalid values.
