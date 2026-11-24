@@ -332,26 +332,35 @@ async def _release_gas_limit(to_address: str, amount_eth: Decimal) -> int:
     return limit
 
 
-def _pending_eth_reserve() -> Decimal:
+def _pending_eth_reserve(
+    exclude_sell_lock: str | None = None,
+    exclude_settlement: str | None = None,
+) -> Decimal:
     """Sum of ETH currently allocated to pending or insufficient-reserve withdrawals.
 
     Includes pending sell-escrow locks (ETH-10) and open exchange
     settlements (ETH-8 phase 3): all three lanes draw from the same
     bridge-wallet float, so each side's reserve check must see the others'
     in-flight rows. The sell-side sum excludes 'failed' rows.
+
+    ``exclude_sell_lock``/``exclude_settlement`` (#2894) let a release
+    pass discount the row it is about to pay — that row's eth_amount is
+    already inside the payment's ``required``, so leaving it in the
+    reserve double-counts it and max-size releases can never clear the
+    available-balance gate.
     """
     from .bridge_db import get_exchange_pending_eth_reserve, get_pending_withdrawals, get_sell_pending_eth_reserve
 
     pending = get_pending_withdrawals()
     withdraw_sum = Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
     try:
-        sell_sum = get_sell_pending_eth_reserve()
+        sell_sum = get_sell_pending_eth_reserve(exclude_ait_tx_hash=exclude_sell_lock)
     except Exception:  # noqa: BLE001 - pre-ETH-10 databases lack the sell tables — reserve must not depend on them
         # Pre-ETH-10 databases lack the sell tables; withdraw reserve must not
         # depend on them existing.
         sell_sum = Decimal("0")
     try:
-        exchange_sum = get_exchange_pending_eth_reserve()
+        exchange_sum = get_exchange_pending_eth_reserve(exclude_id=exclude_settlement)
     except Exception:  # noqa: BLE001 - same fail-open: a pre-phase-3 database may lack the table
         # Same fail-open as the sell term: a pre-phase-3 database may lack
         # the table; reserve must not depend on it existing.

@@ -643,7 +643,9 @@ class TestCapsAndReserve:
     @pytest.mark.asyncio
     async def test_queued_reserve_queues_then_releases(self, sell_env, monkeypatch):
         async def _low(_addr):
-            return Decimal("0.006")
+            # #2894: the row's own eth_amount no longer counts against it —
+            # 0.005 - ~0.00093 required leaves < 0.005 reserve → queues.
+            return Decimal("0.005")
 
         monkeypatch.setattr(wdm, "_eth_balance", _low)
         quote_id = _insert_quote()
@@ -2041,3 +2043,68 @@ class TestReleaseAdmissibleStatusGate:
 
         assert sell_env["eth_sends"] == []
         assert get_sell_lock_by_ait_tx_hash(lock_hash)["status"] == "released"
+
+
+class TestReleaseReserveSelfExclusion:
+    """#2894: the releasing row's own eth_amount sits in
+    _SELL_RESERVE_STATUSES, so _pending_eth_reserve() counted it AND the
+    check subtracted it again inside `required` — a max-size release could
+    never clear ``available - required >= min_reserve`` on a small float
+    and queued forever."""
+
+    @pytest.mark.asyncio
+    async def test_max_size_release_not_double_counted(self, sell_env, monkeypatch):
+        lock_hash = "0x" + "b1" * 32
+        insert_sell_lock(
+            ait_tx_hash=lock_hash,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.01"),
+            status="locked",
+            locked_height=900,
+        )
+
+        # Float sized so the payment fits once the row's own reserve is
+        # excluded: 0.022 - (0.01 + ~0.00003 gas) = ~0.012 >= 0.005, but
+        # the unfixed double count leaves 0.022 - 0.02003 = ~0.002 < 0.005.
+        async def _bal(_addr):
+            return Decimal("0.022")
+
+        monkeypatch.setattr(wdm, "_eth_balance", _bal)
+        cfg = sellmon._sell_config()
+        row = get_sell_lock_by_ait_tx_hash(lock_hash)
+
+        await sellmon._release_eth_for_lock(cfg, row, Decimal("0.01"))
+
+        assert len(sell_env["eth_sends"]) == 1
+        assert get_sell_lock_by_ait_tx_hash(lock_hash)["status"] == "releasing"
+
+    @pytest.mark.asyncio
+    async def test_other_pending_locks_still_reserve(self, sell_env, monkeypatch):
+        """Exclusion is by row identity — a second pending lock's
+        eth_amount still counts against the float."""
+        lock_hash = "0x" + "b2" * 32
+        other_hash = "0x" + "b3" * 32
+        for h, amt in ((lock_hash, Decimal("0.01")), (other_hash, Decimal("0.05"))):
+            insert_sell_lock(
+                ait_tx_hash=h,
+                shop_ait_address=SHOP_AIT,
+                shop_eth_address=SHOP_ETH,
+                amount_ait=Decimal("10"),
+                eth_amount=amt,
+                status="locked",
+                locked_height=900,
+            )
+
+        async def _bal(_addr):
+            return Decimal("0.022")
+
+        monkeypatch.setattr(wdm, "_eth_balance", _bal)
+        cfg = sellmon._sell_config()
+        row = get_sell_lock_by_ait_tx_hash(lock_hash)
+
+        await sellmon._release_eth_for_lock(cfg, row, Decimal("0.01"))
+
+        assert sell_env["eth_sends"] == []
+        assert get_sell_lock_by_ait_tx_hash(lock_hash)["status"] == "queued_reserve"
