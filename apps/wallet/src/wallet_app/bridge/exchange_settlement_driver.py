@@ -22,8 +22,11 @@ import json
 import sqlite3
 import time
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
+
+from wallet_app.utc_time import utc_now
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
@@ -33,6 +36,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from . import bridge_withdraw_monitor as wdm
 from . import sell_escrow_monitor as sellmon
 from .bridge_db import (
+    get_exchange_eth_committed_since,
     get_exchange_inflight_sweep,
     get_exchange_settlement,
     get_sell_inflight_sweep,
@@ -158,7 +162,7 @@ def _ensure_trade_rows(cfg: ExchangeCfg) -> dict[str, int]:
         sell_order = (
             _ro_one(
                 cfg,
-                "SELECT user_address, seller_eth_address FROM orders WHERE id = ?",
+                "SELECT user_address, seller_eth_address, backing_tx_hash FROM orders WHERE id = ?",
                 (row["sell_order_id"],),
             )
             if row["sell_order_id"] is not None
@@ -195,6 +199,7 @@ def _ensure_trade_rows(cfg: ExchangeCfg) -> dict[str, int]:
             amount_ait=Decimal(str(row["amount"])),
             eth_amount=Decimal(str(row["total"])),
             fee_ait=Decimal(str(row["fee_ait"] or "0")),
+            lock_tx_hash=(sell_order["backing_tx_hash"] if sell_order else None) or None,
         )
         if row_id is not None:
             created += 1
@@ -401,6 +406,22 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
             expected_statuses=prior_status,
         )
         return
+    # #2888: daily cap — the sell lane has capped daily releases since ETH-10;
+    # the exchange duplicate omitted it, so a burst of shallow/reorged locks
+    # could drain the shared float in one window.
+    since = (utc_now() - timedelta(hours=24)).isoformat()
+    committed = get_exchange_eth_committed_since(since)
+    if committed + amount_eth > cfg.max_eth_per_day:
+        await _update_with_retry(
+            str(row["id"]),
+            "queued_reserve",
+            error=(
+                f"{amount_eth} ETH exceeds EXCHANGE_SETTLEMENT_MAX_ETH_PER_DAY={cfg.max_eth_per_day} "
+                f"(committed {committed} ETH in 24h)"
+            ),
+            expected_statuses=prior_status,
+        )
+        return
     if amount_eth > fraction_cap:
         await _update_with_retry(
             str(row["id"]),
@@ -555,6 +576,28 @@ async def _escrow_sweep(
         if _inflight_sweep():
             logger.info("Settlement %s: escrow sweep deferred — another sweep in flight", row["id"])
             return "deferred"
+        # #2888: never build an escrow outflow on an inbound lock the
+        # canonical chain no longer seals — that pays out AIT that never
+        # arrived (settle legs) or "refunds" AIT that was never escrowed.
+        lock_tx_hash = row.get("lock_tx_hash")
+        if lock_tx_hash:
+            state, _canonical_tx = await _inbound_lock_state(str(lock_tx_hash))
+            if state == "reorged":
+                await _set_status_and_mirror(
+                    cfg,
+                    row,
+                    "needs_review_sweep",
+                    error=f"inbound lock {lock_tx_hash} no longer canonically sealed — refusing unbacked escrow outflow",
+                    expected_statuses={prior_status},
+                )
+                logger.error(
+                    "Settlement %s: inbound lock %s vanished from the canonical chain — sweep refused",
+                    row["id"],
+                    lock_tx_hash,
+                )
+                return "reorged"
+            if state == "wait":
+                return "deferred"
         to_address, amount_units, exs_ref = _expected_sweep(cfg, row)
         amount_ait = units_to_ait(amount_units)
         nonce, balance = await sellmon._account_view(cfg.escrow.escrow_address)
@@ -763,10 +806,71 @@ async def _mirror_pass(cfg: ExchangeCfg) -> int:
 # --- per-status handlers -----------------------------------------------------
 
 
+async def _inbound_lock_state(tx_hash: str) -> tuple[str, dict[str, Any] | None]:
+    """Canonical recheck of an inbound escrow lock tx (#2888) — same
+    tri-state as the sell lane's ``_check_inbound_lock``: ``("ok", tx)``
+    still canonically sealed 'confirmed', ``("wait", tx|None)`` transient
+    (RPC error or back in the mempool — recheck next poll), ``("reorged",
+    tx|None)`` the chain no longer seals it confirmed — the AIT never
+    arrived, so nothing may be paid out against it."""
+    try:
+        tx = await sellmon._fetch_tx_by_hash(tx_hash)
+    except Exception as e:  # noqa: BLE001 - RPC containment: fail closed, retry next poll
+        logger.error("Canonical recheck of exchange lock %s failed: %s", tx_hash, e)
+        return "wait", None
+    if tx is None:
+        return "reorged", None
+    if wdm.tx_sealed_confirmed(tx):
+        return "ok", tx
+    return ("wait", tx) if tx.get("block_height") is None else ("reorged", tx)
+
+
+async def _release_admission_gate(cfg: ExchangeCfg, row: dict[str, Any]) -> bool:
+    """#2888: canonical + seal-depth recheck gating the ETH release — the
+    exchange lane previously funded orders and paid sellers on a depth-0
+    'confirmed' lock with no revalidation (the sell lane's #1269 depth gate
+    and #2889 canonical recheck were never ported). Returns True only when
+    the recorded ``lock_tx_hash`` is still canonically sealed deep enough.
+    Legacy rows without ``lock_tx_hash`` pass (pre-column residual).
+    A reorged/failed-sealed lock fails closed: the row keeps its status,
+    the reason lands on ``error``, and the ERROR log repeats each poll
+    until the tx re-seals or an operator resolves it."""
+    lock_tx_hash = row.get("lock_tx_hash")
+    if not lock_tx_hash:
+        return True
+    state, tx = await _inbound_lock_state(str(lock_tx_hash))
+    if state == "wait":
+        return False
+    if state == "reorged":
+        await _update_with_retry(
+            str(row["id"]),
+            str(row["status"]),
+            error=f"inbound lock {lock_tx_hash} no longer canonically sealed — ETH release refused",
+            expected_statuses={str(row["status"])},
+        )
+        logger.error(
+            "Settlement %s: inbound lock %s vanished from the canonical chain — release refused",
+            row["id"],
+            lock_tx_hash,
+        )
+        return False
+    try:
+        head = await sellmon._chain_height()
+    except Exception as e:  # noqa: BLE001 - height probe containment — release skipped
+        logger.error("Could not read chain height for seal-depth check on settlement %s: %s", row["id"], e)
+        return False
+    block_height = (tx or {}).get("block_height")
+    if block_height is None or head - int(block_height) < cfg.seal_depth:
+        return False
+    return True
+
+
 async def _handle_locked(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     """'locked'/'queued_reserve': admit the trade to the ETH release —
     valid payout address, caps, shared-float reserve, then intent-before-
     broadcast release."""
+    if not await _release_admission_gate(cfg, row):
+        return
     try:
         await _release_eth_for_settlement(cfg, row)
     except Exception as e:  # noqa: BLE001 - release failure resolved in-place, never raised into the poll

@@ -95,6 +95,7 @@ def insert_exchange_settlement(
     amount_ait: Decimal | None = None,
     eth_amount: Decimal | None = None,
     fee_ait: Decimal | None = None,
+    lock_tx_hash: str | None = None,
 ) -> str | None:
     """Record a settlement for a trade (or an order refund). Returns the new
     row id, or None when (kind, ref_id) already exists — the UNIQUE pair
@@ -113,9 +114,9 @@ def insert_exchange_settlement(
         INSERT OR IGNORE INTO exchange_settlements (
             id, kind, ref_id, buy_order_id, sell_order_id,
             buyer_address, seller_address, seller_eth_address,
-            amount_ait, eth_amount, fee_ait, status, created_at
+            amount_ait, eth_amount, fee_ait, status, created_at, lock_tx_hash
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'locked', ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'locked', ?, ?)
         """,
         (
             settlement_id,
@@ -130,6 +131,7 @@ def insert_exchange_settlement(
             eth_amount,
             fee_ait,
             utc_now_iso(),
+            lock_tx_hash,
         ),
     )
     conn.commit()
@@ -169,6 +171,7 @@ _SETTLEMENT_SELECT_COLS = [
     "released_at",
     "settled_at",
     "refunded_at",
+    "lock_tx_hash",
 ]
 
 
