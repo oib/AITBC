@@ -587,25 +587,31 @@ def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-def sum_committed_ait() -> Decimal:
+def sum_committed_ait(exclude_tx_hash: str | None = None) -> Decimal:
     """AIT still owed by every non-terminal row.
 
     pending/processing/pending_retry/submitted rows all carry an amount
     the float is committed to pay (a submitted envelope may still seal;
     a queued row will attempt payout). The balance alone overstates what
     is free — the float check and the payout cap need the committed sum.
+
+    ``exclude_tx_hash`` drops one row from the sum: the payout cap evaluates
+    a deposit that is itself a non-terminal row, and counting its own
+    amount_ait would double-subtract it (#2828).
     """
+    sql = "SELECT amount_ait FROM eth_deposits WHERE status IN (?, ?, ?, ?)"
+    params: list[object] = [
+        BridgeDepositStatus.PENDING.value,
+        BridgeDepositStatus.PROCESSING.value,
+        BridgeDepositStatus.PENDING_RETRY.value,
+        BridgeDepositStatus.SUBMITTED.value,
+    ]
+    if exclude_tx_hash is not None:
+        sql += " AND lower(tx_hash) NOT IN (?, ?)"
+        params.extend(_tx_hash_keys(exclude_tx_hash))
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT amount_ait FROM eth_deposits WHERE status IN (?, ?, ?, ?)",
-            (
-                BridgeDepositStatus.PENDING.value,
-                BridgeDepositStatus.PROCESSING.value,
-                BridgeDepositStatus.PENDING_RETRY.value,
-                BridgeDepositStatus.SUBMITTED.value,
-            ),
-        )
+        cursor.execute(sql, params)
         total = Decimal(0)
         for (amt,) in cursor.fetchall():
             try:

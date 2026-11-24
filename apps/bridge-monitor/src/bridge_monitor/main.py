@@ -583,7 +583,7 @@ class BridgeMonitor(BridgeMonitorRuntime):
         # Per-deposit cap: a payout larger than the float can absorb is a
         # policy breach, not a retryable failure — the operator tops up and
         # manual-pays (uncapped, deliberately) or refunds the depositor.
-        exceeds, why = self._exceeds_payout_cap(ait_amount)
+        exceeds, why = self._exceeds_payout_cap(ait_amount, exclude_tx_hash=tx_hash)
         if exceeds:
             update_deposit(
                 tx_hash,
@@ -872,7 +872,7 @@ class BridgeMonitor(BridgeMonitorRuntime):
             ):
                 logger.warning("Retry deposit %s not flipped to SUBMITTED — row moved on", tx_hash)
             return
-        exceeds, why = self._exceeds_payout_cap(ait_amount)
+        exceeds, why = self._exceeds_payout_cap(ait_amount, exclude_tx_hash=tx_hash)
         if exceeds:
             # Same resolution as first-sight over-cap: operator tops up
             # the float and manual-pays, or refunds.
