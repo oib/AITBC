@@ -55,5 +55,15 @@ class Settings(ServiceSettings):
     # beyond loopback should set it.
     memory_api_key: str | None = None
 
+    # AUDIT-EDGE-MEMORY-OWNER-AUTHZ (#2801): the blob owner used to be a
+    # self-asserted caller string, so any caller who learned a cid could
+    # read/delete it by naming the storing owner. This JSON object maps
+    # additional API keys to fixed owner identities — a request
+    # authenticated with one of these keys is bound to that owner and the
+    # caller-supplied owner is ignored. MEMORY_API_KEY itself binds all
+    # its callers to the single tenant "shared". With neither set the
+    # service stays open and self-asserted (single-tenant deployments).
+    memory_api_key_owners: str | None = None
+
 
 settings = Settings()
