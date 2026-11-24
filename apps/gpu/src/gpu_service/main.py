@@ -295,8 +295,17 @@ def gpu_status() -> dict[str, str]:
     return {"status": "operational", "service": "gpu-service", "message": "GPU service is running"}
 
 
+require_gpu_api_key = APIKeyAuthenticator(
+    expected_key=settings.api_key,
+    auth_enabled=settings.auth_enabled,
+    success_role="gpu_admin",
+)
+
+
 @app.get("/v1/gpu/discover")
-def gpu_discover() -> dict[str, Any]:
+def gpu_discover(
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+) -> dict[str, Any]:
     """Auto-discover GPU specifications using nvidia-smi"""
     return discover_gpu_specs()
 
@@ -307,20 +316,17 @@ async def get_session_dep() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-require_gpu_api_key = APIKeyAuthenticator(
-    expected_key=settings.api_key,
-    auth_enabled=settings.auth_enabled,
-    success_role="gpu_admin",
-)
-
-
 def get_edge_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> EdgeGPUService:
     """Get edge GPU service instance"""
     return EdgeGPUService(session)
 
 
 @app.get("/v1/gpu/{gpu_id}")
-async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def get_gpu(
+    gpu_id: str,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Get a specific GPU by ID"""
     from sqlalchemy import select
 
@@ -423,6 +429,7 @@ async def update_gpu(
 @app.get("/v1/market/edge-gpu/profiles")
 async def get_consumer_gpu_profiles(
     svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
     architecture: str | None = None,
     edge_optimized: bool | None = None,
     min_memory_gb: int | None = None,
@@ -438,6 +445,7 @@ async def get_consumer_gpu_profiles(
 async def get_edge_gpu_metrics(
     gpu_id: str,
     svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
     limit: int = 100,
 ):
     """Get edge GPU metrics"""
@@ -672,6 +680,7 @@ async def submit_transaction(
 @app.get("/v1/transactions")
 async def get_transactions(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
     transaction_type: str | None = None,
     action: str | None = None,
     status: str | None = None,
@@ -845,7 +854,11 @@ async def miner_heartbeat(
 
 
 @app.get("/v1/miners/{miner_id}/gpus")
-async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def get_miner_gpus(
+    miner_id: str,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Get GPUs registered by a miner"""
     from sqlalchemy import select
 
