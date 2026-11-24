@@ -341,11 +341,20 @@ def create_deposit(
         cursor = conn.cursor()
 
         try:
+            # UNIQUE(tx_hash) is case-sensitive under SQLite's BINARY
+            # collation: a legacy mixed-case row and this canonical insert
+            # of the same deposit would BOTH land, and the two services
+            # could then pay their own row (#2823). The WHERE NOT EXISTS
+            # makes the dedupe check case-insensitive and atomic within the
+            # write — rowcount 0 means the deposit is already recorded.
             cursor.execute(
                 """
                 INSERT INTO eth_deposits
                 (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address)
-                VALUES (?, ?, ?, ?, ?, '0', ?, ?, ?)
+                SELECT ?, ?, ?, ?, ?, '0', ?, ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM eth_deposits WHERE lower(tx_hash) IN (?, ?)
+                )
                 """,
                 (
                     deposit_id,
@@ -356,9 +365,13 @@ def create_deposit(
                     status,
                     datetime.now(UTC).isoformat(),
                     deposit_address,
+                    *_tx_hash_keys(eth_tx_hash),
                 ),
             )
             conn.commit()
+            if cursor.rowcount == 0:
+                # Transaction already exists (any case spelling)
+                return None
             return deposit_id
         except sqlite3.IntegrityError:
             # Transaction already exists
@@ -502,7 +515,13 @@ def get_deposit(eth_tx_hash: str) -> dict[str, Any] | None:
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
 
-        cursor.execute(f"{_DEPOSIT_SELECT} WHERE lower(tx_hash) IN (?, ?)", _tx_hash_keys(eth_tx_hash))
+        # Deterministic pick when legacy case-variant duplicates exist
+        # (#2823): bare fetchone returned an arbitrary row. The earliest
+        # record is the original deposit row.
+        cursor.execute(
+            f"{_DEPOSIT_SELECT} WHERE lower(tx_hash) IN (?, ?) ORDER BY created_at ASC, id ASC",  # nosec
+            _tx_hash_keys(eth_tx_hash),
+        )
         row = cursor.fetchone()
 
         if row:
