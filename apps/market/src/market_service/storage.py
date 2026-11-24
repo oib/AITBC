@@ -39,6 +39,23 @@ _DEAD_GLOBAL_MARKET_TABLES = (
     "global_marketplace_governance",
 )
 
+# #2859: partial unique indexes backing client_ref idempotency. Scope is
+# buyer_address when present ('' counts as absent — the replay lookup treats
+# it as no buyer), else client_id — the same scoping
+# _find_inflight_job_by_client_ref uses. Only in-flight states are covered,
+# matching the replay rule that a finished job under the same ref is new.
+# Both SQLite and Postgres support partial unique indexes.
+_CLIENT_REF_UNIQUE_INDEXES = (
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_marketjob_clientref_buyer
+       ON marketplace_jobs (client_ref, buyer_address)
+       WHERE client_ref IS NOT NULL AND state IN ('QUEUED', 'RUNNING')
+         AND buyer_address IS NOT NULL AND buyer_address <> ''""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_marketjob_clientref_client
+       ON marketplace_jobs (client_ref, client_id)
+       WHERE client_ref IS NOT NULL AND state IN ('QUEUED', 'RUNNING')
+         AND (buyer_address IS NULL OR buyer_address = '') AND client_id IS NOT NULL""",
+)
+
 logger = get_logger(__name__)
 
 # Expected failure surface for the best-effort column backfill below:
@@ -188,6 +205,14 @@ async def init_db() -> None:
                 cast(Callable[[Any], None], lambda sync_conn, t=table: _ensure_table_columns_sync(sync_conn, t))
             )
         await _ensure_bid_tx_hash_unique(conn)
+        # #2859: client_ref idempotency is lookup-then-insert — concurrent
+        # creates with the same ref both miss the replay check and duplicate
+        # job+payment rows. Partial unique indexes make the DB the arbiter:
+        # one in-flight (QUEUED/RUNNING) job per (client_ref, scope), where
+        # scope is buyer_address, falling back to client_id when no buyer is
+        # given — the same scoping _find_inflight_job_by_client_ref uses.
+        for stmt in _CLIENT_REF_UNIQUE_INDEXES:
+            await conn.execute(text(stmt))
     await _migrate_access_secrets()
     logger.info("Market service database initialized")
 

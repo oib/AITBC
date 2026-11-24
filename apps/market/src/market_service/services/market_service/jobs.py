@@ -786,10 +786,20 @@ class _JobsMixin(_CoreMixin):
             }
         except IntegrityError as e:
             await self.session.rollback()
+            # Match the DBAPI message, not str(e) — str(e) embeds the INSERT
+            # column list, so every violation "contains" every column name.
+            detail = str(getattr(e, "orig", None) or e).lower()
             # #2607: on databases where the unique index exists, a race that
             # slips past the pre-check still surfaces as a conflict, not a 500.
-            if "access_key" in str(e).lower():
+            if "access_key" in detail:
                 raise AccessKeyConflict(f"access_key already in use: {job.access_key}") from e
+            # #2859: the client_ref partial unique indexes make the DB the
+            # arbiter for concurrent same-ref creates — the loser replays
+            # the winner's in-flight job instead of 500ing or duplicating.
+            if "clientref" in detail or "client_ref" in detail:
+                replay = await self._market_job_replay(data, job_id)
+                if replay is not None:
+                    return replay
             raise
         except Exception as e:
             await self.session.rollback()
