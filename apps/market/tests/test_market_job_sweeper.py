@@ -1696,3 +1696,41 @@ async def test_manual_release_uses_alias_key_and_settle_tx_binding(sweeper) -> N
     result2 = await service.release_market_job_payment(job_id2, {"tx_hash": "0xsettle_alias"})
     assert result2["state"] == "RELEASED"
     assert "alias_tx" not in rpc.released  # supplied-tx path does not re-RPC
+
+
+@pytest.mark.asyncio
+async def test_sweeper_refunds_completed_job_adjudicated_for_buyer(sweeper) -> None:
+    """#2852: dispute resolved for the buyer leaves job.state COMPLETED with
+    a refund_pending payment — the refund pass must settle it (previously
+    the job CAS excluded COMPLETED, so the row failed every sweep)."""
+    service, sw, rpc = sweeper
+
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "escrow_contract_id": "escrow-adj-ref",
+            "payload": {"cid": "QmTest", "provider_confirmed": True},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+        }
+    )
+    await _apply_lifecycle(
+        created["job_id"],
+        state="COMPLETED",
+        escrow_contract_id="escrow-adj-ref",
+        provider_confirmed=True,
+    )
+    await _set_dispute(created["job_id"])
+    # Operator adjudicates for the buyer, then ages past min_age.
+    await service.resolve_market_job_dispute(created["job_id"], resolution="buyer")
+    await _age_job(created["job_id"])
+
+    counts = await sw.sweep_once()
+    assert counts["refunded"] >= 1
+    assert created["job_id"] in rpc.refunded
+    assert created["job_id"] not in rpc.released
+
+    job = await service.get_market_job(created["job_id"])
+    assert job["state"] == "REFUNDED"
+    assert job["payment_status"] == "refunded"

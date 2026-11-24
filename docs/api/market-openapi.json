@@ -1708,7 +1708,7 @@
     "/v1/market/jobs/{job_id}/dispute/resolve": {
       "post": {
         "summary": "Resolve Market Job Dispute",
-        "description": "Clear a dispute freeze so the sweeper can settle/refund (#1783).\n\nOperator-tier only: resolution is an admin action, not a party one.",
+        "description": "Clear a dispute freeze so the sweeper can settle/refund (#1783).\n\nOperator-tier only: resolution is an admin action, not a party one.\n``resolve_data.resolution`` adjudicates the payout (#2852): omit or\n``\"provider\"`` pays the provider as before; ``\"buyer\"`` flips the\nescrowed payment to refund_pending so the refund pass pays the buyer \u2014\nthe only path that can reroute money after a cleared dispute.",
         "operationId": "resolve_market_job_dispute_v1_market_jobs__job_id__dispute_resolve_post",
         "parameters": [
           {
@@ -1721,6 +1721,24 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Resolve Data"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",

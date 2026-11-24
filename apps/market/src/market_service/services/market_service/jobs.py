@@ -1185,15 +1185,28 @@ class _JobsMixin(_CoreMixin):
             logger.error("Error in dispute_market_job: %s: %s", type(e).__name__, e)
             raise
 
-    async def resolve_market_job_dispute(self, job_id: str) -> dict[str, Any]:
-        """#1783: clear the dispute freeze so the sweeper can settle/refund."""
+    async def resolve_market_job_dispute(self, job_id: str, resolution: str = "provider") -> dict[str, Any]:
+        """#1783: clear the dispute freeze so the sweeper can settle/refund.
+
+        #2852: ``resolution`` adjudicates the payout — ``provider`` (default)
+        leaves the escrowed payment for the release pass as before;
+        ``buyer`` flips it to ``refund_pending`` so the refund pass pays the
+        buyer even on a COMPLETED job (previously unrefundable for every
+        caller, so a cleared dispute could only ever delay the provider
+        payout, never reroute it).
+        """
+        if resolution not in {"provider", "buyer"}:
+            raise ValueError(f"Unknown dispute resolution: {resolution!r} (expected 'provider' or 'buyer')")
         try:
             job = await self.session.get(MarketJob, job_id)
             if not job:
                 raise ValueError(f"Job not found: {job_id}")
             if job.disputed_at is not None and job.dispute_cleared_at is None:
-                job.dispute_cleared_at = datetime.now(UTC).replace(tzinfo=None)
-                job.updated_at = job.dispute_cleared_at
+                now = datetime.now(UTC).replace(tzinfo=None)
+                job.dispute_cleared_at = now
+                job.updated_at = now
+                if resolution == "buyer":
+                    await self._adjudicate_dispute_refund(job, now)
                 self.session.add(job)
                 await self.session.commit()
                 await self.session.refresh(job)
@@ -1202,6 +1215,25 @@ class _JobsMixin(_CoreMixin):
             await self.session.rollback()
             logger.error("Error in resolve_market_job_dispute: %s: %s", type(e).__name__, e)
             raise
+
+    async def _adjudicate_dispute_refund(self, job: MarketJob, now: datetime) -> None:
+        """#2852: operator adjudicated for the buyer — CAS the escrowed
+        payment to refund_pending so the sweeper's refund pass (not the
+        release pass) settles it. Only 'escrowed' flips; an already
+        refund_pending payment is the same adjudication."""
+        if not job.payment_id:
+            return
+        claim = await self.session.execute(
+            update(MarketJobPayment)
+            .where(col(MarketJobPayment.id) == job.payment_id, col(MarketJobPayment.status) == "escrowed")
+            .values(status="refund_pending", updated_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) == 1:
+            job.payment_status = "refund_pending"
+            receipt = dict(job.receipt or {})
+            receipt["_dispute_resolution"] = "buyer"
+            job.receipt = receipt
 
     async def get_market_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an access token and return the job details."""
