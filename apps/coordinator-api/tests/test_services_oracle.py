@@ -53,18 +53,20 @@ async def test_manual_price_cached_within_max_age():
 
 
 @pytest.mark.asyncio
-async def test_stale_price_falls_back_to_last_known(monkeypatch):
+async def test_stale_price_not_served_beyond_max_age(monkeypatch):
+    """#2819: the stale-cache fallback is bounded by max_age_seconds — a
+    price older than the bound is not served once upstream fetches fail."""
     feed = AggregatedPriceFeed()
     feed.set_manual_price("ETH/USD", Decimal("3000"))
     # Force staleness and a failing upstream: last_update far in the past ->
-    # _fetch_price runs, both sources return None, last known price returned.
+    # _fetch_price runs, both sources return None, and the stale cached
+    # price must NOT be served.
     # (Post-#1361 the CoinGecko fallback is real — mock it to fail so the
     # test stays hermetic instead of depending on network availability.)
     feed._last_update["ETH/USD"] = feed._last_update["ETH/USD"].replace(year=2020)
     monkeypatch.setattr(feed, "_fetch_from_api", AsyncMock(return_value=None))
     price = await feed.get_price("ETH/USD", max_age_seconds=1)
-    assert price is not None
-    assert price.price == Decimal("3000")
+    assert price is None
 
 
 @pytest.mark.asyncio
@@ -146,3 +148,24 @@ async def test_fetch_from_api_returns_price_on_success():
     assert price.price == Decimal("3000.0")
     assert price.source == PriceSource.aggregated
     feed._client.get.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# #2819 pins — confidence validation + bounded stale-cache fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), -0.1, 1.1, "nan", "junk", None, True])
+def test_set_manual_price_rejects_invalid_confidence(bad):
+    feed = AggregatedPriceFeed()
+    with pytest.raises(ValueError, match="confidence"):
+        feed.set_manual_price("ETH/USD", Decimal("3000"), confidence=bad)
+    # Nothing was cached — the bad value never reached the feed.
+    assert "ETH/USD" not in feed._prices
+
+
+@pytest.mark.parametrize("good", [0.0, 0.5, 1.0, 0, 1])
+def test_set_manual_price_accepts_valid_confidence(good):
+    feed = AggregatedPriceFeed()
+    data = feed.set_manual_price("ETH/USD", Decimal("3000"), confidence=good)
+    assert data.confidence == float(good)

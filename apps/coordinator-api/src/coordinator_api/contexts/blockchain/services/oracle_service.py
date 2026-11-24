@@ -10,6 +10,7 @@ Provides price data from multiple sources:
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -211,7 +212,15 @@ class AggregatedPriceFeed:
                 self._prices[pair] = price
                 self._last_update[pair] = price.timestamp
                 return price
-            return self._prices.get(pair)
+            # #2819: never serve a price older than max_age_seconds — the
+            # stale-cache fallback used to return the last known price
+            # indefinitely once upstream fetches failed.
+            cached = self._prices.get(pair)
+            cached_at = self._last_update.get(pair)
+            if cached is not None and cached_at is not None:
+                if (datetime.now(UTC) - cached_at).total_seconds() < max_age_seconds:
+                    return cached
+            return None
 
     async def get_all_prices(self) -> dict[str, PriceData]:
         """Get all available prices"""
@@ -278,6 +287,12 @@ class AggregatedPriceFeed:
 
     def set_manual_price(self, pair: str, price: Decimal, confidence: float = 1.0) -> PriceData:
         """Set a manual price (admin override)"""
+        # #2819: confidence propagates to every feed consumer — reject
+        # non-finite or out-of-range values instead of storing them.
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not math.isfinite(confidence):
+            raise ValueError(f"invalid oracle confidence {confidence!r}: must be a finite number")
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError(f"invalid oracle confidence {confidence!r}: must be within [0, 1]")
         data = PriceData(pair=pair, price=price, source=PriceSource.manual, timestamp=datetime.now(UTC), confidence=confidence)
         self._prices[pair] = data
         self._last_update[pair] = data.timestamp
