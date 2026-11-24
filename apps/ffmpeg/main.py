@@ -383,6 +383,10 @@ def _validate_process_params(codec: str, bitrate: str, output_format: str) -> tu
         bitrate_value = f"{bitrate_value}M"
     _num = float("".join(c for c in bitrate_value if c.isdigit() or c == "."))
     _unit = bitrate_value[-1].lower()
+    # AUDIT-EDGE-FFMPEG-CODEC-BITRATE (#2916): '0' normalizes to '0M' and is
+    # not > the ceiling — the ~400Mbit/s cap had a zero hole.
+    if _num <= 0:
+        raise HTTPException(status_code=400, detail="bitrate must be greater than zero")
     if _num * _BITRATE_UNITS[_unit] > _MAX_BITRATE_BPS:
         raise HTTPException(status_code=400, detail=f"bitrate exceeds the {_MAX_BITRATE_BPS // 1_000_000}M cap")
 

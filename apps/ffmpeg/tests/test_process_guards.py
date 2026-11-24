@@ -64,6 +64,14 @@ def test_process_rejects_bad_codec(codec: str) -> None:
     assert _http_status(ei.value) == 400
 
 
+@pytest.mark.parametrize("bitrate", ["0", "0M", "0.0k", "0G"])
+def test_process_rejects_zero_bitrate(bitrate: str) -> None:
+    """#2916: '0' passed the ceiling check and reached ffmpeg as '-b:v 0M'."""
+    with pytest.raises(Exception) as ei:
+        _process(bitrate=bitrate)
+    assert _http_status(ei.value) == 400
+
+
 @pytest.mark.parametrize("bitrate", ["", "abc", "-5M", "5M;id", "1e9", "999999999G", "2G"])
 def test_process_rejects_bad_or_huge_bitrate(bitrate: str) -> None:
     """Empty/junk rates used to IndexError or produce nonsense VBV values.
