@@ -376,8 +376,23 @@ class BridgeMonitor(BridgeMonitorRuntime):
             return True
         # PROCESSING / PENDING_RETRY with no envelope — crash before the
         # first signed submit. Retry is safe: nothing was broadcast.
-        logger.warning("Deposit %s in non-terminal state %s, marking for retry", tx_hash, status)
-        self._mark_for_retry(tx_hash, f"Recovered from non-terminal state: {status}")
+        # Normalize to PENDING_RETRY WITHOUT consuming retry budget or
+        # touching next_retry_at (#2821): this is scan recovery, not a
+        # retry attempt. A held block cursor rescans the same block every
+        # poll — routing through _mark_for_retry would increment
+        # retry_count and push next_retry_at out on each rescan until the
+        # deposit FAILEDs without ever being retried.
+        logger.warning("Deposit %s in non-terminal state %s — requeued for the retry sweep", tx_hash, status)
+        update_deposit(
+            tx_hash,
+            status=BridgeDepositStatus.PENDING_RETRY,
+            error_message=f"Recovered from non-terminal state: {status}",
+            expected_statuses={
+                BridgeDepositStatus.PENDING,
+                BridgeDepositStatus.PROCESSING,
+                BridgeDepositStatus.PENDING_RETRY,
+            },
+        )
         return True
 
     def _record_exchange_prepay(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> bool:

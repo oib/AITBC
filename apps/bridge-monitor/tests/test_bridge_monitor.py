@@ -162,6 +162,54 @@ class TestCrashRecovery:
 
         mock_submit.assert_not_called()
 
+    def test_held_cursor_rescan_does_not_burn_retry_budget(self, monitor, tmp_path):
+        """#2821: a PENDING_RETRY row rescanned while the block cursor is held
+        must not consume retry budget — _mark_for_retry's increment plus a
+        pushed-out next_retry_at would FAILED a funds-owed deposit after
+        ~5 polls without it ever being retried."""
+        from datetime import UTC, datetime, timedelta
+
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        next_retry = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+        create_deposit("0xheld", "0xfrom", "1.0", "0x" + "a" * 40)
+        update_deposit(
+            "0xheld",
+            status=BridgeDepositStatus.PENDING_RETRY,
+            ait_amount="100",
+            retry_count=4,
+            next_retry_at=next_retry,
+        )
+
+        for _ in range(6):
+            monitor.process_deposit("0xheld", "0xfrom", Decimal("1.0"), "0xdata")
+
+        deposit = get_deposit("0xheld")
+        assert deposit is not None
+        assert deposit["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert deposit["retry_count"] == 4
+        assert deposit["next_retry_at"] == next_retry
+
+    def test_processing_rescan_preserves_retry_count(self, monitor, tmp_path):
+        """#2821: crash-recovery requeue keeps the existing retry_count —
+        scan recovery is not a retry attempt."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xproc", "0xfrom", "1.0", "0x" + "b" * 40)
+        update_deposit(
+            "0xproc",
+            status=BridgeDepositStatus.PROCESSING,
+            ait_amount="100",
+            retry_count=2,
+        )
+
+        monitor.process_deposit("0xproc", "0xfrom", Decimal("1.0"), "0xdata")
+
+        deposit = get_deposit("0xproc")
+        assert deposit is not None
+        assert deposit["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert deposit["retry_count"] == 2
+
 
 class TestSubmittedLifecycle:
     """COMPLETED requires a sealed payout; rebroadcast never re-signs."""
