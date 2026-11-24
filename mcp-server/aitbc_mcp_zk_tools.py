@@ -69,7 +69,7 @@ def get_zk_info(
     return _json(_call_zk(role, host, "v1/zk/info"))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def generate_zk_proof(
     circuit_name: Annotated[
         str,
@@ -106,7 +106,7 @@ def generate_zk_proof(
     return _json(_call_zk(role, host, "v1/zk/generate", method="POST", body=body, timeout=timeout))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def verify_zk_proof(
     proof: Annotated[
         dict[str, Any],
@@ -139,7 +139,7 @@ def verify_zk_proof(
     return _json(_call_zk(role, host, "v1/zk/verify", method="POST", body=body, timeout=120))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def verify_zk_job_receipt(
     job_id: Annotated[
         str,

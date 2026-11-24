@@ -341,7 +341,7 @@ def get_eth_bridge_status_redacted(
     return _json(redacted)
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def get_eth_bridge_deposit_instructions(
     eth_amount: Annotated[
         Decimal,
@@ -365,7 +365,7 @@ def get_eth_bridge_deposit_instructions(
     return _json(_run_http(_host_for_role(role, host), "wallet", "v1/bridge/deposit", "POST", None, body))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def eth_bridge_withdraw_estimate(
     ait_amount: Annotated[
         Decimal,
@@ -389,7 +389,7 @@ def eth_bridge_withdraw_estimate(
     return _json(_run_http(_host_for_role(role, host), "wallet", "v1/bridge/withdraw/estimate", "POST", None, body))
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=False))  # #2791: POST endpoint — not auto-approvable read-only
 def eth_bridge_withdraw_build(
     ait_amount: Annotated[
         Decimal,
