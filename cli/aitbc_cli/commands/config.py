@@ -20,6 +20,22 @@ import yaml
 
 from ..config import CONFIG_FILE_KEYS, _parse_env_file, default_config_path, get_config
 from ..utils import error, output, resolve_output_format, success, warning
+from ..utils.wallet_loader import validate_wallet_name
+
+
+def _profile_file_for(name: str) -> Path | None:
+    """Resolve ``--name`` to a path inside the profiles dir, or None if unsafe.
+
+    The name is joined raw into ``profiles_dir / f"{name}.yaml"`` — without
+    validation ``../../x`` writes/reads/deletes arbitrary ``*.yaml`` files and
+    ``load`` overwrites the active config with attacker-chosen contents
+    (AUDIT-EDGE-CLI-PROFILE-TRAVERSAL). Same charset as wallet names (#846).
+    """
+    try:
+        safe = validate_wallet_name(name)
+    except ValueError:
+        return None
+    return Path.home() / ".config" / "aitbc" / "profiles" / f"{safe}.yaml"
 
 
 def _local_config_path() -> Path:
@@ -518,7 +534,11 @@ def save(ctx, name: str):
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profiles_dir.mkdir(parents=True, exist_ok=True)
 
-    profile_file = profiles_dir / f"{name}.yaml"
+    profile_file = _profile_file_for(name)
+    if profile_file is None:
+        error(f"Invalid profile name {name!r}: letters, digits, '-', '_' and '.' only, not starting with a dot")
+        ctx.exit(1)
+        return
 
     # Save profile (without API key)
     profile_data = {
@@ -578,8 +598,11 @@ def list(ctx):
 @click.pass_context
 def load(ctx, name: str):
     """Load a saved configuration profile into the active config file."""
-    profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
-    profile_file = profiles_dir / f"{name}.yaml"
+    profile_file = _profile_file_for(name)
+    if profile_file is None:
+        error(f"Invalid profile name {name!r}: letters, digits, '-', '_' and '.' only, not starting with a dot")
+        ctx.exit(1)
+        return
 
     if not profile_file.exists():
         error(f"Profile '{name}' not found")
@@ -610,8 +633,11 @@ def load(ctx, name: str):
 @click.pass_context
 def delete(ctx, name: str):
     """Delete a saved configuration profile from the profiles directory."""
-    profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
-    profile_file = profiles_dir / f"{name}.yaml"
+    profile_file = _profile_file_for(name)
+    if profile_file is None:
+        error(f"Invalid profile name {name!r}: letters, digits, '-', '_' and '.' only, not starting with a dot")
+        ctx.exit(1)
+        return
 
     if not profile_file.exists():
         error(f"Profile '{name}' not found")
@@ -634,10 +660,16 @@ def delete(ctx, name: str):
   aitbc config set-secret --key openai_api_key --value sk-...""",
 )
 @click.option("--key", "key", required=True, help="The Key.")
-@click.option("--value", "value", required=True, help="The Value.")
+@click.option("--value", "value", required=True, help="The Value (stored base64-encoded — NOT encrypted).")
 @click.pass_context
 def set_secret(ctx, key: str, value: str):
-    """Set an encoded secret value in the local secrets file."""
+    """Set a secret value in the local secrets file.
+
+    Values are base64-encoded for CLI compatibility, not encrypted — anyone
+    who can read ``~/.config/aitbc/secrets.json`` recovers the plaintext
+    (#2797). The file is mode 0600 in a 0700 directory; treat it like a
+    password store, not a vault.
+    """
     from ..utils import encode_value
 
     config_dir = Path.home() / ".config" / "aitbc"
@@ -665,8 +697,8 @@ def set_secret(ctx, key: str, value: str):
     secrets_file.chmod(0o600)
 
     if resolve_output_format(ctx) == "table":
-        success(f"Secret '{key}' saved (encoded)")
-    output({"key": key, "status": "encoded"}, resolve_output_format(ctx))
+        success(f"Secret '{key}' saved (base64-encoded, not encrypted)")
+    output({"key": key, "status": "base64-encoded"}, resolve_output_format(ctx))
 
     # Audit that a secret was written (#2421) — the key name only,
     # never the secret value itself.

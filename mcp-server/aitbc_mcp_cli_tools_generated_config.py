@@ -599,14 +599,14 @@ def aitbc_config_set(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_set_secret(
     key: Annotated[str, Field(description="The Key.")],
-    value: Annotated[str, Field(description="The Value.")],
+    value: Annotated[str, Field(description="The Value (stored base64-encoded — NOT encrypted).")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Set an encoded secret value in the local secrets file."""
+    """Set a secret value in the local secrets file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
