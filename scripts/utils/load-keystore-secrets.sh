@@ -59,7 +59,9 @@ if [ ! -f "$ENCRYPTION_KEY_FILE" ]; then
 fi
 
 # Load encryption key
-ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE")
+# Exported for `openssl -pass env:` — passing the KEK via -k would
+# expose it in argv (/proc/*/cmdline) to every local user.
+export AITBC_KEK="$(cat "$ENCRYPTION_KEY_FILE")"
 
 # Print the plaintext of credential file $1. A decrypt failure is fatal —
 # falling back to `cat` would write ciphertext into the env file (or hide a
@@ -67,7 +69,7 @@ ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE")
 read_secret() {
     local secret_file="$1"
     if is_encrypted_file "$secret_file"; then
-        openssl enc -d -aes-256-cbc -pbkdf2 -in "$secret_file" -k "$ENCRYPTION_KEY" || {
+        openssl enc -d -aes-256-cbc -pbkdf2 -in "$secret_file" -pass env:AITBC_KEK || {
             echo "ERROR: cannot decrypt credential $secret_file" >&2
             log_audit "DECRYPT_FAIL" "$secret_file"
             return 1
