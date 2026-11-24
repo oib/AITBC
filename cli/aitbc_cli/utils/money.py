@@ -21,6 +21,7 @@ False, so a downstream positivity check would pass them through.
 
 from __future__ import annotations
 
+import warnings
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -87,17 +88,37 @@ def wallet_amount(value: Any) -> Decimal:
 LEDGER_BALANCE_UNITS_FLOOR = Decimal("1000000")
 
 
-def wallet_ledger_balance(value: Any) -> Decimal:
+def wallet_ledger_balance(value: Any, *, balance_unit: str | None = None) -> Decimal:
     """Read a wallet file's ``balance`` field as AIT.
 
     Canonical storage is AIT; legacy files may hold raw compute-units. Values
     whose magnitude reaches ``LEDGER_BALANCE_UNITS_FLOOR`` are treated as
     units and converted once, so callers keep formatting the result with
     ``ait_to_units`` exactly like any other AIT amount.
+
+    ``balance_unit`` is the file's explicit ``balance_unit`` marker, stamped
+    ``"ait"`` by every current writer (``_save_wallet``): ``"ait"`` disables
+    the units heuristic entirely so a legitimate balance at or above the
+    floor is never silently reinterpreted, and ``"units"`` forces the
+    conversion for files an operator has marked legacy. Unmarked files keep
+    the magnitude heuristic — the only option for pre-marker legacy data —
+    but the conversion now warns, because a canonical AIT balance above the
+    floor is indistinguishable from a units value (#2887).
     """
     from aitbc.utils.units import units_to_ait
 
     amount = wallet_amount(value)
+    if balance_unit == "ait":
+        return amount
+    if balance_unit == "units":
+        return units_to_ait(amount)
     if abs(amount) >= LEDGER_BALANCE_UNITS_FLOOR:
+        warnings.warn(
+            f"wallet balance {amount} is at or above the {LEDGER_BALANCE_UNITS_FLOOR} "
+            "units-detection floor and the file carries no balance_unit marker; "
+            "treating it as legacy compute-units. If this wallet stores AIT, "
+            'set "balance_unit": "ait" in the wallet file (#2887).',
+            stacklevel=2,
+        )
         return units_to_ait(amount)
     return amount

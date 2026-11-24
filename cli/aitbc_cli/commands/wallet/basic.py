@@ -665,7 +665,9 @@ def _attach_balance(wallet_info: dict[str, Any], wallet_data: dict[str, Any], ad
     elif "balance" in wallet_data:
         # the local wallet file holds AIT (legacy unit-scale values are
         # unwrapped by _wallet_ledger_balance); format_ait takes compute-units
-        wallet_info["balance"] = format_ait(ait_to_units(_wallet_ledger_balance(wallet_data["balance"])))
+        wallet_info["balance"] = format_ait(
+            ait_to_units(_wallet_ledger_balance(wallet_data["balance"], balance_unit=wallet_data.get("balance_unit")))
+        )
         wallet_info["balance_source"] = "stored-file (may be stale)"
 
 
@@ -922,7 +924,9 @@ def earn(
     wallet_data["transactions"].append(transaction)
     # _wallet_ledger_balance unwraps legacy unit-scale values, so the re-saved
     # balance is always canonical AIT (#2730).
-    wallet_data["balance"] = str(_wallet_ledger_balance(wallet_data.get("balance", 0)) + amount)
+    wallet_data["balance"] = str(
+        _wallet_ledger_balance(wallet_data.get("balance", 0), balance_unit=wallet_data.get("balance_unit")) + amount
+    )
 
     # Save wallet with encryption
     _resave_wallet(ctx, Path(wallet_path), wallet_data, password)
@@ -970,7 +974,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
     )
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
-    balance = _wallet_ledger_balance(wallet_data.get("balance", 0))
+    balance = _wallet_ledger_balance(wallet_data.get("balance", 0), balance_unit=wallet_data.get("balance_unit"))
     if balance < amount:
         abort(ctx, f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
@@ -1465,7 +1469,7 @@ def stats(ctx, password: str | None, password_file: str | None, password_stdin: 
     # earn/spend — it is NOT the chain balance and diverges from it (#2196).
     # Show the chain figure as current_balance (same preference as `info`),
     # and keep the local ledger visible under its own label.
-    local_balance = _wallet_ledger_balance(wallet_data.get("balance", 0))
+    local_balance = _wallet_ledger_balance(wallet_data.get("balance", 0), balance_unit=wallet_data.get("balance_unit"))
     live = _fetch_chain_balance(wallet_data["address"])
     output(
         {
