@@ -177,7 +177,10 @@ def validate_bridge_refund_lock(lock: dict[str, Any] | None, tx_data: dict[str, 
     try:
         if int(lock_amt) != int(amount):
             return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
-    except (AttributeError, TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        # #2810: ``int(±Infinity)`` raises OverflowError, not ValueError —
+        # uncaught it crashed validate_transaction on the PBFT/import path.
+        # Crash→reject is replay-safe: such a tx could never have sealed.
         return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
     return None
 
