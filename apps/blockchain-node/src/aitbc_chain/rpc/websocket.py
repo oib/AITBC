@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import time
 from typing import Any
 
@@ -673,7 +674,12 @@ async def _gossip_handle_auth_response(state: _GossipConnState, data: dict[str, 
         await _gossip_ws_send_json(state.websocket, {"error": "Challenge mismatch"})
         await _gossip_ws_close(state.websocket, code=1008)
         return False
-    if abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl:
+    if (
+        not isinstance(client_ts, (int, float))
+        or isinstance(client_ts, bool)
+        or not math.isfinite(client_ts)
+        or abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl
+    ):
         _auth_rejected("challenge_expired", state.chain_id, state.topic)
         await _gossip_ws_send_json(state.websocket, {"error": "Challenge expired"})
         await _gossip_ws_close(state.websocket, code=1008)
