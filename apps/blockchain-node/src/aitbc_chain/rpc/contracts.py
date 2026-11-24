@@ -7,13 +7,16 @@ contract name, and deployment timestamp.
 """
 
 import hashlib
+import json
 import time
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.rate_limiting import rate_limit
 
 from ..base_models import SmartContract
@@ -48,6 +51,68 @@ def list_contracts(request: Request) -> dict[str, Any]:
     return contract_service.list_contracts()
 
 
+_MAX_CONTRACT_NAME = 128
+_MAX_CONTRACT_TYPE = 64
+_MAX_DEPLOYER = 128
+_MAX_BYTECODE_CHARS = 262144  # 256 KiB of hex ≈ 128 KiB of bytecode
+_MAX_ABI_CHARS = 65536
+_MAX_CHAIN_ID = 128
+
+
+def _deploy_name_error(name: Any) -> str | None:
+    if not isinstance(name, str) or not name:
+        return "Contract name is required"
+    if len(name) > _MAX_CONTRACT_NAME:
+        return "Contract name too long"
+    return None
+
+
+def _deploy_opt_str_error(value: Any, field: str, limit: int) -> str | None:
+    if value is not None and (not isinstance(value, str) or len(value) > limit):
+        return f"{field} must be a string of at most {limit} characters"
+    return None
+
+
+def _deploy_deployer_error(deployer: Any) -> str | None:
+    # deployer stays self-asserted (the route is API-key gated and the
+    # registry is node-local), but it must be a well-formed address.
+    if deployer is None:
+        return None
+    if not isinstance(deployer, str) or len(deployer) > _MAX_DEPLOYER:
+        return "deployer must be a string"
+    try:
+        canonical_address(deployer, strict=True)
+    except ValueError:
+        return "deployer must be a valid address"
+    return None
+
+
+def _deploy_payload_error(deploy_data: dict[str, Any]) -> str | None:
+    bytecode = deploy_data.get("bytecode", "")
+    if not isinstance(bytecode, str) or len(bytecode) > _MAX_BYTECODE_CHARS:
+        return "bytecode must be a string of at most 262144 characters"
+    abi = deploy_data.get("abi") or {}
+    if not isinstance(abi, dict):
+        abi = {}
+    if len(json.dumps(abi)) > _MAX_ABI_CHARS:
+        return "abi too large"
+    return None
+
+
+def _deploy_request_error(deploy_data: dict[str, Any]) -> str | None:
+    """First validation error for a deploy request, or None when usable.
+
+    Every field lands in chain.db verbatim — bound them all.
+    """
+    return (
+        _deploy_name_error(deploy_data.get("name"))
+        or _deploy_opt_str_error(deploy_data.get("type"), "type", _MAX_CONTRACT_TYPE)
+        or _deploy_opt_str_error(deploy_data.get("chain_id"), "chain_id", _MAX_CHAIN_ID)
+        or _deploy_deployer_error(deploy_data.get("deployer"))
+        or _deploy_payload_error(deploy_data)
+    )
+
+
 @rate_limit(rate=50, per=60)
 def deploy_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, Any]:
     """Deploy a new smart contract to the blockchain.
@@ -55,36 +120,47 @@ def deploy_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, 
     Stores the contract in the on-chain database with a deterministically
     derived address.
     """
-    contract_name = deploy_data.get("name")
+    error = _deploy_request_error(deploy_data)
+    if error is not None:
+        return {"success": False, "error": error}
+
+    contract_name = deploy_data["name"]
     contract_type = deploy_data.get("type", "zk-verifier")
-    deployer = deploy_data.get("deployer", "0x0000000000000000000000000000000000000000")
+    deployer = deploy_data.get("deployer") or "0x0000000000000000000000000000000000000000"
     bytecode = deploy_data.get("bytecode", "")
-    abi = deploy_data.get("abi", {})
+    abi = deploy_data.get("abi")
+    abi = abi if isinstance(abi, dict) else {}
     chain_id = deploy_data.get("chain_id", "")
 
-    if not contract_name:
-        return {"success": False, "error": "Contract name is required"}
-
-    # Derive a deterministic contract address
-    timestamp = int(time.time())
-    contract_address = _derive_contract_address(deployer, contract_name, timestamp)
-
-    # Store in database
-    with session_scope(chain_id) as session:
-        contract = SmartContract(
-            chain_id=chain_id,
-            address=contract_address,
-            name=contract_name,
-            contract_type=contract_type,
-            deployer=deployer,
-            bytecode=bytecode,
-            abi=abi if isinstance(abi, dict) else {},
-            state={},
-            status="deployed",
-            deployed_at=datetime.now(UTC),
-        )
-        session.add(contract)
-        session.commit()
+    deployed = False
+    contract_address = ""
+    for attempt in range(3):
+        # Nanosecond timestamp + attempt counter: same-second redeploys of
+        # the same (deployer, name) used to collide on the
+        # (chain_id, address) unique constraint and 500 (#2770).
+        contract_address = _derive_contract_address(deployer, contract_name, time.time_ns() + attempt)
+        try:
+            with session_scope(chain_id) as session:
+                contract = SmartContract(
+                    chain_id=chain_id,
+                    address=contract_address,
+                    name=contract_name,
+                    contract_type=contract_type,
+                    deployer=deployer,
+                    bytecode=bytecode,
+                    abi=abi,
+                    state={},
+                    status="deployed",
+                    deployed_at=datetime.now(UTC),
+                )
+                session.add(contract)
+                session.commit()
+            deployed = True
+            break
+        except IntegrityError:
+            continue
+    if not deployed:
+        return {"success": False, "error": "contract address collision, retry"}
 
     _logger.info("Deployed contract %s (%s) at %s", contract_name, contract_type, contract_address)
 
