@@ -2126,3 +2126,57 @@ class TestNonFinitePayoutCaps2822:
         with patch.object(m, "_payout_wallet_balance", return_value=ait_to_units(1000)):
             exceeded, _ = m._exceeds_payout_cap(Decimal("1"))
         assert exceeded is False
+
+
+class TestTxHashCaseDedupe2823:
+    """#2823: UNIQUE(tx_hash) is case-sensitive — a legacy mixed-case row
+    plus a canonical insert of the same deposit must not both land."""
+
+    def _insert_raw_row(self, monitor, row_id: str, tx_hash: str, created_at: str) -> None:
+        """Write a row exactly as pre-#668 code did — no canonicalization."""
+        from bridge_monitor.storage import _connect_db
+
+        with _connect_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO eth_deposits
+                (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
+                VALUES (?, ?, ?, ?, ?, '0', 'pending', ?)
+                """,
+                (
+                    row_id,
+                    tx_hash,
+                    "0xfrom",
+                    "0x" + "d" * 40,
+                    "1.0",
+                    created_at,
+                ),
+            )
+            conn.commit()
+
+    def test_canonical_insert_dedupes_against_mixed_case_legacy(self, monitor):
+        from bridge_monitor.storage import create_deposit, get_deposit
+
+        mixed = "0xAbCdEf" + "0" * 58
+        self._insert_raw_row(monitor, "deposit_legacy001", mixed, "2026-01-01T00:00:00+00:00")
+        # Same deposit, canonical spelling — must be treated as a duplicate.
+        assert create_deposit(mixed.lower(), "0xfrom", "1.0", "0x" + "d" * 40) is None
+        dep = get_deposit(mixed)
+        assert dep is not None
+        assert dep["id"] == "deposit_legacy001"
+
+    def test_get_deposit_prefers_earliest_row_when_dups_exist(self, monitor):
+        """If case-variant duplicates already exist in the DB, the lookup
+        must return a deterministic row — the earliest record."""
+        from bridge_monitor.storage import get_deposit
+
+        canon = "0x" + "a1" * 32
+        mixed = "0xA1" + "a1" * 31
+        # Force the duplicate state directly (pre-fix DBs can hold it).
+        # Insert the canonical row FIRST so bare fetchone (rowid order)
+        # returns it — only the ORDER BY picks the earlier-created legacy row.
+        self._insert_raw_row(monitor, "deposit_canonical1", canon, "2026-06-01T00:00:00+00:00")
+        self._insert_raw_row(monitor, "deposit_legacy001", mixed, "2026-01-01T00:00:00+00:00")
+        dep = get_deposit(canon)
+        assert dep is not None
+        assert dep["id"] == "deposit_legacy001"  # earliest created_at wins
