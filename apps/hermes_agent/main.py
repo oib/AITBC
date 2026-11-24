@@ -141,6 +141,12 @@ _HERMES_HOME = os.getenv("HERMES_HOME", "/var/lib/aitbc/hermes")
 
 _REASONING_LEVELS = {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
 
+# AUDIT-EDGE-HERMES-E2BIG (#2807): prompt is capped at 100000 *chars* but
+# Linux MAX_ARG_STRLEN bounds each argv element at 131072 *bytes* — a
+# multibyte prompt (CJK etc.) overflowed exec into an OSError -> 500 on a
+# paid job. Validate the UTF-8 byte length and answer 400 instead.
+_MAX_ARG_STRLEN = 131072
+
 
 def _find_hermes() -> str | None:
     """Return the absolute path to the hermes binary."""
@@ -366,6 +372,8 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     """Build the hermes one-shot command from the request and shop defaults."""
     if not _HERMES_PATH:
         raise HTTPException(status_code=503, detail="Hermes binary is not available")
+    if len(request.prompt.encode("utf-8")) > _MAX_ARG_STRLEN:
+        raise HTTPException(status_code=400, detail="prompt exceeds the 128 KiB argv limit")
 
     command = [_HERMES_PATH, "-z", request.prompt, "--usage-file", usage_path]
 

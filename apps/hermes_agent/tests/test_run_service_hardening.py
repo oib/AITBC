@@ -246,3 +246,27 @@ def test_run_timeout_is_logged(monkeypatch, caplog, tmp_path):
             asyncio.run(hermes._run_hermes_inner(_req(max_time=1)))
     assert exc.value.status_code == 504
     assert any("exceeded max_time" in r.getMessage() for r in caplog.records)
+
+
+def test_prompt_over_argv_byte_limit_is_400(monkeypatch):
+    """AUDIT-EDGE-HERMES-E2BIG (#2807): 100000 chars of multibyte text is
+    ~400KB UTF-8 — over MAX_ARG_STRLEN (131072 B/argv element). Must 400,
+    not OSError -> 500 inside create_subprocess_exec."""
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
+    req = hermes.HermesRunRequest(prompt="\u20ac" * 50000)  # 150000 bytes UTF-8, under the 100000-char cap
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(req, "/tmp/u")
+    assert exc.value.status_code == 400
+
+
+def test_prompt_under_argv_byte_limit_builds(monkeypatch):
+
+    monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "m")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "p")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "web")
+    cmd = hermes._build_command(hermes.HermesRunRequest(prompt="ascii prompt"), "/tmp/u")
+    assert "ascii prompt" in cmd
