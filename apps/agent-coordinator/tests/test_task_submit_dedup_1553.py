@@ -172,3 +172,41 @@ class TestTaskSubmitEscrowDedup:
         assert calls == [1, 1, 1]
         entry = escrow_env.get_escrow_for_task("task-425-exhausted")
         assert entry is not None and entry.status == EscrowStatus.PENDING
+
+
+class TestEscrowReplayTermsCoverage:
+    """#2864: the replay 'same terms' check must cover timeout_seconds and
+    auto_reinvest_pct — a retry with different terms must conflict, not
+    silently inherit the first submission's escrow."""
+
+    def _submission_with(self, task_id: str, **payment_kwargs) -> TaskSubmission:
+        return TaskSubmission(
+            task_data={"task_id": task_id, "task_type": "test"},
+            payment=TaskPayment(amount=100, requester="buyer", agent="provider", **payment_kwargs),
+        )
+
+    def test_different_timeout_is_not_a_replay(self, escrow_env):
+        tasks_router._create_task_escrow(self._submission_with("task-t1"), "task-t1", "ait-mainnet")
+        retry = self._submission_with("task-t1", timeout_seconds=60.0)
+        with pytest.raises(ValueError, match="different payment terms"):
+            tasks_router._create_task_escrow(retry, "task-t1", "ait-mainnet")
+
+    def test_different_auto_reinvest_is_not_a_replay(self, escrow_env):
+        tasks_router._create_task_escrow(self._submission_with("task-t2", auto_reinvest_pct=25.0), "task-t2", "ait-mainnet")
+        retry = self._submission_with("task-t2", auto_reinvest_pct=50.0)
+        with pytest.raises(ValueError, match="different payment terms"):
+            tasks_router._create_task_escrow(retry, "task-t2", "ait-mainnet")
+
+    def test_dropped_auto_reinvest_is_not_a_replay(self, escrow_env):
+        tasks_router._create_task_escrow(self._submission_with("task-t3", auto_reinvest_pct=25.0), "task-t3", "ait-mainnet")
+        retry = self._submission_with("task-t3")
+        with pytest.raises(ValueError, match="different payment terms"):
+            tasks_router._create_task_escrow(retry, "task-t3", "ait-mainnet")
+
+    def test_identical_extended_terms_still_replays(self, escrow_env):
+        req = self._submission_with("task-t4", timeout_seconds=120.0, auto_reinvest_pct=10.0)
+        first_id, _, _ = tasks_router._create_task_escrow(req, "task-t4", "ait-mainnet")
+        second_id, _, _ = tasks_router._create_task_escrow(req, "task-t4", "ait-mainnet")
+        assert first_id == second_id
+        entries = [e for e in escrow_env._escrows.values() if e.task_id == "task-t4"]
+        assert len(entries) == 1
