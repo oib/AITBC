@@ -827,6 +827,25 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
             raise ValueError(f"Stake amount must be positive, got {amount}")
         if lock_period_days < 0:
             raise ValueError(f"lock_period_days must be non-negative, got {lock_period_days}")
+
+        token_record = await self._get_or_create_token_record(staker_address)
+
+        # #2873: staked_tokens feeds voting power (balance + 2×staked) but the
+        # credit was never backed — GovernanceToken.token_balance has no writer,
+        # so the on-chain balance is the only balance of record. Refuse stakes
+        # the wallet cannot back and fail closed when the chain cannot be
+        # queried; otherwise any signer mints unlimited voting power.
+        try:
+            backing = await self._blockchain.get_voting_power(staker_address)
+        except _OPS_ERRORS as e:
+            raise ValueError(f"cannot verify on-chain balance for {staker_address}: {e}") from e
+        backing = Decimal(str(backing or 0))
+        if token_record.staked_tokens + amount > backing:
+            raise ValueError(
+                f"stake amount {amount} exceeds on-chain backing "
+                f"(already staked {token_record.staked_tokens}, balance {backing})"
+            )
+
         stake = TokenStake(
             staker_address=staker_address,
             amount_staked=amount,
@@ -838,7 +857,6 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         self.session.add(stake)
 
         # Update governance token record
-        token_record = await self._get_or_create_token_record(staker_address)
         token_record.staked_tokens += amount
         token_record.voting_power = await self.calculate_voting_power(staker_address)
 

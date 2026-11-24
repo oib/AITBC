@@ -8,11 +8,23 @@ only checked ``delegator_power < amount``, so zero/negative amounts passed.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 
 from governance_service.services.governance_service import GovernanceService
+
+
+class _Chain:
+    """Blockchain stub reporting a large on-chain balance (#2873 backing check)."""
+
+    async def get_voting_power(self, address, chain_id=None):
+        return Decimal("1000000")
+
+
+def _svc(session=None) -> GovernanceService:
+    return GovernanceService(session=session or _Session(), blockchain_client=_Chain())  # type: ignore[arg-type]
 
 
 class _Session:
@@ -71,6 +83,6 @@ async def test_delegate_rejects_zero_amount():
 
 @pytest.mark.asyncio
 async def test_stake_accepts_positive_amount():
-    svc = GovernanceService(session=_Session())  # type: ignore[arg-type]
+    svc = _svc()
     stake = await svc.stake_tokens("0xabc", 10, 30)
     assert stake.amount_staked == 10

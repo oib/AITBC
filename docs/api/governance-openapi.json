@@ -984,6 +984,21 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "403": {
             "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
             "content": {

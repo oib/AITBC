@@ -589,6 +589,8 @@ async def stake_tokens(
             "unstakes_at": stake.unstakes_at.isoformat() if stake.unstakes_at else None,
             "voting_power": await svc.calculate_voting_power(staker_address),
         }
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception:
         logger.exception("Staking error")
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
