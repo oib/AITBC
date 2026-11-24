@@ -170,13 +170,21 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         # #2889 canonical recheck: default = the chain agrees with the
         # ledger row (sealed 'confirmed' at the recorded position).
         # ``state["canonical_txs"][hash]`` overrides per-test — set to None
-        # for a reorged-out lock, a dict for a re-sealed/mempool view.
+        # for a reorged-out tx, a dict for a re-sealed/mempool view.
+        # #2891: hashes that are not sell-lock rows (escrow sweep outflows)
+        # default to a canonically sealed tx at a deep height — the depth-0
+        # transfers view and the canonical view agree unless overridden.
         canon = state.setdefault("canonical_txs", {})
         if tx_hash in canon:
             return canon[tx_hash]
         row = get_sell_lock_by_ait_tx_hash(tx_hash)
         if row is None:
-            return None
+            return {
+                "tx_hash": tx_hash,
+                "status": "confirmed",
+                "block_height": 1,
+                "block_hash": None,
+            }
         return {
             "tx_hash": tx_hash,
             "status": "confirmed",
@@ -1878,3 +1886,102 @@ class TestCanonicalRecheck:
         row = get_sell_lock_by_ait_tx_hash("0x" + "f5" * 32)
         assert row["status"] == "reorged"
         assert sell_env["ait_sends"] == []
+
+
+class TestOutflowSealDepthGate:
+    """#2891: the outbound escrow sweep's terminal write needs the same
+    reorg protection the inbound lock got in #2889 — a depth-0 'sealed'
+    match in the transfers view can still reorg out, and 'settled'/
+    'refunded' written on it records a payment that never happened."""
+
+    @pytest.mark.asyncio
+    async def test_shallow_sealed_outflow_waits_for_depth(self, sell_env):
+        """Outflow sealed at the tip (depth 0 < SELL_SEAL_DEPTH) must not
+        write 'settled' — the row stays in flight until the tx is buried."""
+        insert_sell_lock(
+            ait_tx_hash="0x" + "a1" * 32,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        update_sell_lock_status("0x" + "a1" * 32, "settling", escrow_out_nonce=5)
+        outflow_hash = "0x" + "77" * 32
+        sell_env["transfers"] = [
+            _sealed_sweep_tx(sell_ref="0x" + "a1" * 32, to=TEST_TREASURY, ait=Decimal("10"), nonce=5, tx_hash=outflow_hash)
+        ]
+        sell_env["escrow_nonce"] = 6
+        # Canonical view agrees the tx is sealed — but only at the tip.
+        sell_env["canonical_txs"] = {
+            outflow_hash: {"tx_hash": outflow_hash, "status": "confirmed", "block_height": 1000, "block_hash": None}
+        }
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "a1" * 32)
+        assert row["status"] == "settling"  # depth gate — no terminal write
+        assert not row["settle_tx_hash"]
+
+        # Once the canonical tx is buried deep enough, the same match settles.
+        sell_env["canonical_txs"] = {
+            outflow_hash: {"tx_hash": outflow_hash, "status": "confirmed", "block_height": 900, "block_hash": None}
+        }
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "a1" * 32)
+        assert row["status"] == "settled"
+        assert row["settle_tx_hash"] == outflow_hash
+
+    @pytest.mark.asyncio
+    async def test_phantom_sealed_outflow_never_settles(self, sell_env):
+        """The depth-0 view shows a matching 'sealed' outflow but the
+        canonical chain no longer seals it (reorg) — the nonce logic must
+        decide, never a terminal write on the phantom."""
+        insert_sell_lock(
+            ait_tx_hash="0x" + "a2" * 32,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        update_sell_lock_status("0x" + "a2" * 32, "refunding", escrow_out_nonce=5, escrow_out_tx="{}")
+        outflow_hash = "0x" + "77" * 32
+        sell_env["transfers"] = [
+            _sealed_sweep_tx(sell_ref="0x" + "a2" * 32, to=SHOP_AIT, ait=Decimal("10"), nonce=5, tx_hash=outflow_hash)
+        ]
+        # Canonical: the tx reorged out entirely.
+        sell_env["canonical_txs"] = {outflow_hash: None}
+        # The nonce was consumed by something else — undecidable, never 'refunded'.
+        sell_env["escrow_nonce"] = 6
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "a2" * 32)
+        assert row["status"] == "needs_review_sweep"
+        assert not row["refund_tx_hash"]
+
+    @pytest.mark.asyncio
+    async def test_phantom_outflow_with_free_nonce_rebroadcasts(self, sell_env):
+        """Same phantom, but the intent nonce is still free — the stored
+        blob re-broadcasts (the sweep genuinely never landed)."""
+        insert_sell_lock(
+            ait_tx_hash="0x" + "a3" * 32,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        stored_blob = json.dumps({"type": "TRANSFER", "nonce": 5, "to": SHOP_AIT})
+        update_sell_lock_status("0x" + "a3" * 32, "refunding", escrow_out_nonce=5, escrow_out_tx=stored_blob)
+        outflow_hash = "0x" + "77" * 32
+        sell_env["transfers"] = [
+            _sealed_sweep_tx(sell_ref="0x" + "a3" * 32, to=SHOP_AIT, ait=Decimal("10"), nonce=5, tx_hash=outflow_hash)
+        ]
+        sell_env["canonical_txs"] = {outflow_hash: None}
+        sell_env["escrow_nonce"] = 5  # nonce still free — original never sealed
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "a3" * 32)
+        assert row["status"] == "refunding"  # still in flight, not 'refunded'
+        assert not row["refund_tx_hash"]
+        assert sell_env["ait_sends"][-1] == json.loads(stored_blob)

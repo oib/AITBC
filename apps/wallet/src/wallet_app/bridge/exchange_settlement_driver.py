@@ -672,8 +672,16 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     to_address, amount_units, exs_ref = _expected_sweep(cfg, row)
     outflow = await _find_escrow_outflow(cfg, int(nonce), to_address, amount_units, exs_ref)
     if outflow is not None:
-        await _handle_sealed_sweep(cfg, row, outflow)
-        return
+        # #2891: a depth-0 'sealed' match is not proof — the block can still
+        # reorg out, and _handle_sealed_sweep writes terminal/leg-advance
+        # status on it. Require canonical seal + seal_depth first; a
+        # phantom match falls through to the nonce logic below.
+        gate = await sellmon._outflow_terminal_gate(cfg.seal_depth, outflow)
+        if gate == "wait":
+            return
+        if gate == "sealed":
+            await _handle_sealed_sweep(cfg, row, outflow)
+            return
     # No matching sealed outflow: consumed nonce by a foreign tx is
     # undecidable → needs_review_sweep; a still-free nonce means the
     # broadcast never landed → re-broadcast the stored blob (identical

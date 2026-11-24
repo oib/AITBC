@@ -97,7 +97,15 @@ def admin_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             return canon[tx_hash]
         row = get_sell_lock_by_ait_tx_hash(tx_hash)
         if row is None:
-            return None
+            # #2891: non-lock hashes (escrow sweep outflows) default to a
+            # canonically sealed tx — the depth-0 view and canonical agree
+            # unless the test overrides via canonical_txs.
+            return {
+                "tx_hash": tx_hash,
+                "status": "confirmed",
+                "block_height": 1,
+                "block_hash": None,
+            }
         return {
             "tx_hash": tx_hash,
             "status": "confirmed",
