@@ -935,6 +935,57 @@ def _account_ipfs_pin(state: dict[str, Any], buyer: str, req: dict[str, Any], re
         usage[buyer] = used + size
 
 
+def _escrow_allows_task(task_id: str, escrow: dict[str, Any] | None, provider_wallet: str) -> bool:
+    """Escrow gate for task_accept: locked on-chain, anchored, and paid to us."""
+    if not escrow or escrow.get("escrow_status") != "locked":
+        logger.warning("Task %s accepted but escrow is not locked (%s) — skipping", task_id, escrow)
+        return False
+    if not _escrow_lock_confirmed(escrow):
+        logger.warning(
+            "Task %s accepted but the lock has no on-chain anchor (tx_hash_lock/contract_id empty: %s) — skipping",
+            task_id,
+            escrow,
+        )
+        return False
+    if provider_wallet and str(escrow.get("agent") or "").lower() != provider_wallet.lower():
+        logger.warning("Task %s escrow agent %s != our wallet %s — skipping", task_id, escrow.get("agent"), provider_wallet)
+        return False
+    return True
+
+
+def _retry_escrow_release(
+    task_id: str,
+    buyer: str,
+    agent_id: str,
+    provider_wallet: str,
+    quote: dict[str, Any],
+    prior: dict[str, Any],
+    state: dict[str, Any],
+) -> str:
+    """#2908 replay path: re-send the stored result and retry only the
+    escrow release — the paid work already ran, so the handler must not
+    re-execute (it would double-count ipfs quota)."""
+    _send_message(
+        agent_id,
+        buyer,
+        "task_result",
+        {
+            "task_id": task_id,
+            "status": "success",
+            "result_ref": prior["result_ref"],
+            "result_hash": prior["result_hash"],
+        },
+    )
+    complete = _complete_task(task_id, provider_wallet, amount_units=prior.get("amount_units"))
+    if complete:
+        _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": complete.get("tx_hash_release")})
+        state["quotes"].pop(task_id, None)
+        logger.info("Task %s escrow release confirmed on retry (tx=%s)", task_id, complete.get("tx_hash_release"))
+    else:
+        logger.error("Task %s escrow release retry failed — quote retained", task_id)
+    return "executed"
+
+
 def _handle_task_accept(
     message: dict[str, Any],
     acc: dict[str, Any],
@@ -970,19 +1021,16 @@ def _handle_task_accept(
     # Verify the escrow exists, is locked on-chain, and locks payment to this
     # provider wallet — a bookkeeping-only "locked" row must not drive free work.
     escrow = _task_escrow_status(task_id)
-    if not escrow or escrow.get("escrow_status") != "locked":
-        logger.warning("Task %s accepted but escrow is not locked (%s) — skipping", task_id, escrow)
+    if not _escrow_allows_task(task_id, escrow, provider_wallet):
         return None
-    if not _escrow_lock_confirmed(escrow):
-        logger.warning(
-            "Task %s accepted but the lock has no on-chain anchor (tx_hash_lock/contract_id empty: %s) — skipping",
-            task_id,
-            escrow,
-        )
-        return None
-    if provider_wallet and str(escrow.get("agent") or "").lower() != provider_wallet.lower():
-        logger.warning("Task %s escrow agent %s != our wallet %s — skipping", task_id, escrow.get("agent"), provider_wallet)
-        return None
+
+    # #2908: a prior pass may have executed, sent the result, and failed only
+    # the escrow release — the quote is retained for exactly this retry.
+    # Re-running the handler would redo paid work (and double-count ipfs
+    # quota), so replay the stored result and retry just the release.
+    prior = quote.get("result")
+    if isinstance(prior, dict) and prior.get("result_ref"):
+        return _retry_escrow_release(task_id, buyer, agent_id, provider_wallet, quote, prior, state)
 
     try:
         payload = b"" if service_type == "ipfs" else _ipfs_cat(req["payload_ref"])
@@ -1003,8 +1051,27 @@ def _handle_task_accept(
             {"task_id": task_id, "status": "failed", "result_ref": None, "result_hash": None, "error": str(e)[:300]},
         )
         _fail_task(task_id, provider_wallet, reason=str(e)[:200])
+        # Terminal failure: the quote is dead weight — a redelivery would
+        # only re-execute a task the coordinator already heard failed (#2908).
+        state["quotes"].pop(task_id, None)
         return "failed"
 
+    return _deliver_and_release(task_id, buyer, agent_id, provider_wallet, quote, result_ref, result_hash, state)
+
+
+def _deliver_and_release(
+    task_id: str,
+    buyer: str,
+    agent_id: str,
+    provider_wallet: str,
+    quote: dict[str, Any],
+    result_ref: str,
+    result_hash: str,
+    state: dict[str, Any],
+) -> str:
+    """Send the task_result, release the escrow at the quoted price, and
+    settle the quote — retaining it for release-retry when the release
+    call fails (#2908)."""
     _send_message(
         agent_id,
         buyer,
@@ -1022,9 +1089,20 @@ def _handle_task_accept(
         tx_hash = complete.get("tx_hash_release")
         _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": tx_hash})
         logger.info("Task %s complete — escrow released (tx=%s), result at %s", task_id, tx_hash, result_ref)
+        state["quotes"].pop(task_id, None)
     else:
-        logger.error("Task %s executed (result %s) but escrow release call failed", task_id, result_ref)
-    state["quotes"].pop(task_id, None)
+        # #2908: keep the quote — work is done and the result was sent, but
+        # the buyer's escrow is still locked. A redelivered task_accept
+        # replays the stored result above and retries only the release;
+        # _prune_quotes' TTL bounds the retry window.
+        quote["result"] = {
+            "result_ref": result_ref,
+            "result_hash": result_hash,
+            "amount_units": quote_units,
+        }
+        logger.error(
+            "Task %s executed (result %s) but escrow release call failed — quote retained for retry", task_id, result_ref
+        )
     return "executed"
 
 
