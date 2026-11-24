@@ -40,8 +40,13 @@ class TestScriptCommands:
         assert "list" in script.commands
 
     @patch("subprocess.run")
-    def test_script_run_command(self, mock_run, runner):
-        """``script run`` executes a script and returns its output."""
+    def test_script_run_command(self, mock_run, runner, tmp_path, monkeypatch):
+        """``script run`` executes an allowlisted script and returns its output."""
+        import aitbc_cli.commands.system as system_mod
+
+        script_file = (tmp_path / "x.sh").resolve()
+        script_file.write_text("#!/bin/sh\nexit 0\n")
+        monkeypatch.setattr(system_mod, "_ALLOWED_SCRIPT_PREFIXES", (str(script_file.parent) + "/",))
         mock_result = MagicMock()
         mock_result.stdout = "hello world"
         mock_result.stderr = ""
@@ -52,15 +57,20 @@ class TestScriptCommands:
 
         result = runner.invoke(
             script,
-            ["run", "--script-path", "/bin/echo", "--args", "hello world"],
+            ["run", "--script-path", str(script_file), "--args", "hello world"],
         )
 
         assert result.exit_code == 0, result.output
         mock_run.assert_called_once()
 
     @patch("subprocess.run")
-    def test_script_run_command_with_args(self, mock_run, runner):
+    def test_script_run_command_with_args(self, mock_run, runner, tmp_path, monkeypatch):
         """``script run --args`` passes arguments to the script."""
+        import aitbc_cli.commands.system as system_mod
+
+        script_file = (tmp_path / "x.sh").resolve()
+        script_file.write_text("#!/bin/sh\nexit 0\n")
+        monkeypatch.setattr(system_mod, "_ALLOWED_SCRIPT_PREFIXES", (str(script_file.parent) + "/",))
         mock_result = MagicMock()
         mock_result.stdout = "output"
         mock_result.stderr = ""
@@ -71,7 +81,7 @@ class TestScriptCommands:
 
         result = runner.invoke(
             script,
-            ["run", "--script-path", "/bin/echo", "--args", "arg1 arg2"],
+            ["run", "--script-path", str(script_file), "--args", "arg1 arg2"],
         )
 
         assert result.exit_code == 0, result.output

@@ -27,20 +27,37 @@ def script():
 
   aitbc script run --script-path /opt/aitbc/scripts/setup.sh --args '--verbose'"""
 )
-@click.option("--script-path", required=True, help="Path to script file")
+@click.option("--script-path", required=True, help="Path to script file under an allowed AITBC prefix")
 @click.option("--args", help="Script arguments (shell-quoted, e.g. '--verbose \"a b\"')")
-@click.option("--timeout", type=float, default=None, help="Kill the script after N seconds")
+@click.option("--timeout", type=float, default=300, show_default=True, help="Kill the script after N seconds")
 @click.pass_context
 def run(ctx, script_path, args, timeout):
-    """Run a script with optional arguments."""
+    """Run an allowlisted AITBC script with optional arguments."""
+    import os
+    import re
     import shlex
     import subprocess
 
+    # Same prefix allowlist as ``aitbc system run-script`` — this command is
+    # exposed through MCP, so an arbitrary --script-path is remote code
+    # execution as the service user (#2886).
+    from .system import _resolve_allowed_script_path
+
     try:
-        cmd = [script_path]
+        resolved = _resolve_allowed_script_path(script_path)
+    except click.ClickException as e:
+        abort(ctx, str(e), from_exception=e)
+
+    # The child must not inherit credential-bearing env vars (API keys,
+    # tokens, wallet secrets) — a script only needs the operational env.
+    secret_env = re.compile(r"(KEY|SECRET|TOKEN|PASSWORD|PASSWD|MNEMONIC|SEED|PRIVATE)", re.IGNORECASE)
+    child_env = {k: v for k, v in os.environ.items() if not secret_env.search(k)}
+
+    try:
+        cmd = [str(resolved)]
         if args:
             cmd.extend(shlex.split(args))
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=child_env)
         output(
             {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode},
             ctx.obj.get("output_format", "table"),
