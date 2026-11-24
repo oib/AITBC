@@ -94,3 +94,21 @@ def test_plaintext_credential_still_loads(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert _env_value(s["run_dir"], "SECRET_KEY") == "plain-value"
+
+
+def test_kek_never_appears_in_openssl_argv(tmp_path):
+    """#2780: the encryption key must not be passed via -k (visible in
+    /proc/*/cmdline); it goes through -pass env:AITBC_KEK instead."""
+    source = SCRIPT.read_text()
+    assert "-pass env:AITBC_KEK" in source
+    assert '-k "$ENCRYPTION_KEY"' not in source
+    for line in source.splitlines():
+        if "openssl enc" in line:
+            assert " -k " not in line and not line.rstrip().endswith("-k"), line
+
+    # behavioural: a decrypt still works end-to-end through the env channel
+    s = _scratch(tmp_path)
+    _encrypt("argv-secret", KEY, s["creds"] / "jwt_secret.enc")
+    result = _run(s)
+    assert result.returncode == 0, result.stderr
+    assert _env_value(s["run_dir"], "JWT_SECRET") == "argv-secret"
