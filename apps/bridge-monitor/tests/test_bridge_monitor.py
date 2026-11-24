@@ -2002,3 +2002,71 @@ class TestOrphanedManualPending:
         d = get_deposit(tx_hash)
         assert d["status"] == BridgeDepositStatus.SUBMITTED.value
         assert d["signed_tx"]  # envelope preserved for the sweep
+
+
+class TestRetryQueueContainment:
+    """#2826: one poisoned retry row must not abort process_retry_queue —
+    an uncaught exception used to propagate out of the poll cycle, starving
+    every row behind it AND the SUBMITTED seal sweep, every cycle."""
+
+    def _due_row(self, tx_hash, *, created_order=None):
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        create_deposit(tx_hash, "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            tx_hash,
+            ait_amount="100",
+            status=BridgeDepositStatus.PENDING_RETRY,
+            next_retry_at="2000-01-01T00:00:00+00:00",
+        )
+
+    def test_poisoned_row_does_not_starve_queue_tail(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        self._due_row("0xpoison")
+        self._due_row("0xhealthy")
+        envelope = {"type": "TRANSFER", "nonce": 3, "to": "0x" + "d" * 40}
+
+        real_submit = monitor._submit_retry_payout
+
+        def _boom(d, tx_hash, ait_recipient, ait_amount):
+            if tx_hash == "0xpoison":
+                raise RuntimeError("poisoned row")
+            return real_submit(d, tx_hash, ait_recipient, ait_amount)
+
+        with (
+            patch.object(monitor, "_submit_retry_payout", side_effect=_boom),
+            patch.object(monitor, "_build_signed_transfer", return_value=envelope),
+            patch.object(monitor, "_post_signed_tx", return_value="0xpaid"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_retry_queue()
+
+        # The healthy row behind the poison was still attempted.
+        assert get_deposit("0xhealthy")["status"] == BridgeDepositStatus.SUBMITTED.value
+        # The poison row was re-queued for another attempt, not lost.
+        poison = get_deposit("0xpoison")
+        assert poison["status"] == BridgeDepositStatus.PENDING_RETRY.value
+
+    def test_unpayable_stored_amount_requeues_not_crashes(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        self._due_row("0xbadamt")
+        self._due_row("0xafter")
+        envelope = {"type": "TRANSFER", "nonce": 3, "to": "0x" + "d" * 40}
+        with (
+            patch.object(
+                monitor,
+                "_reprice_retry_if_needed",
+                side_effect=lambda d, tx_hash: "sNaN" if tx_hash == "0xbadamt" else "100",
+            ),
+            patch.object(monitor, "_build_signed_transfer", return_value=envelope),
+            patch.object(monitor, "_post_signed_tx", return_value="0xpaid"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_retry_queue()
+
+        bad = get_deposit("0xbadamt")
+        assert bad["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert "not payable" in (bad["error_message"] or "")
+        assert get_deposit("0xafter")["status"] == BridgeDepositStatus.SUBMITTED.value
