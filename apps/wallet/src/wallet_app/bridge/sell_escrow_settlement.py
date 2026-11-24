@@ -450,6 +450,48 @@ async def _escrow_sweep(
         return "sent"
 
 
+async def _outflow_terminal_gate(seal_depth: int, outflow: dict[str, Any]) -> str:
+    """#2891: ``"sealed"`` | ``"wait"`` | ``"gone"`` for a ``_find_escrow_outflow`` match.
+
+    The transfers listing is a depth-0 view — a tx 'confirmed' there can
+    still reorg out, and writing settled/refunded on it records a payment
+    that never happened (ETH may already be released against it). A
+    terminal write requires the outflow to be canonically sealed via
+    ``/rpc/transaction`` AND buried ``seal_depth`` blocks. ``"gone"`` means
+    the canonical chain no longer seals it confirmed — the caller falls
+    through to the nonce logic (re-broadcast the stored blob, or
+    needs_review_sweep when a foreign tx took the nonce). ``"wait"`` is
+    transient: shallow depth, mempool view, or an RPC failure — retry next
+    poll, fail closed.
+    """
+    tx_hash = outflow.get("tx_hash") or outflow.get("hash")
+    if not tx_hash:
+        # A match with no hash cannot be canonical-checked — fail closed.
+        return "wait"
+    try:
+        canonical = await _fetch_tx_by_hash(str(tx_hash))
+    except Exception as e:  # noqa: BLE001 - RPC containment: fail closed, retry next poll
+        logger.error("Canonical recheck of escrow outflow %s failed: %s", tx_hash, e)
+        return "wait"
+    if canonical is None or not wdm.tx_sealed_confirmed(canonical):
+        logger.warning(
+            "Escrow outflow %s matched the depth-0 view but is not canonically sealed — treating as absent",
+            tx_hash,
+        )
+        return "gone"
+    height = canonical.get("block_height")
+    if height is None:
+        return "wait"  # unreachable: tx_sealed_confirmed requires a height; fail closed
+    try:
+        head = await _chain_height()
+    except Exception as e:  # noqa: BLE001 - height probe containment — terminal write skipped
+        logger.error("Could not read chain height for outflow seal-depth check on %s: %s", tx_hash, e)
+        return "wait"
+    if head - int(height) < seal_depth:
+        return "wait"
+    return "sealed"
+
+
 async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     """Resolve an in-flight 'settling'/'refunding' row.
 
@@ -476,14 +518,21 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     to_address, amount_units, sell_ref = _expected_sweep(cfg, row)
     outflow = await _find_escrow_outflow(cfg, int(nonce), to_address, amount_units, sell_ref)
     if outflow is not None:
-        await _update_lock_status_with_retry(
-            row["ait_tx_hash"],
-            final_status,
-            **{hash_field: outflow.get("tx_hash") or outflow.get("hash")},
-            expected_statuses={row["status"]},
-        )
-        logger.info("Sell lock %s: %s sealed at escrow nonce %d", row["ait_tx_hash"], final_status, nonce)
-        return
+        # #2891: a depth-0 'sealed' match is not proof — the block can still
+        # reorg out. Terminal status waits for canonical seal + seal_depth;
+        # a phantom match falls through to the nonce logic below.
+        gate = await _outflow_terminal_gate(cfg.sell_seal_depth, outflow)
+        if gate == "wait":
+            return
+        if gate == "sealed":
+            await _update_lock_status_with_retry(
+                row["ait_tx_hash"],
+                final_status,
+                **{hash_field: outflow.get("tx_hash") or outflow.get("hash")},
+                expected_statuses={row["status"]},
+            )
+            logger.info("Sell lock %s: %s sealed at escrow nonce %d", row["ait_tx_hash"], final_status, nonce)
+            return
     account_nonce, _balance = await _account_view(cfg.escrow_address)
     if account_nonce > int(nonce):
         # The nonce was consumed by a transaction that does NOT match this

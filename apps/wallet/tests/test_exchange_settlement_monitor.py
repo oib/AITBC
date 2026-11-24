@@ -1751,3 +1751,98 @@ class TestCanonicalAndDepthGuards:
         fresh = get_exchange_settlement("order_refund", -77)
         assert fresh["status"] == "needs_review_sweep"
         assert exchange_env["ait_sends"] == []
+
+
+class TestOutflowSealDepthGate:
+    """#2891: ``_handle_sealed_sweep`` writes terminal/leg-advance status on a
+    depth-0 'sealed' match — the same reorg hole the sell lane had. The gate
+    requires canonical seal + ``cfg.seal_depth`` before any of it."""
+
+    @pytest.mark.asyncio
+    async def test_shallow_leg1_seal_waits_for_depth(self, exchange_env):
+        """Leg-1 outflow sealed only at the tip must not advance to leg 2 —
+        no settle_ait_tx_hash, no fee-leg broadcast."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(status="settling", escrow_out_nonce=3, escrow_out_tx="{}")
+        leg1 = {
+            "tx_hash": "0xshallow1",
+            "sender": exchange_env["escrow"],
+            "recipient": BUYER_AIT,
+            "value": 360_000_000,
+            "block_height": 1000,
+            "status": "confirmed",
+            "nonce": 3,
+            "payload": {"exs_ref": row["id"], "reason": "settling"},
+        }
+        exchange_env["transfers"].append(leg1)
+        exchange_env["escrow_nonce"] = 4
+        # Canonical agrees sealed — but at the tip, depth 0 < seal_depth 3.
+        exchange_env["canonical_txs"] = {
+            "0xshallow1": {"tx_hash": "0xshallow1", "status": "confirmed", "block_height": 1000, "block_hash": None}
+        }
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "settling"
+        assert not fresh["settle_ait_tx_hash"]
+        assert exchange_env["ait_sends"] == []
+
+        # Buried deep enough — the same match advances to leg 2.
+        exchange_env["canonical_txs"] = {
+            "0xshallow1": {"tx_hash": "0xshallow1", "status": "confirmed", "block_height": 900, "block_hash": None}
+        }
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["settle_ait_tx_hash"] == "0xshallow1"
+        assert fresh["status"] == "settling"  # leg 2 now in flight
+        assert exchange_env["ait_sends"]  # leg-2 fee sweep broadcast
+
+    @pytest.mark.asyncio
+    async def test_phantom_leg_seal_never_advances(self, exchange_env):
+        """Depth-0 view shows a matching leg-1 outflow but the canonical
+        chain reorged it out — the nonce logic decides, never a leg advance."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(status="settling", escrow_out_nonce=3, escrow_out_tx="{}")
+        leg1 = {
+            "tx_hash": "0xphantom1",
+            "sender": exchange_env["escrow"],
+            "recipient": BUYER_AIT,
+            "value": 360_000_000,
+            "block_height": 1000,
+            "status": "confirmed",
+            "nonce": 3,
+            "payload": {"exs_ref": row["id"], "reason": "settling"},
+        }
+        exchange_env["transfers"].append(leg1)
+        exchange_env["canonical_txs"] = {"0xphantom1": None}
+        exchange_env["escrow_nonce"] = 4  # nonce consumed by a foreign tx
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "needs_review_sweep"
+        assert not fresh["settle_ait_tx_hash"]
+        assert exchange_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_phantom_refund_seal_never_refunds(self, exchange_env):
+        """Same phantom on the refund leg with the nonce still free — the
+        stored blob re-broadcasts; the row must not read 'refunded'."""
+        cfg = _cfg(exchange_env)
+        blob = {"type": "TRANSFER", "nonce": 3, "to": SELLER_AIT}
+        row = _trade_row(status="refunding", escrow_out_nonce=3, escrow_out_tx=json.dumps(blob))
+        refund = {
+            "tx_hash": "0xphantom2",
+            "sender": exchange_env["escrow"],
+            "recipient": SELLER_AIT,
+            "value": 361_800_000,  # (10 + 0.05 fee) AIT in chain units
+            "block_height": 1000,
+            "status": "confirmed",
+            "nonce": 3,
+            "payload": {"exs_ref": row["id"], "reason": "refunding"},
+        }
+        exchange_env["transfers"].append(refund)
+        exchange_env["canonical_txs"] = {"0xphantom2": None}
+        exchange_env["escrow_nonce"] = 3  # nonce still free
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "refunding"
+        assert not fresh["refund_tx_hash"]
+        assert exchange_env["ait_sends"][-1] == blob

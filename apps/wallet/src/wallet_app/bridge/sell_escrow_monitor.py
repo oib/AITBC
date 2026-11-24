@@ -77,6 +77,7 @@ from .sell_escrow_settlement import (
     _handle_orphaned as _handle_orphaned,
     _handle_released as _handle_released,
     _handle_stale_price as _handle_stale_price,
+    _outflow_terminal_gate as _outflow_terminal_gate,
     _parked_refund_reason as _parked_refund_reason,
     _price_lock_eth_amount as _price_lock_eth_amount,
     _process_sell_lock as _process_sell_lock,
