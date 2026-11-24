@@ -122,8 +122,10 @@ deliberately:
 - **Envelope unsealed + account nonce passed** → `abandon-and-resign`
   re-queues the deposit for a fresh payout (also runs automatically in
   the sweep).
-- **Payout sealed with a failed status**, or a genuinely lost row →
-  `write-off` (with `--unpaid-with-recipient` when the row still carries
+- **Payout sealed with a failed status** → the sweep auto-abandons it
+  once the nonce-slot proof holds (a reverted apply moves no value);
+  write-off remains for a genuinely lost row or one the proof cannot
+  clear (with `--unpaid-with-recipient` when the row still carries
   a valid recipient; a SUBMITTED row whose signed envelope may still seal
   also needs `--envelope-dead` — prove it dead via abandon-and-resign's
   nonce check first, or attest deliberately), then `manual-payout` if the

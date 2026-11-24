@@ -1026,8 +1026,9 @@ class BridgeMonitor(BridgeMonitorRuntime):
         COMPLETED requires the payout sealed PAYOUT_SEAL_DEPTH deep. A
         payout that vanished from the mempool without sealing is rebroadcast
         with the stored envelope — identical signature, identical hash. A
-        payout that sealed but failed at apply stays SUBMITTED and alerts:
-        funds may or may not have moved; an operator decides, not the code.
+        payout that sealed but failed at apply is dead by revert (no value
+        moved): the sweep auto-abandons it once the nonce-slot proof holds,
+        and only an unproven row stays SUBMITTED for the operator (#2830).
         """
         deposits = get_submitted_deposits()
         if not deposits:
@@ -1076,13 +1077,16 @@ class BridgeMonitor(BridgeMonitorRuntime):
         if payout_hash:
             sealed_height, failed_on_chain = self._probe_payout_status(payout_hash)
         if failed_on_chain:
+            # A sealed-FAILED apply verdict moved no value, so the envelope
+            # is dead by revert — but only the nonce-slot proof can say
+            # WHICH tx consumed the slot (#2830). Alert for visibility,
+            # then fall through to abandon_payout like any stuck row.
             self._float_alert(
                 f"submitted_failed:{tx_hash}",
                 f"ALERT: payout {payout_hash} for deposit {tx_hash} sealed with failed status — "
-                "staying SUBMITTED for operator review",
+                "auto-abandon re-queues it once the nonce proof holds",
             )
-            return True
-        if sealed_height and head and head - int(sealed_height) >= self.payout_seal_depth:
+        elif sealed_height and head and head - int(sealed_height) >= self.payout_seal_depth:
             # CAS (#1839): a write-off/abandon landing since the snapshot
             # must not be flipped back to COMPLETED by a stale read.
             if update_deposit(
@@ -1104,7 +1108,10 @@ class BridgeMonitor(BridgeMonitorRuntime):
         if abandoned:
             logger.warning("Sweep auto-abandoned stuck payout for deposit %s — %s", tx_hash, why)
             return True
-        return False
+        # A sealed-failed row the proof cannot clear stays SUBMITTED and
+        # alerted — resolved for this pass: rebroadcasting a dead envelope
+        # helps nothing. Everything else falls through to rebroadcast.
+        return failed_on_chain
 
     def _rebroadcast_if_stale(self, d: dict, head: int | None) -> None:
         """Rebroadcast the stored envelope once the seal window has passed.
@@ -1357,12 +1364,26 @@ class BridgeMonitor(BridgeMonitorRuntime):
         }
         for h in probe_hashes:
             if self._tx_on_chain(h):
-                return f"payout {h} IS sealed on chain — the deposit will complete normally; refusing"
+                _, hash_failed = self._probe_payout_status(h)
+                if not hash_failed:
+                    return f"payout {h} IS sealed on chain — the deposit will complete normally; refusing"
+                # Sealed under a held spelling but FAILED at apply: the
+                # revert moved no value, so the envelope is dead — the
+                # nonce-slot verdict below still has to prove the slot
+                # holder is this envelope before re-signing is allowed.
         verdict, slot_tx = self._nonce_slot_verdict(envelope)
         if verdict == "ours":
-            # The envelope landed (or sealed-failed) under a hash the
-            # ledger may never have recorded. Re-signing here is the
-            # double-payment #1721 demonstrated twice on-chain.
+            slot_status = str((slot_tx or {}).get("status") or "").lower()
+            if slot_status not in ("", "pending", "confirmed", "success"):
+                # Our envelope sealed-FAILED at its nonce slot: the apply
+                # verdict rejected it, no value moved, the nonce is spent
+                # — dead by revert and safe to re-sign (#2830). Confirmed,
+                # pending or unknown status still refuses: funds may have
+                # moved and re-signing is the #1721 double-payment.
+                return None
+            # The envelope landed under a hash the ledger may never have
+            # recorded. Re-signing here is the double-payment #1721
+            # demonstrated twice on-chain.
             landed_hash = str((slot_tx or {}).get("tx_hash") or "")
             if landed_hash and canon_tx_hash(landed_hash) != canon_tx_hash(d.get("ait_tx_hash") or ""):
                 update_deposit(tx_hash, ait_tx_hash=landed_hash, expected_statuses={BridgeDepositStatus.SUBMITTED})
