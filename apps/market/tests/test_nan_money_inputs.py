@@ -21,7 +21,7 @@ from sqlmodel import select
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from market_service.domain.market import Bid
-from market_service.services.market_service import MarketService, _money_decimal
+from market_service.services.market_service import MAX_PAYMENT_AMOUNT, MarketService, _money_decimal
 from market_service.storage import get_session_context
 
 
@@ -144,19 +144,18 @@ class TestBookRouteRawNaNBody:
 
 
 class TestMoneyDecimalBoundary:
-    """V16 round-5 money-edge: the 1e15 ceiling is INCLUSIVE, exponent
-    overflow ('1e999') and type-confused inputs must raise ValueError —
-    never persist, never 500."""
+    """V16 round-5 money-edge: the Numeric(20,8) ceiling (#2857) is
+    INCLUSIVE, exponent overflow ('1e999') and type-confused inputs must
+    raise ValueError — never persist, never 500."""
 
     @pytest.mark.parametrize(
         "ok",
         [
             "0",
             "0.00000001",
-            "999999999999999.99999999",
-            "1000000000000000",  # exactly the ceiling — inclusive
-            "1e15",
-            Decimal("1000000000000000"),
+            "999999999999.99999999",  # exactly the Numeric(20,8) ceiling — inclusive
+            "999999999999",
+            Decimal("999999999999.99999999"),
             5,
             5.5,
             "-0",  # negative zero compares equal to zero — non-negative
@@ -167,12 +166,15 @@ class TestMoneyDecimalBoundary:
     def test_boundary_and_valid_inputs_accepted(self, ok):
         parsed = _money_decimal(ok, "price")
         assert parsed >= 0
-        assert parsed <= Decimal("1000000000000000")
+        assert parsed <= MAX_PAYMENT_AMOUNT
 
     @pytest.mark.parametrize(
         "bad",
         [
-            "1000000000000000.00000001",  # ceiling + epsilon
+            "1000000000000000",  # old 1e15 bound — over the Numeric(20,8) ceiling
+            "1e15",
+            Decimal("1000000000000000"),
+            "999999999999.999999999",  # ceiling + sub-cent epsilon
             "1e999",  # exponent overflow — finite Decimal, way over cap
             Decimal("1e999"),
             1e30,
