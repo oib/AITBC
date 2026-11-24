@@ -29,7 +29,29 @@ ALLOWED="CHAIN_ID ISLAND_ID SUPPORTED_CHAINS FOLLOWER_API_KEY HUB_DISCOVERY_URL 
 [ -f "$SOURCE_ENV" ] || { echo "Missing source env: $SOURCE_ENV" >&2; exit 1; }
 
 value_of() {
-    grep -E "^${1}=" "$SOURCE_ENV" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "'\"" || true
+    # systemd EnvironmentFile does NOT strip inline comments — 'KEY=VAL # note'
+    # keeps ' # note' in the value the service sees. For these allowlisted
+    # public keys a '#' can only be corruption, so strip a trailing comment
+    # before publishing (#2786).
+    grep -E "^${1}=" "$SOURCE_ENV" 2>/dev/null | tail -1 | cut -d= -f2- \
+        | sed -E 's/[[:space:]]+#.*$//' | tr -d "'\"" || true
+}
+
+# #2786: values are published verbatim into /etc/aitbc/bootstrap.env, a file
+# followers parse as KEY=VALUE (and operators may source). Anything with
+# whitespace or shell/env metacharacters ($ ` " ' ; & | < > ( )) is a config
+# error, not something to escape — refuse rather than emit a corrupt or
+# sourceable-injection line. render-website.sh validates the same way.
+valid_public_value() {
+    [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._~:/?#@%+=,-]*$ ]]
+}
+valid_chain_list() {
+    # single chain/island id — no commas
+    [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+}
+valid_chain_csv() {
+    # SUPPORTED_CHAINS is a comma-separated list of the same ids
+    [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._,-]*$ ]]
 }
 
 # Collect live allowlisted values first; only strip a template line when the
@@ -38,7 +60,16 @@ value_of() {
 LIVE_KEYS=""
 for key in $ALLOWED; do
     v="$(value_of "$key")"
-    [ -n "$v" ] && LIVE_KEYS="$LIVE_KEYS $key"
+    [ -z "$v" ] && continue
+    case "$key" in
+        CHAIN_ID|ISLAND_ID)
+            valid_chain_list "$v" || { echo "Invalid $key in $SOURCE_ENV: $v" >&2; exit 1; } ;;
+        SUPPORTED_CHAINS)
+            valid_chain_csv "$v" || { echo "Invalid $key in $SOURCE_ENV: $v" >&2; exit 1; } ;;
+        *)
+            valid_public_value "$v" || { echo "Invalid $key in $SOURCE_ENV: $v" >&2; exit 1; } ;;
+    esac
+    LIVE_KEYS="$LIVE_KEYS $key"
 done
 STRIP_RE="^($(echo "${LIVE_KEYS# }" | tr ' ' '|'))="
 
