@@ -60,6 +60,35 @@ def _report(before: str | None, after: str | None, remote: str, branch: str, dep
     info(f"Deployed: {'yes' if deployed else 'no'}")
 
 
+def _validate_remote_and_branch(repo: Path, remote: str, branch: str) -> None:
+    """#2881: ``--remote`` must name a configured git remote, never a URL/path.
+
+    ``git fetch``/``git pull`` accept a repository URL as <repository>, so a
+    caller-supplied URL would fetch attacker code that ``update.sh`` then
+    executes — RCE on the node. Only names listed by ``git remote`` are
+    allowed. ``branch`` is likewise pinned to a plain ref name: a leading
+    ``-`` would be parsed as a git option, and ``:``/``+`` would make it a
+    refspec that can rewrite local refs.
+    """
+    if remote.startswith("-") or "/" in remote or ":" in remote:
+        abort(None, f"Invalid remote '{remote}': pass a configured remote name (e.g. origin), not a URL or path")
+    out = subprocess.run(
+        ["git", "remote"],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    names = {line.strip() for line in out.stdout.splitlines() if line.strip()}
+    if remote not in names:
+        abort(
+            None,
+            f"Unknown git remote '{remote}' (configured: {', '.join(sorted(names)) or 'none'}); pass a remote name, not a URL",
+        )
+    if branch.startswith("-") or branch.startswith("+") or ":" in branch or not branch:
+        abort(None, f"Invalid branch '{branch}': pass a plain branch name (e.g. main)")
+
+
 def _check(repo: Path, remote: str, branch: str, upstream: str, before: str | None, output_format: str):
     """Fetch and report current vs remote SHA without changing the worktree."""
     if output_format != "json":
@@ -123,6 +152,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
 
     upstream = f"{remote}/{branch}"
     before = _short_sha("HEAD", cwd=REPO_ROOT)
+    _validate_remote_and_branch(REPO_ROOT, remote, branch)
 
     if check or no_deploy:
         _check(REPO_ROOT, remote, branch, upstream, before, output_format)

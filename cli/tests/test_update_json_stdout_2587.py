@@ -24,7 +24,8 @@ def _setup(monkeypatch, tmp_path, output_format):
     def fake_run(cmd, **kwargs):
         stdout = kwargs.get("stdout")
         calls.append((cmd, "stderr" if stdout is sys.stderr else ("INHERITED" if stdout is None else stdout)))
-        return subprocess.CompletedProcess(cmd, 0, "", "")
+        out = "origin\n" if cmd[:2] == ["git", "remote"] else ""
+        return subprocess.CompletedProcess(cmd, 0, out, "")
 
     (tmp_path / ".git").mkdir()
     script = tmp_path / "scripts" / "deployment" / "update.sh"

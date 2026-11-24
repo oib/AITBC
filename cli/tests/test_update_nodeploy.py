@@ -12,7 +12,8 @@ def test_no_deploy_never_pulls(monkeypatch, tmp_path):
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
-        return subprocess.CompletedProcess(cmd, 0, "", "")
+        out = "origin\n" if cmd[:2] == ["git", "remote"] else ""
+        return subprocess.CompletedProcess(cmd, 0, out, "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(up, "_short_sha", lambda *a, **kw: "abc1234")
@@ -33,7 +34,8 @@ def test_no_deploy_still_reports(monkeypatch, tmp_path):
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
-        return subprocess.CompletedProcess(cmd, 0, "", "")
+        out = "origin\n" if cmd[:2] == ["git", "remote"] else ""
+        return subprocess.CompletedProcess(cmd, 0, out, "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(up, "_short_sha", lambda *a, **kw: "abc1234")

@@ -46,7 +46,12 @@ class TestUpdateCommand:
         """The command runs `git pull --ff-only origin main` then `bash update.sh`."""
         from aitbc_cli.commands.update import update
 
-        mock_run.return_value = Mock(returncode=0, stdout="abc1234\n", stderr="")
+        def side_effect(cmd, **kwargs):
+            if cmd[:2] == ["git", "remote"]:
+                return Mock(returncode=0, stdout="origin\n", stderr="")
+            return Mock(returncode=0, stdout="abc1234\n", stderr="")
+
+        mock_run.side_effect = side_effect
 
         result = runner.invoke(update, [])
 
@@ -67,6 +72,8 @@ class TestUpdateCommand:
         def side_effect(cmd, **kwargs):
             if cmd[:2] == ["git", "pull"]:
                 return Mock(returncode=1, stdout="", stderr="")
+            if cmd[:2] == ["git", "remote"]:
+                return Mock(returncode=0, stdout="origin\n", stderr="")
             return Mock(returncode=0, stdout="abc1234\n", stderr="")
 
         mock_run.side_effect = side_effect
@@ -83,8 +90,9 @@ class TestUpdateCommand:
         from aitbc_cli.commands.update import update
 
         def side_effect(cmd, **kwargs):
-            out = Mock(returncode=0, stdout="abc1234\n", stderr="")
-            return out
+            if cmd[:2] == ["git", "remote"]:
+                return Mock(returncode=0, stdout="origin\n", stderr="")
+            return Mock(returncode=0, stdout="abc1234\n", stderr="")
 
         mock_run.side_effect = side_effect
 
@@ -100,7 +108,12 @@ class TestUpdateCommand:
         """--check fetches and compares; it never pulls or runs update.sh."""
         from aitbc_cli.commands.update import update
 
-        mock_run.return_value = Mock(returncode=0, stdout="abc1234\n", stderr="")
+        def side_effect(cmd, **kwargs):
+            if cmd[:2] == ["git", "remote"]:
+                return Mock(returncode=0, stdout="origin\n", stderr="")
+            return Mock(returncode=0, stdout="abc1234\n", stderr="")
+
+        mock_run.side_effect = side_effect
 
         result = runner.invoke(update, ["--check"])
 
