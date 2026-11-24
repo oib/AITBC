@@ -125,9 +125,9 @@ class TestScratchToolCommandsCarryGuard:
         captured, patcher = self._capture()
         with patcher:
             for action, kwargs in (
-                ("write", {"content": "x"}),
+                ("write", {"content": "x", "dry_run": False, "confirm": True}),
                 ("read", {}),
-                ("delete", {}),
+                ("delete", {"dry_run": False, "confirm": True}),
                 ("list", {}),
             ):
                 json.loads(mcp_server.aitbc_scratch_file(action=action, path="/var/tmp/s/x", host="node2", **kwargs))

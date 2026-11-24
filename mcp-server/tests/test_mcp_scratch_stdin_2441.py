@@ -263,6 +263,8 @@ class TestScratchFileTool:
                     action="write",
                     path="/var/tmp/s76/quote.json",
                     content='{"price": "1.5"}',
+                    dry_run=False,
+                    confirm=True,
                     host="node2",
                 )
             )
@@ -293,6 +295,8 @@ class TestScratchFileTool:
                     action="write",
                     path="/var/tmp/s76/big.txt",
                     content=payload,
+                    dry_run=False,
+                    confirm=True,
                     host="node2",
                 )
             )
@@ -315,6 +319,8 @@ class TestScratchFileTool:
                     action="write",
                     path="/var/tmp/s76/blob.bin",
                     content_base64=payload,
+                    dry_run=False,
+                    confirm=True,
                     host="node2",
                 )
             )
@@ -392,7 +398,9 @@ class TestScratchFileTool:
     def test_delete_and_list_commands(self):
         captured: list[str] = []
         with mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", self._fake_remote(captured)):
-            json.loads(mcp_server.aitbc_scratch_file(action="delete", path="/var/tmp/s/x", host="node2"))
+            json.loads(
+                mcp_server.aitbc_scratch_file(action="delete", path="/var/tmp/s/x", dry_run=False, confirm=True, host="node2")
+            )
             json.loads(mcp_server.aitbc_scratch_file(action="list", path="/var/tmp/s", host="node2"))
         # #2498: delete/list are python snippets too — the realpath guard must
         # run inside the same single invocation (no && chaining allowed).
@@ -407,3 +415,63 @@ class TestScratchFileTool:
             result = json.loads(mcp_server.aitbc_scratch_file(action="list", path="/var/tmp", host="node2"))
         assert result["returncode"] == 0
         assert "/var/tmp" in captured[0]
+
+
+class TestScratchFileConfirmGate:
+    """#2792: write/delete mutate node state and must require
+    dry_run=false + confirm=true like every other mutating tool."""
+
+    def _spy(self):
+        captured: list[str] = []
+
+        def fake(host, command, timeout=60, **kwargs):
+            captured.append(command)
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        return captured, mock.patch.object(aitbc_mcp_scratch_tools, "_run_remote", fake)
+
+    def test_write_dry_run_previews_without_executing(self):
+        captured, patcher = self._spy()
+        with patcher:
+            out = json.loads(mcp_server.aitbc_scratch_file(action="write", path="/var/tmp/s/x", content="data", host="node2"))
+        assert "dry_run" in json.dumps(out).lower() or "command" in out
+        assert captured == []
+
+    def test_write_requires_confirm(self):
+        captured, patcher = self._spy()
+        with patcher:
+            out = json.loads(
+                mcp_server.aitbc_scratch_file(action="write", path="/var/tmp/s/x", content="data", dry_run=False, host="node2")
+            )
+        assert "Confirmation required" in out.get("error", "")
+        assert captured == []
+
+    def test_delete_requires_confirm(self):
+        captured, patcher = self._spy()
+        with patcher:
+            out = json.loads(mcp_server.aitbc_scratch_file(action="delete", path="/var/tmp/s/x", dry_run=False, host="node2"))
+        assert "Confirmation required" in out.get("error", "")
+        assert captured == []
+
+    def test_write_executes_with_dry_run_false_and_confirm(self):
+        captured, patcher = self._spy()
+        with patcher:
+            out = json.loads(
+                mcp_server.aitbc_scratch_file(
+                    action="write",
+                    path="/var/tmp/s/x",
+                    content="data",
+                    dry_run=False,
+                    confirm=True,
+                    host="node2",
+                )
+            )
+        assert out["returncode"] == 0
+        assert len(captured) == 1
+
+    def test_read_and_list_ignore_the_gate(self):
+        captured, patcher = self._spy()
+        with patcher:
+            json.loads(mcp_server.aitbc_scratch_file(action="read", path="/var/tmp/s/x", host="node2"))
+            json.loads(mcp_server.aitbc_scratch_file(action="list", path="/var/tmp/s", host="node2"))
+        assert len(captured) == 2
