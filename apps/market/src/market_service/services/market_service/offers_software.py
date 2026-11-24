@@ -30,6 +30,7 @@ from .shared import (
     OfferIdConflictError,
     _gpu_offer_to_service_dict,
     _local_offer_dict,
+    _validate_software_pricing,
     max_page_size,
 )
 
@@ -535,6 +536,10 @@ class _OffersSoftwareMixin(_CoreMixin):
             # timestamps only from the server — a signed registration can no
             # longer write its own confirmation or reputation.
             data = {key: value for key, value in data.items() if key in _REGISTRATION_FIELDS}
+            # #2856: price/price_unit are billing inputs — validate before
+            # the row is written (NaN/negative/oversized price silently
+            # disables the #2608 listed-price floor for the offer).
+            data = _validate_software_pricing(data)
             # #2435: refuse test-harness registrations — placeholder
             # provider/node identities and STRESS-* names belong to stress
             # runs, not the production catalog. ValueError surfaces as 400.

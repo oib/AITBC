@@ -167,6 +167,39 @@ def _money_decimal(value: Any, field: str) -> Decimal:
     return parsed
 
 
+# Billing-price units a SoftwareService may publish — the closed vocabulary
+# the metered-cost formulas and the CLI/MCP offer commands understand.
+# ``per_hour`` covers the on-chain GPU mapping; the rest mirror the CLI
+# ``--price-unit`` Choice list.
+_VALID_PRICE_UNITS = frozenset(
+    {
+        "per_1k_tokens",
+        "per_audio_min",
+        "per_gb",
+        "per_processing_hour",
+        "per_minute",
+        "per_day",
+        "per_hour",
+    }
+)
+
+
+def _validate_software_pricing(data: dict[str, Any]) -> dict[str, Any]:
+    """#2856: validate ``price``/``price_unit`` on software registration.
+
+    ``price`` feeds the #2608 listed-price floor and metered billing — a
+    NaN/negative/oversized value persists silently and disables the floor
+    for that offer. ``price_unit`` selects the billing formula, so it must
+    come from the known-unit vocabulary. Runs on the allow-listed
+    registration dict before the upsert; mutates ``price`` to Decimal."""
+    if data.get("price") is not None:
+        data["price"] = _money_decimal(data["price"], "price")
+    price_unit = data.get("price_unit")
+    if price_unit is not None and (not isinstance(price_unit, str) or price_unit not in _VALID_PRICE_UNITS):
+        raise ValueError(f"price_unit must be one of {sorted(_VALID_PRICE_UNITS)}")
+    return data
+
+
 def _validate_booking_numbers(booking_data: dict[str, Any]) -> None:
     """Reject non-finite money/duration fields on an offer booking.
 
