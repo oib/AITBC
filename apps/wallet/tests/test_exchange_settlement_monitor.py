@@ -1948,3 +1948,25 @@ class TestReleaseReserveSelfExclusion:
 
         assert exchange_env["eth_sends"] == []
         assert get_exchange_settlement("trade", 63)["status"] == "queued_reserve"
+
+
+class TestExchangeConfigEnvValidation:
+    """#2895: the exchange lane shares _decimal_env (non-finite caps) and
+    had the same raw int() seal-depth parse as the sell lane."""
+
+    @pytest.mark.parametrize("bad", ["Infinity", "-Infinity", "NaN"])
+    def test_non_finite_cap_refuses_config(self, exchange_env, monkeypatch, bad):
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_MAX_ETH_PER_TX", bad)
+        with pytest.raises(ValueError, match="EXCHANGE_SETTLEMENT_MAX_ETH_PER_TX"):
+            _cfg(exchange_env)
+
+    @pytest.mark.parametrize("bad", ["0", "-2", "abc"])
+    def test_seal_depth_must_be_positive(self, exchange_env, monkeypatch, bad):
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_SEAL_DEPTH", bad)
+        with pytest.raises(ValueError, match="EXCHANGE_SETTLEMENT_SEAL_DEPTH"):
+            _cfg(exchange_env)
+
+    def test_seal_depth_falls_back_to_bridge_confirmations(self, exchange_env, monkeypatch):
+        monkeypatch.delenv("EXCHANGE_SETTLEMENT_SEAL_DEPTH", raising=False)
+        monkeypatch.setenv("BRIDGE_CONFIRMATIONS", "9")
+        assert _cfg(exchange_env).seal_depth == 9
