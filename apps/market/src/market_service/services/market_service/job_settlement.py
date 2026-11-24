@@ -138,7 +138,9 @@ class _JobsSettlementMixin(_JobsMixin):
         flagged it), never for a live escrowed payment."""
         states = {"FAILED", "CANCELED", "EXPIRED", "REFUNDED"}
         if payment is not None and payment.status == "refund_pending":
-            states |= {"QUEUED", "RUNNING"}
+            # #2852: COMPLETED joins when the payment was adjudicated to
+            # refund — mirrors the _guard_refund_settlement carve-out.
+            states |= {"QUEUED", "RUNNING", "COMPLETED"}
         return states
 
     @staticmethod
@@ -586,7 +588,16 @@ class _JobsSettlementMixin(_JobsMixin):
             and job.state not in {"EXPIRED", "FAILED"}
         ):
             raise ValueError(f"Cannot refund escrow for job {job_id}: provider confirmed delivery; dispute or expiry only")
-        if payment.status == "released" or job.state in {"RELEASED", "COMPLETED"}:
+        # #2852: COMPLETED refuses only while the payment still awaits
+        # provider release ('escrowed'). A 'refund_pending' payment on a
+        # COMPLETED job is an operator adjudication
+        # (resolve_market_job_dispute resolution='buyer') — the buyer must
+        # be payable after a cleared dispute.
+        if (
+            payment.status == "released"
+            or job.state == "RELEASED"
+            or (job.state == "COMPLETED" and payment.status == "escrowed")
+        ):
             raise ValueError(f"Cannot refund escrow for job {job_id}: payment already released")
         if job.state in {"QUEUED", "RUNNING"} and payment.status != "refund_pending":
             raise ValueError(f"Cannot refund escrow for job {job_id} in state {job.state}; cancel it first")

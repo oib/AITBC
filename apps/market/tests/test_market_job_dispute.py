@@ -159,3 +159,110 @@ async def test_dispute_resolve_unknown_job_is_404() -> None:
     with TestClient(app) as client:
         r = client.post(f"/v1/market/jobs/nonexistent_{_uid()}/dispute/resolve")
     assert r.status_code == 404
+
+
+# --- dispute adjudication can reroute funds (#2852) ----------------------------
+
+
+async def _seed_completed_disputed_job() -> str:
+    """COMPLETED job (provider attested) + escrowed payment + open dispute —
+    the exact state where resolution used to be able to pay only the
+    provider."""
+    from decimal import Decimal
+
+    from aitbc.crypto.crypto import derive_ethereum_address
+    from market_service.domain.market import MarketJobPayment
+    from market_service.services.market_service import MarketService
+
+    buyer_key, provider_key = "0x" + "44" * 32, "0x" + "55" * 32
+    async with get_session_context() as session:
+        job_id = f"job_cmp_{_uid()}"
+        payment = MarketJobPayment(id=f"pay_{_uid()}", job_id=job_id, amount=Decimal("1.0"), status="escrowed")
+        session.add(
+            MarketJob(
+                id=job_id,
+                buyer_address=derive_ethereum_address(buyer_key),
+                provider_address=derive_ethereum_address(provider_key),
+                service_type="ipfs",
+                state="COMPLETED",
+                offer_id="offer_x",
+                payload={"provider_confirmed": True},
+                payment_id=payment.id,
+                payment_status="escrowed",
+            )
+        )
+        session.add(payment)
+        await session.commit()
+        # Open the dispute through the real path.
+        await MarketService(session).dispute_market_job(job_id, reason="buyer claims defective delivery")
+    return job_id
+
+
+async def _payment_status(job_id: str) -> str | None:
+    from market_service.domain.market import MarketJobPayment
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None and job.payment_id
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment is not None
+        return payment.status
+
+
+async def test_resolve_buyer_adjudication_flips_escrow_to_refund_pending() -> None:
+    """#2852: resolution='buyer' must leave the payment on the refund rail —
+    before this, a cleared dispute on COMPLETED could only pay the provider."""
+    from market_service.services.market_service import MarketService
+
+    job_id = await _seed_completed_disputed_job()
+    assert await _payment_status(job_id) == "escrowed"
+
+    async with get_session_context() as session:
+        out = await MarketService(session).resolve_market_job_dispute(job_id, resolution="buyer")
+    assert out["dispute_cleared_at"] is not None
+    assert await _payment_status(job_id) == "refund_pending"
+
+
+async def test_resolve_provider_adjudication_keeps_release_path() -> None:
+    """Default/'provider' resolution is unchanged: escrow stays for release."""
+    from market_service.services.market_service import MarketService
+
+    job_id = await _seed_completed_disputed_job()
+    async with get_session_context() as session:
+        await MarketService(session).resolve_market_job_dispute(job_id, resolution="provider")
+        await MarketService(session).resolve_market_job_dispute(job_id)  # default arg
+    assert await _payment_status(job_id) == "escrowed"
+
+
+async def test_unknown_resolution_rejected() -> None:
+    from market_service.services.market_service import MarketService
+
+    job_id = await _seed_completed_disputed_job()
+    async with get_session_context() as session:
+        with pytest.raises(ValueError, match="resolution"):
+            await MarketService(session).resolve_market_job_dispute(job_id, resolution="split")
+    # The dispute must still be open — a rejected resolution changes nothing.
+    job = await _dispute_fields(job_id)
+    assert job.dispute_cleared_at is None
+    assert await _payment_status(job_id) == "escrowed"
+
+
+async def test_refund_settles_completed_job_after_buyer_adjudication() -> None:
+    """The end-to-end claim: after buyer adjudication the manual refund
+    path (and therefore the sweeper) can actually pay the buyer on a
+    COMPLETED job — refund_market_job_payment used to refuse it for every
+    caller."""
+    from unittest.mock import AsyncMock
+
+    from market_service.services.market_service import MarketService
+
+    job_id = await _seed_completed_disputed_job()
+    async with get_session_context() as session:
+        svc = MarketService(session)
+        await svc.resolve_market_job_dispute(job_id, resolution="buyer")
+        svc._rpc_client.refund_escrow = AsyncMock(
+            return_value={"success": True, "tx_hash": "0xBuyerRefund", "refunded_amount": "1.0"}
+        )
+        out = await svc.refund_market_job_payment(job_id, reason="dispute adjudicated for buyer")
+    assert out["state"] == "REFUNDED"
+    assert await _payment_status(job_id) == "refunded"

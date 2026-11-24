@@ -744,7 +744,12 @@ class MarketJobSweeper:
                 job_ok = await self._cas_job_state(
                     session,
                     job.id,
-                    frozenset({"FAILED", "CANCELED", "EXPIRED"}),
+                    # #2852: COMPLETED joins — a dispute adjudicated for the
+                    # buyer leaves job.state COMPLETED with a refund_pending
+                    # payment; the refund select only admits it via that
+                    # payment status, so escrowed+COMPLETED (release-owed)
+                    # rows can never reach this write.
+                    frozenset({"FAILED", "CANCELED", "EXPIRED", "COMPLETED"}),
                     {
                         "state": "REFUNDED",
                         "payment_status": "refunded",

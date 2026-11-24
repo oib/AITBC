@@ -306,14 +306,20 @@ async def dispute_market_job(
 async def resolve_market_job_dispute(
     job_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
+    resolve_data: dict[str, Any] | None = None,
 ) -> Any:
     """Clear a dispute freeze so the sweeper can settle/refund (#1783).
 
     Operator-tier only: resolution is an admin action, not a party one.
+    ``resolve_data.resolution`` adjudicates the payout (#2852): omit or
+    ``"provider"`` pays the provider as before; ``"buyer"`` flips the
+    escrowed payment to refund_pending so the refund pass pays the buyer —
+    the only path that can reroute money after a cleared dispute.
     """
     try:
+        resolve_data = resolve_data or {}
         logger.info("POST /v1/market/jobs/%s/dispute/resolve called", job_id)
-        result = await svc.resolve_market_job_dispute(job_id)
+        result = await svc.resolve_market_job_dispute(job_id, resolution=str(resolve_data.get("resolution", "provider")))
         return result
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
