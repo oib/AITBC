@@ -2070,3 +2070,59 @@ class TestRetryQueueContainment:
         assert bad["status"] == BridgeDepositStatus.PENDING_RETRY.value
         assert "not payable" in (bad["error_message"] or "")
         assert get_deposit("0xafter")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+
+class TestNonFinitePayoutCaps2822:
+    """#2822: non-finite BRIDGE_MAX_PAYOUT_* env values must not crash the
+    constructor or overflow the per-deposit cap check."""
+
+    def _make_monitor(self, tmp_path, monkeypatch, **env):
+        from bridge_monitor.main import BridgeMonitor
+
+        db_path = str(tmp_path / "bridge_deposits.db")
+        monkeypatch.setattr("bridge_monitor.storage.DATA_DIR", str(tmp_path))
+        monkeypatch.setattr("bridge_monitor.storage.DB_PATH", db_path)
+        monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "0x" + "a" * 40)
+        monkeypatch.setenv("GENESIS_WALLET_ADDRESS", "0x" + "b" * 40)
+        monkeypatch.setenv("GENESIS_WALLET_PRIVATE_KEY", "0x" + "c" * 64)
+        monkeypatch.setenv("BRIDGE_MIN_DEPOSIT_AIT", "1")
+        for key, value in env.items():
+            monkeypatch.setenv(key, value)
+        with patch("bridge_monitor.main.EthereumRPCClient"), patch("bridge_monitor.main.get_price_oracle"):
+            return BridgeMonitor()
+
+    def test_infinite_absolute_cap_is_ignored(self, tmp_path, monkeypatch):
+        """BRIDGE_MAX_PAYOUT_AIT=Infinity passed `> 0`, then overflowed
+        ait_to_units() inside _exceeds_payout_cap on every deposit."""
+        m = self._make_monitor(tmp_path, monkeypatch, BRIDGE_MAX_PAYOUT_AIT="Infinity")
+        assert m.max_payout_ait is None
+
+    def test_nan_fraction_falls_back_instead_of_crashing(self, tmp_path, monkeypatch):
+        """BRIDGE_MAX_PAYOUT_FRACTION=NaN made `0 < NaN <= 1` raise
+        InvalidOperation outside the try — the constructor died."""
+        m = self._make_monitor(tmp_path, monkeypatch, BRIDGE_MAX_PAYOUT_FRACTION="NaN")
+        assert m.max_payout_fraction == Decimal("0.5")
+
+    def test_snan_fraction_falls_back(self, tmp_path, monkeypatch):
+        m = self._make_monitor(tmp_path, monkeypatch, BRIDGE_MAX_PAYOUT_FRACTION="sNaN")
+        assert m.max_payout_fraction == Decimal("0.5")
+
+    def test_nan_absolute_cap_still_ignored(self, tmp_path, monkeypatch):
+        m = self._make_monitor(tmp_path, monkeypatch, BRIDGE_MAX_PAYOUT_AIT="NaN")
+        assert m.max_payout_ait is None
+
+    def test_programmatic_infinite_cap_does_not_overflow(self, tmp_path, monkeypatch):
+        """Defense in depth: a non-finite cap set after construction must not
+        reach ait_to_units either."""
+        from aitbc.utils.units import ait_to_units
+
+        m = self._make_monitor(tmp_path, monkeypatch)
+        m.max_payout_ait = Decimal("Infinity")
+        # Balance unreadable: the absolute cap is skipped (non-finite), the
+        # fraction check fails open — the point is no OverflowError escapes.
+        with patch.object(m, "_payout_wallet_balance", return_value=None):
+            exceeded, _ = m._exceeds_payout_cap(Decimal("1"))
+        assert exceeded is False
+        with patch.object(m, "_payout_wallet_balance", return_value=ait_to_units(1000)):
+            exceeded, _ = m._exceeds_payout_cap(Decimal("1"))
+        assert exceeded is False

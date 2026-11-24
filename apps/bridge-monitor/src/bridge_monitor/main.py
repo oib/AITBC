@@ -32,6 +32,42 @@ configure_logging(level="INFO", service_name="bridge-monitor", to_file=True)
 logger = get_logger(__name__)
 
 
+def _parse_payout_caps() -> tuple[Decimal, Decimal | None]:
+    """Read the per-deposit payout caps from the environment.
+
+    Returns ``(max_payout_fraction, max_payout_ait)``. Non-finite env values
+    are rejected here rather than downstream: ``Decimal("NaN")`` makes every
+    range comparison raise InvalidOperation (which would kill the constructor
+    and restart-loop the service), and ``Decimal("Infinity")`` overflows
+    ``ait_to_units()`` inside ``_exceeds_payout_cap`` on every deposit (#2822).
+    """
+    try:
+        fraction = Decimal(os.getenv("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"))
+    except ArithmeticError:
+        fraction = Decimal("0.5")
+    if not fraction.is_finite() or not (Decimal(0) < fraction <= Decimal(1)):
+        logger.warning(
+            "BRIDGE_MAX_PAYOUT_FRACTION %s outside (0,1] — falling back to 0.5; "
+            "a misconfigured cap must not silently disable a safety control",
+            fraction,
+        )
+        fraction = Decimal("0.5")
+    max_payout_ait: Decimal | None = None
+    raw_abs = os.getenv("BRIDGE_MAX_PAYOUT_AIT", "")
+    if raw_abs:
+        try:
+            parsed_abs = Decimal(raw_abs)
+            if parsed_abs.is_finite() and parsed_abs > 0:
+                max_payout_ait = parsed_abs
+            elif not parsed_abs.is_finite():
+                logger.warning("BRIDGE_MAX_PAYOUT_AIT %s not finite — ignored", raw_abs)
+            else:
+                logger.warning("BRIDGE_MAX_PAYOUT_AIT %s not positive — ignored", raw_abs)
+        except ArithmeticError:
+            logger.warning("BRIDGE_MAX_PAYOUT_AIT %r unparseable — ignored", raw_abs)
+    return fraction, max_payout_ait
+
+
 class BridgeMonitor(BridgeMonitorRuntime):
     """Monitor Ethereum wallet for deposits and bridge to AIT."""
 
@@ -102,33 +138,9 @@ class BridgeMonitor(BridgeMonitorRuntime):
         # the payout wallet balance — a single outsized deposit cannot drain
         # the float in one send. Over-cap deposits fail permanently and alert;
         # the operator resolves them deliberately (float top-up +
-        # manual-payout, which is intentionally uncapped, or refund).
-        try:
-            self.max_payout_fraction = Decimal(os.getenv("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"))
-        except ArithmeticError:
-            self.max_payout_fraction = Decimal("0.5")
-        if not (Decimal(0) < self.max_payout_fraction <= Decimal(1)):
-            logger.warning(
-                "BRIDGE_MAX_PAYOUT_FRACTION %s outside (0,1] — falling back to 0.5; "
-                "a misconfigured cap must not silently disable a safety control",
-                self.max_payout_fraction,
-            )
-            self.max_payout_fraction = Decimal("0.5")
-        # Optional absolute ceiling alongside the fraction. The fraction cap
-        # shrinks as the float drains, so a fixed AIT bound gives a predictable
-        # worst case; the effective cap is the stricter of the two. Unset or
-        # invalid disables it — the fraction cap still applies.
-        self.max_payout_ait: Decimal | None = None
-        raw_abs = os.getenv("BRIDGE_MAX_PAYOUT_AIT", "")
-        if raw_abs:
-            try:
-                parsed_abs = Decimal(raw_abs)
-                if parsed_abs > 0:
-                    self.max_payout_ait = parsed_abs
-                else:
-                    logger.warning("BRIDGE_MAX_PAYOUT_AIT %s not positive — ignored", raw_abs)
-            except ArithmeticError:
-                logger.warning("BRIDGE_MAX_PAYOUT_AIT %r unparseable — ignored", raw_abs)
+        # manual-payout, which is intentionally uncapped, or refund). The
+        # optional absolute ceiling is the stricter of the two bounds.
+        self.max_payout_fraction, self.max_payout_ait = _parse_payout_caps()
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
         # route (and the deposit-instruction call) touches this file; a fresh
