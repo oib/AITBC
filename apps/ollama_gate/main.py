@@ -223,7 +223,9 @@ def _keep_alive_seconds(value: Any) -> float | None:
         seconds = float(match.group(1)) * _DURATION_UNIT[match.group(2) or "s"]
     else:
         return None
-    if seconds < 0 or seconds > _MAX_KEEP_ALIVE_SECONDS:
+    # Chained comparison is False for NaN — json.loads admits the literal,
+    # and "x < 0 or x > max" is False for NaN too (#2915).
+    if not (0.0 <= seconds <= _MAX_KEEP_ALIVE_SECONDS):
         return None
     return seconds
 
