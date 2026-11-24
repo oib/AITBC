@@ -233,7 +233,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -417,7 +417,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -612,7 +612,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -780,7 +780,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1000,7 +1000,7 @@
             }
           },
           "403": {
-            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
+            "description": "caller signature required / signed timestamp required / invalid signed timestamp / signed timestamp outside the freshness window / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1125,7 +1125,7 @@
             }
           },
           "403": {
-            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
+            "description": "caller signature required / signed timestamp required / invalid signed timestamp / signed timestamp outside the freshness window / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1231,7 +1231,7 @@
             }
           },
           "403": {
-            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
+            "description": "caller signature required / signed timestamp required / invalid signed timestamp / signed timestamp outside the freshness window / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1347,7 +1347,7 @@
             }
           },
           "403": {
-            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {

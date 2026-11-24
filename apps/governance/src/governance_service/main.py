@@ -6,6 +6,7 @@ Manages governance operations
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -97,10 +98,13 @@ async def _check_fresh(payload: dict[str, Any], signature: str | None) -> None:
     if ts is None:
         raise HTTPException(status_code=403, detail="signed timestamp required")
     try:
-        if abs(now - float(ts)) > _SIGNED_TTL_SECONDS:
-            raise HTTPException(status_code=403, detail="signed timestamp outside the freshness window")
+        tsf = float(ts)
     except (TypeError, ValueError):
         raise HTTPException(status_code=403, detail="invalid signed timestamp") from None
+    # NaN slips past a bare > comparison (nan > 300 is False) — require a
+    # finite timestamp or a captured signed body stays fresh forever (#2878).
+    if not math.isfinite(tsf) or abs(now - tsf) > _SIGNED_TTL_SECONDS:
+        raise HTTPException(status_code=403, detail="signed timestamp outside the freshness window")
     if not signature:
         return
     from .domain.governance import UsedSignature
@@ -685,12 +689,20 @@ async def execute_proposal_v2(
 ):
     """Execute a passed proposal (v0.4.12 enhanced with logging + v0.7.3 on-chain submission)"""
     body = body or {}
-    signed_execute = {"action": "execute", "proposal_id": proposal_id, "timestamp": body.get("timestamp")}
-    _require_signature(
-        str(body.get("caller_address") or executor_address),
-        body.get("signature"),
-        signed_execute,
-    )
+    caller = str(body.get("caller_address") or executor_address)
+    # executor_address arrives as a query param — bind it to the signing
+    # identity and cover it in the signed payload so it cannot be swapped
+    # after signing (#2878). Omitted from the payload when empty so clients
+    # that never set it keep the old 3-field signature shape.
+    signed_execute: dict[str, Any] = {
+        "action": "execute",
+        "proposal_id": proposal_id,
+        "timestamp": body.get("timestamp"),
+    }
+    if executor_address:
+        signed_execute["executor_address"] = executor_address
+    _bind_actor(caller, {"executor_address": executor_address})
+    _require_signature(caller, body.get("signature"), signed_execute)
     await _check_fresh(signed_execute, body.get("signature"))
     signed_tx = body.get("signed_tx")
     try:
