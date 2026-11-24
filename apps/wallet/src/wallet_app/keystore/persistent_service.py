@@ -479,6 +479,10 @@ class PersistentKeystoreService:
 
         assert_transfer_allowed(amount, payload)
 
+        # #2868: failures before _submit_transaction_to_chain are provably
+        # local — nothing was broadcast — so they are definite (safe retry),
+        # not 'uncertain'. Anything after the submit call may have landed.
+        broadcast_attempted = False
         try:
             # Legacy Ed25519 wallets (pre-migration rows carry no
             # key_scheme) cannot produce a signature the node accepts —
@@ -578,6 +582,7 @@ class PersistentKeystoreService:
                 signature_hex = signing_key.sign_msg_hash(keccak(message)).to_hex()
 
                 # Submit to blockchain RPC
+                broadcast_attempted = True
                 result = self._submit_transaction_to_chain(tx_data, signature_hex)
 
                 # Log success
@@ -613,6 +618,11 @@ class PersistentKeystoreService:
                 "error": str(e),
                 "sender": sender_address,
                 "recipient": recipient if "recipient" in locals() else None,
+                # #2868: pre-broadcast local failures (validation, missing
+                # key scheme, nonce RPC, signing) are definite — the tx
+                # provably never left the wallet. Post-submit failures stay
+                # unflagged so the caller treats them as ambiguous.
+                **({"definite": True} if not broadcast_attempted else {"ambiguous": True}),
             }
 
     def _get_account_nonce(self, address: str) -> int:
