@@ -574,6 +574,18 @@ class _JobsSettlementMixin(_JobsMixin):
         except (TypeError, ValueError):
             return None
 
+    @staticmethod
+    def _refuse_under_settled(tx_hash: str, settled: Decimal | None, floor: Decimal | None, kind: str) -> None:
+        """#2858: a verified settle tx must cover the settlement floor.
+
+        Recording a partial settle strands the remainder locked in escrow —
+        the job flips terminal while funds stay behind. ``settled``/``floor``
+        are AIT Decimals; either being None means the check cannot run
+        (unreadable tx value or no payment row) and is skipped."""
+        if settled is None or floor is None or settled >= floor:
+            return
+        raise ValueError(f"Transaction {tx_hash} settles {settled} AIT, below the {floor} AIT {kind} floor for this escrow")
+
     def _guard_release_settlement(
         self, job: MarketJob, payment: MarketJobPayment | None, job_id: str
     ) -> dict[str, Any] | None:
@@ -680,7 +692,17 @@ class _JobsSettlementMixin(_JobsMixin):
                 tx = await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_RELEASE")
                 # The caller's released_amount is a claim, not evidence: store
                 # the amount the verified transaction actually moved (#1584).
-                released_amount = self._settled_amount_ait(tx)
+                settled = self._settled_amount_ait(tx)
+                # #2858: refuse under-settlement — the floor is the attested
+                # billed amount when provider billing priced the job (partial
+                # release is legitimate there), else the full lock.
+                from .billing import attested_release_amount
+
+                floor = await attested_release_amount(self.session, job, payment)
+                if floor is None and payment is not None:
+                    floor = payment.amount
+                self._refuse_under_settled(tx_hash, settled, floor, "release")
+                released_amount = settled
             else:
                 # #2851: settle under the escrow's real key — an
                 # ``escrow_job_id`` alias (#2737) names the on-chain id when
@@ -783,7 +805,11 @@ class _JobsSettlementMixin(_JobsMixin):
                 tx = await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_REFUND")
                 # Same rule as release: the on-chain value is authoritative,
                 # never the caller-supplied figure (#1584).
-                refunded_amount = self._settled_amount_ait(tx)
+                settled = self._settled_amount_ait(tx)
+                # #2858: a refund must return the full lock — anything less
+                # strands the remainder behind a terminal job.
+                self._refuse_under_settled(tx_hash, settled, payment.amount if payment is not None else None, "refund")
+                refunded_amount = settled
             else:
                 # Same alias-aware key as release (#2851).
                 escrow_key = resolve_escrow_key(job)
