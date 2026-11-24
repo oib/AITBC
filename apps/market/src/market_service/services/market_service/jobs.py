@@ -1236,6 +1236,58 @@ class _JobsMixin(_CoreMixin):
             receipt["_dispute_resolution"] = "buyer"
             job.receipt = receipt
 
+    async def _lazy_expire_job(self, job: MarketJob) -> None:
+        """#2854: expire an overdue QUEUED/RUNNING job via CAS.
+
+        The ORM write this replaces committed ``state=EXPIRED``
+        unconditionally, so a settle that landed between the SELECT and the
+        commit was regressed (RELEASED -> EXPIRED, payment released ->
+        refund_pending). The state predicate makes the loser a no-op; the
+        payment flip is likewise conditional on the row still being
+        escrowed."""
+        now = datetime.now(UTC).replace(tzinfo=None)
+        claim = await self.session.execute(
+            update(MarketJob)
+            .where(col(MarketJob.id) == job.id, col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
+            # updated_at deliberately untouched — the sweeper's refund
+            # min_age gate reads it, and the pre-CAS ORM path never bumped it.
+            .values(state="EXPIRED")
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) != 1:
+            await self.session.rollback()
+            return
+        payment_flipped = False
+        # Mirror _expire_stale_jobs: an escrowed payment on an expired
+        # (unfinished) job must go to the buyer, not sit escrowed where the
+        # sweeper's release pass could pay the provider. #2348: except when
+        # an active IpfsRentalToken covers the job — the rental sweeper owns
+        # that escrow's settlement.
+        if job.payment_id:
+            payment = await self.session.get(MarketJobPayment, job.payment_id)
+            covered = (
+                payment is not None and payment.status == "escrowed" and await active_rental_token_covers(self.session, job.id)
+            )
+            if payment is not None and payment.status == "escrowed" and not covered:
+                flip = await self.session.execute(
+                    update(MarketJobPayment)
+                    .where(
+                        col(MarketJobPayment.id) == payment.id,
+                        col(MarketJobPayment.status) == "escrowed",
+                    )
+                    .values(status="refund_pending", updated_at=now)
+                    .execution_options(synchronize_session=False)
+                )
+                payment_flipped = getattr(flip, "rowcount", 0) == 1
+        if payment_flipped:
+            await self.session.execute(
+                update(MarketJob)
+                .where(col(MarketJob.id) == job.id)
+                .values(payment_status="refund_pending")
+                .execution_options(synchronize_session=False)
+            )
+        await self.session.commit()
+
     async def get_market_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an access token and return the job details."""
         from sqlmodel import col
@@ -1267,25 +1319,7 @@ class _JobsMixin(_CoreMixin):
                 # RELEASED job would regress to EXPIRED). Access is still
                 # denied past expiry either way (#v11 item 6).
                 if job.state in {"QUEUED", "RUNNING"}:
-                    job.state = "EXPIRED"
-                    # Mirror _expire_stale_jobs: an escrowed payment on an expired
-                    # (unfinished) job must go to the buyer, not sit escrowed
-                    # where the sweeper's release pass could pay the provider.
-                    # #2348: except when an active IpfsRentalToken covers the
-                    # job — the rental sweeper owns that escrow's settlement.
-                    if job.payment_id:
-                        payment = await self.session.get(MarketJobPayment, job.payment_id)
-                        covered = (
-                            payment is not None
-                            and payment.status == "escrowed"
-                            and await active_rental_token_covers(self.session, job.id)
-                        )
-                        if payment is not None and payment.status == "escrowed" and not covered:
-                            payment.status = "refund_pending"
-                            payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                            self.session.add(payment)
-                            job.payment_status = "refund_pending"
-                    await self.session.commit()
+                    await self._lazy_expire_job(job)
                 return None
 
             # #2322 MARKET-TOKEN-ESCROW-BIND-1: the token buys shop work only
