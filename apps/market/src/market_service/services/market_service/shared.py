@@ -74,7 +74,11 @@ MAX_JOB_TTL_SECONDS = 31_536_000
 # Same 1e15 ceiling the exchange/trading money validators use — an
 # unbounded payment.amount (1e18/1e30 accepted pre-fix) has no sane
 # interpretation and only risks downstream overflow (#1673-class).
-MAX_PAYMENT_AMOUNT = Decimal("1000000000000000")
+# #2857: the money columns are Numeric(20,8) — precision 20, scale 8 leaves
+# 12 integer digits, so the true ceiling is 999999999999.99999999. The old
+# 1e15 bound passed validation but overflowed the column on Postgres (500
+# after validation) and lost precision under SQLite float affinity.
+MAX_PAYMENT_AMOUNT = Decimal("999999999999.99999999")
 
 # Shop bearer tokens authorize in-flight work only; terminal lifecycle states
 # must not admit new shop calls (#1817, #1597 residual).
