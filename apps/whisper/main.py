@@ -211,7 +211,8 @@ async def _spool_upload(file: UploadFile, suffix: str) -> str:
                     status_code=413,
                     detail=f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit",
                 )
-            tmp.write(chunk)
+            # tmpfs writes are synchronous; off the event loop (#2909).
+            await asyncio.to_thread(tmp.write, chunk)
         tmp.close()  # noqa: unawaited-async — tempfile close is synchronous
     except BaseException:
         # delete=False means the file outlives its handle, and its name has not
@@ -417,7 +418,10 @@ async def _transcribe_job(tmp_path: str, language: str | None, task: str, beam_s
     global _inflight
     try:
         try:
-            seconds = _probe_duration(tmp_path)
+            # _ffprobe_duration runs subprocess.run(timeout=15) synchronously;
+            # with _MAX_CONCURRENT=1 a buyer cycling duration-less uploads
+            # would pin the loop — keep it off (#2909).
+            seconds = await asyncio.to_thread(_probe_duration, tmp_path)
         except _probe_errors():
             # Unreadable, or not one of the plain audio/video containers media_guard
             # allows. faster-whisper would open the same file with no guard at all,
