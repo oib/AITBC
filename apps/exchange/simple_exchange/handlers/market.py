@@ -64,11 +64,16 @@ def _book_offer_price(data: dict, offer_price) -> str:
     """Buyer-supplied book price, bounded like offer prices (#1675).
 
     Absent/falsy falls back to the (already validated) offer price — the
-    legacy ``or`` semantics; a truthy value must pass the same bounds.
+    legacy ``or`` semantics; a truthy value must pass the same bounds and
+    may not undercut the offer it books (#2841): a BUY at 0.00000001 AIT
+    against a 100-AIT ask is a corrupt money field, not a bid.
     """
     price_raw = data.get("price")
     if price_raw:
-        return str(_market_price_or_raise(price_raw))
+        price = _market_price_or_raise(price_raw)
+        if price < _to_decimal(offer_price):
+            raise ValueError("price must not be below the offer price")
+        return str(price)
     return str(offer_price)
 
 
@@ -398,8 +403,9 @@ class MarketMixin:
                     SELECT id, item, price
                     FROM marketplace_offers
                     WHERE (id = ? OR item = ?) AND status = 'active'
+                    ORDER BY (id = ?) DESC, created_at DESC, id
                 """,
-                    (offer_id, offer_id),
+                    (offer_id, offer_id, offer_id),
                 )
                 row = cursor.fetchone()
                 if row is None:
