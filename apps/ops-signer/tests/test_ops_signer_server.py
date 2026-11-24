@@ -250,3 +250,68 @@ def test_stop_before_serve_is_safe(tmp_path: Path):
     srv = _server(_cfg(tmp_path))
     srv.stop()  # nothing listening: wake-up connect fails, flag still set
     assert srv._stopping is True
+
+
+# --- payment dedupe / ambiguous send (#2827) ----------------------------------
+
+
+class AmbiguousSigner:
+    """Signer's request left the host and the answer was lost."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int]] = []
+
+    def sign_and_send(self, *, to: str, amount_units: int) -> str:
+        self.calls.append((to, amount_units))
+        from aitbc.exceptions import AmbiguousRequestError
+
+        raise AmbiguousRequestError("send response lost")
+
+
+def _served_with(tmp_path: Path, signer: Any):
+    cfg = _cfg(tmp_path)
+    srv = _server(cfg)
+    srv.signer = cast(Any, signer)
+    t = _serve(srv)
+    _wait_sock(Path(cfg.socket_path))
+    return cfg, srv, t
+
+
+def test_identical_retry_replays_recorded_hash(running):
+    cfg, srv, _t = running
+    first = request(cfg.socket_path, _req(amount_units=250))
+    assert first["ok"] is True and first["result"] == "signed"
+    second = request(cfg.socket_path, _req(amount_units=250))
+    # Same memo+to+amount = same payment: no second send, same hash back.
+    assert second == first
+    assert len(srv.signer.calls) == 1
+
+
+def test_ambiguous_send_reports_ambiguous_and_retry_is_in_flight(tmp_path: Path):
+    cfg, srv, t = _served_with(tmp_path, AmbiguousSigner())
+    try:
+        reply = request(cfg.socket_path, _req(amount_units=250))
+        assert reply["ok"] is False
+        assert reply["result"] == "ambiguous"
+        assert reply["reason"] == "send_outcome_unknown"
+        # The caller must reconcile, not blindly retry: an identical
+        # resubmit is refused instead of paying a second time.
+        retry = request(cfg.socket_path, _req(amount_units=250))
+        assert retry["ok"] is False and retry["reason"] == "send_in_flight"
+        assert len(srv.signer.calls) == 1
+        # A different memo is a different payment and reaches the signer.
+        other = request(cfg.socket_path, _req(amount_units=250, memo="S-11"))
+        assert other["ok"] is False and other["reason"] == "send_outcome_unknown"
+        assert len(srv.signer.calls) == 2
+    finally:
+        srv.stop()
+        t.join(timeout=5)
+
+
+def test_different_memo_signs_separately(running):
+    cfg, srv, _t = running
+    a = request(cfg.socket_path, _req(amount_units=250, memo="S-10"))
+    b = request(cfg.socket_path, _req(amount_units=250, memo="S-11"))
+    assert a["ok"] and b["ok"]
+    assert a["tx_hash"] != b["tx_hash"]
+    assert len(srv.signer.calls) == 2

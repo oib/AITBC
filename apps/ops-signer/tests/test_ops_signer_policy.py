@@ -11,6 +11,7 @@ import json
 import sqlite3
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -579,3 +580,45 @@ def test_sign_and_send_resolves_chain_id_when_unset(tmp_path: Path, monkeypatch)
     )
     Signer(cfg, http_factory=lambda: http).sign_and_send(to=payee_lower, amount_units=7)
     assert http.posts[0]["chain_id"] == "resolved-chain"
+
+
+# --- admit_or_find dedupe + pruning (#2827) ------------------------------------
+
+
+def test_admit_or_find_replay_and_in_flight(tmp_path: Path):
+    led = _ledger(tmp_path)
+    kw = {"memo": "S-7", "to_addr": payee_lower, "max_per_day": 10_000}
+    kind, row_id, tx_hash = led.admit_or_find(500, **kw)
+    assert (kind, row_id, tx_hash) == ("admitted", row_id, None)
+    # Hashless row -> the earlier send's outcome is unknown: in_flight.
+    kind, row_id2, _ = led.admit_or_find(500, **kw)
+    assert kind == "in_flight" and row_id2 == row_id
+    led.record_tx_hash(row_id, "0x" + "cd" * 32)
+    kind, row_id3, tx_hash = led.admit_or_find(500, **kw)
+    assert (kind, row_id3, tx_hash) == ("replay", row_id, "0x" + "cd" * 32)
+    # A different amount or memo is a different payment.
+    assert led.admit_or_find(501, **kw)[0] == "admitted"
+    assert led.admit_or_find(500, memo="S-8", to_addr=payee_lower, max_per_day=10_000)[0] == "admitted"
+
+
+def test_admit_or_find_over_cap(tmp_path: Path):
+    led = _ledger(tmp_path)
+    kw = {"memo": "S-9", "to_addr": payee_lower, "max_per_day": 100}
+    assert led.admit_or_find(60, **kw)[0] == "admitted"
+    assert led.admit_or_find(50, **kw)[0] == "over_cap"
+
+
+def test_ledger_prunes_rows_past_retention(tmp_path: Path):
+    """Rows older than RETENTION_SECONDS are deleted on the next admit —
+    the spends table (and its per-request SUM scan) stays bounded."""
+    led = _ledger(tmp_path)
+    kw = {"memo": "S-1", "to_addr": payee_lower, "max_per_day": 10_000}
+    led.admit(100, **kw)
+    db = sqlite3.connect(tmp_path / "ledger.db")
+    old_ts = time.time() - 8 * 86_400
+    db.execute("UPDATE spends SET ts=?", (old_ts,))
+    db.commit()
+    db.close()
+    led.admit_or_find(50, memo="S-2", to_addr=payee_lower, max_per_day=10_000)
+    remaining = sqlite3.connect(tmp_path / "ledger.db").execute("SELECT COUNT(*) FROM spends").fetchone()[0]
+    assert remaining == 1  # only the fresh row survives

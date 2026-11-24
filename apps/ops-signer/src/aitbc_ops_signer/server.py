@@ -175,11 +175,43 @@ def _sign_and_record(
         raise
     # The send already committed; a ledger write failure must not turn
     # the answer into "error" — the client would retry a paid transfer.
+    # Retry once, then scream: the spends row is the reconcile handle for
+    # this tx_hash, and a hashless row blocks same-memo retries as
+    # in_flight until an operator fills it in (#2827).
     try:
         ledger.record_tx_hash(row_id, tx_hash)
     except Exception as e:  # noqa: BLE001 - the tx is real either way
-        log.error("send succeeded but ledger record failed for row %s: %s: %s", row_id, type(e).__name__, e)
+        try:
+            ledger.record_tx_hash(row_id, tx_hash)
+        except Exception as e2:  # noqa: BLE001 - last resort: audit + client still carry the hash
+            log.critical(
+                "send succeeded but ledger record failed twice for row %s: %s / %s",
+                row_id,
+                type(e).__name__,
+                type(e2).__name__,
+            )
     return tx_hash
+
+
+def _admit_or_replay(config: Config, ledger: DailyLedger, req: PaymentRequest) -> tuple[int | None, dict[str, Any] | None]:
+    """Admit the payment or answer a dedupe hit.
+
+    Returns ``(row_id, None)`` to proceed to signing, or ``(None, reply)``
+    when an identical payment already completed — the recorded tx_hash is
+    the idempotent answer, so a client retry never pays twice (#2827).
+    Raises Refused for over_cap / send_in_flight (an identical send whose
+    outcome is still unknown — the caller must reconcile, not resubmit).
+    """
+    admit_kind, row_id, prior_hash = ledger.admit_or_find(
+        req.amount_units, memo=req.memo, to_addr=req.to, max_per_day=config.max_per_day
+    )
+    if admit_kind == "over_cap":
+        raise Refused("over_day_cap")
+    if admit_kind == "replay":
+        return None, {"ok": True, "result": "signed", "tx_hash": prior_hash or "-"}
+    if admit_kind == "in_flight":
+        raise Refused("send_in_flight")
+    return row_id, None
 
 
 def handle_request(
@@ -208,9 +240,11 @@ def handle_request(
                 raise Refused("over_day_cap")
             result, reason = "dry_run_pass", "-"
             return {"ok": True, "result": result}
-        row_id = ledger.admit(req.amount_units, memo=req.memo, to_addr=req.to, max_per_day=config.max_per_day)
-        if row_id is None:
-            raise Refused("over_day_cap")
+        row_id, replay = _admit_or_replay(config, ledger, req)
+        if replay is not None:
+            tx_hash = str(replay["tx_hash"])
+            result, reason = "signed", "-"
+            return replay
         # The intent line must exist before the send — a payment with no
         # audit record is worse than a refused one, so refuse when it
         # cannot be written.
@@ -241,7 +275,15 @@ def handle_request(
         # but the journal needs the failure cause (class + message only;
         # our exception types carry controlled, secret-free text).
         log.warning("sign request failed: %s: %s", type(e).__name__, e)
-        result, reason = "error", "internal"
+        if _may_have_sent(e):
+            # The request left the host and its answer was lost — the
+            # transfer may have committed. Answer distinctly so the caller
+            # reconciles (the memo dedupes the retry) instead of treating
+            # it as a clean failure and resubmitting (#2827). The cap
+            # reservation stays, matching _sign_and_record.
+            result, reason = "ambiguous", "send_outcome_unknown"
+        else:
+            result, reason = "error", "internal"
         return {"ok": False, "result": result, "reason": reason}
     finally:
         try:

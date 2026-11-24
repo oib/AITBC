@@ -14,6 +14,11 @@ import time
 from pathlib import Path
 
 WINDOW_SECONDS = 86_400
+# Rows are kept well past the cap window so the (memo, to, amount) dedupe
+# can still recognize a retry of an ambiguous send, and so an operator can
+# reconcile a hashless row. Without pruning the table — and the per-request
+# SUM scan — grows forever (#2827).
+RETENTION_SECONDS = 7 * WINDOW_SECONDS
 
 
 class DailyLedger:
@@ -70,6 +75,47 @@ class DailyLedger:
         )
         return int(row[0])
 
+    @staticmethod
+    def _admit_core(
+        conn: sqlite3.Connection,
+        amount_units: int,
+        *,
+        memo: str,
+        to_addr: str,
+        max_per_day: int,
+        now: float,
+        dedupe: bool,
+    ) -> tuple[str, int | None, str | None]:
+        """Prune, optionally dedupe, cap-check and insert — inside the
+        caller's open IMMEDIATE transaction. Returns
+        ``(kind, row_id, tx_hash)``: ``admitted`` / ``replay`` /
+        ``in_flight`` / ``over_cap``."""
+        conn.execute("DELETE FROM spends WHERE ts < ?", (now - RETENTION_SECONDS,))
+        if dedupe:
+            # An identical (memo, to, amount) request inside the window is
+            # a retry of the same payment, not a new one: replay the
+            # recorded hash, or refuse while the earlier send's outcome is
+            # still unknown — a blind resubmit is how ambiguous sends
+            # double-pay (#2827).
+            row = conn.execute(
+                "SELECT id, tx_hash FROM spends WHERE memo = ? AND to_addr = ? AND amount_units = ? AND ts > ?"
+                " ORDER BY id DESC LIMIT 1",
+                (memo, to_addr, amount_units, now - WINDOW_SECONDS),
+            ).fetchone()
+            if row is not None:
+                return ("replay" if row[1] else "in_flight", int(row[0]), row[1])
+        spent = conn.execute(
+            "SELECT COALESCE(SUM(amount_units),0) FROM spends WHERE ts > ?",
+            (now - WINDOW_SECONDS,),
+        ).fetchone()[0]
+        if int(spent) + amount_units > max_per_day:
+            return ("over_cap", None, None)
+        cur = conn.execute(
+            "INSERT INTO spends(ts,amount_units,memo,to_addr) VALUES (?,?,?,?)",
+            (now, amount_units, memo, to_addr),
+        )
+        return ("admitted", int(cur.lastrowid or 0), None)
+
     def admit(self, amount_units: int, *, memo: str, to_addr: str, max_per_day: int) -> int | None:
         """Record a spend iff the rolling-day total stays within the cap.
 
@@ -81,19 +127,39 @@ class DailyLedger:
         now = time.time()
         try:
             self._begin_immediate(conn)
-            spent = conn.execute(
-                "SELECT COALESCE(SUM(amount_units),0) FROM spends WHERE ts > ?",
-                (now - WINDOW_SECONDS,),
-            ).fetchone()[0]
-            if int(spent) + amount_units > max_per_day:
+            kind, row_id, _ = self._admit_core(
+                conn, amount_units, memo=memo, to_addr=to_addr, max_per_day=max_per_day, now=now, dedupe=False
+            )
+            if kind == "over_cap":
                 conn.execute("ROLLBACK")
                 return None
-            cur = conn.execute(
-                "INSERT INTO spends(ts,amount_units,memo,to_addr) VALUES (?,?,?,?)",
-                (now, amount_units, memo, to_addr),
+            conn.execute("COMMIT")
+            return row_id
+        except sqlite3.Error:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+
+    def admit_or_find(
+        self, amount_units: int, *, memo: str, to_addr: str, max_per_day: int
+    ) -> tuple[str, int | None, str | None]:
+        """Atomic admit-or-dedupe for the sign path (#2827).
+
+        Returns ``(kind, row_id, tx_hash)`` — ``admitted`` (new spend row,
+        proceed to sign), ``replay`` (identical payment already sent;
+        ``tx_hash`` is its recorded hash), ``in_flight`` (identical
+        payment admitted but its send outcome is still unknown — do NOT
+        resubmit), or ``over_cap``.
+        """
+        conn = self._connect()
+        now = time.time()
+        try:
+            self._begin_immediate(conn)
+            kind, row_id, tx_hash = self._admit_core(
+                conn, amount_units, memo=memo, to_addr=to_addr, max_per_day=max_per_day, now=now, dedupe=True
             )
             conn.execute("COMMIT")
-            return int(cur.lastrowid or 0)
+            return kind, row_id, tx_hash
         except sqlite3.Error:
             if conn.in_transaction:
                 conn.execute("ROLLBACK")

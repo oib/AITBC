@@ -85,10 +85,12 @@ def test_daily_cap_enforced_and_serialized(deps):
     deps["config"] = Config(**{**deps["config"].__dict__, "max_per_tx": 5_000})
     results = []
 
-    def go():
-        results.append(handle_request(req(amount=2_000, memo="BR-8"), **deps))
+    def go(i: int):
+        # distinct memos: identical requests now dedupe to one send (#2827),
+        # which would defeat this cap-serialization check
+        results.append(handle_request(req(amount=2_000, memo=f"BR-{i}"), **deps))
 
-    threads = [threading.Thread(target=go) for _ in range(2)]
+    threads = [threading.Thread(target=go, args=(i,)) for i in range(2)]
     for t in threads:
         t.start()
     for t in threads:
@@ -489,7 +491,10 @@ def test_ambiguous_send_failure_keeps_the_cap_reservation(deps):
 
     exc = AmbiguousRequestError("POST may have reached the server (timeout)")
     r = handle_request(req(amount=500), **_deps_with_failing_signer(deps, exc))
-    assert r["ok"] is False and r["result"] == "error"
+    # #2827: a lost answer is reported distinctly so the caller reconciles
+    # instead of resubmitting; the cap reservation is still kept.
+    assert r["ok"] is False and r["result"] == "ambiguous"
+    assert r["reason"] == "send_outcome_unknown"
     assert deps["ledger"].spent_last_24h() == 500
     # Headroom is still burned: with the row held, 1000 more spends 1500 and
     # a further 1000 trips the day cap — released, it would have fit.
