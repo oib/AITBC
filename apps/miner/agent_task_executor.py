@@ -916,14 +916,15 @@ def _account_ipfs_pin(state: dict[str, Any], buyer: str, req: dict[str, Any], re
     ``_exec_ipfs`` reports the measured object size in its result JSON. Over
     quota → reclaim the pin and raise; the caller's except path fails the task
     so disk is never left committed beyond the cap (#1614). An unknown size
-    (stat failed) is charged as 0 — the per-object cap inside _exec_ipfs still
-    applied when the size was knowable.
+    (stat failed) is charged as the per-object cap — worst case, since an
+    unmeasurable pin cannot be quota-accounted (#2907).
     """
     try:
         info = json.loads(result_bytes)
-        size = int(info.get("size") or 0)
+        raw_size = info.get("size")
+        size = _task_max_payload_bytes() if raw_size is None else int(raw_size or 0)
     except (ValueError, TypeError, AttributeError):
-        size = 0
+        size = _task_max_payload_bytes()
     cid = str(req.get("payload_ref") or "")
     usage = state.setdefault("ipfs_usage", {})
     used = int(usage.get(buyer, 0) or 0)

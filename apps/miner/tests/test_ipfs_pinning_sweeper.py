@@ -1,5 +1,6 @@
 """Unit tests for the provider-side IPFS hosting sweeper."""
 
+import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -23,11 +24,11 @@ def _job(job_id: str, state: str = "RUNNING", cid: str | None = CID, **payload_e
     }
 
 
-def _resp(json_data=None, status=200, text=""):
+def _resp(json_data=None, status=200, text=None):
     r = Mock()
     r.status_code = status
     r.json.return_value = json_data if json_data is not None else {}
-    r.text = text
+    r.text = text if text is not None else (json.dumps(json_data) if json_data is not None else "")
     r.iter_content = lambda *a, **k: iter([b""])
     r.close = Mock()
     r.raise_for_status = Mock()
@@ -346,8 +347,8 @@ def test_sweep_quota_skip(state_path, sweeper):
         def fake_post(url, **kwargs):
             if "/api/v0/id" in url:
                 return _resp({"ID": "peer"})
-            if url.endswith("/api/v0/object/stat"):
-                return _resp({"CumulativeSize": big})
+            if url.endswith("/api/v0/dag/stat"):
+                return _resp(text=f'{{"TotalSize": {big}}}')
             return _resp({})
 
         post_mock.side_effect = fake_post
@@ -504,4 +505,4 @@ def test_pin_cid_rejects_ipfs_path_args(sweeper):
     assert ipfs_pinning_sweeper._pin_cid("ipfs/" + CID) is False
     assert ipfs_pinning_sweeper._unpin_cid("/ipfs/" + CID) is False
     assert ipfs_pinning_sweeper._object_size("a/b") is None
-    assert not any(u.endswith(("/pin/add", "/pin/rm", "/object/stat")) for u in sweeper["ipfs"])
+    assert not any(u.endswith(("/pin/add", "/pin/rm", "/dag/stat")) for u in sweeper["ipfs"])

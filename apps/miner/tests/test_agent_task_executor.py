@@ -16,12 +16,12 @@ PRICE_TABLE = {
 }
 
 
-def _resp(json_data=None, status=200, content=b"", text=""):
+def _resp(json_data=None, status=200, content=b"", text=None):
     r = Mock()
     r.status_code = status
     r.json.return_value = json_data if json_data is not None else {}
     r.content = content
-    r.text = text
+    r.text = text if text is not None else ""
     r.iter_content = lambda n=8192, *a, **k: iter([content] if content else [b""])
     r.close = Mock()
     r.raise_for_status = Mock()
@@ -896,7 +896,7 @@ class TestExecutorResourceBounds:
         def fake_post(url, **kwargs):
             posts.append(url)
             if url.endswith("/dag/stat"):
-                return _resp({}, text='{"TotalSize": 5242880}')
+                return _resp(text='{"TotalSize": 5242880}')
             return _resp({})
 
         monkeypatch.setattr(ate.requests, "post", fake_post)
