@@ -95,11 +95,9 @@ class PaymentEscrowMixin(PaymentCoreMixin):
         # E1: protected rentals use the exact signed buyer charge, not a rounded
         # display amount reconstructed from payment.amount.
         if meta.get("energy_is_protected"):
-            amount_units = int(meta["energy_buyer_charge_units"])
+            amount_units = self._protected_buyer_charge_units(meta)
         else:
-            amount_units = ait_to_units(payment.amount)
-            if amount_units <= 0:
-                amount_units = ait_to_units(Decimal("1"))
+            amount_units = self._payment_lock_units(payment.amount)
         if fee is None:
             # v0.25.6: 1% fee with dust floor; the flat DEFAULT_TX_FEE_UNITS
             # (0.01 AIT) made small escrow locks cost 100% of the value.
@@ -135,6 +133,36 @@ class PaymentEscrowMixin(PaymentCoreMixin):
         if meta.get("market_job_id"):
             tx["payload"]["market_job_id"] = meta["market_job_id"]
         return tx, amount_units
+
+    @staticmethod
+    def _protected_buyer_charge_units(meta: dict[str, Any]) -> int:
+        """The exact signed buyer charge for a protected energy rental.
+
+        ``meta_data`` is a JSON column — the value must be a positive int
+        (bool excluded). Anything else means the row was written by a
+        different code path or hand-edited; locking a guessed amount would
+        move real funds, so the escrow fails instead (#2929).
+        """
+        raw = meta.get("energy_buyer_charge_units")
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            raise ValueError(f"energy_buyer_charge_units must be a positive int, got {raw!r}")
+        if raw <= 0:
+            raise ValueError(f"energy_buyer_charge_units must be positive, got {raw}")
+        return raw
+
+    @staticmethod
+    def _payment_lock_units(amount: Decimal) -> int:
+        """Compute-units for a non-protected escrow lock.
+
+        A non-positive amount can never be a real purchase (the API
+        validator enforces >= 0.0001 AIT; the column has no CHECK) —
+        substituting a floor silently over-locked ~1 AIT per occurrence
+        (#2929), so it now fails the escrow instead. A positive sub-unit
+        amount rounds up to 1 compute-unit per the units.py convention.
+        """
+        if amount <= 0:
+            raise ValueError(f"payment amount must be positive, got {amount}")
+        return max(1, ait_to_units(amount))
 
     def _mirror_energy_lock_payload(self, payload: dict[str, Any], meta: dict[str, Any]) -> None:
         """Mirror the energy-quote settlement metadata in the lock payload (E1)
