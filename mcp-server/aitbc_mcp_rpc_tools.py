@@ -1698,17 +1698,74 @@ def force_sync_chain(
     return _http_write_tool(role, host, "blockchain-rpc", "force-sync", peer_data, dry_run, confirm)
 
 
+# #2793: the file forms read ANY path on the MCP host — a confused-deputy
+# read of ~/.ssh/id_rsa or ~/.git-credentials forwards the content to the
+# node's market service. Credential-shaped locations are refused outright;
+# the size cap keeps the read from pulling a multi-GB file through the
+# envelope.
+_SECRET_FILE_MAX_BYTES = 64 * 1024
+_SECRET_FILE_DENIED_HOME_PARTS = frozenset({".ssh", ".aws", ".azure", ".gnupg", ".kube", ".docker", ".password-store"})
+_SECRET_FILE_DENIED_HOME_NESTED = frozenset({(".config", "gh"), (".config", "gcloud")})
+_SECRET_FILE_DENIED_NAMES = frozenset(
+    {
+        ".git-credentials",
+        ".netrc",
+        ".pgpass",
+        ".npmrc",
+        ".pypirc",
+        ".dockercfg",
+        "id_rsa",
+        "id_dsa",
+        "id_ecdsa",
+        "id_ed25519",
+        "credentials",
+        "credentials.json",
+    }
+)
+
+
+def _secret_file_allowed(path: Path) -> str | None:
+    """Return an error string when ``path`` looks like a credential store."""
+    try:
+        resolved = path.resolve()
+    except OSError as exc:
+        return f"cannot resolve secret file path {path}: {exc}"
+    home = Path.home().resolve()
+    try:
+        rel_home = resolved.relative_to(home)
+    except ValueError:
+        rel_home = None
+    if rel_home is not None:
+        parts = rel_home.parts
+        if any(part in _SECRET_FILE_DENIED_HOME_PARTS for part in parts) or any(
+            (parts[i], parts[i + 1]) in _SECRET_FILE_DENIED_HOME_NESTED for i in range(len(parts) - 1)
+        ):
+            return f"refusing to read credential-store path under the home directory: {resolved}"
+    if resolved.name in _SECRET_FILE_DENIED_NAMES:
+        return f"refusing to read well-known credential file: {resolved}"
+    return None
+
+
 def _read_secret_file(path_str: str) -> tuple[str | None, str | None]:
     """Read a secret-holding file on the MCP host; return (content, error).
 
     MCP-SECRETS-1: secret values must never appear as MCP call arguments —
     they would land in the agent transcript and the client log. The path
     forms below read the file locally on the MCP host and forward only the
-    content to the remote service.
+    content to the remote service. #2793: credential-store paths are
+    refused and reads are size-capped.
     """
     try:
         path = Path(path_str).expanduser()
-        return path.read_text().strip(), None
+    except (OSError, RuntimeError, ValueError) as exc:
+        return None, f"invalid secret file path {path_str!r}: {exc}"
+    if denied := _secret_file_allowed(path):
+        return None, denied
+    try:
+        resolved = path.resolve()
+        if resolved.stat().st_size > _SECRET_FILE_MAX_BYTES:
+            return None, f"secret file {path_str!r} exceeds {_SECRET_FILE_MAX_BYTES} bytes"
+        return resolved.read_text().strip(), None
     except OSError as exc:
         return None, f"cannot read secret file {path_str!r}: {exc}"
 
