@@ -468,6 +468,7 @@ def _is_aitbc_subcommand_read_only(
     read command itself takes. Anything a typed read tool does not cover is
     not presumed safe — unknown leaves are refused at read_aitbc_cli and can
     still run through run_aitbc_cli with the usual confirm (#849).
+
     """
     tokens = _split_path_tokens([str(t) for t in _subcommand_tokens(subcommand)] + [str(a) for a in (args or [])])
     path = tuple([str(group).lower()] if group else []) + tuple(token.lower() for token in tokens)
@@ -526,7 +527,14 @@ def _option_key_suggests_mutation(key: str) -> bool:
     allowlist-based in the first place.
     """
     normalized = key.strip().lower().lstrip("-")
-    return normalized in DESTRUCTIVE_AITBC_SUBCOMMANDS
+    if normalized in DESTRUCTIVE_AITBC_SUBCOMMANDS:
+        return True
+    # #2788: URL-retarget options (*-url, *_url, url) repoint credential-
+    # bearing CLI clients (stored JWT / X-API-Key / RPC key) at whatever
+    # host the caller names — on a read path that is silent credential
+    # exfiltration plus SSRF inside the node network. Treat them as
+    # mutation-class: read gates refuse, run_aitbc_cli demands confirm.
+    return normalized == "url" or normalized.endswith(("-url", "_url", "-urls", "_urls"))
 
 
 def _options_suggest_mutation(*option_maps: dict[str, Any] | None) -> bool:
