@@ -16,6 +16,10 @@ aitbc agent verify-identity [OPTIONS]
 |---|---|---|---|---|
 | `--agent-id` | text | — | yes | The Agent id. |
 | `--verifier-address` | text | — | yes | The Verifier address. |
+| `--wallet` | text | — | no | Wallet signing the verification (must control --verifier-address; default: $AITBC_DEFAULT_WALLET) — required: the node rejects unsigned verifies |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples
