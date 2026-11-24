@@ -2,7 +2,11 @@
 Description=AITBC nightly backup restore-verification
 Documentation=https://github.com/oib/AITBC/blob/main/docs/ops/backup-assurance.md
 After=aitbc-backup.service
-Wants=aitbc-backup.service
+# No Wants=/Requires= on aitbc-backup.service (#2933): pulling it in made
+# every standalone verify fire a redundant full backup that raced the
+# scan and false-FAILed on the half-written generation. The verify checks
+# the newest *settled* generation; the 02:00 timer already lands after
+# the 01:00 backup.
 
 [Service]
 Type=oneshot

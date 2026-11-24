@@ -890,3 +890,13 @@ def test_zero_byte_db_stray_is_skipped_not_dumped(env):
     log = _log(env)
     assert "SQLite stray.db: skipped (0 bytes)" in log
     assert "SQLite also-stray.db: skipped (0 bytes)" in log
+
+
+def test_run_writes_completion_marker(env):
+    """#2933: backup-verify's newest_set() skips markerless generations
+    inside the settle window — the script must write .backup-complete."""
+    r = _run(env)
+    assert r.returncode == 0, r.stderr
+    gens = [d for d in env.base.iterdir() if d.is_dir()]
+    assert len(gens) == 1
+    assert (gens[0] / ".backup-complete").exists()

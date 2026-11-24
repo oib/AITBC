@@ -202,3 +202,70 @@ def test_no_maintenance_script_pulls_into_live_checkout():
                     continue
                 bad.append(f"{sh}: installs missing requirements.txt")
     assert bad == []
+
+
+# --- newest_set: skip in-progress generations (#2933) -----------------------
+
+
+def _gen_dir(base: Path, name: str, marker: bool = False) -> Path:
+    d = base / name
+    d.mkdir()
+    if marker:
+        (d / ".backup-complete").touch()
+    return d
+
+
+def _stamp(dt) -> str:
+    return dt.strftime("%Y%m%d_%H%M%S")
+
+
+def test_newest_set_skips_unsettled_generation(tmp_path):
+    """A young timestamped dir without the marker is a running backup —
+    verify must check the previous settled generation instead of
+    false-FAILing on the half-written one (node1, 24 Nov)."""
+    import datetime
+
+    now = datetime.datetime.now(datetime.UTC)
+    old = _stamp(now - datetime.timedelta(days=1))
+    new = _stamp(now)
+    _gen_dir(tmp_path, old)
+    _gen_dir(tmp_path, new)  # in-progress: seconds old, no marker
+    assert bv.newest_set(tmp_path).name == old
+
+
+def test_newest_set_picks_marked_young_generation(tmp_path):
+    """A finished run writes the marker even inside the settle window."""
+    import datetime
+
+    now = datetime.datetime.now(datetime.UTC)
+    old = _stamp(now - datetime.timedelta(days=1))
+    new = _stamp(now)
+    _gen_dir(tmp_path, old)
+    _gen_dir(tmp_path, new, marker=True)
+    assert bv.newest_set(tmp_path).name == new
+
+
+def test_newest_set_none_when_only_unsettled(tmp_path):
+    import datetime
+
+    _gen_dir(tmp_path, _stamp(datetime.datetime.now(datetime.UTC)))
+    assert bv.newest_set(tmp_path) is None
+
+
+def test_newest_set_unnamed_dir_stays_pickable(tmp_path):
+    """Dirs without a timestamp name cannot be aged — legacy pick-anything
+    behaviour is preserved for them."""
+    d = _gen_dir(tmp_path, "scratch")
+    assert bv.newest_set(tmp_path) == d
+
+
+def test_newest_set_min_age_override(tmp_path):
+    """--settle-minutes widens/narrows the in-progress window."""
+    import datetime
+
+    now = datetime.datetime.now(datetime.UTC)
+    recent = _stamp(now - datetime.timedelta(minutes=30))
+    _gen_dir(tmp_path, recent)
+    # 30-minute-old set: in-progress under the 20m default? No — settled.
+    assert bv.newest_set(tmp_path, min_age_minutes=45.0) is None
+    assert bv.newest_set(tmp_path, min_age_minutes=20.0).name == recent
