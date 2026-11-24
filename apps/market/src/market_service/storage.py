@@ -187,8 +187,31 @@ async def init_db() -> None:
             await conn.run_sync(
                 cast(Callable[[Any], None], lambda sync_conn, t=table: _ensure_table_columns_sync(sync_conn, t))
             )
+        await _ensure_bid_tx_hash_unique(conn)
     await _migrate_access_secrets()
     logger.info("Market service database initialized")
+
+
+async def _ensure_bid_tx_hash_unique(conn) -> None:
+    """#2848: one payment settles one bid — the DB backstop for the
+    select-then-write spent check in ``complete_bid``.
+
+    ``create_all`` cannot add a constraint to an existing table and this
+    service has no migration chain, so the partial unique index is created
+    here on every startup (IF NOT EXISTS makes it idempotent on both
+    SQLite and Postgres). Pre-existing duplicate tx_hash rows would fail
+    creation — logged critical rather than crash-looping the service, but
+    the race then stays open until an operator dedupes.
+    """
+    try:
+        await conn.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ux_bids_tx_hash ON bids (tx_hash) WHERE tx_hash IS NOT NULL")
+        )
+    except _OPS_ERRORS as e:
+        logger.critical(
+            "bids.tx_hash unique index unavailable (%s) — concurrent complete_bid calls can settle one payment twice (#2848)",
+            e,
+        )
 
 
 async def _migrate_access_secrets() -> None:
