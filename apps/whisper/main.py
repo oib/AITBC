@@ -337,14 +337,46 @@ def _audio_seconds(path: str) -> float | None:
         return None
 
 
+def _decode_audio_guarded(path: str):
+    """Decode the upload to 16 kHz mono float32 PCM under the media guard.
+
+    AUDIT-EDGE-WHISPER-DECODE-NO-GUARD (#2803): faster-whisper's
+    ``decode_audio`` opens the file with a bare ``av.open`` — no protocol/
+    format whitelist — so a whitelisted container carrying nested resource
+    references (MOV/MP4 dref, demuxer-followed sub-files) passed the probe
+    then decoded unguarded: blind SSRF / local-file read on a paid job.
+    ``WhisperModel.transcribe`` accepts a numpy array and skips its own
+    decode entirely, so we decode here through ``pyav_open_options()`` —
+    the same guard the probe uses — and hand the model PCM.
+    """
+    import av
+    import numpy as np
+
+    chunks: list[Any] = []
+    with av.open(path, options=pyav_open_options()) as container:
+        stream = next((s for s in container.streams if s.type == "audio"), None)
+        if stream is None:
+            raise ValueError("container has no audio stream")
+        resampler = av.AudioResampler(format="fltp", layout="mono", rate=16000)
+        for frame in container.decode(stream):
+            for resampled in resampler.resample(frame):
+                chunks.append(resampled.to_ndarray().reshape(-1))
+        for resampled in resampler.resample(None):
+            chunks.append(resampled.to_ndarray().reshape(-1))
+    if not chunks:
+        raise ValueError("container decoded to zero audio frames")
+    return np.concatenate(chunks).astype(np.float32)
+
+
 def _transcribe_sync(path: str, language: str | None, task: str, beam_size: int) -> dict:
-    """Run the blocking model call and drain the segment generator.
+    """Decode under the guard, run the blocking model call, drain segments.
 
     Everything in here is synchronous and CPU/GPU-bound; callers must run it
     via ``asyncio.to_thread`` so the event loop stays responsive (#1422).
     """
+    audio = _decode_audio_guarded(path)
     segments, info = _model.transcribe(
-        path,
+        audio,
         beam_size=beam_size,
         language=language,
         task=task,
