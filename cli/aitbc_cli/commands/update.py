@@ -15,6 +15,22 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 UPDATE_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "update.sh"
 
 
+def _machine_child_stdout(output_format: str):
+    """stderr for child-process noise under machine-readable output.
+
+    ``subprocess`` needs a real file descriptor — under CliRunner or any
+    embedded caller ``sys.stderr`` is a plain buffer with no ``fileno()``,
+    so degrade to inheriting the real streams instead of crashing (#2940).
+    """
+    if output_format not in ("json", "yaml"):
+        return None
+    try:
+        sys.stderr.fileno()
+    except (AttributeError, OSError, ValueError):
+        return None
+    return sys.stderr
+
+
 def _short_sha(*rev: str, cwd: Path) -> str | None:
     """Return the short SHA for a revision, or None when it cannot be resolved."""
     try:
@@ -165,7 +181,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
         info(f"Pulling {branch} from {remote}...")
     # Machine-readable stdout must stay a single report document: git's
     # diffstat and update.sh's progress lines go to stderr instead.
-    child_stdout = sys.stderr if output_format in ("json", "yaml") else None
+    child_stdout = _machine_child_stdout(output_format)
     pull = subprocess.run(
         ["git", "pull", "--ff-only", remote, branch],
         cwd=REPO_ROOT,
@@ -182,7 +198,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
 def _deploy(remote: str, branch: str, no_deploy: bool, before: str | None, output_format: str):
     """Post-pull: report SHAs, optionally run update.sh."""
     after = _short_sha("HEAD", cwd=REPO_ROOT)
-    child_stdout = sys.stderr if output_format in ("json", "yaml") else None
+    child_stdout = _machine_child_stdout(output_format)
 
     if no_deploy:
         _report(before, after, remote, branch, deployed=False, output_format=output_format)
