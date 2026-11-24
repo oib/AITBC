@@ -144,9 +144,12 @@ def _validate_gpu_offer(payload: dict[str, Any], transaction_data: dict[str, Any
     "available" — anything else ("booked", "bogus", ...) would persist a
     committed or off-vocabulary state no reservation flow produced. The
     signed envelope's payload is authoritative; the outer transaction_data
-    fields are unsigned caller input and only consulted as a fallback for
-    callers that omit them. Returns ``(status, price)`` or a 400
-    ``JSONResponse``.
+    fields are unsigned caller input consulted only for the status
+    fallback (constrained to 'available' below, so it cannot persist a
+    divergent state). price_per_hour must come from the signed payload —
+    an unsigned fallback would let the local listing diverge from the
+    on-chain offer (AUDIT-EDGE-GPU-OFFER-UNSIGNED-FALLBACK #2805). Returns
+    ``(status, price)`` or a 400 ``JSONResponse``.
     """
     offer_status = payload.get("status", transaction_data.get("status", "available"))
     if offer_status != "available":
@@ -159,8 +162,13 @@ def _validate_gpu_offer(payload: dict[str, Any], transaction_data: dict[str, Any
                 )
             },
         )
+    if "price_per_hour" not in payload:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "signed payload must carry price_per_hour — the on-chain offer is authoritative"},
+        )
     try:
-        offer_price = _parse_price_per_hour(payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0)))
+        offer_price = _parse_price_per_hour(payload["price_per_hour"])
     except ValueError as exc:
         return JSONResponse(status_code=400, content={"error": str(exc)})
     return offer_status, offer_price
@@ -611,7 +619,9 @@ async def _handle_gpu_offer(session: AsyncSession, transaction_data: dict[str, A
         logger.warning("Blockchain submission failed (transport), falling back to local storage: %s", blockchain_error)
     miner_id = payload.get("miner_id") or transaction_data.get("provider_node_id", "default_miner")
     gpu_data = {
-        "id": transaction_data.get("offer_id") or payload.get("gpu_id") or f"gpu_{miner_id}",
+        # id comes from the signed payload only — an unsigned caller-supplied
+        # offer_id could collide with an existing row and 500 the request.
+        "id": payload.get("gpu_id") or f"gpu_{miner_id}",
         "miner_id": miner_id,
         "model": payload.get("model", gpu_specs.get("model", "Unknown")),
         "memory_gb": payload.get("memory_gb", gpu_specs.get("memory_gb", 0)),
@@ -628,7 +638,7 @@ async def _handle_gpu_offer(session: AsyncSession, transaction_data: dict[str, A
     await session.commit()
     response_data: dict[str, Any] = {
         "status": "success",
-        "transaction_id": transaction_data.get("offer_id"),
+        "transaction_id": payload.get("gpu_id"),
         "blockchain_registered": blockchain_tx_hash is not None,
     }
     if blockchain_tx_hash:

@@ -141,3 +141,26 @@ def test_zero_and_boundary_prices_accepted(client):
         resp = _post(client, gpu_id, tx=_signed_tx(gpu_id, price_per_hour=price))
         assert resp.status_code == 200, resp.text
         assert _registry_row(gpu_id) is not None
+
+
+def test_missing_signed_price_rejected_despite_outer_price(client):
+    """AUDIT-EDGE-GPU-OFFER-UNSIGNED-FALLBACK (#2805): an absent signed
+    price_per_hour must not fall back to unsigned transaction_data —
+    the on-chain offer is authoritative."""
+    gpu_id = "gpu_offer_noprice"
+    tx = _signed_tx(gpu_id)
+    del tx["payload"]["price_per_hour"]
+    resp = _post(client, gpu_id, tx=tx, price_per_gpu="9.99")
+    assert resp.status_code == 400, resp.text
+    assert _registry_row(gpu_id) is None
+    assert client.calls == [], "invalid offer must be refused before chain submission"
+
+
+def test_registry_id_comes_from_signed_payload_not_offer_id(client):
+    """#2805: unsigned offer_id must not pick the GPURegistry primary key —
+    a caller-chosen id could collide and 500, or shadow another listing."""
+    gpu_id = "gpu_offer_signed_id"
+    resp = _post(client, gpu_id, offer_id="attacker-chosen-id")
+    assert resp.status_code == 200, resp.text
+    assert _registry_row(gpu_id) is not None
+    assert _registry_row("attacker-chosen-id") is None
