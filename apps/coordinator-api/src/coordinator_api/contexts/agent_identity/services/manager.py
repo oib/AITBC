@@ -151,14 +151,43 @@ class AgentWalletManager:
         spend_svc.validate_consume(str(session_id), agent_id, chain_id, amount, operation)
         if wallet.spending_limit > 0 and wallet.total_spent + amount > wallet.spending_limit:
             raise ValueError("Transaction amount exceeds spending limit")
-        adapter = self._get_adapter(chain_id)
-        tx_result = await adapter.execute_transaction(
-            wallet.chain_address, to_address, amount, data=data, private_key=private_key
-        )
-        spend_svc.apply_consume(str(session_id), agent_id, chain_id, amount, operation, ref=ref)
+        # #2815: reserve the session cap and wallet counters in a committed
+        # claim BEFORE the chain call. Previously the accounting committed
+        # only after adapter.execute_transaction returned, so a crash or
+        # commit failure post-broadcast moved AIT on-chain while
+        # used_ait/total_spent never recorded it — the cap under-counted
+        # permanently and an ambiguous-timeout retry could double-spend.
+        # claim_consume re-validates under FOR UPDATE, so the earlier
+        # validate_consume only keeps a cap breach from dirtying the wallet.
         wallet.total_spent += amount
         wallet.last_transaction = datetime.now(UTC)
         wallet.transaction_count += 1
+        spend_svc.claim_consume(str(session_id), agent_id, chain_id, amount, operation, ref=ref)
+        adapter = self._get_adapter(chain_id)
+        try:
+            tx_result = await adapter.execute_transaction(
+                wallet.chain_address, to_address, amount, data=data, private_key=private_key
+            )
+        except ValueError:
+            # Definite pre-send failure (the adapters raise ValueError for
+            # validation before signing/broadcast) — return the reservation.
+            wallet.total_spent -= amount
+            wallet.transaction_count -= 1
+            try:
+                spend_svc.release_claim(str(session_id), agent_id, chain_id, amount, operation, ref=ref)
+            except _OPS_ERRORS as release_err:
+                logger.warning("Failed to release spend claim for session %s: %s", session_id, release_err)
+            raise
+        except Exception:
+            # Ambiguous: the transaction may have landed. Keep the claim —
+            # releasing it would under-count the cap — and audit for
+            # reconciliation.
+            try:
+                spend_svc.note_ambiguous_consume(str(session_id), agent_id, amount, operation, ref=ref)
+            except _OPS_ERRORS as note_err:
+                logger.warning("Failed to audit ambiguous spend for session %s: %s", session_id, note_err)
+            raise
+        spend_svc.confirm_consume(str(session_id), agent_id, amount, operation, ref=ref)
         (await run_in_threadpool(self.session.commit))
         logger.info("Executed wallet transaction: %s", tx_result["transaction_hash"])
         return tx_result
