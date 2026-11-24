@@ -276,7 +276,10 @@ class _ListenerMixin(_RaBaseMixin):
             return None
         try:
             height = int(response.get("height", 0))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, ArithmeticError):
+            # ArithmeticError covers OverflowError: int(float("inf")) — a
+            # gossip JSON "height": Infinity used to kill this observer
+            # task permanently (#2869); siblings already guard it.
             return None
         block_hash = str(response.get("hash", ""))
         validator = str(response.get("validator", ""))
