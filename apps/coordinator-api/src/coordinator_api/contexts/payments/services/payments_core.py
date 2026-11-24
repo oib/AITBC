@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Collection
+from datetime import UTC, datetime, timedelta
 
 from aitbc_shared import JobPayment
 from typing import Annotated, Any
@@ -20,8 +21,38 @@ from ....schemas import JobPaymentView
 from ....storage import get_session
 from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
+from ..acceptance import DISPUTED, PENDING_ACCEPTANCE, SETTLEMENT_FAILED
 
 logger = get_logger(__name__)
+
+# Payment states whose row still represents money committed to (or in flight
+# for) the job. ``create_payment`` returns the existing row instead of opening
+# a second escrow when one of these is present; terminal states
+# (``failed`` / ``refunded`` / ``skipped``) still allow a fresh payment.
+# ``pending`` only counts while fresh — a request that dies between the
+# pending-row commit and ``_route_escrow`` leaves an orphan that must not
+# wedge every later payment attempt (#2812).
+_LIVE_PAYMENT_STATUSES = frozenset({"pending", "escrowed", "released", PENDING_ACCEPTANCE, DISPUTED, SETTLEMENT_FAILED})
+_PENDING_LIVE_WINDOW = timedelta(minutes=15)
+
+
+def _payment_order_key(payment: JobPayment) -> tuple[datetime, str]:
+    """(created_at, id) ordering key, tz-normalized for cross-backend compares."""
+    created = payment.created_at
+    if created.tzinfo is not None:
+        created = created.replace(tzinfo=None)
+    return (created, payment.id)
+
+
+def _is_live_payment(payment: JobPayment, now: datetime) -> bool:
+    if payment.status not in _LIVE_PAYMENT_STATUSES:
+        return False
+    if payment.status != "pending":
+        return True
+    created = payment.created_at
+    if created.tzinfo is not None:
+        created = created.replace(tzinfo=None)
+    return created > (now - _PENDING_LIVE_WINDOW).replace(tzinfo=None)
 
 
 class PaymentCoreMixin:
@@ -99,7 +130,67 @@ class PaymentCoreMixin:
     def get_job_payment(self, client_id: str, job_id: str) -> JobPayment | None:
         """Get payment for a specific job"""
         self._require_owned_job(job_id, client_id)
-        return self.session.execute(select(JobPayment).where(JobPayment.job_id == job_id)).scalars().first()
+        live = self.live_payment_for_job(job_id)
+        if live is not None:
+            return live
+        return (
+            self.session.execute(
+                select(JobPayment)
+                .where(JobPayment.job_id == job_id)
+                .order_by(col(JobPayment.created_at).desc(), col(JobPayment.id).desc())
+                .limit(1)
+            )
+            .scalars()
+            .first()
+        )
+
+    def live_payment_for_job(self, job_id: str) -> JobPayment | None:
+        """The payment row that still holds this job's funds, if any.
+
+        Terminal rows (``failed`` / ``refunded`` / ``skipped``) and stale
+        ``pending`` orphans do not count — a fresh ``create_payment`` is
+        allowed for those (#2812).
+        """
+        now = datetime.now(UTC)
+        rows = (
+            self.session.execute(
+                select(JobPayment).where(
+                    JobPayment.job_id == job_id,
+                    col(JobPayment.status).in_(tuple(_LIVE_PAYMENT_STATUSES)),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        live: list[JobPayment] = [p for p in rows if _is_live_payment(p, now)]
+        if not live:
+            return None
+        return max(live, key=_payment_order_key)
+
+    def earlier_live_payment(self, job_id: str, self_id: str, self_key: tuple[datetime, str]) -> JobPayment | None:
+        """A live sibling payment sorting before ``self_key``.
+
+        Two concurrent ``create_payment`` calls can both pass the pre-insert
+        check and commit their pending rows inside the same window; exactly
+        one — the row whose ``(created_at, id)`` sorts first — may proceed to
+        escrow. Losers delete their pending row and return the winner.
+        """
+        now = datetime.now(UTC)
+        siblings = (
+            self.session.execute(
+                select(JobPayment).where(
+                    JobPayment.job_id == job_id,
+                    JobPayment.id != self_id,
+                    col(JobPayment.status).in_(tuple(_LIVE_PAYMENT_STATUSES)),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        earlier: list[JobPayment] = [s for s in siblings if _is_live_payment(s, now) and _payment_order_key(s) < self_key]
+        if not earlier:
+            return None
+        return min(earlier, key=_payment_order_key)
 
     def to_view(self, payment: JobPayment) -> JobPaymentView:
         """Convert payment to view model"""
