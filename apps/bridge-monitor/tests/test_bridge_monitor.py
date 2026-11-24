@@ -2247,3 +2247,55 @@ class TestRecipientParseParity2824:
         dep = get_deposit(tx_hash)
         assert dep["status"] == "failed"
         assert "recipient" in (dep["error_message"] or "").lower()
+
+
+class TestOraclePriceValidation2825:
+    """#2825: non-finite or non-positive oracle prices must defer the payout
+    to PENDING_RETRY — never reach the below-minimum FAILED gate."""
+
+    def _seed_pending(self, monitor, tx_hash: str) -> None:
+        from bridge_monitor.storage import create_deposit
+
+        assert create_deposit(tx_hash, "0xfrom", "0.01", "0x" + "d" * 40) is not None
+
+    @pytest.mark.parametrize(
+        "eth_usd,ait_usd",
+        [
+            ("-1", "0.5"),  # negative ETH price → negative ait_amount
+            ("0.5", "-2"),  # negative AIT price → negative ait_amount
+            ("NaN", "0.5"),
+            ("0.5", "Infinity"),
+            ("sNaN", "0.5"),
+            ("0", "0.5"),  # zero price — was already guarded, keep pinned
+        ],
+    )
+    def test_bad_prices_return_none(self, monitor, eth_usd, ait_usd):
+        assert monitor.calculate_ait_amount(Decimal("1"), eth_usd=eth_usd, ait_usd=ait_usd) is None
+
+    def test_negative_price_keeps_deposit_retryable(self, monitor):
+        """End-to-end: a transiently negative quote must not permanently
+        FAIL a deposit whose funds were received."""
+        from bridge_monitor.storage import count_pending_retry, get_deposit
+
+        tx_hash = "0x" + "e" * 64
+        self._seed_pending(monitor, tx_hash)
+
+        class _P:
+            def __init__(self, price):
+                self.price = price
+
+        with patch.object(monitor.price_oracle, "get_price", side_effect=[_P("-1"), _P("0.5")]):
+            ait_amount, _, _ = monitor._compute_amount_and_gate(tx_hash, "0xfrom", Decimal("0.01"), "0x" + "d" * 40)
+        assert ait_amount is None
+        dep = get_deposit(tx_hash)
+        assert dep["status"] == "pending_retry"
+        assert count_pending_retry() == 1
+
+    def test_nan_price_does_not_raise(self, monitor):
+        class _P:
+            def __init__(self, price):
+                self.price = price
+
+        with patch.object(monitor.price_oracle, "get_price", side_effect=[_P("NaN"), _P("0.5")]):
+            ait_amount, _, _ = monitor._compute_amount_and_gate("0x" + "f" * 64, "0xfrom", Decimal("0.01"), "0x" + "d" * 40)
+        assert ait_amount is None
