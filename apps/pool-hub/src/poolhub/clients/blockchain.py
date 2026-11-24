@@ -325,6 +325,13 @@ class PoolHubBlockchainClient:
         session.add(payout)
         try:
             await session.flush()
+            # #2863: the 'pending' claim must be COMMITTED before the chain
+            # submit — a crash between an uncommitted flush and the
+            # paid/failed commit rolls the claim back, and the next run
+            # pays the same miner+epoch twice. This commits whatever else
+            # is pending on the session too; distribute_rewards only reads
+            # before this point, so the claim is the sole write.
+            await session.commit()
         except IntegrityError:
             await session.rollback()
             return None
