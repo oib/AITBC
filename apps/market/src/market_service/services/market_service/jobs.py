@@ -141,13 +141,7 @@ class _JobsMixin(_CoreMixin):
             fsm1.transition(OfferStatus.IN_USE)
             offer.status = "in_use"
             self.session.add(offer)
-            await self.session.commit()
-
-            fsm2 = OfferFSM(OfferStatus.IN_USE)
-            fsm2.transition(OfferStatus.DELISTED)
-            offer.status = "delisted"
-            self.session.add(offer)
-            await self.session.commit()
+            await self._commit_bid_completion(offer, bid_id, tx_hash)
 
             logger.info("Bid %s completed; offer %s delisted", bid_id, offer_id)
             return {
@@ -161,6 +155,32 @@ class _JobsMixin(_CoreMixin):
             raise
         except Exception as e:
             logger.error("Error in complete_bid: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def _commit_bid_completion(self, offer: Any, bid_id: str, tx_hash: str) -> None:
+        """Commit the in_use → delisted offer transitions for a completed bid.
+
+        #2848: the spent-hash SELECT in complete_bid is select-then-write —
+        a concurrent complete can commit the same tx_hash between our check
+        and our commit. The ux_bids_tx_hash unique index makes the loser
+        fail here; translate the IntegrityError into the same refusal the
+        pre-check would have raised.
+        """
+        try:
+            await self.session.commit()
+
+            fsm2 = OfferFSM(OfferStatus.IN_USE)
+            fsm2.transition(OfferStatus.DELISTED)
+            offer.status = "delisted"
+            self.session.add(offer)
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            winner = (
+                (await self.session.execute(select(Bid).where(Bid.tx_hash == tx_hash, Bid.id != bid_id))).scalars().first()
+            )
+            if winner is not None:
+                raise ValueError(f"Transaction {tx_hash} already settled bid {winner.id}") from None
             raise
 
     def _verify_bid_payment_tx(
