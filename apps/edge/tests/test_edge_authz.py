@@ -159,8 +159,19 @@ class TestServeOwnershipScope:
 
 
 class TestMutatingRoutesRequireAuth:
-    def test_metrics_record_needs_token(self, env):
+    def test_metrics_record_needs_admin(self, env):
+        """#2777: metrics POST/DELETE are node-level mutations — admin only,
+        like every sibling mutating route. Any authenticated user could
+        previously spoof or delete EdgeMetrics rows for arbitrary gpu_id."""
         client, _, metrics_svc = env
-        r = client.post("/v1/metrics/", json={"gpu_id": "g", "metrics": {}}, headers=_auth(_token()))
+        r = client.post("/v1/metrics/", json={"gpu_id": "g", "metrics": {}}, headers=_auth(_token("op", "admin")))
         assert r.status_code == 200
         assert metrics_svc.calls
+
+    def test_metrics_record_client_role_is_403(self, env):
+        client, _, metrics_svc = env
+        r = client.post("/v1/metrics/", json={"gpu_id": "g", "metrics": {}}, headers=_auth(_token("user-1", "client")))
+        assert r.status_code == 403
+        r = client.delete("/v1/metrics/m_1", headers=_auth(_token("user-1", "client")))
+        assert r.status_code == 403
+        assert not metrics_svc.calls
