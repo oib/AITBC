@@ -1028,12 +1028,19 @@ async def _release_receipt_outcome(eth_tx_hash: str) -> str | None:
     tx = await _eth_rpc("eth_getTransactionByHash", [eth_tx_hash])
     receipt = await _eth_rpc("eth_getTransactionReceipt", [eth_tx_hash])
     if receipt is not None:
-        if _receipt_status(receipt) != 1:
-            # Reverted send: ETH never moved, nonce burned by our tx.
-            return "not_sent"
         latest_block = int(await _eth_rpc("eth_blockNumber", []), 16)
         receipt_block = int(receipt.get("blockNumber") or "0x0", 16)
-        if receipt_block and latest_block - receipt_block + 1 >= ETH_RELEASE_CONFIRMATIONS:
+        depth = latest_block - receipt_block + 1 if receipt_block else 0
+        if _receipt_status(receipt) != 1:
+            # Reverted send: ETH never moved, nonce burned by our tx — but
+            # only once the revert is buried. A shallow status-0 receipt can
+            # still reorg out and re-seal as a success; 'not_sent' on it
+            # refunds the AIT while the re-sealed tx pays the ETH (#2919,
+            # same depth gate withdraw_admin._release_verdict applies).
+            if depth >= ETH_RELEASE_CONFIRMATIONS:
+                return "not_sent"
+            return "unknown"
+        if receipt_block and depth >= ETH_RELEASE_CONFIRMATIONS:
             return "sent"
         # Confirmed but below the required depth — re-checked next poll.
         return "unknown"

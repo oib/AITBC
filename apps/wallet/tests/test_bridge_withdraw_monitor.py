@@ -1957,3 +1957,71 @@ class TestEthReleaseFileLock:
         fd = bridge_db.try_eth_release_lock()
         assert fd is not None
         bridge_db.release_eth_release_lock(fd)
+
+
+class TestShallowRevertedReceipt:
+    """#2919: a status-0 receipt below ETH_RELEASE_CONFIRMATIONS depth is
+    NOT proof of 'not_sent' — the revert can still reorg out and re-seal
+    as a success, which would pay the ETH while the row already refunded
+    the AIT. Mirror withdraw_admin._release_verdict's depth gate."""
+
+    @pytest.mark.asyncio
+    async def test_shallow_revert_is_unknown_not_refunded(self, monitor_env, monkeypatch):
+        _seed_releasing("0x" + "b7" * 32, nonce=7)
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+        # Receipt reverted at 0x66, head 0x67 -> depth 2 < 3.
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": {"status": "0x0", "blockNumber": "0x66"},
+                "eth_blockNumber": "0x67",
+                "eth_getTransactionCount": "0x8",
+            },
+        )
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["still_open"] == 1
+        assert refunded == []
+        assert get_withdrawal_by_ait_tx_hash("0x" + "b7" * 32)["status"] == "releasing"
+
+    @pytest.mark.asyncio
+    async def test_buried_revert_still_refunds_once(self, monitor_env, monkeypatch):
+        """Once the revert reaches confirmation depth the same receipt
+        resolves 'not_sent' and refunds exactly once — the gate delays,
+        never suppresses, a proven revert."""
+        _seed_releasing("0x" + "b8" * 32, nonce=7)
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+        chain_head = {"block": "0x67"}  # receipt 0x66 -> depth 2 < 3
+
+        async def _rpc(method: str, params: list):
+            if method == "eth_blockNumber":
+                return chain_head["block"]
+            return {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": {"status": "0x0", "blockNumber": "0x66"},
+                "eth_getTransactionCount": "0x8",
+            }.get(method)
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc)
+        first = await monitor_env._resume_unfinished_releases()
+        assert first["still_open"] == 1
+        assert refunded == []
+        # Chain advances: depth becomes 3 -> the revert is proven.
+        chain_head["block"] = "0x68"
+        second = await monitor_env._resume_unfinished_releases()
+        assert second["failed"] == 1
+        assert len(refunded) == 1
+        assert get_withdrawal_by_ait_tx_hash("0x" + "b8" * 32)["status"] == "refunded"
