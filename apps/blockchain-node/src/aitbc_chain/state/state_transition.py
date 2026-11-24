@@ -304,6 +304,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
             self._vt_chain_id,
             self._vt_dedup,
             self._vt_prepare,
+            self._vt_finite_amounts,
             self._vt_protocol_auth_replay,
             self._vt_bounty_invariants,
             self._vt_liquidity,
