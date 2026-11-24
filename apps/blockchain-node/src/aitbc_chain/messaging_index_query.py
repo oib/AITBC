@@ -602,7 +602,7 @@ def list_topics(
     limit = max(1, min(int(limit), MAX_READ_LIMIT))
     offset = max(0, min(int(offset), MAX_OFFSET))
     topic_expr = _env_json("topic").label("topic")
-    stmt = (
+    grouped = (
         select(
             topic_expr,
             func.count().label("message_count"),
@@ -610,13 +610,15 @@ def list_topics(
         )
         .where(*_candidate_where(chain_id), _env_json("kind").in_(sorted(POST_KINDS)))
         .group_by(topic_expr)
-        .order_by(desc("last_block_height"), column("topic"))
     )
-    rows = session.exec(stmt).all()
-    page_rows = rows[offset : offset + limit]
-    times = _block_timestamps(session, chain_id, (r.last_block_height for r in page_rows))
+    # Page in SQL (#2870): the GROUP BY still scans every forum tx (the
+    # documented F2 residual — no materialized index), but the result set
+    # is bounded instead of materializing every topic group per request.
+    total_topics = session.exec(select(func.count()).select_from(grouped.subquery())).first()
+    rows = session.exec(grouped.order_by(desc("last_block_height"), column("topic")).offset(offset).limit(limit)).all()
+    times = _block_timestamps(session, chain_id, (r.last_block_height for r in rows))
     topics = []
-    for r in page_rows:
+    for r in rows:
         st = _cached_moderation_state(session, chain_id, r.topic)
         hidden = _hidden_map(st)
         pinned = _pinned_map(st)
@@ -641,7 +643,7 @@ def list_topics(
         "index_height": _index_height(session, chain_id),
         "topics": topics,
         "count": len(topics),
-        "total_topics": len(rows),
+        "total_topics": total_topics,
         "scan_bounded": False,
     }
 
