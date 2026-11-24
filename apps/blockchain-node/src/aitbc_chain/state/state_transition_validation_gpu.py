@@ -7,6 +7,7 @@ directly.
 
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 
 from sqlmodel import select
@@ -123,13 +124,51 @@ class _ValidationGpuMixin:
                 return (False, admission_error)
         if not ctx.payload.get("client_id"):
             return (False, "GPU_ALLOCATE payload must include client_id")
+        return self._vt_gpu_allocate_fields(ctx)
+
+    def _vt_gpu_allocate_fields(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
         try:
             float(ctx.payload.get("duration_hours", 0))
             Decimal(str(ctx.payload.get("total_cost", 0)))
         except (ArithmeticError, TypeError, ValueError):
             return (False, "GPU_ALLOCATE payload must include valid duration_hours and total_cost")
+        verdict = self._vt_gpu_allocate_fields_v31(ctx)
+        if verdict is not None:
+            return verdict
         if ctx.value != 0:
             return (False, "GPU_ALLOCATE must have value=0")
+        return None
+
+    @staticmethod
+    def _vt_gpu_allocate_fields_v31(ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        """v31 (#2809): finite, in-range ``duration_hours``/``total_cost``.
+
+        The parse-check above accepts NaN/Infinity — ``float("nan")`` and
+        ``Decimal("nan")``/``Decimal("Infinity")`` all parse cleanly, then
+        apply stores a permanently-"active" allocation with junk fields
+        (``total_cost`` NaN binds NULL through the Numeric column). The
+        historical ``float()``/``Decimal(str())`` coercion is kept — only
+        non-finite or out-of-range values are newly refused, so no shape
+        that applied cleanly before is rejected. ``total_cost`` reuses the
+        v25 ``Numeric(20,8)`` bound — ``GPUAllocation.total_cost`` has the
+        same column spec. ``duration_hours`` is capped at 100 years: it is
+        only stored and echoed, never fed to ``timedelta`` on-chain.
+        """
+        if ctx.block_version < 31:
+            return None
+        payload = ctx.payload
+        try:
+            duration = float(payload.get("duration_hours", 0))
+        except (ArithmeticError, TypeError, ValueError):
+            return (False, "GPU_ALLOCATE duration_hours must be a number")
+        if not math.isfinite(duration) or not 0 <= duration <= 876000:
+            return (False, "GPU_ALLOCATE duration_hours out of range (0-876000)")
+        try:
+            cost = Decimal(str(payload.get("total_cost", 0)))
+        except (ArithmeticError, TypeError, ValueError):
+            return (False, "GPU_ALLOCATE total_cost must be a number")
+        if not _gpu_price_per_hour_in_range(cost):
+            return (False, "GPU_ALLOCATE total_cost out of range")
         return None
 
     def _vt_retired_gpu(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
