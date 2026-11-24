@@ -34,6 +34,30 @@ _OPS_ERRORS = (
 _REPO_ROOT = str(Path(__file__).resolve().parents[4])
 _BRIDGE_MONITOR_SRC = str(Path(_REPO_ROOT) / "apps" / "bridge-monitor" / "src")
 
+# #2845: the withdraw-signature path is dormant but live code — cap the
+# signature list so a 2MB body cannot turn into thousands of keccak+recover
+# operations, and bind expiry_height into the signed message so a valid
+# signer quorum cannot be replayed forever.
+_MAX_WITHDRAW_SIGNATURES = 32
+
+
+def _withdraw_claim_error(signatures, expiry_height) -> tuple[int, str] | None:
+    """(status, message) for an unacceptable withdraw claim, else None (#2845)."""
+    if not isinstance(signatures, list) or len(signatures) > _MAX_WITHDRAW_SIGNATURES:
+        return 400, f"signatures must be a list of at most {_MAX_WITHDRAW_SIGNATURES} entries"
+    if not isinstance(expiry_height, int) or isinstance(expiry_height, bool):
+        return 400, "expiry_height (int) required"
+    return None
+
+
+def _withdraw_expiry_error(expiry_height: int, head: int | None) -> tuple[int, str] | None:
+    """(status, message) when the claim's expiry bound is dead, else None."""
+    if head is None:
+        return 503, "Chain head unavailable"
+    if expiry_height <= head:
+        return 400, "Withdrawal signatures expired"
+    return None
+
 
 def _deposit_request_error(eth_amount: Decimal, ait_address: str) -> tuple[int, str] | None:
     """(status, message) for an unacceptable deposit request, else None.
@@ -185,9 +209,14 @@ class BridgeMixin:
             self.send_json_response({"error": "Deposit initiation failed"}, status=500)  # type: ignore[attr-defined]
 
     def _verify_bridge_withdrawal_signatures(
-        self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]]
+        self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]], expiry_height: int
     ) -> tuple[bool, int]:
-        """Verify 2-of-n multi-sig signatures for an AIT→ETH bridge withdrawal."""
+        """Verify 2-of-n multi-sig signatures for an AIT→ETH bridge withdrawal.
+
+        ``expiry_height`` is part of the signed message — signers must sign
+        ``BRIDGE_WITHDRAW:{eth}:{ait}:{expiry_height}`` so a captured quorum
+        dies at the bound height instead of replaying indefinitely (#2845).
+        """
         signers = {s.strip().lower() for s in bridge_config.signers}
         threshold = bridge_config.multisig_threshold
         if not signers or threshold <= 0:
@@ -203,7 +232,7 @@ class BridgeMixin:
             # secp256k1 dependencies not available; cannot verify signatures
             return (False, 0)
 
-        message = f"BRIDGE_WITHDRAW:{eth_address}:{ait_amount}".encode()
+        message = f"BRIDGE_WITHDRAW:{eth_address}:{ait_amount}:{expiry_height}".encode()
         valid = set()
         for sig in signatures:
             try:
@@ -243,13 +272,25 @@ class BridgeMixin:
                 return
             eth_address = body.get("eth_address", "")
             signatures = body.get("signatures", [])
+            expiry_height = body.get("expiry_height")
 
             if ait_amount <= 0 or not eth_address:
                 self.send_json_response({"error": "ait_amount and eth_address required"}, status=400)  # type: ignore[attr-defined]
                 return
+            claim_err = _withdraw_claim_error(signatures, expiry_height)
+            if claim_err is not None:
+                status, message = claim_err
+                self.send_json_response({"error": message}, status=status)  # type: ignore[attr-defined]
+                return
+            head = self._chain_head_height()  # type: ignore[attr-defined]
+            exp_err = _withdraw_expiry_error(expiry_height, head)
+            if exp_err is not None:
+                status, message = exp_err
+                self.send_json_response({"error": message}, status=status)  # type: ignore[attr-defined]
+                return
 
             # P1.3: require multi-sig threshold before any withdrawal can proceed
-            ok, valid_count = self._verify_bridge_withdrawal_signatures(eth_address, ait_amount, signatures)
+            ok, valid_count = self._verify_bridge_withdrawal_signatures(eth_address, ait_amount, signatures, expiry_height)
             if not ok:
                 self.send_json_response(  # type: ignore[attr-defined]
                     {
@@ -306,8 +347,14 @@ class BridgeMixin:
 
             params = parse_qs(parsed.query)
             status_filter = params.get("status", [None])[0]
-            limit = max(0, min(int(params.get("limit", [50])[0]), 500))
-            offset = int(params.get("offset", [0])[0])
+            try:
+                limit = max(0, min(int(params.get("limit", [50])[0]), 500))
+                offset = max(0, int(params.get("offset", [0])[0]))
+            except (TypeError, ValueError):
+                # #2845: bad int() input must 400, not fall into the generic
+                # except-Exception 500 below.
+                self.send_json_response({"error": "limit and offset must be integers"}, status=400)  # type: ignore[attr-defined]
+                return
 
             status = None
             if status_filter:
