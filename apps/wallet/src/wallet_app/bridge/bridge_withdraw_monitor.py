@@ -164,6 +164,13 @@ WITHDRAW_SEAL_DEPTH = int(os.getenv("BRIDGE_WITHDRAW_SEAL_DEPTH", os.getenv("BRI
 # fee — paying a 0.01 fee to return a 0.005 dust withdrawal is worse than
 # alerting on it.
 _REFUND_FEE_AIT = Decimal("0.01")
+# #2917/AUDIT-MONEY-68: refund nonces serialize in-process and come from a
+# pending-aware floor — reading only the sealed account nonce made every
+# refund in a pass sign the same (sender, nonce), and the mempool kept only
+# the first while the rest were terminally marked 'failed'.
+_REFUND_NONCE_LOCK = asyncio.Lock()
+_REFUND_NONCE_ATTEMPTS = 2
+_REFUND_MEMPOOL_LIMIT = 500
 # F3: page size for the BRIDGE_WITHDRAW scan and a per-poll page cap — a
 # backlog deeper than the cap drains over subsequent polls because every
 # fetched row is ledgered before the next page is fetched.
@@ -417,16 +424,65 @@ async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
     return eth_tx_hash
 
 
+async def _refund_nonce() -> int:
+    """Next free AIT-chain nonce for the refund sender.
+
+    ``max(sealed account nonce, highest pending mempool nonce + 1)`` — the
+    sealed nonce alone collides for every refund queued in one pass
+    (#2917). A mempool probe miss degrades to the sealed nonce; the
+    one-shot nonce-refusal retry in ``_submit_bridge_refund`` covers that
+    window. The account read stays strict: without it there is no nonce
+    to sign at all.
+    """
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        account_resp = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/account/{GENESIS_WALLET_ADDRESS}")
+        account_resp.raise_for_status()
+        sealed = int(account_resp.json().get("nonce", 0) or 0)
+        try:
+            mempool_resp = await client.get(
+                f"{BLOCKCHAIN_RPC_URL}/mempool",
+                params={"chain_id": resolve_chain_id(), "limit": _REFUND_MEMPOOL_LIMIT},
+            )
+            mempool_resp.raise_for_status()
+            pending_txs = mempool_resp.json().get("transactions") or []
+        except _OPS_ERRORS as e:
+            logger.warning("Refund nonce mempool probe failed for %s: %s", GENESIS_WALLET_ADDRESS, e)
+            return sealed
+
+    sender = (GENESIS_WALLET_ADDRESS or "").lower()
+    pending: list[int] = []
+    for tx in pending_txs:
+        if not isinstance(tx, dict):
+            continue
+        if str(tx.get("from") or tx.get("sender") or "").lower() != sender:
+            continue
+        nonce = tx.get("nonce")
+        if isinstance(nonce, int) and not isinstance(nonce, bool):
+            pending.append(nonce)
+    if pending:
+        return max(sealed, max(pending) + 1)
+    return sealed
+
+
+def _refund_nonce_refusal(exc: BaseException) -> bool:
+    """True when the node refused the refund on a nonce-slot problem — the
+    one admission failure a freshly probed nonce can fix."""
+    text = str(exc).lower()
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            detail = response.json().get("detail")
+        except _OPS_ERRORS:
+            detail = None
+        if detail:
+            text = f"{text} {str(detail).lower()}"
+    return "nonce" in text
+
+
 async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
     """Submit the refund transaction returning AIT to the user."""
     if not GENESIS_WALLET_ADDRESS or not GENESIS_WALLET_PRIVATE_KEY:
         raise RuntimeError("GENESIS_WALLET_ADDRESS/PRIVATE_KEY not configured")
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        account_url = f"{BLOCKCHAIN_RPC_URL}/rpc/account/{GENESIS_WALLET_ADDRESS}"
-        account_resp = await client.get(account_url)
-        account_resp.raise_for_status()
-        nonce = account_resp.json().get("nonce", 0)
 
     from eth_keys import keys as eth_keys
     from eth_utils import keccak
@@ -434,7 +490,7 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
     value = ait_to_units(amount_ait)
     fee = ait_to_units(_REFUND_FEE_AIT)
 
-    tx_payload = {
+    tx_payload: dict[str, Any] = {
         # An ordinary spend out of the funding wallet: TRANSFER debits it and
         # credits the user. The BRIDGE_* credit types are issued inside the
         # node and are refused at public transaction intake.
@@ -444,27 +500,42 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
         "to": canonical_address(recipient),
         "amount": value,
         "fee": fee,
-        "nonce": nonce,
         "payload": {"amount": value, "reason": "bridge_withdrawal_failed"},
     }
 
-    unsigned = {k: v for k, v in tx_payload.items() if k != "signature"}
-    message = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
     private_key_hex = (
         GENESIS_WALLET_PRIVATE_KEY[2:] if GENESIS_WALLET_PRIVATE_KEY.startswith("0x") else GENESIS_WALLET_PRIVATE_KEY
     )
     private_key = eth_keys.PrivateKey(bytes.fromhex(private_key_hex))
-    signature = private_key.sign_msg_hash(keccak(message))
-    tx_payload["signature"] = signature.to_bytes().hex()
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(f"{BLOCKCHAIN_RPC_URL}/rpc/transaction", json=tx_payload)
-        response.raise_for_status()
-        result = response.json()
-        tx_hash = result.get("transaction_hash") or result.get("tx_hash") or ""
-        if not tx_hash:
-            raise ValueError(f"No tx hash returned: {result}")
-        return tx_hash
+    # The nonce sits inside the signature, so each attempt re-reads the
+    # pending-aware floor and re-signs. The lock keeps concurrent in-process
+    # refund lanes (resume pass, rejected-row sweep, release-failure path)
+    # from probing the same floor simultaneously; cross-process callers are
+    # covered by the mempool floor itself plus the nonce-refusal retry.
+    async with _REFUND_NONCE_LOCK:
+        last_error: BaseException | None = None
+        for _attempt in range(_REFUND_NONCE_ATTEMPTS):
+            tx_payload["nonce"] = await _refund_nonce()
+            unsigned = {k: v for k, v in tx_payload.items() if k != "signature"}
+            message = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+            signature = private_key.sign_msg_hash(keccak(message))
+            tx_payload["signature"] = signature.to_bytes().hex()
+
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(f"{BLOCKCHAIN_RPC_URL}/rpc/transaction", json=tx_payload)
+                    response.raise_for_status()
+                    result = response.json()
+                tx_hash = result.get("transaction_hash") or result.get("tx_hash") or ""
+                if not tx_hash:
+                    raise ValueError(f"No tx hash returned: {result}")
+                return tx_hash
+            except _OPS_ERRORS as e:
+                last_error = e
+                if not _refund_nonce_refusal(e) or _attempt == _REFUND_NONCE_ATTEMPTS - 1:
+                    raise
+        raise last_error if last_error is not None else RuntimeError("refund submission failed")
 
 
 async def _refund_withdrawal(

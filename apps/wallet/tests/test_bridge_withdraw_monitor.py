@@ -319,6 +319,153 @@ class TestRefundWithdrawal:
         assert "refund transaction rejected" in record["error"]
 
 
+class _FakeHttpResp:
+    def __init__(self, payload=None, status_code=200):
+        self._payload = payload if payload is not None else {}
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import httpx
+
+            raise httpx.HTTPStatusError(
+                f"HTTP {self.status_code}",
+                request=httpx.Request("POST", "http://chain.test/rpc/transaction"),
+                response=httpx.Response(self.status_code, json=self._payload),
+            )
+
+    def json(self):
+        return self._payload
+
+
+class _FakeHttpClient:
+    """Scripted stand-in for httpx.AsyncClient used by the refund nonce path."""
+
+    instances: list[_FakeHttpClient] = []
+
+    def __init__(self, routes):
+        self.routes = routes
+        self.calls = []
+        _FakeHttpClient.instances.append(self)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def get(self, url, params=None):
+        self.calls.append(("GET", url, params))
+        for (method, match), response in self.routes.items():
+            if method == "GET" and match in url:
+                if callable(response):
+                    return response(params)
+                return response
+        raise AssertionError(f"unexpected GET {url}")
+
+    async def post(self, url, json=None):
+        self.calls.append(("POST", url, json))
+        for (method, match), response in self.routes.items():
+            if method == "POST" and match in url:
+                if callable(response):
+                    return response(json)
+                return response
+        raise AssertionError(f"unexpected POST {url}")
+
+
+class TestRefundNonceFloor:
+    """#2917/AUDIT-MONEY-68: refund nonces must be pending-aware — the sealed
+    account nonce alone made back-to-back refunds collide on (sender,nonce)."""
+
+    @pytest.mark.asyncio
+    async def test_nonce_raises_above_pending(self, monitor_env, monkeypatch):
+        sender = monitor_env.GENESIS_WALLET_ADDRESS
+        routes = {
+            ("GET", "/rpc/account/"): _FakeHttpResp({"nonce": 5}),
+            ("GET", "/mempool"): _FakeHttpResp(
+                {
+                    "transactions": [
+                        {"from": sender, "nonce": 7},
+                        {"from": "0x" + "99" * 20, "nonce": 40},
+                        {"sender": sender.lower(), "nonce": 6},
+                        {"from": sender, "nonce": "not-an-int"},
+                    ]
+                }
+            ),
+        }
+
+        def _factory(timeout=None, **kwargs):
+            return _FakeHttpClient(routes)
+
+        monkeypatch.setattr(monitor_env.httpx, "AsyncClient", _factory)
+        monkeypatch.setattr(monitor_env, "resolve_chain_id", lambda: "test-chain")
+        assert await monitor_env._refund_nonce() == 8
+
+    @pytest.mark.asyncio
+    async def test_nonce_probe_miss_degrades_to_sealed(self, monitor_env, monkeypatch):
+        routes = {
+            ("GET", "/rpc/account/"): _FakeHttpResp({"nonce": 5}),
+        }
+
+        def _factory(timeout=None, **kwargs):
+            return _FakeHttpClient(routes)
+
+        monkeypatch.setattr(monitor_env.httpx, "AsyncClient", _factory)
+        assert await monitor_env._refund_nonce() == 5
+
+    @pytest.mark.asyncio
+    async def test_submit_retries_once_on_nonce_refusal(self, monitor_env, monkeypatch):
+        posts: list[dict] = []
+
+        def _post(json_payload):
+            posts.append(dict(json_payload))
+            if len(posts) == 1:
+                return _FakeHttpResp({"detail": "Failed to submit transaction: nonce slot already occupied"}, status_code=400)
+            return _FakeHttpResp({"transaction_hash": "0x" + "ee" * 32})
+
+        nonces = iter([5, 6])
+        monkeypatch.setattr(monitor_env, "_refund_nonce", lambda: _coro_value(next(nonces)))
+        monkeypatch.setattr(monitor_env, "resolve_chain_id", lambda: "test-chain")
+        routes = {
+            ("POST", "/rpc/transaction"): _post,
+        }
+
+        def _factory(timeout=None, **kwargs):
+            return _FakeHttpClient(routes)
+
+        monkeypatch.setattr(monitor_env.httpx, "AsyncClient", _factory)
+
+        tx_hash = await monitor_env._submit_bridge_refund("0x" + "22" * 20, Decimal("1"))
+        assert tx_hash == "0x" + "ee" * 32
+        assert len(posts) == 2
+        assert posts[0]["nonce"] == 5 and posts[1]["nonce"] == 6
+        assert posts[0]["signature"] != posts[1]["signature"]
+
+    @pytest.mark.asyncio
+    async def test_submit_does_not_retry_non_nonce_failure(self, monitor_env, monkeypatch):
+        posts: list[dict] = []
+
+        def _post(json_payload):
+            posts.append(dict(json_payload))
+            return _FakeHttpResp({"detail": "insufficient balance"}, status_code=400)
+
+        monkeypatch.setattr(monitor_env, "_refund_nonce", lambda: _coro_value(5))
+        monkeypatch.setattr(monitor_env, "resolve_chain_id", lambda: "test-chain")
+
+        def _factory(timeout=None, **kwargs):
+            return _FakeHttpClient({("POST", "/rpc/transaction"): _post})
+
+        monkeypatch.setattr(monitor_env.httpx, "AsyncClient", _factory)
+
+        with pytest.raises(Exception, match="insufficient balance|HTTP 400"):
+            await monitor_env._submit_bridge_refund("0x" + "22" * 20, Decimal("1"))
+        assert len(posts) == 1
+
+
+async def _coro_value(value):
+    return value
+
+
 def _seed_releasing(ait_tx_hash: str, nonce: int = 7, status: str = "releasing") -> None:
     from wallet_app.bridge.bridge_db import update_withdrawal_status
 

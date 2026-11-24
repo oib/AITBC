@@ -842,3 +842,117 @@ class TestEnvFilePrecedence:
 
         admin._load_env_files([str(env_file)])
         assert os.environ["ETH15_VAR"] == "exported"
+
+
+def _seed_failed_row() -> None:
+    insert_withdrawal(
+        ait_tx_hash=AIT_HASH,
+        from_address="0x1111111111111111111111111111111111111111",
+        eth_address=ETH_TO,
+        amount_ait=Decimal("10"),
+        fee_ait=Decimal("0.05"),
+        net_ait=Decimal("9.95"),
+        amount_eth=Decimal("0.00111306005378485"),
+    )
+    update_withdrawal_status(AIT_HASH, "failed", error="refund failed: rpc down")
+
+
+class TestRefundRetry:
+    """#2917/AUDIT-MONEY-68: refund-retry re-issues the AIT refund for a
+    'failed' row through the monitor's own refund lane (pending-aware
+    nonce, CAS on 'failed')."""
+
+    GENESIS_ENV = ("GENESIS_WALLET_ADDRESS", "GENESIS_WALLET_PRIVATE_KEY")
+
+    def _stub_refund_submit(self, monkeypatch):
+        import wallet_app.bridge.bridge_withdraw_monitor as wdm
+
+        sent = []
+
+        async def _submit(recipient, amount_ait):
+            sent.append((recipient, amount_ait))
+            return "0x" + "ff" * 32
+
+        monkeypatch.setattr(wdm, "_submit_bridge_refund", _submit)
+        return sent
+
+    def _genesis_env(self, monkeypatch):
+        monkeypatch.setenv("GENESIS_WALLET_ADDRESS", TEST_ETH_ADDRESS)
+        monkeypatch.setenv("GENESIS_WALLET_PRIVATE_KEY", TEST_ETH_PRIVATE_KEY)
+
+    def test_dry_run_makes_no_refund(self, admin_env, monkeypatch):
+        state, env_path, db_path = admin_env
+        _seed_failed_row()
+        self._genesis_env(monkeypatch)
+        sent = self._stub_refund_submit(monkeypatch)
+
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "refund-retry", AIT_HASH])
+        assert rc == 0
+        assert sent == []
+        assert get_withdrawal_by_ait_tx_hash(AIT_HASH)["status"] == "failed"
+
+    def test_refuses_non_failed_status(self, admin_env):
+        state, env_path, db_path = admin_env
+        _seed_failed_row()
+        update_withdrawal_status(AIT_HASH, "refunded", refund_tx_hash="0x" + "cc" * 32)
+
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "refund-retry", AIT_HASH])
+        assert rc == 1
+
+    def test_refuses_when_refund_recorded(self, admin_env):
+        state, env_path, db_path = admin_env
+        _seed_failed_row()
+        update_withdrawal_status(AIT_HASH, "failed", refund_tx_hash="0x" + "cc" * 32)
+
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "refund-retry", AIT_HASH])
+        assert rc == 1
+
+    def test_confirm_requires_note(self, admin_env, monkeypatch):
+        state, env_path, db_path = admin_env
+        _seed_failed_row()
+        self._genesis_env(monkeypatch)
+
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "refund-retry", AIT_HASH, "--confirm"])
+        assert rc == 2
+
+    def test_confirm_refuses_without_genesis_env(self, admin_env, monkeypatch):
+        import wallet_app.bridge.bridge_withdraw_monitor as wdm
+
+        state, env_path, db_path = admin_env
+        _seed_failed_row()
+        for key in self.GENESIS_ENV:
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setattr(wdm, "GENESIS_WALLET_ADDRESS", "")
+        monkeypatch.setattr(wdm, "GENESIS_WALLET_PRIVATE_KEY", "")
+
+        rc = _run(["--env-file", str(env_path), "--db", str(db_path), "refund-retry", AIT_HASH, "--confirm", "--note", "x"])
+        assert rc == 1
+        assert get_withdrawal_by_ait_tx_hash(AIT_HASH)["status"] == "failed"
+
+    def test_confirm_refunds_and_marks_refunded(self, admin_env, monkeypatch):
+        state, env_path, db_path = admin_env
+        _seed_failed_row()
+        self._genesis_env(monkeypatch)
+        sent = self._stub_refund_submit(monkeypatch)
+
+        rc = _run(
+            [
+                "--env-file",
+                str(env_path),
+                "--db",
+                str(db_path),
+                "refund-retry",
+                AIT_HASH,
+                "--confirm",
+                "--note",
+                "nonce collision recovery",
+                "--operator",
+                "tester",
+            ]
+        )
+        assert rc == 0
+        assert sent == [("0x1111111111111111111111111111111111111111", Decimal("10"))]
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "refunded"
+        assert row["refund_tx_hash"] == "0x" + "ff" * 32
+        assert "nonce collision recovery" in (row["error"] or "")
