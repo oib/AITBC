@@ -270,6 +270,41 @@ class TestMatchingEngine:
         assert again is not None
         assert again["matched"] is False
 
+    async def test_match_trade_reports_both_quotes(self, db_session):
+        """#2839: price is a ranking key, not a compatibility gate — the
+        result must expose BOTH sides' quotes so a divergent pair is
+        visible instead of silently reporting only the counterparty's."""
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        buy = await _make_trade(
+            svc,
+            source_chain="chain-a",
+            dest_chain="chain-b",
+            sender="0xbuyer",
+            recipient="0xseller",
+            amount=500,
+            price=Decimal("1.0"),
+        )
+        sell = await _make_trade(
+            svc,
+            source_chain="chain-b",
+            dest_chain="chain-a",
+            sender="0xseller",
+            recipient="0xbuyer",
+            amount=500,
+            price=Decimal("9.0"),  # wildly different quote — still pairs (no crossing gate)
+        )
+
+        engine = _engine(db_session)
+        result = await engine.match_trade(buy.trade_id)
+
+        assert result is not None
+        assert result["matched"] is True
+        assert result["matched_trade_id"] == sell.trade_id
+        assert result["price"] == Decimal("9.0")  # counterparty quote (unchanged)
+        assert result["own_price"] == Decimal("1.0")  # requester's own quote
+
     async def test_match_trade_price_time_priority(self, db_session):
         """Highest price wins; ties break on earliest creation."""
         from trading_service.services.inter_chain_service import InterChainTradeService

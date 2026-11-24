@@ -1,11 +1,18 @@
-"""Basic matching engine for inter-chain trades (v0.8.0 §B6).
+"""Matching engine for inter-chain trades (v0.8.0 §B6).
 
-Implements price-time priority matching across chains. A buy trade
-(source_chain → dest_chain) matches a sell trade (dest_chain → source_chain)
-when prices cross and chains are compatible.
+Finds counterparty trades across chains and flips both sides to
+``matched``. Matching is off-chain — the trading service pairs trades and
+updates status; escrow locking and settlement are deferred to v0.9.0.
 
-Matching is off-chain — the trading service finds matches and updates
-trade status. Escrow locking and settlement are deferred to v0.9.0.
+Price semantics (#2839): ``InterChainTrade`` carries no buy/sell side
+field — every trade is a directional offer and ``price`` is that party's
+own quote. The engine uses price ONLY to rank candidates (price-time
+priority picks *which* counterparty pairs first); it is NOT a
+compatibility gate. Two matched trades can quote wildly different prices
+and still pair — the response reports the counterparty's quote as
+``price`` plus the requester's own quote as ``own_price`` so the
+divergence is visible. Matched-pair economics are informational until a
+settlement rail defines the crossing rule and consumes an agreed price.
 """
 
 from __future__ import annotations
@@ -76,6 +83,12 @@ class MatchingEngine:
         - Counterparty's sender == this trade's recipient (or vice versa)
         - Price-time priority: highest price first, then earliest creation
 
+        Price is a ranking key only, NOT a compatibility check (#2839):
+        there is no buy/sell side field and no crossing predicate, so
+        matched pairs can carry divergent quotes. ``price`` in the result
+        is the counterparty's quote; ``own_price`` is this trade's — both
+        are informational until settlement defines an agreed price.
+
         Returns a match result dict if a match is found, None otherwise.
         """
         await _expire_stale_pending(self.session)
@@ -137,6 +150,9 @@ class MatchingEngine:
             "dest_chain": trade.dest_chain,
             "amount": trade.amount,
             "price": match.price,
+            # #2839: expose BOTH quotes — "price" is the counterparty's,
+            # "own_price" is the requester's; they are not reconciled.
+            "own_price": trade.price,
         }
 
         # #1562: claim BOTH trades with guarded UPDATEs — SELECT ... FOR
