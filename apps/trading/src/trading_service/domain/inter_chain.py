@@ -17,7 +17,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy import Column, Numeric
+from sqlalchemy import Column, Numeric, text
 from sqlmodel import Field, Index
 
 from .base import TradingBase, utcnow_naive
@@ -31,6 +31,27 @@ class InterChainTrade(TradingBase, table=True):
         Index("idx_inter_chain_status", "status"),
         Index("idx_inter_chain_chains", "source_chain", "dest_chain"),
         Index("idx_inter_chain_sender", "sender"),
+        # #2836: create_trade's dedup was check-then-insert with no constraint,
+        # so two concurrent identical creates could both insert. Partial unique
+        # index on the natural term set scoped to status='pending' — the same
+        # terms may recur once the earlier trade leaves pending. offer_id is
+        # nullable and NULLs are distinct in unique indexes, so it is indexed
+        # through COALESCE to keep NULL and '' in one slot (create_trade
+        # normalizes '' to NULL before insert).
+        Index(
+            "uq_inter_chain_trades_pending_terms",
+            "source_chain",
+            "dest_chain",
+            "sender",
+            "recipient",
+            "amount",
+            text("COALESCE(offer_id, '')"),
+            "price",
+            "quantity",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
+        ),
     )
 
     trade_id: str = Field(primary_key=True, default_factory=lambda: f"trade_{uuid4().hex[:8]}")

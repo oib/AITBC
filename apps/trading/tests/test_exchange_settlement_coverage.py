@@ -63,7 +63,9 @@ async def _seed_inter_chain_trade(**overrides):
     kwargs = {
         "source_chain": "chain-a",
         "dest_chain": "chain-b",
-        "sender": "0xsender",
+        # #2836: pending rows share a partial unique index on the term set —
+        # each seeded trade needs distinct terms or the second insert fails.
+        "sender": f"0xsender-{uuid4().hex[:8]}",
         "recipient": "0xrecipient",
         "amount": 100,
         "price": Decimal("1.0"),

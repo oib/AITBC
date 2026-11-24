@@ -14,6 +14,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, or_, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -68,6 +69,10 @@ class InterChainTradeService:
         escrow/settlement twice. The natural key is the full term set —
         two genuinely different trades differ in at least one field.
         """
+        # #2836: '' and NULL are the same "no offer" to the dedup SELECT but
+        # would occupy different COALESCE slots in the unique index — normalize
+        # so both the replay check and the insert see one value.
+        offer_id = offer_id or None
         now = _utcnow_naive()
         existing_stmt = select(InterChainTrade).where(
             InterChainTrade.status == "pending",  # type: ignore[arg-type]
@@ -89,23 +94,42 @@ class InterChainTradeService:
             logger.info("Replaying existing inter-chain trade %s for identical create", existing.trade_id)
             return existing
 
-        trade = InterChainTrade(
-            source_chain=source_chain,
-            dest_chain=dest_chain,
-            sender=sender,
-            recipient=recipient,
-            amount=amount,
-            offer_id=offer_id,
-            price=price,
-            quantity=quantity,
-            status="pending",
-            expires_at=_utcnow_naive() + _trade_ttl(),
-        )
-        self.session.add(trade)
-        await self.session.commit()
-        await self.session.refresh(trade)
-        logger.info("Created inter-chain trade %s: %s → %s", trade.trade_id, source_chain, dest_chain)
-        return trade
+        # #2836: the SELECT above is only a fast path — the unique partial
+        # index on the term set is the real guard. A concurrent identical
+        # create (or an expired-but-unswept pending row still holding the
+        # slot) makes the INSERT raise IntegrityError; sweep stale pendings,
+        # then re-read the winner or retry the insert once.
+        for attempt in range(2):
+            trade = InterChainTrade(
+                source_chain=source_chain,
+                dest_chain=dest_chain,
+                sender=sender,
+                recipient=recipient,
+                amount=amount,
+                offer_id=offer_id,
+                price=price,
+                quantity=quantity,
+                status="pending",
+                expires_at=_utcnow_naive() + _trade_ttl(),
+            )
+            self.session.add(trade)
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                await self.session.rollback()
+                if attempt == 0:
+                    await self._expire_stale_pending()
+                winner = (await self.session.execute(existing_stmt)).scalars().first()
+                if winner is not None:
+                    logger.info("Replaying inter-chain trade %s won by a concurrent create", winner.trade_id)
+                    return winner
+                if attempt == 1:
+                    raise
+                continue
+            await self.session.refresh(trade)
+            logger.info("Created inter-chain trade %s: %s → %s", trade.trade_id, source_chain, dest_chain)
+            return trade
+        raise AssertionError("unreachable")
 
     async def _expire_stale_pending(self) -> int:
         """#1562 lazy expiry: pending trades past expires_at become 'cancelled'.
