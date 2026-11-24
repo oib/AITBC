@@ -416,7 +416,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Idempotency-Key header is required for POST /wallets/{id}/send",
             "content": {
               "application/json": {
                 "schema": {

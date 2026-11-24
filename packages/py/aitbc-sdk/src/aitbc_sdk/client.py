@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
+from uuid import uuid4
 
 from aitbc_errors import NetworkError, RateLimitError
 from aitbc.network import AITBCHTTPClient
@@ -38,9 +39,14 @@ class _BaseClient:
         except NetworkError as exc:
             raise AITBCConnectionError(str(exc)) from exc
 
-    def _post(self, path: str, json: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _post(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         try:
-            return self._http.post(path, json=json)
+            return self._http.post(path, json=json, idempotency_key=idempotency_key)
         except RateLimitError as exc:
             raise AITBCRateLimitError(str(exc)) from exc
         except NetworkError as exc:
@@ -77,6 +83,7 @@ class WalletClient(_BaseClient):
         nonce: int | None = None,
         chain_id: str | None = None,
         payload: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Sign and submit a transaction from a wallet.
 
@@ -92,6 +99,12 @@ class WalletClient(_BaseClient):
 
         The endpoint is admin-guarded, so the client's api_key must be the wallet daemon's
         WALLET_API_KEY.
+
+        The endpoint requires an Idempotency-Key (#2930): pass a stable
+        ``idempotency_key`` and reuse it across retries of the same logical
+        payment so a lost response cannot double-send. When omitted a fresh
+        key is generated per call — safe for single attempts, but retries
+        must reuse an explicit key to deduplicate.
         """
         body: dict[str, Any] = {
             "password": password,
@@ -105,7 +118,8 @@ class WalletClient(_BaseClient):
             body["chain_id"] = chain_id
         if payload is not None:
             body["payload"] = payload
-        return self._post(f"/v1/wallets/{wallet_id}/send", json=body)
+        key = idempotency_key or f"sdk-send-{uuid4().hex}"
+        return self._post(f"/v1/wallets/{wallet_id}/send", json=body, idempotency_key=key)
 
 
 class RegistryClient(_BaseClient):
