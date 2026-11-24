@@ -547,6 +547,17 @@ class PersistentKeystoreService:
                     "type": "TRANSFER",
                 }
 
+                # #2931: payload.type/payload.auth are consensus-significant
+                # on the node — payload["type"] overrides this envelope's
+                # TRANSFER type at resolution (state_transition_txmeta
+                # _tx_type / rpc utils _resolved_tx_type) and payload["auth"]
+                # carries operator-authorization material. /send is a plain
+                # TRANSFER contract; refuse caller-controlled protocol
+                # fields instead of signing them into the envelope.
+                reserved = {"type", "auth"}.intersection(payload or {})
+                if reserved:
+                    raise ValueError(f"payload keys {sorted(reserved)} are reserved and cannot be set")
+
                 # Add custom payload if provided — then pin the fields the
                 # node's TransactionRequest validator injects before signature
                 # verification (payload.to / payload.amount, #1669). The signed

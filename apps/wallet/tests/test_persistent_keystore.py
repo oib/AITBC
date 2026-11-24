@@ -383,6 +383,40 @@ def test_caller_payload_keys_preserved_under_node_injection(keystore: Persistent
     assert payload["amount"] == 4
 
 
+@pytest.mark.parametrize("reserved_payload", [{"type": "GOVERNANCE_PROPOSE"}, {"auth": {"signer": "0x" + "aa" * 20}}])
+def test_reserved_payload_keys_rejected(keystore: PersistentKeystoreService, reserved_payload: dict) -> None:
+    """#2931: payload.type overrides the signed TRANSFER type at node
+    resolution and payload.auth carries operator-authorization material —
+    /send must refuse both instead of signing them into the envelope."""
+    keystore.create_wallet("ivan", TEST_PASSWORD)
+    submitted: list = []
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(
+        PersistentKeystoreService,
+        "_submit_transaction_to_chain",
+        lambda self, tx, sig: submitted.append((tx, sig)) or {"success": True},
+    )
+    monkey.setattr(PersistentKeystoreService, "_get_account_nonce", lambda self, addr: 0)
+    monkey.setenv("CHAIN_ID", "test-chain")
+    try:
+        result = keystore.sign_and_submit_transaction(
+            "ivan",
+            TEST_PASSWORD,
+            "0x" + "77" * 20,
+            5,
+            nonce=1,
+            chain_id="test-chain",
+            payload=reserved_payload,
+        )
+    finally:
+        monkey.undo()
+
+    assert result["success"] is False
+    assert "reserved" in result["error"]
+    assert submitted == []
+
+
 def test_nonce_lookup_error_propagates(keystore: PersistentKeystoreService) -> None:
     """A failed nonce fetch must not silently sign with nonce 0 — the error
     surfaces and nothing is submitted."""
