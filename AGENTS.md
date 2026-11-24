@@ -134,8 +134,10 @@ stored on the row and a retry pays exactly that amount (a recompute only
 ever runs when no price was recorded — `amount_ait='0'` — and stores the
 prices it used). A single payout may not exceed
 `BRIDGE_MAX_PAYOUT_FRACTION` (default 0.5) of the payout wallet's
-*available* float — balance minus payouts already committed on
-non-terminal rows and one tx-fee headroom — and, when set, the absolute
+*available* float — balance minus payouts committed against the payout
+account (the monitor pipeline; wallet-side `pending`/`verified` mint
+rows count only when the wallet's `GENESIS_WALLET_ADDRESS` is the payout
+account) and one tx-fee headroom — and, when set, the absolute
 `BRIDGE_MAX_PAYOUT_AIT` ceiling; the stricter of the two binds (the
 fraction shrinks as the float drains, so the fixed bound stays
 predictable). An over-cap deposit lands FAILED and alerts — resolve it with a float

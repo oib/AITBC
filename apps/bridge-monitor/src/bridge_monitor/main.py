@@ -128,6 +128,15 @@ class BridgeMonitor(BridgeMonitorRuntime):
             logger.warning("BRIDGE_PAYOUT_PRIVATE_KEY not set - cannot sign AIT transfers")
         elif not os.getenv("BRIDGE_PAYOUT_PRIVATE_KEY"):
             logger.warning("Payouts signed with GENESIS_WALLET_PRIVATE_KEY; configure a dedicated BRIDGE_PAYOUT_PRIVATE_KEY")
+        # The wallet-side deposit watcher mints from GENESIS_WALLET_ADDRESS
+        # and reads the same fleet env files, so this process sees the
+        # wallet's mint account. When it equals the payout account, the
+        # wallet-vocabulary rows (pending/verified) commit the same float
+        # and belong in sum_committed_ait; when it differs they are
+        # foreign-account exposure and counting them overstates the
+        # committed sum (#2829).
+        genesis_mint = (os.getenv("GENESIS_WALLET_ADDRESS") or "").lower()
+        self.shared_mint_account = bool(genesis_mint) and genesis_mint == self.genesis_wallet_address.lower()
         self.poll_interval = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))
         self.min_eth_deposit = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
         self.min_ait_deposit = Decimal(os.getenv("BRIDGE_MIN_DEPOSIT_AIT", "1"))
