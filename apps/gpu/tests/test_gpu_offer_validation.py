@@ -164,3 +164,18 @@ def test_registry_id_comes_from_signed_payload_not_offer_id(client):
     assert resp.status_code == 200, resp.text
     assert _registry_row(gpu_id) is not None
     assert _registry_row("attacker-chosen-id") is None
+
+
+def test_transport_failure_fails_closed_no_bookable_row(client, monkeypatch):
+    """#2906: a transport-level chain failure must not mirror an 'available'
+    GPURegistry row — the offer has no on-chain backing."""
+    import httpx
+
+    async def boom(tx: dict[str, Any]) -> dict[str, Any]:
+        raise httpx.ConnectError("chain unreachable")
+
+    monkeypatch.setattr(main._rpc_client, "submit_transaction", boom)
+    gpu_id = "gpu_offer_transport"
+    resp = _post(client, gpu_id)
+    assert resp.status_code == 503, resp.text
+    assert _registry_row(gpu_id) is None

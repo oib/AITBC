@@ -629,7 +629,19 @@ async def _handle_gpu_offer(session: AsyncSession, transaction_data: dict[str, A
                 status_code=400,
                 content={"error": "signed envelope rejected: " + str(blockchain_error)},
             )
-        logger.warning("Blockchain submission failed (transport), falling back to local storage: %s", blockchain_error)
+        # AUDIT-EDGE-GPU-OFFER-TRANSPORT-BOOKABLE (#2906): a transport
+        # failure means the chain never admitted the GPU_REGISTER — writing
+        # a local 'available' row anyway mirrors capacity into edge
+        # gpu_listings that paid work can buy against with no on-chain
+        # backing. Fail closed: the caller sees the submission failure and
+        # no bookable row exists. (If the envelope did land despite the
+        # lost response, the safe direction is a missing mirror row, not
+        # unbacked bookable capacity.)
+        logger.warning("Blockchain submission failed (transport); refusing local mirror: %s", blockchain_error)
+        return JSONResponse(
+            status_code=503,
+            content={"error": "blockchain submission failed; offer not mirrored locally", "detail": str(blockchain_error)},
+        )
     miner_id = payload.get("miner_id") or transaction_data.get("provider_node_id", "default_miner")
     gpu_data = {
         # id comes from the signed payload only — an unsigned caller-supplied
