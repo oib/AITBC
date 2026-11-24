@@ -9,6 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
@@ -70,6 +71,20 @@ def _payment_dict(payment: ExchangePayment) -> dict[str, Any]:
     }
 
 
+async def _replayed_payment(session: AsyncSession, idempotency_key: str, user_id: str) -> dict[str, Any] | None:
+    """Stored payment for a replayed Idempotency-Key; None when absent.
+
+    A key claimed by another account is a 409, matching both the pre-check
+    and the lost-race replay (#2844).
+    """
+    existing = await session.scalar(select(ExchangePayment).where(ExchangePayment.idempotency_key == idempotency_key))
+    if existing is None:
+        return None
+    if existing.user_id != user_id:
+        raise HTTPException(status_code=409, detail="Idempotency-Key already used by another account")
+    return _payment_dict(existing)
+
+
 @router.post("/v1/exchange/create-payment", dependencies=[Depends(require_trading_api_key)])
 async def create_exchange_payment(
     payment_request: ExchangePaymentRequest,
@@ -99,11 +114,9 @@ async def create_exchange_payment(
 
     idempotency_key = request.headers.get("Idempotency-Key")
     if idempotency_key:
-        existing = await session.scalar(select(ExchangePayment).where(ExchangePayment.idempotency_key == idempotency_key))
-        if existing:
-            if existing.user_id != payment_request.user_id:
-                raise HTTPException(status_code=409, detail="Idempotency-Key already used by another account")
-            return _payment_dict(existing)
+        replay = await _replayed_payment(session, idempotency_key, payment_request.user_id)
+        if replay is not None:
+            return replay
 
     now = int(time.time())
     payment = ExchangePayment(
@@ -118,7 +131,17 @@ async def create_exchange_payment(
         confirmations=0,
     )
     session.add(payment)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # #2844: lost the check-then-insert race on idempotency_key — replay
+        # the winner's row instead of surfacing a 500.
+        await session.rollback()
+        if idempotency_key:
+            replay = await _replayed_payment(session, idempotency_key, payment_request.user_id)
+            if replay is not None:
+                return replay
+        raise
     await session.refresh(payment)
     logger.info("Created exchange payment %s for user %s", payment.payment_id, payment.user_id)
     background_tasks.add_task(_monitor_payment, payment.payment_id)
