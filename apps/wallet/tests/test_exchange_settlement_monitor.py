@@ -1880,3 +1880,39 @@ class TestOutflowSealDepthGate:
         assert fresh["status"] == "refunding"
         assert not fresh["refund_tx_hash"]
         assert exchange_env["ait_sends"][-1] == blob
+
+
+class TestReleaseAdmissibleStatusGate:
+    """#2893: ``_release_eth_for_settlement`` CAS-predicated on whatever status
+    the ledger held — a resolved/abandoned row was flipped back to
+    'releasing' and ETH broadcast anyway."""
+
+    @pytest.mark.asyncio
+    async def test_release_refuses_settled_row(self, exchange_env):
+        """A 'settled' ledger row with a stale 'locked' snapshot must not
+        broadcast a second ETH payout to the seller."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(status="locked")
+        sid = str(get_exchange_settlement("trade", 1)["id"])
+        # The row resolves while the release pass holds its 'locked' snapshot.
+        update_exchange_settlement(sid, "settled")
+        stale = {**row, "status": "locked"}
+
+        await esm._release_eth_for_settlement(cfg, stale)
+
+        assert exchange_env["eth_sends"] == []
+        assert get_exchange_settlement("trade", 1)["status"] == "settled"
+
+    @pytest.mark.asyncio
+    async def test_release_refuses_failed_row(self, exchange_env):
+        """Same gate on a terminal 'failed' row — not release-admissible."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(status="locked")
+        sid = str(get_exchange_settlement("trade", 1)["id"])
+        update_exchange_settlement(sid, "failed")
+        stale = {**row, "status": "locked"}
+
+        await esm._release_eth_for_settlement(cfg, stale)
+
+        assert exchange_env["eth_sends"] == []
+        assert get_exchange_settlement("trade", 1)["status"] == "failed"

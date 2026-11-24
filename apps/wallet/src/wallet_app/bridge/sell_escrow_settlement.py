@@ -133,6 +133,13 @@ def _load_escrow_key(cfg: SellConfig) -> Any:
 # check, which still applies).
 AIT_ESCROW_SWEEP_LOCK = asyncio.Lock()
 
+# #2893: the only ledger statuses an ETH release may CAS-predicate on —
+# the statuses _handle_locked serves. Anything else the ledger holds
+# (written_off, released, settling, …) means the release already resolved
+# or was deliberately abandoned; the release must refuse, not override.
+_ETH_RELEASE_ADMITTING_STATUSES = frozenset({"locked", "queued_reserve"})
+
+
 # Sibling-lock statuses that consume a quote — everything still live or
 # ambiguous. 'orphaned'/'refunded'/'failed'/'settled' siblings do not block.
 _SELL_BINDING_STATUSES = (
@@ -656,6 +663,18 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
     # on the status the ledger holds right now.
     fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"])
     prior_status = str(fresh["status"]) if fresh else str(row["status"])
+    # #2893: the fresh status must be release-admissible, not merely
+    # *a* status — a concurrent write-off ('written_off') or any terminal
+    # state would otherwise be CAS-flipped back to 'releasing' with a real
+    # broadcast behind it. 'released'/'settling'/etc. also mean the ETH leg
+    # already resolved; re-releasing would double-pay.
+    if prior_status not in _ETH_RELEASE_ADMITTING_STATUSES:
+        logger.error(
+            "Sell lock %s: ledger status %s is not release-admissible — refusing ETH release",
+            row["ait_tx_hash"],
+            prior_status,
+        )
+        return
 
     gas_price = await wdm._eth_gas_price()
     gas_limit = await wdm._release_gas_limit(eth_address, amount_eth)
