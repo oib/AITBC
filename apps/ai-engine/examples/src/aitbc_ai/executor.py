@@ -12,8 +12,9 @@ import hmac
 import json
 import os
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
@@ -60,29 +61,39 @@ def _simulate_result(job: Job) -> tuple[dict | None, str | None]:
 
 
 async def process_job(session, job: Job) -> None:
-    """Transition one claimable job through RUNNING → terminal."""
+    """Transition one claimable job through RUNNING → terminal.
+
+    #2912: every transition is an atomic guarded UPDATE. ``run_pending_once``
+    and ``schedule_job`` can hold the same PENDING row concurrently, and
+    ``cancel_job`` can land while a job is RUNNING — claims require
+    ``state='pending'`` and the terminal write requires
+    ``state='running'``, so a job is executed and receipted at most once
+    and a cancelled job is never resurrected.
+    """
     now = datetime.now(UTC)
     if _job_expired(job, now):
-        job.state = JobState.EXPIRED
-        job.completed_at = now
+        await session.execute(
+            update(Job).where(Job.id == job.id, Job.state == JobState.PENDING).values(state=JobState.EXPIRED, completed_at=now)
+        )
         await session.commit()
         return
 
-    job.state = JobState.RUNNING
-    job.started_at = now
-    job.assigned_miner_id = EXAMPLE_MINER_ID
+    claim = await session.execute(
+        update(Job)
+        .where(Job.id == job.id, Job.state == JobState.PENDING)
+        .values(state=JobState.RUNNING, started_at=now, assigned_miner_id=EXAMPLE_MINER_ID)
+    )
     await session.commit()
+    if claim.rowcount != 1:
+        return  # claimed by another worker, cancelled, or expired concurrently
 
     result, error = _simulate_result(job)
     finished = datetime.now(UTC)
+    values: dict[str, Any] = {"completed_at": finished, "payment_status": "simulated"}
+    receipt_row: JobReceipt | None = None
     if error:
-        job.state = JobState.FAILED
-        job.error = error
-        job.result = None
+        values.update(state=JobState.FAILED, error=error, result=None)
     else:
-        job.state = JobState.COMPLETED
-        job.result = result
-        job.error = None
         metrics = {"duration_ms": max(0, int((finished - now).total_seconds() * 1000))}
         signature = receipt_signature(job.id, EXAMPLE_MINER_ID, result or {})
         receipt_row = JobReceipt(
@@ -92,17 +103,27 @@ async def process_job(session, job: Job) -> None:
             metrics=metrics,
             signature=signature,
         )
+        values.update(
+            state=JobState.COMPLETED,
+            result=result,
+            error=None,
+            receipt_id=receipt_row.id,
+            receipt={
+                "id": receipt_row.id,
+                "miner_id": EXAMPLE_MINER_ID,
+                "signature": signature,
+                "simulated": True,
+            },
+        )
+    if receipt_row is not None:
         session.add(receipt_row)
-        job.receipt_id = receipt_row.id
-        job.receipt = {
-            "id": receipt_row.id,
-            "miner_id": EXAMPLE_MINER_ID,
-            "signature": signature,
-            "simulated": True,
-        }
-    job.completed_at = finished
-    job.payment_status = "simulated"
-    await session.commit()
+    terminal = await session.execute(update(Job).where(Job.id == job.id, Job.state == JobState.RUNNING).values(**values))
+    if terminal.rowcount == 1:
+        await session.commit()
+    else:
+        # The job left RUNNING mid-flight (e.g. cancelled) — leave the row
+        # alone and drop the uncommitted receipt.
+        await session.rollback()
 
 
 async def run_pending_once() -> int:
