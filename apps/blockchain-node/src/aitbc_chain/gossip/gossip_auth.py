@@ -14,6 +14,7 @@ validator set. No shared secret is needed.
 from __future__ import annotations
 
 import json
+import math
 import time
 import uuid
 from typing import Any
@@ -221,7 +222,7 @@ def verify_challenge(
         return False
     if not is_validator(address):
         return False
-    if abs(time.time() - timestamp) > settings.gossip_auth_challenge_ttl:
+    if not math.isfinite(timestamp) or abs(time.time() - timestamp) > settings.gossip_auth_challenge_ttl:
         return False
     ok = verify_consensus_message(build_auth_message(challenge, address, timestamp, scope), signature, address)
     if not ok and legacy_scope and legacy_scope != scope and not settings.gossip_auth_require_chain_scope:

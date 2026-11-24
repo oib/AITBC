@@ -196,3 +196,25 @@ def test_unscoped_verify_rejected_when_scope_required(monkeypatch: pytest.Monkey
     address, sig = _sign(challenge, ts)  # legacy unscoped signature
     assert not gossip_auth.verify_challenge(challenge, address, ts, sig, "")
     assert not gossip_auth.verify_challenge("other", address, ts, sig)
+
+
+# ---------------------------------------------------------------------------
+# #2772: non-finite challenge timestamps must not bypass the freshness window
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_ts", [float("nan"), float("inf"), float("-inf")])
+def test_nonfinite_timestamp_rejected_even_with_valid_signature(bad_ts: float) -> None:
+    """A signature over a NaN/Inf timestamp verifies byte-identically
+    (canonical_json allows NaN), so the freshness check was the only guard —
+    ``abs(now - nan) > ttl`` is False and the bypass succeeded."""
+    issued = gossip_auth.create_challenge("10.0.0.1")
+    assert issued is not None
+    challenge, _ts = issued
+    scope = gossip_auth.channel_scope("blocks.bc-2")
+    address, sig = _sign(challenge, bad_ts, scope)
+    assert not gossip_auth.verify_challenge(challenge, address, bad_ts, sig, scope)
+    # the challenge was NOT consumed — a well-formed retry still verifies
+    fresh_ts = time.time()
+    address2, sig2 = _sign(challenge, fresh_ts, scope)
+    assert gossip_auth.verify_challenge(challenge, address2, fresh_ts, sig2, scope)
