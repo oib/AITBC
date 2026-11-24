@@ -769,6 +769,27 @@ def _choose_format_options(cmd: click.Command) -> dict[str, click.Option]:
     return chosen
 
 
+def _top_group_option_flags(path: tuple[str, ...]) -> set[str]:
+    """Long/short flag spellings declared on the leaf's top-level Click group.
+
+    A leaf that redeclares a group flag (``wallet send --wallet-name``,
+    added by #2736) must NOT keep it as a leaf option in the MCP tool: the
+    group spelling is the canonical one every sibling command uses and it
+    is the only placement Click accepts between the group token and the
+    subcommand path. The group parameter is hoisted instead (#2938).
+    """
+    top_group = cli.commands.get(path[0]) if len(path) >= 2 else None
+    if not isinstance(top_group, click.Group):
+        return set()
+    flags: set[str] = set()
+    for param in top_group.params:
+        if isinstance(param, click.Option):
+            flag = get_flag_name(param)
+            if flag:
+                flags.add(flag)
+    return flags
+
+
 def _group_options(path: tuple[str, ...], options: list[dict[str, Any]], seen_names: set[str]) -> list[dict[str, Any]]:
     """Hoist non-secret options declared on the leaf's top-level Click group.
 
@@ -810,12 +831,25 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
     path_skips = SKIP_OPTIONS_BY_PATH.get(path, frozenset())
 
     chosen = _choose_format_options(cmd)
+    group_flags = _top_group_option_flags(path)
 
     for i, param in enumerate(cmd.params):
         if isinstance(param, click.Option):
             if chosen.get(param.name or "") is not param:
                 continue
             if (param.name or "").replace("-", "_") in path_skips:
+                continue
+            # A leaf option explicitly named ``*_override`` is a documented
+            # alias of the group-level value — the command body rebinds
+            # through the group callback (ctx.invoke / _rebind_*), so the
+            # group spelling is equivalent AND is the only placement Click
+            # accepts ahead of the subcommand. Emit it hoisted as a group
+            # option with the group's parameter names (#2938). Leaf params
+            # that merely share a flag spelling but are read independently
+            # (e.g. market escrow's --wallet) must stay leaf options — the
+            # group value never reaches them.
+            leaf_flag = get_flag_name(param)
+            if leaf_flag and leaf_flag in group_flags and (param.name or "").endswith("_override"):
                 continue
             option = _parse_option(param, i, seen_names)
             if option is not None:

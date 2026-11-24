@@ -260,7 +260,15 @@ def test_ssh_executed_command_byte_identical() -> None:
 
 _SOURCES = sorted(p for p in MCP_SERVER_DIR.glob("*.py") if p.name != "aitbc_mcp_mask.py")
 # json.dumps calls that encode an option value or stdout, never an envelope.
-_OPTION_VALUE_DUMPS = {("aitbc_mcp_server.py", "_run_http"), ("aitbc_mcp_server.py", "_http_dry_run_command")}
+_OPTION_VALUE_DUMPS = {
+    ("aitbc_mcp_server.py", "_run_http"),
+    ("aitbc_mcp_server.py", "_http_dry_run_command"),
+    # #2938: _collect_options serialises a dict-typed CLI *option value* into
+    # argv JSON (#2404) — transport-bound, never an envelope. Masking it
+    # would corrupt the command; every output path is masked downstream by
+    # _json/mask_envelope.
+    ("aitbc_mcp_cli_helpers.py", "_collect_options"),
+}
 
 
 def _json_dumps_calls(tree: ast.AST):
