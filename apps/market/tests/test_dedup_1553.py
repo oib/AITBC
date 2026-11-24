@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -158,3 +159,77 @@ class TestEscrowContractIdPersistence:
         job = await session.get(MarketJob, result["job_id"])
         assert job is not None
         assert job.escrow_contract_id == job.id
+
+
+class TestClientRefRaceIndex:
+    """#2859: concurrent same-ref creates must not duplicate job+payment rows.
+
+    The lookup-then-insert replay check races — both creates miss the in-flight
+    lookup and both commit. Partial unique indexes on (client_ref, scope) make
+    the DB the arbiter; the losing create replays the winner's job.
+    """
+
+    @pytest.mark.asyncio
+    async def test_inflight_duplicate_same_scope_violates_unique_index(self, session):
+        session.add(MarketJob(client_ref="race-1", buyer_address="0xB", state="QUEUED"))
+        await session.commit()
+        session.add(MarketJob(client_ref="race-1", buyer_address="0xB", state="RUNNING"))
+        with pytest.raises(IntegrityError):
+            await session.commit()
+        await session.rollback()
+
+    @pytest.mark.asyncio
+    async def test_terminal_job_frees_the_ref(self, session):
+        session.add(MarketJob(client_ref="race-2", buyer_address="0xB", state="COMPLETED"))
+        await session.commit()
+        session.add(MarketJob(client_ref="race-2", buyer_address="0xB", state="QUEUED"))
+        await session.commit()
+
+    @pytest.mark.asyncio
+    async def test_same_ref_different_buyer_allowed(self, session):
+        session.add(MarketJob(client_ref="race-3", buyer_address="0xB1", state="QUEUED"))
+        await session.commit()
+        session.add(MarketJob(client_ref="race-3", buyer_address="0xB2", state="QUEUED"))
+        await session.commit()
+
+    @pytest.mark.asyncio
+    async def test_client_id_scope_when_no_buyer(self, session):
+        session.add(MarketJob(client_ref="race-4", client_id="c1", state="QUEUED"))
+        await session.commit()
+        session.add(MarketJob(client_ref="race-4", client_id="c1", state="QUEUED"))
+        with pytest.raises(IntegrityError):
+            await session.commit()
+        await session.rollback()
+        session.add(MarketJob(client_ref="race-4", client_id="c2", state="QUEUED"))
+        await session.commit()
+
+    @pytest.mark.asyncio
+    async def test_race_loser_replays_winner_instead_of_500(self, session, monkeypatch):
+        """Simulate the lookup-miss race: the first in-flight lookup returns
+        None (concurrent winner not yet visible), so the insert hits the unique
+        index — the IntegrityError path must replay the winner's job."""
+        svc = MarketService(session)
+        payload = {
+            "client_ref": "race-5",
+            "buyer_address": "0xBuyer",
+            "service_type": "ipfs",
+            "payment": {"amount": "1"},
+        }
+        winner = await svc.create_market_job(dict(payload))
+
+        original = svc._find_inflight_job_by_client_ref
+        calls = {"n": 0}
+
+        async def miss_once(client_ref: str, data: dict):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return None
+            return await original(client_ref, data)
+
+        monkeypatch.setattr(svc, "_find_inflight_job_by_client_ref", miss_once)
+
+        loser = await svc.create_market_job(dict(payload))
+        assert loser["job_id"] == winner["job_id"]
+        assert loser.get("deduplicated") is True
+        jobs = list((await session.execute(select(MarketJob).where(MarketJob.client_ref == "race-5"))).scalars())
+        assert len(jobs) == 1
