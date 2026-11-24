@@ -74,6 +74,59 @@ _HERMES_MAX_OUTPUT_BYTES = int(os.getenv("HERMES_MAX_OUTPUT_BYTES", str(4 * 1024
 # we are willing to slurp into memory before json.load.
 _USAGE_FILE_MAX_BYTES = 256 * 1024
 
+# AUDIT-EDGE-HERMES-ENV-INHERIT (#2903): the hermes child IS the workload —
+# it legitimately needs the shop's provider keys — but it must not inherit
+# the rest of the service environment (PROPOSER_KEY, VALIDATOR_KEYS,
+# JWT_SECRET, market credentials), which a prompt-driven agent could print
+# to stdout and return to the paying caller. The child env is built
+# explicitly: the subprocess_env() base plus provider-key names, proxy
+# vars, HERMES_HOME, and any names the operator adds via
+# HERMES_CHILD_ENV_ALLOWLIST. Everything else in os.environ stays out.
+_HERMES_CHILD_ENV_NAMES = (
+    "OPENROUTER_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MISTRAL_API_KEY",
+    "XAI_API_KEY",
+    "GROQ_API_KEY",
+    "TOGETHER_API_KEY",
+    "COHERE_API_KEY",
+    "PERPLEXITY_API_KEY",
+    "HUGGINGFACE_API_KEY",
+    "HF_TOKEN",
+    "HERMES_HOME",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "all_proxy",
+)
+
+
+def _hermes_child_env() -> dict[str, str]:
+    """Minimal environment for the hermes workload child.
+
+    ``subprocess_env()`` covers PATH/HOME/TMPDIR/locale; provider keys and
+    proxy vars are added by explicit name; ``HERMES_CHILD_ENV_ALLOWLIST``
+    (comma-separated) is the operator escape hatch for provider-specific
+    variables. Service secrets are never copied.
+    """
+    env = subprocess_env()
+    for key in _HERMES_CHILD_ENV_NAMES:
+        if key in os.environ:
+            env[key] = os.environ[key]
+    extra = os.getenv("HERMES_CHILD_ENV_ALLOWLIST", "")
+    for key in (k.strip() for k in extra.split(",") if k.strip()):
+        if key in os.environ:
+            env[key] = os.environ[key]
+    return env
+
 
 async def _require_run_credential(request: Request) -> None:
     """Reject /run without the shared secret when one is configured (constant-time compare)."""
@@ -390,6 +443,7 @@ async def _run_hermes_inner(
             cwd=tmpdir,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=_hermes_child_env(),
             start_new_session=True,
         )
         timed_out = False
