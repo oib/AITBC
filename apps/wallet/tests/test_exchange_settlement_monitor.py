@@ -23,6 +23,7 @@ from wallet_app.bridge import exchange_settlement_monitor as esm
 from wallet_app.bridge import sell_escrow_monitor as sellmon
 from wallet_app.bridge.bridge_db import (
     get_exchange_settlement,
+    get_sell_lock_by_ait_tx_hash,
     init_db,
     insert_exchange_prepay_deposit,
     insert_exchange_settlement,
@@ -64,6 +65,28 @@ def _eth_rpc_stub(receipts: dict[str, Any] | None = None, nonces: dict[str, int]
         raise AssertionError(f"unexpected eth_rpc call {method}")
 
     return _stub
+
+
+def _sell_lock_tx_stub(state: dict[str, Any]):
+    """#2889 canonical-recheck stub for the sell lane's ``_fetch_tx_by_hash``:
+    default = the chain agrees with the ledger row; ``state["canonical_txs"]``
+    overrides per-test (None = reorged out, dict = re-sealed/mempool view)."""
+
+    async def _fetch_tx(tx_hash: str) -> dict | None:
+        canon = state.setdefault("canonical_txs", {})
+        if tx_hash in canon:
+            return canon[tx_hash]
+        row = get_sell_lock_by_ait_tx_hash(tx_hash)
+        if row is None:
+            return None
+        return {
+            "tx_hash": tx_hash,
+            "status": "confirmed",
+            "block_height": row.get("locked_height") or 1,
+            "block_hash": row.get("lock_block_hash"),
+        }
+
+    return _fetch_tx
 
 
 @pytest.fixture
@@ -152,6 +175,7 @@ def exchange_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _ait_broadcast)
     monkeypatch.setattr(sellmon, "_account_view", _account_view)
     monkeypatch.setattr(sellmon, "_fetch_transfers", _transfers)
+    monkeypatch.setattr(sellmon, "_fetch_tx_by_hash", _sell_lock_tx_stub(state))
     monkeypatch.setattr(sellmon, "_chain_height", _height)
     monkeypatch.setattr(esm, "_post_event", _post_event)
     monkeypatch.setattr(esm, "_db_initialized", False)

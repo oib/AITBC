@@ -55,6 +55,7 @@ if TYPE_CHECKING:
         insert_sell_lock,
         insert_sell_quote,
         update_sell_lock_status,
+        update_sell_lock_block,
         update_sell_quote_status,
     )
     from .bridge_db_settlement import (
@@ -424,13 +425,17 @@ def init_db() -> None:
             refunded_at TIMESTAMP,
             resolved_by TEXT,
             resolved_at TIMESTAMP,
-            operator_note TEXT
+            operator_note TEXT,
+            lock_block_hash TEXT
         )
     """)
 
     # Sell tables are new in ETH-10; these ALTERs keep any early dev DB whole.
     _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_nonce", "INTEGER")
     _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_tx", "TEXT")
+    # #2889: canonical-recheck anchor — the block hash the lock tx sealed in,
+    # so a same-height reorg is detectable, not just a height change.
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "lock_block_hash", "TEXT")
     # ETH-13: operator-resolution audit columns (sell_admin writes them on
     # every resolution — confirm-swept/requeue/write-off/sweep-now).
     _add_column_if_not_exists(conn, "bridge_sell_locks", "resolved_by", "TEXT")
@@ -659,6 +664,7 @@ _NAME_TO_MODULE = {
     "get_sell_inflight_sweep": "bridge_db_sell",
     "get_all_sell_locks": "bridge_db_sell",
     "update_sell_lock_status": "bridge_db_sell",
+    "update_sell_lock_block": "bridge_db_sell",
     "get_sell_pending_eth_reserve": "bridge_db_sell",
     "get_sell_eth_committed_since": "bridge_db_sell",
     # exchange_settlements + exchange_monitor_marks
@@ -733,6 +739,7 @@ __all__ = [
     "get_sell_inflight_sweep",
     "get_all_sell_locks",
     "update_sell_lock_status",
+    "update_sell_lock_block",
     "get_sell_pending_eth_reserve",
     "get_sell_eth_committed_since",
     "insert_exchange_settlement",
