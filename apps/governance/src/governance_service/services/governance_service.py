@@ -28,6 +28,7 @@ from ..domain.governance import (
 )
 from .governance_service_common import (
     _OPS_ERRORS,
+    _RECONCILE_FAIL_CACHE_SECONDS,
     _RECONCILE_NEG_CACHE_SECONDS,
     _RECONCILE_PROBE_CONCURRENCY,
     _VOTE_UNIQUE_INDEX,  # noqa: F401 - re-exported; lives in governance_service_common now
@@ -186,6 +187,7 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         return proposal
 
     _reconcile_neg_cache: dict[tuple[str | None, str], float] = {}
+    _reconcile_fail_cache: dict[tuple[str | None, str], float] = {}
 
     async def _reconcile_executed_onchain(self, proposal: Proposal) -> Proposal:
         """Probe the chain for a sealed EXECUTE and stamp the row when found.
@@ -210,7 +212,8 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         recently (negative cache), the probe failed, or the answer carries no
         execute. Failure-soft: an unreachable RPC or a missing record returns
         None — a list/get must never fail on a reconcile probe. Probe failures
-        are NOT cached, so the next call retries the node.
+        are cached only briefly (#2877) so a sick node is not hammered by
+        every unauthenticated read, while recovery is still picked up fast.
         """
         if proposal.status == ProposalStatus.EXECUTED:
             return None
@@ -220,23 +223,38 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
                 voting_ends = voting_ends.replace(tzinfo=UTC)
             if datetime.now(UTC) < voting_ends:
                 return None
-        cache = type(self)._reconcile_neg_cache
         key = (proposal.chain_id, proposal.proposal_id)
-        now = time.monotonic()
-        for k, expiry in list(cache.items()):
-            if expiry <= now:
-                del cache[k]
-        if cache.get(key, 0.0) > now:
+        if self._reconcile_probe_cached(key):
             return None
         try:
             sealed = await self._blockchain.get_sealed_governance_proposal(proposal.proposal_id, proposal.chain_id)
         except _OPS_ERRORS as e:
             logger.warning("chain execute reconcile probe failed for %s: %s", proposal.proposal_id, e)
+            # #2877: remember the failure briefly — without this every
+            # unauthenticated list/get re-fires the probe at a sick node.
+            type(self)._reconcile_fail_cache[key] = time.monotonic() + _RECONCILE_FAIL_CACHE_SECONDS
             return None
         if not sealed or not sealed.get("executed"):
-            cache[key] = now + _RECONCILE_NEG_CACHE_SECONDS
+            type(self)._reconcile_neg_cache[key] = time.monotonic() + _RECONCILE_NEG_CACHE_SECONDS
             return None
         return sealed
+
+    @classmethod
+    def _reconcile_probe_cached(cls, key: tuple[str | None, str]) -> bool:
+        """True when a recent negative or failed probe answer covers ``key``.
+
+        Sweeps expired entries from both class-level caches on every call —
+        the service is built per request, so instance state would never
+        survive to save a probe.
+        """
+        now = time.monotonic()
+        for store in (cls._reconcile_neg_cache, cls._reconcile_fail_cache):
+            for k, expiry in list(store.items()):
+                if expiry <= now:
+                    del store[k]
+            if store.get(key, 0.0) > now:
+                return True
+        return False
 
     async def _stamp_executed_from_chain(self, proposal: Proposal, sealed: dict[str, Any]) -> Proposal:
         """Apply the chain's sealed-EXECUTE verdict to the row and log it.

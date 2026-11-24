@@ -44,6 +44,10 @@ _OPS_ERRORS = (
 # so an instance dict would reset on every call and never save a probe.
 _RECONCILE_PROBE_CONCURRENCY = 4
 _RECONCILE_NEG_CACHE_SECONDS = 60.0
+# #2877: probe *failures* get a much shorter memory than negative answers —
+# long enough that an unreachable chain node is not hammered by every
+# unauthenticated list/get, short enough that recovery is picked up quickly.
+_RECONCILE_FAIL_CACHE_SECONDS = 15.0
 
 # Name of the unique index on votes(proposal_id, lower(voter_id)) — the DB
 # backstop for the check-then-insert duplicate-vote scan (#1610). Must match
