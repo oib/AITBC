@@ -269,3 +269,39 @@ class TestRewardRecipientIsWalletAddress:
         assert [p["status"] for p in payouts] == ["no_wallet_address"]
         assert submit.await_count == 0
         assert session.claimed == set(), "a miner with no wallet must not burn the epoch claim"
+
+
+class TestClaimIsDurableBeforeSubmit:
+    """#2863: the 'pending' claim must be committed before the chain submit —
+    an uncommitted flush rolls back on crash and the miner+epoch pays twice."""
+
+    @pytest.mark.asyncio
+    async def test_claim_payout_commits_the_pending_row(self, client, payout_session):
+        session = payout_session
+
+        claim = await client._claim_payout(session=session, miner_id="miner-1", epoch_number=7, amount=500)
+
+        assert claim is not None
+        assert session.commits == 1, "the pending claim must be committed, not merely flushed"
+        assert ("miner-1", client._chain_id, 7) in session.claimed
+
+    @pytest.mark.asyncio
+    async def test_pending_claim_committed_before_chain_submit(self, client, payout_session):
+        client.record_contribution("miner-1", score=90.0, shares=5000)
+        session = payout_session
+        commits_at_submit: list[int] = []
+
+        async def spy_submit(*args: object, **kwargs: object) -> dict[str, str]:
+            commits_at_submit.append(session.commits)
+            return {"tx_hash": "tx-durable"}
+
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=spy_submit),
+        ):
+            payouts = await client.distribute_rewards(block_height=100, session=session)
+
+        assert [p["status"] for p in payouts] == ["paid"]
+        assert commits_at_submit == [1], (
+            "the chain submit ran before the pending claim was committed — a crash here double-pays"
+        )
