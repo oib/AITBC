@@ -805,6 +805,15 @@ def aitbc_agent_subscribe(
 def aitbc_agent_verify_identity(
     agent_id: Annotated[str, Field(description="The Agent id.")],
     verifier_address: Annotated[str, Field(description="The Verifier address.")],
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet signing the verification (must control --verifier-address; default: $AITBC_DEFAULT_WALLET) — required: the node rejects unsigned verifies"
+        ),
+    ] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -816,7 +825,13 @@ def aitbc_agent_verify_identity(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"agent_id": "agent-id", "verifier_address": "verifier-address", "format": "format"},
+        values={
+            "agent_id": "agent-id",
+            "verifier_address": "verifier-address",
+            "wallet_name": "wallet",
+            "password_file": "password-file",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
