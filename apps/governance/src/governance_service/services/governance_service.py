@@ -38,6 +38,28 @@ from .governance_service_votes import _VotesMixin
 
 logger = logging.getLogger(__name__)
 
+# Caller-settable fields on POST /v1/governance/proposals (and the transaction
+# relay, which forwards the same body). Everything else — status, vote
+# tallies, quorum/threshold, on-chain anchors, execution markers — is
+# server-controlled: the request signature proves key ownership, not field
+# sanity, so Proposal(**data) must never see them (#2872).
+_PROPOSAL_CALLER_FIELDS = frozenset(
+    {
+        "proposal_id",
+        "proposer_id",
+        "title",
+        "description",
+        "category",
+        "proposal_type",
+        "proposal_value",
+        "proposal_metadata",
+        "execution_payload",
+        "chain_id",
+        "voting_starts",
+        "voting_ends",
+    }
+)
+
 
 class GovernanceService(_VotesMixin, _ExecutionMixin):
     def __init__(self, session: AsyncSession, blockchain_client: BlockchainClient | None = None):
@@ -573,6 +595,16 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         # out of the model kwargs — signed_tx is not a Proposal column.
         signed_tx = proposal_data.pop("signed_tx", None)
 
+        dropped = sorted(set(proposal_data) - _PROPOSAL_CALLER_FIELDS)
+        if dropped:
+            logger.info("create_proposal ignoring non-caller fields: %s", ", ".join(dropped))
+        proposal_data = {k: v for k, v in proposal_data.items() if k in _PROPOSAL_CALLER_FIELDS}
+        # Required model fields with no default must exist before
+        # Proposal(**data); mirror the defaults applied below.
+        now = datetime.now(UTC)
+        proposal_data.setdefault("voting_starts", now)
+        proposal_data.setdefault("voting_ends", now + timedelta(seconds=settings.voting_period_blocks * 2))
+
         # Auto-create a governance profile for the proposer if one does not
         # already exist. The CLI passes the node/agent ID as the proposer, and
         # the profile table is otherwise empty on a fresh database.
@@ -587,8 +619,6 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         proposal.chain_id = settings.default_chain_id or proposal.chain_id
 
         # Set voting period if not already provided
-        from datetime import timedelta
-
         now = datetime.now(UTC)
         if not proposal.voting_starts:
             proposal.voting_starts = now
