@@ -131,10 +131,32 @@ def _escrow_sweep_once(mgr: Any) -> list[Any]:
     Runs in a worker thread (#1750): the reconcile probe and refund submitters
     are synchronous httpx and must stay off the event loop.
     """
-    from .services.chain_escrow import reconcile_rejected_lock
+    from .services.chain_escrow import (
+        reconcile_rejected_lock,
+        reconcile_rejected_refund,
+        reconcile_rejected_release,
+    )
 
     if state.escrow_rpc is not None:
         for esc in mgr.get_all_escrows():
+            # #2926: settle txs admitted to the mempool can still be
+            # apply-rejected — a falsely-RELEASED/REFUNDED row strands the
+            # escrowed funds outside every worklist. Settle reconciles run
+            # first: a reverted row lands back on LOCKED, where the lock
+            # reconcile below can resolve a dead lock in the same pass.
+            for reconcile, reason_key in (
+                (reconcile_rejected_release, "release_rejected_reason"),
+                (reconcile_rejected_refund, "refund_rejected_reason"),
+            ):
+                if reconcile(state.escrow_rpc, esc):
+                    mgr.persist_entry(esc)
+                    logger.warning(
+                        "Escrow %s %s rejected on-chain for task %s: %s",
+                        esc.escrow_id,
+                        reason_key.removesuffix("_rejected_reason"),
+                        esc.task_id,
+                        esc.metadata.get(reason_key),
+                    )
             if reconcile_rejected_lock(state.escrow_rpc, esc):
                 mgr.persist_entry(esc)
                 logger.warning(

@@ -23,7 +23,12 @@ from ..services.agent_auth import (
     authorize_escrow_party,
     optional_agent,
 )
-from ..services.chain_escrow import EscrowRPCError, reconcile_rejected_lock
+from ..services.chain_escrow import (
+    EscrowRPCError,
+    reconcile_rejected_lock,
+    reconcile_rejected_refund,
+    reconcile_rejected_release,
+)
 from ..services.nonce_store import get_nonce_store
 
 logger = get_logger(__name__)
@@ -300,6 +305,31 @@ def _reconcile_entry_lock(entry: Any) -> None:
     )
 
 
+def _reconcile_entry_settlement(entry: Any) -> None:
+    """Revert a terminal entry whose settle tx died on-chain (#2926).
+
+    RELEASED/REFUNDED are recorded on mempool admission; a proven rejection
+    restores LOCKED so the expire sweep and operator views see the funds as
+    still held. Best-effort like the lock reconcile: probe failures leave
+    the entry untouched.
+    """
+    if state.payment_escrow is None:
+        return
+    for reconcile, reason_key in (
+        (reconcile_rejected_release, "release_rejected_reason"),
+        (reconcile_rejected_refund, "refund_rejected_reason"),
+    ):
+        if reconcile(state.escrow_rpc, entry):
+            state.payment_escrow.persist_entry(entry)
+            logger.warning(
+                "Escrow %s %s rejected on-chain for task %s: %s",
+                entry.escrow_id,
+                reason_key.removesuffix("_rejected_reason"),
+                entry.task_id,
+                entry.metadata.get(reason_key),
+            )
+
+
 @router.post("/tasks/submit")
 @rate_limit(rate=50, per=60)
 async def submit_task(
@@ -510,6 +540,7 @@ def get_escrow_status(
         raise HTTPException(status_code=404, detail="Escrow not found")
     authorize_escrow_party(principal, entry.requester, entry.agent, "tasks_escrow_status")
     _reconcile_entry_lock(entry)
+    _reconcile_entry_settlement(entry)
     return {
         "status": "success",
         "escrow": {
@@ -525,6 +556,8 @@ def get_escrow_status(
             "tx_hash_release": entry.tx_hash_release,
             "tx_hash_refund": entry.tx_hash_refund,
             "lock_rejected_reason": entry.metadata.get("lock_rejected_reason"),
+            "release_rejected_reason": entry.metadata.get("release_rejected_reason"),
+            "refund_rejected_reason": entry.metadata.get("refund_rejected_reason"),
             "created_at": entry.created_at,
             "locked_at": entry.locked_at,
             "released_at": entry.released_at,
@@ -858,6 +891,7 @@ def get_task_escrow(
         raise HTTPException(status_code=404, detail="No escrow found for task")
     authorize_escrow_party(principal, entry.requester, entry.agent, "tasks_task_escrow")
     _reconcile_entry_lock(entry)
+    _reconcile_entry_settlement(entry)
     return {
         "status": "success",
         "escrow": {
@@ -873,6 +907,8 @@ def get_task_escrow(
             "tx_hash_release": entry.tx_hash_release,
             "tx_hash_refund": entry.tx_hash_refund,
             "lock_rejected_reason": entry.metadata.get("lock_rejected_reason"),
+            "release_rejected_reason": entry.metadata.get("release_rejected_reason"),
+            "refund_rejected_reason": entry.metadata.get("refund_rejected_reason"),
             "contract_id": entry.contract_id or entry.metadata.get("contract_id"),
             "created_at": entry.created_at,
             "locked_at": entry.locked_at,
