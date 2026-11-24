@@ -9,6 +9,7 @@ be enabled with ``EDGE_WORKER_EXECUTOR=ollama``.
 
 import asyncio
 import json
+import os
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -66,16 +67,40 @@ def _execute_stub(request: ComputeRequest) -> tuple[dict[str, Any], dict[str, An
     return output_data, metrics
 
 
+# AUDIT-EDGE-OLLAMA-EXECUTOR-GUARDS (#2905): request.model_name and the
+# extracted prompt are buyer-controlled. Ollama auto-pulls unknown models,
+# so the model must exist in /api/tags before /api/generate runs, and the
+# prompt is char-capped — the same guards the miner executor applies
+# (agent_task_executor._ollama_model_available / _OLLAMA_MAX_PROMPT_CHARS).
+_OLLAMA_MAX_PROMPT_CHARS = int(os.environ.get("EDGE_OLLAMA_MAX_PROMPT_CHARS", "32000"))
+
+
+async def _ollama_model_available(client: httpx.AsyncClient, model: str) -> bool:
+    """True when *model* (or its ``:latest`` alias) is present in /api/tags.
+
+    Fails closed: a tags-probe error raises rather than letting an
+    unverifiable model reach /api/generate (auto-pull pins disk/GPU).
+    """
+    resp = await client.get(f"{settings.ollama_url}/api/tags")
+    resp.raise_for_status()
+    names = {str(m.get("name") or "") for m in resp.json().get("models", []) if isinstance(m, dict)}
+    return model in names or f"{model}:latest" in names
+
+
 async def _execute_ollama(request: ComputeRequest) -> tuple[dict[str, Any], dict[str, Any]]:
     """Execute a request against a local Ollama instance."""
     prompt = _extract_prompt(request.input_data)
-    payload = {
-        "model": request.model_name,
-        "prompt": prompt,
-        "stream": False,
-        "options": {"temperature": 0.7, "num_predict": 128},
-    }
+    if len(prompt) > _OLLAMA_MAX_PROMPT_CHARS:
+        raise ValueError(f"ollama prompt is {len(prompt)} chars, over the {_OLLAMA_MAX_PROMPT_CHARS} cap")
     async with httpx.AsyncClient(timeout=180.0) as client:
+        if not await _ollama_model_available(client, request.model_name):
+            raise ValueError(f"ollama model {request.model_name!r} is not installed on this node")
+        payload = {
+            "model": request.model_name,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.7, "num_predict": 128},
+        }
         resp = await client.post(f"{settings.ollama_url}/api/generate", json=payload)
         resp.raise_for_status()
         data = resp.json()
