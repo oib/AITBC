@@ -7,6 +7,7 @@ Values are read from the environment or from `/etc/aitbc/blockchain.env` via
 from __future__ import annotations
 
 import logging
+import math
 import os
 from pathlib import Path
 from dataclasses import dataclass
@@ -129,6 +130,13 @@ def _load_bridge_config() -> BridgeConfig:
     try:
         fee_rate = float(fee_raw)
     except ValueError:
+        fee_rate = 0.005
+    # #2842: float() accepts 'nan'/'inf'/'-1'/'5.0' — a NaN fee makes the
+    # deposit estimate raise InvalidOperation (500) and a rate > 1 shows a
+    # >100% fee with negative net. A fee rate is a fraction in [0, 1];
+    # anything else falls back to the default.
+    if not math.isfinite(fee_rate) or not 0.0 <= fee_rate <= 1.0:
+        _logger.warning("Invalid BRIDGE_FEE_RATE %r — falling back to 0.005", fee_raw)
         fee_rate = 0.005
 
     return BridgeConfig(
