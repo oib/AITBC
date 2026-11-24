@@ -62,6 +62,15 @@ class Settings(ServiceSettings):
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
 
+    # #2853: absolute ceiling for pin-confirm ``size`` writes (bytes). The
+    # per-offer ``disk_quota_mb`` bound is tighter when set; this cap is the
+    # backstop for offers without a quota so a caller-influenced payload can
+    # never record an unbounded usage figure. 1 TiB default.
+    pin_confirm_max_size_bytes: int = Field(
+        default=1 << 40,
+        validation_alias=AliasChoices("MARKET_PIN_CONFIRM_MAX_SIZE_BYTES", "PIN_CONFIRM_MAX_SIZE_BYTES"),
+    )
+
     # Service binding (kept for backward compat with MARKET_BIND_HOST/PORT env vars;
     # ServiceSettings also provides app_host/app_port).
     market_bind_host: str = Field(

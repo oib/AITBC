@@ -374,6 +374,68 @@ async def _pin_confirm_attestation_gate(
     return None
 
 
+async def _pin_size_quota_mb(svc: MarketService, job: dict[str, Any]) -> int | None:
+    """#2853: the rental's ``disk_quota_mb`` for this job's offer, if any.
+
+    Same resolution order as ``_pin_attestation_expected_provider`` — the
+    offer row first, the plugin row for plugin-bound jobs. Returns None when
+    no quota is published; lookup failures degrade to the global cap rather
+    than fail the pin-confirm (the cap still bounds the write)."""
+    service: dict[str, Any] | None = None
+    if job.get("offer_id"):
+        try:
+            service = await svc.get_service_by_offer_id(str(job["offer_id"]))
+        except AmbiguousOfferIdError:
+            service = None
+        except Exception:  # noqa: BLE001 - quota lookup is advisory; the global cap still binds
+            service = None
+    if service is None and job.get("plugin_id"):
+        try:
+            service = await svc.get_software_service(str(job["plugin_id"]))
+        except AmbiguousOfferIdError:
+            service = None
+        except Exception:  # noqa: BLE001 - same advisory rule
+            service = None
+    if not service:
+        return None
+    quota = service.get("disk_quota_mb")
+    return quota if isinstance(quota, int) and not isinstance(quota, bool) and quota > 0 else None
+
+
+async def _pin_size_bound_gate(
+    svc: MarketService,
+    job_id: str,
+    confirm_data: dict[str, Any],
+    pin_size: int | None,
+) -> JSONResponse | None:
+    """#2853: bound caller-written ``size``/``pin_tx_hash`` on pin-confirm.
+
+    ``size`` lands verbatim in ``job.payload`` and is summed into the
+    buyer/offer usage aggregate — an unsigned API-key holder could pin any
+    magnitude onto any live job. The bound is the offer's ``disk_quota_mb``
+    (bytes) when published, else the configured absolute cap; the tighter
+    of the two always applies. ``pin_tx_hash`` is an unverified claim but
+    still bounded so payload bloat cannot ride the same route."""
+    pin_tx_hash = confirm_data.get("pin_tx_hash")
+    if pin_tx_hash is not None and (not isinstance(pin_tx_hash, str) or len(pin_tx_hash) > 128):
+        return JSONResponse(status_code=400, content={"error": "pin_tx_hash must be a string of at most 128 characters"})
+    if pin_size is None:
+        return None
+    job = await svc.get_market_job(job_id)
+    if not job:
+        return None  # the service layer reports the 404
+    limit = settings.pin_confirm_max_size_bytes
+    quota_mb = await _pin_size_quota_mb(svc, job)
+    if quota_mb is not None:
+        limit = min(limit, quota_mb * 1024 * 1024)
+    if pin_size > limit:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"size {pin_size} exceeds this offer's pin bound of {limit} bytes"},
+        )
+    return None
+
+
 async def _billing_access_gate(
     svc: MarketService,
     job_id: str,

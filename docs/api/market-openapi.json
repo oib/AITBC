@@ -1834,7 +1834,7 @@
             }
           },
           "400": {
-            "description": "size must be a non-negative integer",
+            "description": "size must be a non-negative integer / pin_tx_hash must be a string of at most 128 characters / size {pin_size} exceeds this offer's pin bound of {limit} bytes",
             "content": {
               "application/json": {
                 "schema": {
