@@ -10,12 +10,13 @@ Provides:
 from __future__ import annotations
 
 import logging
+import math
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from ....auth import AdminDep
 from ..services.oracle_service import get_oracle_service
@@ -46,6 +47,15 @@ class SetPriceRequest(BaseModel):
     price: Decimal
     confidence: float = 1.0
     source: str = "manual"
+
+    @field_validator("confidence")
+    @classmethod
+    def _confidence_finite_in_unit_interval(cls, v: float) -> float:
+        # #2819: NaN/inf/out-of-range confidence must 422 here, not reach
+        # the feed and propagate to every price consumer.
+        if not math.isfinite(v) or not 0.0 <= v <= 1.0:
+            raise ValueError("confidence must be finite and within [0, 1]")
+        return v
 
 
 class PriceResponse(BaseModel):
