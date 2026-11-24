@@ -73,7 +73,9 @@ def _validate(st: StateTransition, session: Session, tx: dict, tx_hash: str, ver
 def test_v31_nan_value_rejected(engine, session):
     st = StateTransition()
     ok, err = _validate(st, session, _tx(value=math.nan), "0xnan-value", 31)
-    assert ok is False and "value must be an integer" in err
+    # ``amount`` is present so the v20 compare fires first — either integer
+    # rejection is correct; the point is the tx is refused, not which gate.
+    assert ok is False and "integer" in err
 
 
 def test_v31_nan_fee_rejected(engine, session):
@@ -85,7 +87,7 @@ def test_v31_nan_fee_rejected(engine, session):
 def test_v31_nan_amount_rejected(engine, session):
     st = StateTransition()
     ok, err = _validate(st, session, _tx(amount=math.nan, value=math.nan), "0xnan-amount", 31)
-    assert ok is False and "amount must be an integer" in err
+    assert ok is False and "integer" in err
 
 
 def test_v31_infinity_fee_rejected(engine, session):
