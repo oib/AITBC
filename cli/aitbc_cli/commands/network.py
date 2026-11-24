@@ -12,7 +12,7 @@ import requests
 from aitbc.config.hub import normalize_hub_base
 from aitbc.exceptions import AITBCError
 
-from ..utils import output
+from ..utils import output, warning
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_error_detail
 
@@ -632,12 +632,19 @@ def _derive_sync_urls(url: str) -> dict[str, str]:
     if not parsed.scheme or not parsed.netloc:
         raise ValueError(f"Invalid URL: {url}")
 
+    # #2800: netloc keeps any user:pass@ userinfo — persisting it would write
+    # the credential into the node env file AND echo it in `updated`. Strip
+    # userinfo before deriving; rsplit keeps brackets/port intact.
+    if "@" in parsed.netloc:
+        warning("userinfo (user:pass@) in --url is not persisted; credentials must not be stored in env files")
+    netloc = parsed.netloc.rsplit("@", 1)[-1]
+
     # Base origin. Keep any path prefix the user gave, but drop a trailing
     # /rpc segment so either form of the hub URL is accepted.
     path = parsed.path.rstrip("/")
     if path.endswith("/rpc"):
         path = path[: -len("/rpc")]
-    base = f"{parsed.scheme}://{parsed.netloc}{path}".rstrip("/")
+    base = f"{parsed.scheme}://{netloc}{path}".rstrip("/")
 
     # Discovery hostname: just the host (no scheme, no port).
     host = parsed.hostname or parsed.netloc
