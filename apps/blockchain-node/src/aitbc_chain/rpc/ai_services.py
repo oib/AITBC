@@ -123,6 +123,17 @@ class AIJobResponse(BaseModel):
     result: dict[str, Any] | None = None
 
 
+# Bound on the cancellation overlay set (#2871): it is rebuilt on every
+# /ai/jobs, /ai/job/{id} and /ai/stats request, so an unbounded .all() made
+# each request scan the whole ever-growing table. Newest cancellations win
+# a truncated page — far above realistic cancel volume, so truncation is
+# theoretical. No chain_id filter: the table lives in the per-chain
+# chain.db (session_scope refuses foreign chains), and rows legitimately
+# carry the origin tx's chain_id spelling — filtering by the resolved
+# chain would silently un-cancel jobs whose rows spell it differently.
+_CANCELLED_IDS_LIMIT = 100_000
+
+
 def _cancelled_job_ids(session) -> set[str]:
     """Job ids cancelled on this host via the ai_job_cancellation service table.
 
@@ -130,7 +141,12 @@ def _cancelled_job_ids(session) -> set[str]:
     (AI-CANCEL-SEALED-TX-1); the mark lives in this per-node service table and
     read paths overlay ``status="cancelled"`` from it.
     """
-    return {r.job_id for r in session.exec(select(AIJobCancellation)).all()}
+    return {
+        r.job_id
+        for r in session.exec(
+            select(AIJobCancellation).order_by(col(AIJobCancellation.cancelled_at).desc()).limit(_CANCELLED_IDS_LIMIT)
+        ).all()
+    }
 
 
 def _job_from_tx(tx: Transaction, cancelled_ids: set[str] | None = None) -> dict[str, Any]:
