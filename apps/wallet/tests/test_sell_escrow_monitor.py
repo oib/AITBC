@@ -1985,3 +1985,59 @@ class TestOutflowSealDepthGate:
         assert row["status"] == "refunding"  # still in flight, not 'refunded'
         assert not row["refund_tx_hash"]
         assert sell_env["ait_sends"][-1] == json.loads(stored_blob)
+
+
+class TestReleaseAdmissibleStatusGate:
+    """#2893: ``_release_eth_for_lock`` CAS-predicated on whatever status the
+    ledger happened to hold — a concurrent write-off ('written_off') or an
+    already-resolved status was flipped back to 'releasing' and ETH still
+    broadcast. The release may only predicate on release-admissible
+    statuses ('locked'/'queued_reserve')."""
+
+    @pytest.mark.asyncio
+    async def test_release_refuses_written_off_row(self, sell_env):
+        """Operator write-off lands while the release pass holds a 'locked'
+        snapshot: no 'releasing' flip, no broadcast, row stays written_off."""
+        lock_hash = "0x" + "a4" * 32
+        insert_sell_lock(
+            ait_tx_hash=lock_hash,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="locked",
+            locked_height=900,
+        )
+        # The write-off the audit describes: terminal, deliberate abandon.
+        update_sell_lock_status(lock_hash, "written_off", expected_statuses={"locked"})
+        cfg = sellmon._sell_config()
+        stale = {**get_sell_lock_by_ait_tx_hash(lock_hash), "status": "locked"}
+
+        await sellmon._release_eth_for_lock(cfg, stale, Decimal("0.0009"))
+
+        assert sell_env["eth_sends"] == []
+        row = get_sell_lock_by_ait_tx_hash(lock_hash)
+        assert row["status"] == "written_off"
+        assert not row["eth_tx_hash"]
+
+    @pytest.mark.asyncio
+    async def test_release_refuses_already_released_row(self, sell_env):
+        """A 'released' ledger row means the ETH leg already resolved — a
+        stale 'locked' snapshot must not double-pay the shop."""
+        lock_hash = "0x" + "a5" * 32
+        insert_sell_lock(
+            ait_tx_hash=lock_hash,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        cfg = sellmon._sell_config()
+        stale = {**get_sell_lock_by_ait_tx_hash(lock_hash), "status": "locked"}
+
+        await sellmon._release_eth_for_lock(cfg, stale, Decimal("0.0009"))
+
+        assert sell_env["eth_sends"] == []
+        assert get_sell_lock_by_ait_tx_hash(lock_hash)["status"] == "released"

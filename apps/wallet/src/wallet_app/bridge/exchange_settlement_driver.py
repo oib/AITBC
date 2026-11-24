@@ -289,6 +289,11 @@ _REVIEW_PARENTS = {
     "needs_review_sweep": ("released", "settling", "refunding", "queued_fee_settle", "queued_fee_refund"),
 }
 _REFUND_TARGETS = frozenset({"refund_pending", "queued_fee_refund", "refunding", "refunded"})
+# #2893: the only ledger statuses an ETH release may CAS-predicate on —
+# the statuses _handle_locked serves. Anything else (written_off,
+# released, settling, …) means the release already resolved or was
+# deliberately abandoned; the release must refuse, not override.
+_ETH_RELEASE_ADMITTING_STATUSES = frozenset({"locked", "queued_reserve"})
 
 
 def _mirror_path(current: str, target: str) -> list[str] | None:
@@ -382,7 +387,19 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
     # CAS predicate (#1918): the caller's snapshot may be stale — predicate
     # on the status the ledger holds right now.
     fresh = get_exchange_settlement(str(row["kind"]), int(row["ref_id"]))
-    prior_status = {str(fresh["status"])} if fresh else {str(row["status"])}
+    fresh_status = str(fresh["status"]) if fresh else str(row["status"])
+    # #2893: the fresh status must be release-admissible — a concurrent
+    # write-off or any already-resolved state must never be CAS-flipped
+    # back to 'releasing' with a real broadcast behind it (and 'released'
+    # would double-pay the seller).
+    if fresh_status not in _ETH_RELEASE_ADMITTING_STATUSES:
+        logger.error(
+            "Settlement %s: ledger status %s is not release-admissible — refusing ETH release",
+            row["id"],
+            fresh_status,
+        )
+        return
+    prior_status = {fresh_status}
     if not seller_eth or not wdm._is_valid_eth_address(seller_eth):
         await _update_with_retry(
             str(row["id"]),
