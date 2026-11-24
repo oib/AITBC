@@ -553,7 +553,46 @@ def _canon(value) -> str:
         return str(value or "").lower()
 
 
-def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_hash: str | None, request_id: str) -> str | None:
+def _entry_int(entry: dict, body: dict, *keys: str) -> int | None:
+    """First readable integer among ``keys`` on the entry or its content body."""
+    for source in (entry, body):
+        for key in keys:
+            raw = source.get(key)
+            if raw is None:
+                continue
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _entry_is_our_payout(entry: dict, body: dict, amount: int) -> bool:
+    """#2861: does this chain entry actually move ``amount`` to the recipient?
+
+    The nonce+sender+recipient match alone adopts ANY transaction that
+    consumed the claimed nonce — a different faucet grant, a replacement,
+    or an escrow lock at the same (sender, nonce) would finalize the row
+    APPROVED/paid with an unrelated tx_hash while the approved amount
+    never moved. The node's normalized rows always carry ``value`` (sealed)
+    or ``amount``/``value`` (mempool content) plus ``type``; require a
+    TRANSFER of exactly the approved amount. Fee is deliberately not
+    compared — a same-amount replacement may legitimately vary it.
+    """
+    tx_type = body.get("type") or entry.get("type")
+    if tx_type is not None and str(tx_type).upper() != "TRANSFER":
+        return False
+    moved = _entry_int(entry, body, "value", "amount")
+    if moved is None:
+        payload = body.get("payload") or entry.get("payload") or {}
+        if isinstance(payload, dict):
+            moved = _entry_int(payload, {}, "amount", "value")
+    return moved == amount
+
+
+def _scan_entries(
+    entries, nonce: int, genesis: str, recipient: str, attempt_hash: str | None, request_id: str, amount: int
+) -> str | None:
     """Match one mempool/sealed entry to a claimed attempt. Returns the found
     tx hash, "keep" when the stored hash points at a different recipient (the
     claim must stay), or None when nothing matched.
@@ -580,7 +619,12 @@ def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_has
                 )
                 return "keep"
             return attempt_hash
-        if body.get("nonce") == nonce and _canon(sender) == _canon(genesis) and _canon(target) == _canon(recipient):
+        if (
+            body.get("nonce") == nonce
+            and _canon(sender) == _canon(genesis)
+            and _canon(target) == _canon(recipient)
+            and _entry_is_our_payout(entry, body, amount)
+        ):
             h = entry.get("tx_hash") or entry.get("transaction_hash")
             return h if isinstance(h, str) else None
     return None
@@ -608,13 +652,13 @@ def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient
         genesis = tx_service.genesis_address or ""
         mempool_resp = client.get_json("/rpc/mempool")
         pending = mempool_resp.get("transactions", []) if isinstance(mempool_resp, dict) else []
-        found = _scan_entries(pending, nonce, genesis, recipient, attempt_hash, request_id)
+        found = _scan_entries(pending, nonce, genesis, recipient, attempt_hash, request_id, amount)
         if found == "keep":
             return None
         if found is None:
             sealed = client.get_json("/rpc/transactions", params={"sender": genesis, "recipient": recipient})
             entries = sealed if isinstance(sealed, list) else []
-            found = _scan_entries(entries, nonce, genesis, recipient, attempt_hash, request_id)
+            found = _scan_entries(entries, nonce, genesis, recipient, attempt_hash, request_id, amount)
             if found == "keep":
                 return None
         if found:
