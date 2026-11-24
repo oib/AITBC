@@ -161,7 +161,10 @@ async def test_cleared_dispute_does_not_block() -> None:
 
 async def test_release_loses_to_concurrent_cancel() -> None:
     """cancel commits during release's RPC window: the CAS must lose and the
-    buyer's cancel must not be clobbered to RELEASED/released."""
+    buyer's cancel must not be clobbered to RELEASED/released. #2855: the
+    on-chain release is reconciled onto the payment row — it records
+    ``released`` (not the winner's ``refund_pending``) so the sweeper cannot
+    refund an escrow the chain already paid out."""
     job_id = await _seed(state="RUNNING")
     async with get_session_context() as session:
         service = MarketService(session)
@@ -170,12 +173,16 @@ async def test_release_loses_to_concurrent_cancel() -> None:
     assert result["state"] == "CANCELED"
     job, payment = await _fields(job_id)
     assert job.state == "CANCELED"
-    assert payment.status == "refund_pending"
+    assert payment.status == "released"
+    assert payment.transaction_hash == f"0xrel_{job_id}"
+    assert job.payment_status == "released"
 
 
 async def test_refund_loses_to_concurrent_dispute() -> None:
     """A dispute landing during refund's RPC window must win the CAS — the
-    payment flip rolls back and the escrow stays frozen, not refunded."""
+    job keeps its disputed state. #2855: the on-chain refund is reconciled
+    onto the payment row (``refunded``, not ``escrowed``) so a later sweep
+    cannot release an escrow the chain already returned to the buyer."""
     job_id = await _seed(state="FAILED")
     async with get_session_context() as session:
         service = MarketService(session)
@@ -185,7 +192,8 @@ async def test_refund_loses_to_concurrent_dispute() -> None:
     job, payment = await _fields(job_id)
     assert job.state == "FAILED"
     assert job.disputed_at is not None
-    assert payment.status == "escrowed"
+    assert payment.status == "refunded"
+    assert payment.refund_transaction_hash == f"0xref_{job_id}"
 
 
 async def test_release_still_succeeds_unchallenged() -> None:

@@ -110,6 +110,58 @@ class _JobsSettlementMixin(_JobsMixin):
         winner = await self.session.get(MarketJob, job_id)
         return self._job_to_dict(winner) if winner else {}
 
+    async def _reconcile_settled_payment(
+        self,
+        payment_id: str | None,
+        job_id: str,
+        *,
+        status: str,
+        tx_hash: str | None,
+        amount: Any,
+        now: datetime,
+        amount_field: str,
+        hash_field: str,
+        ts_field: str,
+    ) -> None:
+        """#2855: chain truth wins on a lost settle CAS.
+
+        The escrow RPC already moved funds before the terminal CAS ran; when
+        a concurrent transition wins the job CAS, the payment row must still
+        record the on-chain outcome immediately — otherwise it stays
+        ``escrowed``/``refund_pending`` and the sweeper can pay the opposite
+        side (release AND refund) until the verdict adoption heals it.
+        Predicate limits the write to non-terminal payment states; an
+        already-terminal row is left alone. Takes scalar ids — the caller's
+        ORM objects are expired by the CAS-loss rollback."""
+        if payment_id is None:
+            return
+        values = self._settle_payment_values(
+            status=status,
+            tx_hash=tx_hash,
+            amount=amount,
+            now=now,
+            amount_field=amount_field,
+            hash_field=hash_field,
+            ts_field=ts_field,
+        )
+        claim = await self.session.execute(
+            update(MarketJobPayment)
+            .where(
+                col(MarketJobPayment.id) == payment_id,
+                col(MarketJobPayment.status).in_(("escrowed", "refund_pending")),
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) == 1:
+            await self.session.execute(
+                update(MarketJob)
+                .where(col(MarketJob.id) == job_id)
+                .values(payment_status=status, updated_at=now)
+                .execution_options(synchronize_session=False)
+            )
+        await self.session.commit()
+
     @staticmethod
     def _settle_payment_values(
         *,
@@ -614,6 +666,9 @@ class _JobsSettlementMixin(_JobsMixin):
             payment: MarketJobPayment | None = None
             if job.payment_id:
                 payment = await self.session.get(MarketJobPayment, job.payment_id)
+            # #2855: scalar snapshot — the CAS-loss rollback expires the ORM
+            # objects, so the reconcile below cannot re-read payment.id.
+            payment_id = payment.id if payment is not None else None
 
             replay = self._guard_release_settlement(job, payment, job_id)
             if replay is not None:
@@ -677,6 +732,20 @@ class _JobsSettlementMixin(_JobsMixin):
                 ),
             )
             if lost is not None:
+                # #2855: the release already settled on-chain — record that
+                # truth on the payment row so the sweeper cannot refund the
+                # same escrow while the job-state verdict catches up.
+                await self._reconcile_settled_payment(
+                    payment_id,
+                    job_id,
+                    status="released",
+                    tx_hash=tx_hash,
+                    amount=released_amount,
+                    now=now,
+                    amount_field="released_amount",
+                    hash_field="transaction_hash",
+                    ts_field="released_at",
+                )
                 return lost
 
             await self.session.commit()
@@ -701,6 +770,8 @@ class _JobsSettlementMixin(_JobsMixin):
             payment: MarketJobPayment | None = None
             if job.payment_id:
                 payment = await self.session.get(MarketJobPayment, job.payment_id)
+            # #2855: scalar snapshot — see release_market_job_payment.
+            payment_id = payment.id if payment is not None else None
 
             replay = self._guard_refund_settlement(job, payment, job_id)
             if replay is not None:
@@ -751,6 +822,19 @@ class _JobsSettlementMixin(_JobsMixin):
                 ),
             )
             if lost is not None:
+                # #2855: same reconcile for refund — the on-chain refund
+                # must not leave the payment refundable to a later release.
+                await self._reconcile_settled_payment(
+                    payment_id,
+                    job_id,
+                    status="refunded",
+                    tx_hash=tx_hash,
+                    amount=refunded_amount,
+                    now=now,
+                    amount_field="refunded_amount",
+                    hash_field="refund_transaction_hash",
+                    ts_field="refunded_at",
+                )
                 return lost
 
             await self.session.commit()
