@@ -33,6 +33,7 @@ from .payments_helpers import (
     _validate_evm_receipt_target,
 )
 
+from .payments_core import _payment_order_key
 from .payments_escrow import PaymentEscrowMixin
 
 logger = get_logger(__name__)
@@ -261,6 +262,18 @@ class PaymentFundingMixin(PaymentEscrowMixin):
     async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
         job = await run_in_threadpool(self._require_owned_job, job_id, client_id)
+        # #2812: one live payment per job. A retry with a fresh
+        # Idempotency-Key (or a plain duplicate POST) must not open a second
+        # escrow — return the row that already holds the job's funds.
+        existing = await run_in_threadpool(self.live_payment_for_job, job_id)
+        if existing is not None:
+            logger.info(
+                "Job %s already has live payment %s (%s); returning it",
+                job_id,
+                existing.id,
+                existing.status,
+            )
+            return existing
         # #2371: the signed lock binds this payment to a market job — it must
         # be the market job the coordinator job itself declared, or the alias
         # claim would authorize a token this job never asked for.
@@ -290,6 +303,21 @@ class PaymentFundingMixin(PaymentEscrowMixin):
             # here leaves only short write txns — same pattern as
             # _claim_release_attempt (#1824).
             await run_in_threadpool(self.session.commit)
+            # #2812: a concurrent create_payment can commit its pending row in
+            # the same window. Only the (created_at, id) minimum proceeds to
+            # escrow; losers drop their pending row and return the winner.
+            payment_key = _payment_order_key(payment)
+            winner = await run_in_threadpool(self.earlier_live_payment, job_id, payment.id, payment_key)
+            if winner is not None:
+                await run_in_threadpool(self.session.delete, payment)
+                await run_in_threadpool(self.session.commit)
+                logger.info(
+                    "Job %s payment %s yielded to concurrent payment %s",
+                    job_id,
+                    payment.id,
+                    winner.id,
+                )
+                return winner
             await self._route_escrow(payment, payment_data, quote)
             self._sync_job_payment(job, payment, payment_data)
             self.session.add(job)
