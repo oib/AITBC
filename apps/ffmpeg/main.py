@@ -274,7 +274,8 @@ async def _spool_upload(file: UploadFile, suffix: str) -> str:
                     status_code=413,
                     detail=f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit",
                 )
-            tmp.write(chunk)
+            # tmpfs writes are synchronous; off the event loop (#2909).
+            await asyncio.to_thread(tmp.write, chunk)
         tmp.close()  # noqa: unawaited-async  # tempfile.NamedTemporaryFile.close is sync
     except BaseException:
         # delete=False means the file outlives its handle, and its name has not
@@ -554,7 +555,8 @@ async def process_video(
 
         elapsed = round(time.time() - t_start, 2)
 
-        file_hash = _hash_file(output_path)
+        # SHA-256 over up to 4 GiB is synchronous; keep it off the loop (#2909).
+        file_hash = await asyncio.to_thread(_hash_file, output_path)
 
         # Get file size
         file_size = os.path.getsize(output_path)
