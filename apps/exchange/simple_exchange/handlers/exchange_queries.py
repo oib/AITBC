@@ -51,6 +51,21 @@ _OPS_ERRORS = (
 )
 
 
+def _oracle_price(result) -> Decimal | None:
+    """Finite Decimal price from an oracle PriceResult, else None.
+
+    Oracle payloads can carry NaN/Infinity (Decimal(str(price)) accepts
+    'nan'/'inf'), which would serialise to clients as the string 'NaN' and
+    can raise DivisionByZero/InvalidOperation in derived-rate math (#2840).
+    """
+    if result is None:
+        return None
+    price = result.price
+    if not isinstance(price, Decimal) or not price.is_finite():
+        return None
+    return price
+
+
 class ExchangeQueriesMixin:
     """Order-book/trade reads, account reads, treasury, history, wallet."""
 
@@ -312,21 +327,32 @@ class ExchangeQueriesMixin:
             ait_usd = oracle.get_price("AIT", "USD")
             ait_eur = oracle.get_price("AIT", "EUR")
 
-            # Fallback: derive AIT/EUR from USD if oracle didn't return it directly
-            ait_eur_price = ait_eur.price if ait_eur else None
-            if ait_eur_price is None and eth_usd and eth_eur and ait_usd:
-                ait_eur_price = (ait_usd.price * eth_eur.price) / eth_usd.price
+            eth_usd_p = _oracle_price(eth_usd)
+            eth_eur_p = _oracle_price(eth_eur)
+            ait_usd_p = _oracle_price(ait_usd)
+            ait_eur_p = _oracle_price(ait_eur)
 
-            # Calculate ETH/AIT rate
-            eth_ait_rate = (eth_usd.price / ait_usd.price) if eth_usd and ait_usd else 0
+            # Fallback: derive AIT/EUR from USD if oracle didn't return it directly
+            ait_eur_price = ait_eur_p
+            if (
+                ait_eur_price is None
+                and eth_usd_p is not None
+                and eth_usd_p > 0
+                and eth_eur_p is not None
+                and ait_usd_p is not None
+            ):
+                ait_eur_price = (ait_usd_p * eth_eur_p) / eth_usd_p
+
+            # Calculate ETH/AIT rate — denominator must be a positive finite price
+            eth_ait_rate = (eth_usd_p / ait_usd_p) if eth_usd_p is not None and ait_usd_p is not None and ait_usd_p > 0 else 0
 
             self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "success": True,
                     "current": {
-                        "eth_usd": eth_usd.price if eth_usd else None,
-                        "ait_usd": ait_usd.price if ait_usd else None,
-                        "eth_eur": eth_eur.price if eth_eur else None,
+                        "eth_usd": eth_usd_p,
+                        "ait_usd": ait_usd_p,
+                        "eth_eur": eth_eur_p,
                         "ait_eur": ait_eur_price,
                         "eth_ait_rate_usd": eth_ait_rate,
                         "timestamp": eth_usd.timestamp if eth_usd else None,
@@ -352,16 +378,22 @@ class ExchangeQueriesMixin:
             ait_eth = oracle.get_price("AIT", "ETH")
             eth_eur = oracle.get_price("ETH", "EUR")
 
-            if ait_usd or ait_eur:
+            ait_usd_p = _oracle_price(ait_usd)
+            ait_eur_p = _oracle_price(ait_eur)
+            ait_eth_p = _oracle_price(ait_eth)
+            eth_eur_p = _oracle_price(eth_eur)
+
+            if ait_usd_p is not None or ait_eur_p is not None:
+                src = ait_usd if ait_usd_p is not None else ait_eur
                 self.send_json_response(  # type: ignore[attr-defined]
                     {
-                        "price_usd": ait_usd.price if ait_usd else None,
-                        "price_eur": ait_eur.price if ait_eur else None,
-                        "price_eth": ait_eth.price if ait_eth else None,
-                        "eth_eur": eth_eur.price if eth_eur else None,
+                        "price_usd": ait_usd_p,
+                        "price_eur": ait_eur_p,
+                        "price_eth": ait_eth_p,
+                        "eth_eur": eth_eur_p,
                         "currency": "USD",
-                        "timestamp": (ait_usd or ait_eur).timestamp,  # type: ignore[union-attr]
-                        "source": (ait_usd or ait_eur).source,  # type: ignore[union-attr]
+                        "timestamp": src.timestamp,  # type: ignore[union-attr]
+                        "source": src.source,  # type: ignore[union-attr]
                     }
                 )
             else:
