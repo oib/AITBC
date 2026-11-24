@@ -271,6 +271,80 @@ class TestOfferCreateSignature:
         assert r.status_code == 200, r.text
 
 
+# ------------------------------------------------------------------ #2847
+
+
+class TestTransactionsOfferGate:
+    """AUDIT-MONEY-36 / #2847: ``POST /v1/transactions`` action=offer must run
+    the same provider wallet-signature gate as ``/v1/market/offers`` — the
+    user-tier key alone must not mint offers naming an arbitrary provider."""
+
+    def _body(self, **over) -> dict:
+        body = {
+            "id": f"txoffer-{_uid()}",
+            "provider": _addr(PROVIDER_KEY),
+            "capacity": 2,
+            "price": "3.5",
+            "chain_id": _chain_id(),
+        }
+        body.update(over)
+        return body
+
+    def _signed(self, body: dict, private_key: str) -> dict:
+        return TestOfferCreateSignature._signed(self, body, private_key)
+
+    def _post_tx(self, client: TestClient, offer_body: dict):
+        return client.post(
+            "/v1/transactions",
+            json={"type": "market", "action": "offer", **offer_body},
+            headers=_headers(USER_KEY),
+        )
+
+    def test_unsigned_user_key_refused(self, tiered):
+        with tiered() as client:
+            r = self._post_tx(client, self._body())
+        assert r.status_code == 403
+
+    def test_provider_signed_offer_created(self, tiered):
+        body = self._signed(self._body(), PROVIDER_KEY)
+        with tiered() as client:
+            r = self._post_tx(client, body)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "success"
+
+    def test_signature_for_other_provider_refused(self, tiered):
+        body = self._signed(self._body(provider=_addr(STRANGER_KEY)), STRANGER_KEY)
+        body["provider"] = _addr(PROVIDER_KEY)
+        with tiered() as client:
+            r = self._post_tx(client, body)
+        assert r.status_code == 403
+
+    def test_id_replay_scoped_to_same_provider(self, tiered):
+        offer_id = f"txoffer-{_uid()}"
+        body = self._signed(self._body(id=offer_id), PROVIDER_KEY)
+        with tiered() as client:
+            r1 = self._post_tx(client, body)
+            assert r1.status_code == 200, r1.text
+            # A different provider re-using the id must not get a success replay.
+            stranger = self._signed(self._body(id=offer_id, provider=_addr(STRANGER_KEY)), STRANGER_KEY)
+            r2 = self._post_tx(client, stranger)
+            assert r2.status_code == 403
+            # The owning provider's dedup replay still answers success.
+            replay = self._signed(self._body(id=offer_id), PROVIDER_KEY)
+            r3 = self._post_tx(client, replay)
+            assert r3.status_code == 200
+            assert r3.json().get("deduplicated") is True
+
+    def test_operator_unsigned_allowed(self, tiered):
+        with tiered() as client:
+            r = client.post(
+                "/v1/transactions",
+                json={"type": "market", "action": "offer", **self._body()},
+                headers=_headers(OP_KEY),
+            )
+        assert r.status_code == 200, r.text
+
+
 # ------------------------------------------------------------------ #2612
 
 

@@ -3888,7 +3888,7 @@
     "/v1/transactions": {
       "post": {
         "summary": "Submit Transaction",
-        "description": "Submit market transaction.\n\n#2616: the offer path goes through ``MarketService.create_offer`` \u2014 the\nsame status/money/expires_at validation and caller-id replay the\n``/v1/market/offers`` route gets \u2014 instead of splatting the body into\nthe model unchecked.",
+        "description": "Submit market transaction.\n\n#2616: the offer path goes through ``MarketService.create_offer`` \u2014 the\nsame status/money/expires_at validation and caller-id replay the\n``/v1/market/offers`` route gets \u2014 instead of splatting the body into\nthe model unchecked.\n\n#2847/AUDIT-MONEY-36: the offer action also runs ``_offer_create_gate`` \u2014\nthe same provider wallet-signature proof ``/v1/market/offers`` requires.\n``MARKET_API_KEY`` is user-tier; without the gate any key holder could\nmint offers naming an arbitrary provider that later reach escrow.",
         "operationId": "submit_transaction_v1_transactions_post",
         "requestBody": {
           "required": true,
