@@ -167,6 +167,53 @@ class TestPaymentStorageBounds:
         assert status.json()["status"] == "pending"
 
 
+class TestPaymentSerialization2816:
+    """#2816: stored payment docs must survive json.dumps — the Redis path
+    500'd on every create-payment because Decimal is not JSON serializable.
+    Amounts are stored as strings; consumers coerce back to Decimal."""
+
+    def test_stored_doc_is_json_serializable(self, client: TestClient, _treasury: None) -> None:
+        import json
+
+        resp = client.post(f"{BASE}/create-payment", json=_payment(aitbc="2500.5", eth="2.5005"), headers=_headers())
+        assert resp.status_code == 200
+        payment_id = resp.json()["payment_id"]
+        doc = exch_mod._state._memory[f"exchange:{payment_id}"]
+        # The exact call RedisStateManager.set_doc makes — must not raise.
+        payload = json.loads(json.dumps(doc))
+        assert Decimal(payload["aitbc_amount"]) == Decimal("2500.5")
+        assert Decimal(payload["eth_amount"]) == Decimal("2.5005")
+
+    def test_response_and_status_coerce_string_amounts(self, client: TestClient, _treasury: None) -> None:
+        resp = client.post(f"{BASE}/create-payment", json=_payment(), headers=_headers())
+        assert resp.status_code == 200
+        payment_id = resp.json()["payment_id"]
+        assert Decimal(str(resp.json()["aitbc_amount"])) == Decimal("1000")
+        status = client.get(f"{BASE}/payment-status/{payment_id}", headers=_headers())
+        assert status.status_code == 200
+        assert Decimal(str(status.json()["eth_amount"])) == Decimal("1")
+
+    def test_market_stats_sums_string_amounts(self, client: TestClient) -> None:
+        import time
+
+        now = int(time.time())
+        exch_mod._state._memory.pop("exchange", None)
+        for i, amt in enumerate(["1000", "500.25"]):
+            exch_mod._state._memory[f"exchange:pay-{i}"] = {
+                "payment_id": f"pay-{i}",
+                "status": "confirmed",
+                "aitbc_amount": amt,
+                "confirmed_at": now,
+            }
+        try:
+            resp = client.get(f"{BASE}/market-stats")
+            assert resp.status_code == 200
+            assert Decimal(str(resp.json()["daily_volume"])) == Decimal("1500.25")
+        finally:
+            for k in ("exchange:pay-0", "exchange:pay-1"):
+                exch_mod._state._memory.pop(k, None)
+
+
 class TestMonitorPaymentTermination:
     """AUDIT-RETRY (#1576): monitor_payment must terminate once the payment
     reaches a terminal status instead of polling it every 30s forever."""
