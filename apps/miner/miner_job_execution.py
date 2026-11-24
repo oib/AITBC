@@ -17,12 +17,14 @@ split. ``production_miner`` re-exports every moved name, so
 """
 
 import base64
+import http.client
 import ipaddress
 import json
 import math
 import os
 import re
 import socket
+import ssl
 import subprocess
 import tempfile
 import time
@@ -154,19 +156,39 @@ def _check_media_url(url: str) -> urllib.parse.ParseResult:
     """Refuse http(s) URLs whose host resolves to any non-public address —
     loopback, private, link-local, metadata, multicast. Called per hop, so a
     redirect to a non-public target is refused the same way."""
+    return _resolve_media_target(url)[0]
+
+
+def _resolve_media_target(url: str) -> tuple[urllib.parse.ParseResult, str]:
+    """Resolve *url*'s host once and return ``(parsed, pinned_ip)``.
+
+    AUDIT-EDGE-MINER-MEDIA-DNS-TOCTOU (#2804): the old flow resolved in the
+    check and let ``requests.get`` resolve again independently — a
+    buyer-controlled DNS name could answer public for the check and private
+    for the fetch (rebinding), and ``requests`` honoured HTTP(S)_PROXY so
+    the fetch could be resolved by a proxy the check never saw. The fetch
+    now connects to the single validated address this function returns;
+    no proxy env is consulted because the transport is http.client.
+    """
     parsed = urllib.parse.urlparse(url)
     host = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
-        infos = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
     except OSError as e:
         raise ValueError(f"media URL host does not resolve: {host}: {e}") from e
     if not infos:
         raise ValueError(f"media URL host does not resolve: {host}")
+    pinned: str | None = None
     for info in infos:
         addr = ipaddress.ip_address(info[4][0])
         if not addr.is_global:
             raise ValueError(f"media URL host resolves to a non-public address: {addr}")
-    return parsed
+        if pinned is None:
+            pinned = str(addr)
+    if pinned is None:
+        raise ValueError(f"media URL host does not resolve: {host}")
+    return parsed, pinned
 
 
 def _write_data_uri(parsed: urllib.parse.ParseResult, dest: str, cap: int) -> None:
@@ -205,22 +227,95 @@ def _stream_to_file(resp: requests.Response, dest: str, cap: int, deadline: floa
         raise
 
 
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection that dials a validated IP but keeps the original
+    hostname for SNI and certificate verification (#2804)."""
+
+    _sni_host: str
+    _context: ssl.SSLContext
+    source_address: tuple[str, int] | None
+
+    def __init__(self, ip: str, sni_host: str, port: int, timeout: float):
+        super().__init__(ip, port, timeout=timeout, context=ssl.create_default_context())
+        self._sni_host = sni_host
+
+    def connect(self) -> None:
+        self.sock = socket.create_connection((self.host, self.port), self.timeout, self.source_address)
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self._sni_host)
+
+
+def _open_pinned(parsed: urllib.parse.ParseResult, ip: str):
+    """Open an http.client connection to the validated IP for *parsed*.
+
+    The ``Host`` header carries the original authority (host[:port], no
+    userinfo) so virtual hosting still works; TLS (https) verifies against
+    the original hostname, not the pinned address.
+    """
+    host = parsed.hostname or ""
+    scheme = parsed.scheme
+    port = parsed.port or (443 if scheme == "https" else 80)
+    default_port = 443 if scheme == "https" else 80
+    authority = host if port == default_port else f"{host}:{port}"
+    if scheme == "https":
+        conn: http.client.HTTPConnection = _PinnedHTTPSConnection(ip, host, port, 30.0)
+    else:
+        conn = http.client.HTTPConnection(ip, port, timeout=30.0)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    conn.request("GET", path, headers={"Host": authority, "Accept": "*/*", "User-Agent": "aitbc-miner/1.0"})
+    return conn
+
+
+def _stream_pinned_response(resp, dest: str, cap: int, deadline: float) -> None:
+    """Write an http.client response body to *dest* under the byte cap and
+    deadline; a partial file is removed on any failure."""
+    written = 0
+    try:
+        with open(dest, "wb") as f:
+            while True:
+                chunk = resp.read(8192)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > cap:
+                    raise ValueError(f"media exceeds {cap} bytes")
+                if time.monotonic() > deadline:
+                    raise ValueError("media download deadline exceeded")
+                f.write(chunk)
+    except Exception:
+        try:
+            os.unlink(dest)
+        except OSError:
+            pass
+        raise
+
+
 def _fetch_http_media(url: str, dest: str, cap: int, deadline: float) -> None:
-    """GET *url* to *dest*, following at most _MEDIA_MAX_REDIRECTS hops with
-    the public-address check re-run on each."""
+    """GET *url* to *dest*, following at most _MEDIA_MAX_REDIRECTS hops.
+
+    Each hop resolves once and connects to the validated address — DNS
+    rebinding between check and fetch is impossible, and no proxy env is
+    consulted (#2804).
+    """
     url_now = url
     for _ in range(_MEDIA_MAX_REDIRECTS + 1):
-        _check_media_url(url_now)
-        with requests.get(url_now, timeout=(10, 30), stream=True, allow_redirects=False) as resp:
-            if resp.is_redirect or resp.is_permanent_redirect:
-                location = resp.headers.get("Location")
+        parsed, pinned_ip = _resolve_media_target(url_now)
+        conn = _open_pinned(parsed, pinned_ip)
+        try:
+            resp = conn.getresponse()
+            if resp.status in (301, 302, 303, 307, 308):
+                location = resp.getheader("Location")
                 if not location:
                     raise ValueError("redirect without Location")
                 url_now = urllib.parse.urljoin(url_now, location)
                 continue
-            resp.raise_for_status()
-            _stream_to_file(resp, dest, cap, deadline)
+            if resp.status >= 400:
+                raise ValueError(f"media fetch failed: HTTP {resp.status}")
+            _stream_pinned_response(resp, dest, cap, deadline)
             return
+        finally:
+            conn.close()
     raise ValueError(f"too many redirects (>{_MEDIA_MAX_REDIRECTS})")
 
 
