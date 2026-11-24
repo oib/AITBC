@@ -226,8 +226,10 @@ class TestSyncAllMinersUsage:
         assert result["miners_failed"] == 2
         assert result["miners_processed"] == 0
 
-    async def test_per_miner_api_calls_split_is_decimal(self, db_session, monkeypatch):
-        """api_calls is a global count divided across miners — Decimal, not float."""
+    async def test_api_calls_attributed_by_result_membership(self, db_session, monkeypatch):
+        """#2866: api_calls counts the distinct match requests each miner appeared
+        in — NOT an equal split of the global MatchRequest total. One request
+        matching only m-1 bills m-1 for 1 call and m-2 for 0."""
         captured: list[dict] = []
 
         async def fake_send(self, **kwargs):
@@ -238,16 +240,84 @@ class TestSyncAllMinersUsage:
         async with db_session() as s:
             s.add(_miner("m-1"))
             s.add(_miner("m-2"))
-            # One MatchRequest in the window → total_api_calls=1 → 0.5 per miner.
-            s.add(MatchRequest(job_id="j", requirements={}))
+            req = MatchRequest(job_id="j", requirements={})
+            s.add(req)
+            await s.flush()
+            # Only m-1 appears in the results — m-2 was never matched.
+            s.add(MatchResult(request_id=req.id, miner_id="m-1", score=0.9, eta_ms=3_600_000))
             await s.commit()
 
         async with db_session() as s:
             result = await BillingIntegration(s).sync_all_miners_usage(hours_back=24)
 
         assert result["miners_processed"] == 2
+        api_call_events = {c["tenant_id"]: c for c in captured if c["resource_type"] == "api_calls"}
+        # m-1 appeared in the one request → billed 1. m-2 appeared in none →
+        # quantity 0 → no api_calls event at all (unfixed code billed each 0.5).
+        assert api_call_events["m-1"]["quantity"] == Decimal("1")
+        assert "m-2" not in api_call_events
+
+    async def test_api_calls_counts_distinct_requests_per_miner(self, db_session, monkeypatch):
+        """#2866: two MatchResults for the same request still bill one api_call;
+        results across two requests bill two."""
+        captured: list[dict] = []
+
+        async def fake_send(self, **kwargs):
+            captured.append(kwargs)
+            return {"status": "ok"}
+
+        monkeypatch.setattr(BillingIntegration, "send_usage", fake_send)
+        async with db_session() as s:
+            s.add(_miner("m-1"))
+            s.add(_miner("m-2"))
+            req1 = MatchRequest(job_id="j1", requirements={})
+            req2 = MatchRequest(job_id="j2", requirements={})
+            req3 = MatchRequest(job_id="j3", requirements={})
+            s.add_all([req1, req2, req3])
+            await s.flush()
+            # m-1 appears twice in req1 (top-k style), once in req2 — 2 distinct
+            # requests. m-2 appears only in req3 — 1 distinct request. Three
+            # global requests would have split to 1.5 apiece under the bug.
+            s.add(MatchResult(request_id=req1.id, miner_id="m-1", score=0.9, eta_ms=1000))
+            s.add(MatchResult(request_id=req1.id, miner_id="m-1", score=0.8, eta_ms=2000))
+            s.add(MatchResult(request_id=req2.id, miner_id="m-1", score=0.7, eta_ms=3000))
+            s.add(MatchResult(request_id=req3.id, miner_id="m-2", score=0.9, eta_ms=4000))
+            await s.commit()
+
+        async with db_session() as s:
+            await BillingIntegration(s).sync_all_miners_usage(hours_back=24)
+
+        api_call_events = {c["tenant_id"]: c["quantity"] for c in captured if c["resource_type"] == "api_calls"}
+        assert api_call_events == {"m-1": Decimal("2"), "m-2": Decimal("1")}
+
+    async def test_sync_miner_usage_attributes_api_calls_to_that_miner(self, db_session, monkeypatch):
+        """#2866: the single-miner path billed the miner for EVERY MatchRequest
+        in the window; it must count only requests that miner appeared in."""
+        captured: list[dict] = []
+
+        async def fake_send(self, **kwargs):
+            captured.append(kwargs)
+            return {"status": "ok"}
+
+        monkeypatch.setattr(BillingIntegration, "send_usage", fake_send)
+        now = datetime.now(UTC)
+        async with db_session() as s:
+            s.add(_miner("m-1"))
+            s.add(_miner("m-2"))
+            req = MatchRequest(job_id="j", requirements={})
+            s.add(req)
+            await s.flush()
+            # Two requests total in the window, but m-1 only appears in one.
+            req2 = MatchRequest(job_id="j2", requirements={})
+            s.add(req2)
+            await s.flush()
+            s.add(MatchResult(request_id=req.id, miner_id="m-1", score=0.9, eta_ms=1000))
+            s.add(MatchResult(request_id=req2.id, miner_id="m-2", score=0.9, eta_ms=1000))
+            await s.commit()
+
+        async with db_session() as s:
+            await BillingIntegration(s).sync_miner_usage("m-1", now - timedelta(hours=1), now + timedelta(hours=1))
+
         api_call_events = [c for c in captured if c["resource_type"] == "api_calls"]
-        assert len(api_call_events) == 2
-        for c in api_call_events:
-            assert isinstance(c["quantity"], Decimal)
-            assert c["quantity"] == Decimal("0.5")
+        assert len(api_call_events) == 1
+        assert api_call_events[0]["quantity"] == Decimal("1")
