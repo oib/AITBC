@@ -1448,6 +1448,21 @@
               }
             }
           },
+          "400": {
+            "description": "Proposal must be active or decided to propagate (current: {proposal.status}) / target_chains must be a list of at most {_MAX_CROSS_CHAIN_TARGETS} chain ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "403": {
             "description": "{field} does not match the signing address",
             "content": {
@@ -1612,7 +1627,7 @@
             }
           },
           "400": {
-            "description": "Proposal must be in 'succeeded' status to execute cross-chain (current: {proposal.status})",
+            "description": "Proposal must be in 'succeeded' status to execute cross-chain (current: {proposal.status}) / target_chains must be a list of at most {_MAX_CROSS_CHAIN_TARGETS} chain ids",
             "content": {
               "application/json": {
                 "schema": {

@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -737,6 +738,30 @@ def _signed_call_body(request: BaseModel | None) -> dict[str, Any]:
     return request.model_dump() if request is not None else {}
 
 
+# #2875: cross-chain fan-out is caller-influenced (PropagateRequest bodies and
+# proposal_value.target_chains) — bound it so one signed request cannot turn
+# into an unbounded RPC fan-out.
+_MAX_CROSS_CHAIN_TARGETS = 32
+
+
+def _cross_chain_targets(raw: Any) -> list[str] | None:
+    """Validated, deduplicated target-chain list, or None when malformed/over cap."""
+    if raw is None:
+        return []
+    if not isinstance(raw, (list, tuple)):
+        return None
+    out: list[str] = []
+    for c in raw:
+        if not isinstance(c, str) or not c.strip():
+            return None
+        c = c.strip()
+        if c not in out:
+            out.append(c)
+    if len(out) > _MAX_CROSS_CHAIN_TARGETS:
+        return None
+    return out
+
+
 async def _require_cross_chain_signature(body: dict[str, Any]) -> str:
     """PI-API-002 (#1178): propagate / aggregate-votes / execute-cross-chain
     used to accept any caller — the submitted on-chain tx claims
@@ -768,6 +793,21 @@ async def propagate_proposal(
     if not proposal:
         return JSONResponse(status_code=404, content={"error": "Proposal not found"})  # type: ignore[return-value]
 
+    # #2875: lifecycle guard — draft/defeated/cancelled proposals must not
+    # fan out GOVERNANCE_PROPOSE txs to other chains.
+    if proposal.status not in ("active", "succeeded", "executed", "expired"):
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=400,
+            content={"error": f"Proposal must be active or decided to propagate (current: {proposal.status})"},
+        )
+
+    target_chains = _cross_chain_targets(request.target_chains)
+    if target_chains is None:
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=400,
+            content={"error": f"target_chains must be a list of at most {_MAX_CROSS_CHAIN_TARGETS} chain ids"},
+        )
+
     # The propagated tx claims from = proposal.proposer_id, so the caller
     # must sign as that proposer — a third party cannot trigger propagation
     # under someone else's identity (#1178).
@@ -778,7 +818,7 @@ async def propagate_proposal(
     failed: list[str] = []
     tx_hashes: dict[str, str] = {}
 
-    for chain_id in request.target_chains:
+    for chain_id in target_chains:
         try:
             payload = {
                 "type": "GOVERNANCE_PROPOSE",
@@ -931,15 +971,30 @@ async def execute_cross_chain(
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})  # type: ignore[return-value]
 
-    # Determine target chains from proposal metadata or default to hub chain
+    # Determine target chains from proposal metadata or default to hub chain.
+    # #2875: bound the fan-out and skip chains a previous call already
+    # executed — proposal_metadata.cross_chain_executions is the per-chain
+    # record that makes repeat calls idempotent instead of re-relaying
+    # EXECUTE txs forever.
     parameters = proposal.proposal_value if isinstance(proposal.proposal_value, dict) else {}
-    target_chains = parameters.get("target_chains", [settings.default_chain_id])
+    raw_targets = parameters.get("target_chains", [settings.default_chain_id])
+    target_chains = _cross_chain_targets(raw_targets)
+    if target_chains is None:
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=400,
+            content={"error": f"target_chains must be a list of at most {_MAX_CROSS_CHAIN_TARGETS} chain ids"},
+        )
+
+    metadata = dict(proposal.proposal_metadata or {})
+    executions = dict(metadata.get("cross_chain_executions") or {})
+    pending = [c for c in target_chains if c not in executions]
 
     executed_on: list[str] = []
+    skipped: list[str] = [c for c in target_chains if c in executions]
     failed: list[str] = []
-    tx_hashes: dict[str, str] = {}
+    tx_hashes: dict[str, str] = {c: executions[c].get("tx_hash", "") for c in skipped}
 
-    for chain_id in target_chains:
+    for chain_id in pending:
         try:
             payload = {
                 "type": "GOVERNANCE_EXECUTE",
@@ -960,14 +1015,21 @@ async def execute_cross_chain(
             tx_hash = result.get("tx_hash", "")
             tx_hashes[chain_id] = tx_hash
             executed_on.append(chain_id)
+            executions[chain_id] = {"tx_hash": tx_hash, "executed_at": datetime.now(UTC).isoformat()}
             logger.info("Executed proposal %s on chain %s (tx=%s)", proposal_id, chain_id, tx_hash)
         except _CHAIN_SUBMIT_ERRORS as e:
             logger.error("Failed to execute proposal %s on chain %s: %s", proposal_id, chain_id, e)
             failed.append(chain_id)
 
+    if executed_on:
+        metadata["cross_chain_executions"] = executions
+        proposal.proposal_metadata = metadata
+        await svc.session.commit()
+
     return {
         "proposal_id": proposal_id,
         "executed_on": executed_on,
+        "skipped_already_executed": skipped,
         "failed": failed,
         "tx_hashes": tx_hashes,
         "hub_chain": settings.default_chain_id,
