@@ -303,3 +303,29 @@ def test_process_billing_failure_still_delivers(monkeypatch) -> None:
     monkeypatch.setattr(ffmpeg_main, "report_request_billing", AsyncMock(return_value=False))
     resp = _process()
     assert resp.status_code == 200
+
+
+# --- AUDIT-EDGE-HERMES-E2BIG (#2807): codec allowlist ---
+
+
+def test_validate_process_params_rejects_unknown_codec_label() -> None:
+    """A well-formed but unsupported codec label must 400, not reach argv."""
+    with pytest.raises(Exception) as ei:
+        ffmpeg_main._validate_process_params("vp8", "5M", "mp4")
+    assert _http_status(ei.value) == 400
+    with pytest.raises(Exception) as ei:
+        ffmpeg_main._validate_process_params("prores", "5M", "mp4")
+    assert _http_status(ei.value) == 400
+
+
+def test_validate_process_params_accepts_documented_codecs() -> None:
+    for codec in ("h264", "hevc", "vp9"):
+        key, _bitrate, _fmt = ffmpeg_main._validate_process_params(codec, "5M", "mp4")
+        assert key == codec
+
+
+def test_resolve_encoder_vp9_cpu_maps_to_libvpx(monkeypatch) -> None:
+    """CPU fallback: raw 'vp9' is not an ffmpeg encoder name."""
+    monkeypatch.setattr(ffmpeg_main, "_hw_accel", "none")
+    assert ffmpeg_main._resolve_encoder("vp9") == "libvpx-vp9"
+    assert ffmpeg_main._resolve_encoder("h264") == "libx264"

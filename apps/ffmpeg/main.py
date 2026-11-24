@@ -69,6 +69,10 @@ _MAX_BODY_BYTES = _MAX_UPLOAD_BYTES + _UPLOAD_CHUNK
 # understand before they are interpolated — anything else is a 400, never a
 # decode-time ffmpeg error or an IndexError 500.
 _CODEC_RE = re.compile(r"^[a-z0-9_]{1,16}$")
+# AUDIT-EDGE-HERMES-E2BIG (#2807): the regex admits any well-formed label,
+# so an unknown codec reached the ffmpeg argv and failed as a 500 on a paid
+# job. Allowlist the labels the encoder map actually supports.
+_CODEC_LABELS = {"h264", "hevc", "vp9"}
 _BITRATE_RE = re.compile(r"^\d{1,4}(\.\d{1,3})?[kKmMgG]?$")
 # ~400 Mbit/s ceiling: generous for any legitimate transcode, small enough
 # that a nonsense rate cannot size absurd VBV buffers.
@@ -369,6 +373,8 @@ def _validate_process_params(codec: str, bitrate: str, output_format: str) -> tu
     codec_key = codec.strip().lower()
     if not _CODEC_RE.fullmatch(codec_key):
         raise HTTPException(status_code=400, detail="codec must be a short encoder label like 'h264' or 'hevc'")
+    if codec_key not in _CODEC_LABELS:
+        raise HTTPException(status_code=400, detail=f"codec must be one of {sorted(_CODEC_LABELS)}")
     bitrate_value = bitrate.strip()
     if not _BITRATE_RE.fullmatch(bitrate_value):
         raise HTTPException(status_code=400, detail="bitrate must look like '5M', '2500k' or '10'")
@@ -404,6 +410,8 @@ def _resolve_encoder(codec_key: str) -> str:
         return "libx264"
     if codec_key == "hevc":
         return "libx265"
+    if codec_key == "vp9":
+        return "libvpx-vp9"
     return codec_key
 
 
