@@ -32,7 +32,9 @@ from gpu_service.domain.gpu_market import GPURegistry  # noqa: E402
 from gpu_service.main import app  # noqa: E402
 from gpu_service.storage import get_session  # noqa: E402
 
-_STATUSES = ("available", "offline", "online", "booked", "in_use", "bogus")
+# "deregistered" (#2904) is the terminal operator/delist spelling — it must
+# NOT resurrect on liveness, so it is seeded but absent from the bookable set.
+_STATUSES = ("available", "offline", "online", "booked", "in_use", "bogus", "deregistered")
 
 
 async def _seed_miner_gpus(miner_id: str) -> dict[str, str]:
@@ -166,3 +168,18 @@ def test_miner_register_preserves_committed_status(client) -> None:
     assert resp.json()["gpu_count"] == len(_STATUSES)
     after = asyncio.run(_statuses(list(rows)))
     _assert_liveness_semantics(rows, after)
+
+
+def test_deregistered_gpu_survives_heartbeat(client) -> None:
+    """#2904: DELETE /v1/miners/{id} must write the terminal 'deregistered'
+    spelling — the miner's own heartbeat cannot resurrect removed capacity."""
+    miner_id = f"miner_del_{uuid.uuid4().hex[:8]}"
+    rows = asyncio.run(_seed_miner_gpus(miner_id))
+    resp = client.delete(f"/v1/miners/{miner_id}")
+    assert resp.status_code == 200, resp.text
+    after_del = asyncio.run(_statuses(list(rows)))
+    assert set(after_del.values()) == {"deregistered"}
+    resp = client.post("/v1/miners/heartbeat", json={"miner_id": miner_id})
+    assert resp.status_code == 200, resp.text
+    after_hb = asyncio.run(_statuses(list(rows)))
+    assert set(after_hb.values()) == {"deregistered"}

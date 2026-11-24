@@ -97,7 +97,10 @@ class TestGPUStatusFSMValidation:
         from gpu_service.main import _validate_gpu_status_transition
 
         result = _validate_gpu_status_transition("available", "offline")
-        assert result == "offline"
+        # #2904: DELIST/EXPIRE canonicalize to the terminal "deregistered"
+        # spelling — outside BOOKABLE_GPU_STATUSES, so heartbeats cannot
+        # resurrect deliberately removed capacity.
+        assert result == "deregistered"
 
     def test_validate_invalid_transition_raises(self):
         from gpu_service.main import _validate_gpu_status_transition

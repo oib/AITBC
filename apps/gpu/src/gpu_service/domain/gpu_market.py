@@ -103,7 +103,9 @@ class GPURegistry(GpuBase, table=True):
     cuda_version: str = Field(default="")
     region: str = Field(default="", index=True)
     price_per_hour: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
-    status: str = Field(default="available", index=True)  # available, booked, offline
+    # available, booked, offline (liveness), deregistered (terminal —
+    # operator delist/deregister, outside BOOKABLE_GPU_STATUSES, #2904)
+    status: str = Field(default="available", index=True)
     # v0.6.6: Chain awareness — which chain this GPU offer is registered on
     chain_id: str = Field(default="ait-hub", index=True)
     # v0.6.6: Physical GPU UUID from nvidia-smi, used to deduplicate registrations.
