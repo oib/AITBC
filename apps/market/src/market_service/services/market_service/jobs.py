@@ -272,6 +272,7 @@ class _JobsMixin(_CoreMixin):
                 "updated_at": service.updated_at.isoformat() if service.updated_at else None,
                 "avg_rating": service.avg_rating,
                 "rating_count": service.rating_count,
+                "disk_quota_mb": service.disk_quota_mb,
             }
         except Exception as e:
             logger.error("Error in get_service_by_offer_id: %s: %s", type(e).__name__, str(e))

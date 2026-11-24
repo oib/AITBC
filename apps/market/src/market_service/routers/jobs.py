@@ -30,6 +30,7 @@ from ..gates import (
     _job_party_addresses,
     _job_party_signature_gate,
     _pin_confirm_attestation_gate,
+    _pin_size_bound_gate,
     _provider_release_window_gate,
     _signed_jobs_request,
     _warn_secret_query_transport,
@@ -359,6 +360,9 @@ async def confirm_market_job_pin(
         pin_size = confirm_data.get("size")
         if pin_size is not None and (isinstance(pin_size, bool) or not isinstance(pin_size, int) or pin_size < 0):
             return JSONResponse(status_code=400, content={"error": "size must be a non-negative integer"})
+        bound = await _pin_size_bound_gate(svc, job_id, confirm_data, pin_size)
+        if bound is not None:
+            return bound
         gate = await _pin_confirm_attestation_gate(svc, job_id, confirm_data, pin_size)
         if gate is not None:
             return gate
