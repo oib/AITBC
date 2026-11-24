@@ -437,7 +437,7 @@ def test_offer_fails_closed_on_transport_failure(api_client, monkeypatch):
             "tx": {
                 "from": "0xabc",
                 "chain_id": "ait-hub",
-                "payload": {"gpu_id": "gpu-local-1", "miner_id": "miner-local", "model": "M"},
+                "payload": {"gpu_id": "gpu-local-1", "miner_id": "miner-local", "model": "M", "price_per_hour": "1.0"},
             },
         },
     )

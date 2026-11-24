@@ -27,6 +27,8 @@ def _resp(json_data=None, status=200, text=None):
     r.status_code = status
     r.json.return_value = json_data if json_data is not None else {}
     r.text = text if text is not None else (json.dumps(json_data) if json_data is not None else "")
+    r.iter_content = lambda *a, **k: iter([b""])
+    r.close = Mock()
     r.raise_for_status = Mock()
     if status >= 400:
         import requests
