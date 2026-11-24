@@ -224,13 +224,69 @@ def _unpin_cid(cid: str) -> bool:
 
 
 def _object_size(cid: str) -> int | None:
+    """Cumulative DAG size via ``dag/stat`` (#2802).
+
+    ``object/stat`` was removed from current Kubo, so the old call always
+    errored and every measure-then-reclaim check silently saw None. The
+    endpoint streams NDJSON stat events; the last ``TotalSize`` is the DAG
+    total.
+    """
     if not _valid_cid_arg(cid):
         return None
     try:
-        data = _ipfs_post("/api/v0/object/stat", params={"arg": cid}, timeout=30).json()
-        cumulative = data.get("CumulativeSize")
-        return int(cumulative) if cumulative is not None else None
+        resp = _ipfs_post("/api/v0/dag/stat", params={"arg": cid}, timeout=60)
+        total: int | None = None
+        text = resp.text
+        idx = 0
+        decoder = json.JSONDecoder()
+        while idx < len(text):
+            while idx < len(text) and text[idx] in " \t\r\n":
+                idx += 1
+            if idx >= len(text):
+                break
+            try:
+                obj, end = decoder.raw_decode(text, idx)
+            except ValueError:
+                break
+            idx = end
+            if isinstance(obj, dict) and isinstance(obj.get("TotalSize"), int):
+                total = obj["TotalSize"]
+        return total if total and total > 0 else None
     except (requests.RequestException, ValueError):
+        return None
+
+
+def _cat_within_cap(cid: str, cap: int) -> bool | None:
+    """Bounded pre-flight fetch probe (#2802).
+
+    ``pin/add`` pulls the whole DAG before anything can measure it — a
+    crafted job CID spends the provider's disk first and reclaims after.
+    ``cat`` streams the same bytes but the consumer can abort at ``cap``;
+    Kubo stops fetching once the client hangs up, bounding the swarm spend
+    to ~cap. True = streamed within cap (content now local, pin is cheap);
+    False = exceeded cap (refuse before pinning); None = cat cannot serve
+    this dag shape (e.g. directory) — caller falls back to pin+measure.
+    """
+    if not _valid_cid_arg(cid):
+        return None
+    try:
+        resp = requests.post(
+            f"{IPFS_API_URL.rstrip('/')}/api/v0/cat",
+            params={"arg": cid},
+            timeout=120,
+            stream=True,
+        )
+        if resp.status_code != 200:
+            return None
+        received = 0
+        for chunk in resp.iter_content(1024 * 1024):
+            received += len(chunk)
+            if received > cap:
+                resp.close()
+                return False
+        return True
+    except requests.RequestException as e:
+        logger.debug("IPFS cat probe of %s failed: %s", cid, e)
         return None
 
 
@@ -411,6 +467,21 @@ def _pin_new_job(
             _job_quota_mb(job),
         )
         return False
+    if not _pin_confirmed(job):
+        # #2802: bound the swarm fetch BEFORE pin/add — pin/add pulls the
+        # whole DAG before anything can measure it, so an under-reported
+        # job CID spends the provider's disk first and reclaims after. The
+        # cat probe aborts at the buyer's quota; False means oversized.
+        probe = _cat_within_cap(cid, quota_bytes)
+        if probe is False:
+            result["skipped_quota"] += 1
+            logger.warning(
+                "Skipping pin for job %s: CID %s exceeds the %s MB quota before fetch",
+                job_id,
+                cid,
+                _job_quota_mb(job),
+            )
+            return False
     if not _pin_cid(cid):
         result["errors"] += 1
         return False
