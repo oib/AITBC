@@ -63,9 +63,9 @@ class BridgeMonitorRuntime:
         """Alert on head-of-line blocking the sweep cannot fix itself.
 
         Serialization means the oldest SUBMITTED row gates every payout
-        queued behind it. A row that sealed-failed (kept for operator
-        review) or that fails the abandon proof stays SUBMITTED forever —
-        without an alert here, every later deposit silently queues.
+        queued behind it. A row that sealed-failed without a holding nonce
+        proof, or that fails the abandon proof, stays SUBMITTED — without
+        an alert here, every later deposit silently queues.
         """
         try:
             submitted = get_submitted_deposits()

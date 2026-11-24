@@ -501,9 +501,10 @@ class TestWriteOffAndAbandon:
 
         assert get_deposit("0xabn")["status"] == BridgeDepositStatus.SUBMITTED.value
 
-    def test_abandon_refuses_when_our_envelope_sealed_failed(self, monitor):
-        """Our envelope sealed with a failed status still counts as 'ours' —
-        funds may or may not have moved; the operator decides, not the code."""
+    def test_abandon_allows_sealed_failed_envelope(self, monitor):
+        """#2830: our envelope sealed-FAILED at its nonce slot — the apply
+        verdict moved no value and the nonce is spent, so the row is dead
+        by revert and safe to re-sign. Confirmed 'ours' still refuses."""
         envelope, _ = self._submitted_for_abandon(monitor)
         landed = _ours_row(envelope, status="failed")
         with (
@@ -512,8 +513,90 @@ class TestWriteOffAndAbandon:
             patch.object(monitor, "_payout_account_txs", return_value=[landed]),
         ):
             ok, msg = monitor.abandon_payout("0xabn")
+        assert ok, msg
+        from bridge_monitor.storage import get_deposit
+
+        assert get_deposit("0xabn")["status"] == BridgeDepositStatus.PENDING_RETRY.value
+
+    def test_abandon_refuses_sealed_failed_hash_when_verdict_unproven(self, monitor):
+        """A held hash spelling sealed-failed but the nonce-slot occupant
+        cannot be proven → still fails closed."""
+        self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=True),
+            patch.object(monitor, "_probe_payout_status", return_value=(500, True)),
+            patch.object(monitor, "_payout_account_txs", return_value=None),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
         assert not ok
-        assert "on chain" in msg
+        assert "nonce slot" in msg
+
+    def test_triage_falls_through_to_abandon_on_sealed_failed(self, monitor):
+        """#2830: the sweep's sealed-failed early return used to skip the
+        abandon proof entirely — the exact rows it exists for."""
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "nonce": 7,
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 1,
+            "fee": 1,
+            "payload": {"amount": 1},
+            "signature": "0xab",
+        }
+        create_deposit("0xsf1", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xsf1",
+            ait_amount="1",
+            signed_tx=_json.dumps(envelope),
+            envelope_hash="0xenv",
+            ait_tx_hash="0xpayout",
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        d = {"eth_tx_hash": "0xsf1", "ait_tx_hash": "0xpayout", "signed_tx": _json.dumps(envelope)}
+        with (
+            patch.object(monitor, "_probe_payout_status", return_value=(500, True)),
+            patch.object(monitor, "abandon_payout", return_value=(True, "abandoned")) as abandon,
+        ):
+            assert monitor._triage_submitted_deposit(d, 600) is True
+        abandon.assert_called_once_with("0xsf1")
+
+    def test_triage_sealed_failed_unproven_stays_submitted(self, monitor):
+        """Proof refuses → the row stays SUBMITTED+alerted, not rebroadcast."""
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "nonce": 7,
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 1,
+            "fee": 1,
+            "payload": {"amount": 1},
+            "signature": "0xab",
+        }
+        create_deposit("0xsf2", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xsf2",
+            ait_amount="1",
+            signed_tx=_json.dumps(envelope),
+            envelope_hash="0xenv",
+            ait_tx_hash="0xpayout",
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        d = {"eth_tx_hash": "0xsf2", "ait_tx_hash": "0xpayout", "signed_tx": _json.dumps(envelope)}
+        with (
+            patch.object(monitor, "_probe_payout_status", return_value=(500, True)),
+            patch.object(monitor, "abandon_payout", return_value=(False, "cannot prove")),
+        ):
+            assert monitor._triage_submitted_deposit(d, 600) is True  # resolved: no rebroadcast churn
 
 
 class TestCursorSafety:
