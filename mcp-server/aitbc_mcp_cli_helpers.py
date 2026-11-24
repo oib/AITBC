@@ -455,6 +455,19 @@ _READ_ONLY_PATH_TOKENS = {tuple(p.split()) for p in GENERATED_READ_ONLY_AITBC_PA
 _GENERATED_DESTRUCTIVE_PATH_TOKENS = {tuple(p.split()) for p in GENERATED_DESTRUCTIVE_AITBC_PATHS}
 
 
+def _looks_like_option_token(token: str) -> bool:
+    """True for ``--flag``/``-f``/``--opt=val`` spellings (#2790).
+
+    ``args`` elements are shlex.quoted individually but Click re-parses
+    option-shaped tokens as options regardless of position — a read-looking
+    path can smuggle ``--rpc-url=...`` through the positional list. A lone
+    ``-`` or a negative number (``-5``) is not an option.
+    """
+    if token.startswith("--") and len(token) > 2:
+        return True
+    return token.startswith("-") and len(token) > 1 and token[1].isalpha()
+
+
 def _is_aitbc_subcommand_read_only(
     subcommand: str | list[str] | None,
     group: str | None = None,
@@ -469,7 +482,11 @@ def _is_aitbc_subcommand_read_only(
     not presumed safe — unknown leaves are refused at read_aitbc_cli and can
     still run through run_aitbc_cli with the usual confirm (#849).
 
+    #2790: an option-shaped token inside ``args`` is not a positional —
+    Click reparses it as a flag, so the path is not read-only.
     """
+    if any(_looks_like_option_token(str(a)) for a in (args or [])):
+        return False
     tokens = _split_path_tokens([str(t) for t in _subcommand_tokens(subcommand)] + [str(a) for a in (args or [])])
     path = tuple([str(group).lower()] if group else []) + tuple(token.lower() for token in tokens)
     if not path:
@@ -534,7 +551,13 @@ def _option_key_suggests_mutation(key: str) -> bool:
     # host the caller names — on a read path that is silent credential
     # exfiltration plus SSRF inside the node network. Treat them as
     # mutation-class: read gates refuse, run_aitbc_cli demands confirm.
-    return normalized == "url" or normalized.endswith(("-url", "_url", "-urls", "_urls"))
+    if normalized == "url" or normalized.endswith(("-url", "_url", "-urls", "_urls")):
+        return True
+    # #2790: non-verb flag names that mutate or self-confirm on the CLI side
+    # ('--force', '--yes', '--confirm', '--overwrite', '--no-encrypt') are not
+    # in the destructive-verb set — flag them by name so read gates refuse
+    # and run_aitbc_cli demands confirm.
+    return normalized in {"force", "yes", "confirm", "overwrite", "no-encrypt"}
 
 
 def _options_suggest_mutation(*option_maps: dict[str, Any] | None) -> bool:
