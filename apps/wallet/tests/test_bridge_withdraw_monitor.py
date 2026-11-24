@@ -1629,6 +1629,86 @@ class TestWithdrawPaginationAndRejects:
         assert len(released) == 121
 
     @pytest.mark.asyncio
+    async def test_mid_scan_rpc_failure_resumes_tail_next_poll(self, monitor_env, monkeypatch):
+        """#2918: an RPC failure mid-scan must not strand the unscanned tail —
+        the persisted cursor lets the next poll jump past the known head
+        instead of breaking on an all-duplicate first page."""
+        from wallet_app.bridge.bridge_db import get_withdraw_scan_cursor
+
+        self._wire_poll(monitor_env, monkeypatch, head=1000)
+        monkeypatch.setattr(monitor_env, "_WITHDRAW_PAGE_SIZE", 3)
+        monkeypatch.setattr(monitor_env, "_MAX_PAGES_PER_POLL", 5)
+        t = TestWithdrawSealDepth()
+        pages = {
+            None: [t._tx(i, 500) for i in (10, 9, 8)],
+            8: [t._tx(i, 500) for i in (7, 6, 5)],
+            5: [t._tx(i, 500) for i in (4,)],
+        }
+        fail = {"armed": True}
+
+        async def _flaky(before_id=None):
+            if before_id == 8 and fail["armed"]:
+                fail["armed"] = False
+                raise RuntimeError("rpc down mid-scan")
+            return pages.get(before_id, [])
+
+        async def _canonical(h):
+            return {"block_height": 500, "block_hash": "0x" + "ab" * 32, "status": "confirmed"}
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _flaky)
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+
+        with pytest.raises(RuntimeError, match="rpc down mid-scan"):
+            await monitor_env.poll_withdrawals_once()
+
+        # Page 1 ledgered; the cursor sits at its bottom so the next poll
+        # jumps straight to the owed tail.
+        assert get_withdraw_scan_cursor() == 8
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["released"] == 4
+        assert get_withdraw_scan_cursor() is None
+        for i in range(4, 11):
+            assert get_withdrawal_by_ait_tx_hash(f"0x{i:064x}") is not None
+
+    @pytest.mark.asyncio
+    async def test_page_cap_backlog_drains_over_polls(self, monitor_env, monkeypatch):
+        """#2918: a backlog deeper than one poll's page budget must not strand —
+        each poll resumes at the persisted cursor and drains the next slice."""
+        from wallet_app.bridge.bridge_db import get_withdraw_scan_cursor
+
+        released = self._wire_poll(monitor_env, monkeypatch, head=1000)
+        monkeypatch.setattr(monitor_env, "_WITHDRAW_PAGE_SIZE", 3)
+        monkeypatch.setattr(monitor_env, "_MAX_PAGES_PER_POLL", 2)
+        t = TestWithdrawSealDepth()
+        pages = {
+            None: [t._tx(i, 500) for i in (7, 6, 5)],
+            5: [t._tx(i, 500) for i in (4, 3, 2)],
+            2: [t._tx(i, 500) for i in (1,)],
+        }
+
+        async def _fetch(before_id=None):
+            return pages.get(before_id, [])
+
+        async def _canonical(h):
+            return {"block_height": 500, "block_hash": "0x" + "ab" * 32, "status": "confirmed"}
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+
+        s1 = await monitor_env.poll_withdrawals_once()
+        assert s1["released"] == 6
+        assert get_withdraw_scan_cursor() == 2
+
+        s2 = await monitor_env.poll_withdrawals_once()
+        # First page is now all duplicates -> jump to the owed cursor -> the
+        # remaining tail row is ledgered and the cursor clears.
+        assert s2["released"] == 1
+        assert s2["scanned"] == 4
+        assert get_withdraw_scan_cursor() is None
+        assert len(released) == 7
+
+    @pytest.mark.asyncio
     async def test_bad_address_produces_rejected_row_and_refund(self, monitor_env, monkeypatch):
         """An invalid eth_address is ledgered 'rejected' and the AIT refunded."""
         self._wire_poll(monitor_env, monkeypatch, head=1000)

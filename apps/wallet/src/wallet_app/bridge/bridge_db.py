@@ -86,8 +86,10 @@ if TYPE_CHECKING:
         get_resumable_withdrawals,
         get_withdrawal_by_ait_tx_hash,
         get_withdrawal_eth_committed_since,
+        get_withdraw_scan_cursor,
         insert_withdrawal,
         record_release_attempt,
+        set_withdraw_scan_cursor,
         update_release_attempt,
         update_withdrawal_block,
         update_withdrawal_pricing,
@@ -494,6 +496,16 @@ def init_db() -> None:
         )
     """)
 
+    # #2918/AUDIT-MONEY-69: tiny key/value state for monitor cursors — the
+    # withdraw scan persists its deepest before_id here so a mid-scan RPC
+    # failure or the per-poll page cap cannot strand the unscanned tail.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bridge_monitor_state (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+
     # B13/BR-6: the outbound-ETH ledger lives in this shared file too — the
     # monitor writes it, either service may bootstrap it first. Same DDL as
     # bridge_monitor/storage.py.
@@ -620,6 +632,8 @@ _NAME_TO_MODULE = {
     "update_withdrawal_status": "bridge_db_withdrawals",
     "_WITHDRAWAL_ETH_COMMITTED_STATUSES": "bridge_db_withdrawals",
     "get_withdrawal_eth_committed_since": "bridge_db_withdrawals",
+    "get_withdraw_scan_cursor": "bridge_db_withdrawals",
+    "set_withdraw_scan_cursor": "bridge_db_withdrawals",
     "record_release_attempt": "bridge_db_withdrawals",
     "update_release_attempt": "bridge_db_withdrawals",
     "get_release_attempts": "bridge_db_withdrawals",
@@ -698,6 +712,8 @@ __all__ = [
     "get_all_withdrawals",
     "update_withdrawal_status",
     "get_withdrawal_eth_committed_since",
+    "get_withdraw_scan_cursor",
+    "set_withdraw_scan_cursor",
     "record_release_attempt",
     "update_release_attempt",
     "get_release_attempts",
