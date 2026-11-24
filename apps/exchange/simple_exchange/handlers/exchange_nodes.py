@@ -254,15 +254,21 @@ class ExchangeNodesMixin:
         window_s = _env_int("EXCHANGE_WATCHLIST_WINDOW_S", 24 * 3600)
         cutoff = datetime.now(UTC).timestamp() - window_s
         cutoff_iso = datetime.fromtimestamp(cutoff, UTC).isoformat()
+        # created_at is CURRENT_TIMESTAMP ('YYYY-MM-DD HH:MM:SS') while
+        # cancelled_at is written as isoformat ('YYYY-MM-DDTHH:MM:SS+00:00').
+        # Comparing either raw string to cutoff_iso mixes formats: ' ' < 'T'
+        # silently excludes the whole cutoff calendar date (#2833). Normalize
+        # both sides through SQLite datetime() — it parses space, T, offset,
+        # and fractional-second forms into one comparable UTC string.
         placed = dict(
             cursor.execute(
-                "SELECT user_address, COUNT(*) FROM orders WHERE user_address IS NOT NULL AND created_at > ? GROUP BY user_address",
+                "SELECT user_address, COUNT(*) FROM orders WHERE user_address IS NOT NULL AND datetime(created_at) > datetime(?) GROUP BY user_address",
                 (cutoff_iso,),
             ).fetchall()
         )
         cancelled = dict(
             cursor.execute(
-                "SELECT user_address, COUNT(*) FROM orders WHERE user_address IS NOT NULL AND cancelled_at IS NOT NULL AND cancelled_at > ? GROUP BY user_address",
+                "SELECT user_address, COUNT(*) FROM orders WHERE user_address IS NOT NULL AND cancelled_at IS NOT NULL AND datetime(cancelled_at) > datetime(?) GROUP BY user_address",
                 (cutoff_iso,),
             ).fetchall()
         )

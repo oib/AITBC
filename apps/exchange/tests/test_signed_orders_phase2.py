@@ -10,6 +10,7 @@ touched.
 """
 
 import sqlite3
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -391,6 +392,71 @@ class TestAbuseLimits:
         conn = sqlite3.connect(exchange_db)
         assert addr not in EM._watchlisted_addresses(conn.cursor())
         conn.close()
+
+    def test_watchlist_sees_cutoff_date_orders(self, exchange_db, pair_keys):
+        """#2833: orders/cancels inside the window but on the cutoff's own
+        calendar date must count — the detector compared mixed timestamp
+        formats as strings and silently dropped that whole date."""
+        addr = "0x" + "ab" * 20
+        # Same instant the code uses for the cutoff, plus 30 minutes: inside
+        # the 24h window AND on the cutoff's calendar date — the band the
+        # string comparison (' ' < 'T') always excluded.
+        cutoff = datetime.now(UTC).timestamp() - 24 * 3600
+        when = datetime.fromtimestamp(cutoff + 1800, UTC)
+        created_space = when.strftime("%Y-%m-%d %H:%M:%S")  # CURRENT_TIMESTAMP shape
+        cancelled_iso = when.isoformat()  # what handle_cancel_order writes
+        conn = sqlite3.connect(exchange_db)
+        for _ in range(10):
+            conn.execute(
+                "INSERT INTO orders (order_type, amount, price, total, remaining, status,"
+                " created_at, user_address, cancelled_at)"
+                " VALUES ('SELL','1','1','1','1','cancelled',?,?,?)",
+                (created_space, addr, cancelled_iso),
+            )
+        conn.commit()
+        flagged = ExchangeMixin._watchlisted_addresses(conn.cursor())
+        conn.close()
+        assert addr in flagged
+
+    def test_watchlist_window_boundary_formats(self, exchange_db):
+        """#2833: the same instant written in either stored format counts
+        identically; an instant outside the window never does."""
+        inside = "0x" + "cd" * 20
+        outside = "0x" + "ef" * 20
+        cutoff = datetime.now(UTC).timestamp() - 24 * 3600
+        t_in = datetime.fromtimestamp(cutoff + 1800, UTC)
+        t_out = datetime.fromtimestamp(cutoff - 1800, UTC)
+        conn = sqlite3.connect(exchange_db)
+        # inside-window rows: 10 placements, 10 cancels (ratio 1.0 > 0.9)
+        for _ in range(10):
+            conn.execute(
+                "INSERT INTO orders (order_type, amount, price, total, remaining, status,"
+                " created_at, user_address, cancelled_at)"
+                " VALUES ('SELL','1','1','1','1','cancelled',?,?,?)",
+                (t_in.strftime("%Y-%m-%d %H:%M:%S"), inside, t_in.isoformat()),
+            )
+        # outside-window rows in BOTH stored formats: 10 placements + 10
+        # cancels — enough to flag if the window edge ever leaks.
+        for _ in range(10):
+            conn.execute(
+                "INSERT INTO orders (order_type, amount, price, total, remaining, status,"
+                " created_at, user_address, cancelled_at)"
+                " VALUES ('SELL','1','1','1','1','cancelled',?,?,?)",
+                (t_out.strftime("%Y-%m-%d %H:%M:%S"), outside, t_out.isoformat()),
+            )
+        conn.execute(
+            "INSERT INTO orders (order_type, amount, price, total, remaining, status,"
+            " created_at, user_address, cancelled_at)"
+            " VALUES ('SELL','1','1','1','1','open',?,NULL,?)",
+            (t_out.isoformat(), outside),
+        )
+        conn.commit()
+        flagged = ExchangeMixin._watchlisted_addresses(conn.cursor())
+        conn.close()
+        assert inside in flagged
+        # outside: 10 cancels / 11 placements = 0.909 > 0.9 — it flags IFF
+        # the window edge leaks, so `not in` proves the cutoff holds.
+        assert outside not in flagged
 
     def test_register_rate_limit_sixth_refused(self, exchange_db, monkeypatch):
         """The sixth registration from one IP within the minute is refused."""
