@@ -19,6 +19,7 @@ aitbc coin-requests request [OPTIONS]
 | `--sender` | text | — | no | Sender id (defaults to hostname-wallet-suffix). |
 | `--recipient` | text | `hub-coordinator` | no | Recipient agent id. |
 | `--request-id` | text | — | no | Request id (defaults to a unique value). |
+| `--yes` | flag | `false` | no | Skip the auto-execute confirmation prompt |
 
 ## Examples
 
