@@ -132,6 +132,37 @@ class TestBlockchainClient:
         client = BlockchainClient(rpc_url="http://localhost:8202/")
         assert client.rpc_url == "http://localhost:8202"
 
+    async def test_get_block_height_propagates_unreachable(self, monkeypatch):
+        """#2839: a dead endpoint must raise, not fabricate height 0 — the
+        service maps the raise to status='unreachable'; a 0 would be
+        recorded as status='active', block_height=0."""
+        import httpx
+
+        from trading_service.clients.blockchain import BlockchainClient
+
+        async def _boom(self, *a, **kw):
+            raise httpx.ConnectError("refused")
+
+        monkeypatch.setattr(httpx.AsyncClient, "get", _boom)
+        client = BlockchainClient(rpc_url="http://dead:8202")
+        with pytest.raises(httpx.ConnectError):
+            await client.get_block_height("chain-x")
+        await client.aclose()
+
+    async def test_get_chain_health_propagates_unreachable(self, monkeypatch):
+        import httpx
+
+        from trading_service.clients.blockchain import BlockchainClient
+
+        async def _boom(self, *a, **kw):
+            raise httpx.ConnectError("refused")
+
+        monkeypatch.setattr(httpx.AsyncClient, "get", _boom)
+        client = BlockchainClient(rpc_url="http://dead:8202")
+        with pytest.raises(httpx.ConnectError):
+            await client.get_chain_health("chain-x")
+        await client.aclose()
+
 
 class TestBridgeClient:
     """Test the BridgeClient wrapper (B3)."""
