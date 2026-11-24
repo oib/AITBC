@@ -2,6 +2,7 @@
 Staking-related RPC endpoints.
 """
 
+import math
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -242,8 +243,19 @@ def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]
     lock_days = stake_data.get("lock_days", 30)
     if not stake_data.get("address"):
         raise HTTPException(status_code=400, detail="address is required")
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="amount must be positive")
+    # #2771: ``amount <= 0`` alone lets NaN through (every comparison is
+    # False) and raises TypeError → 500 on str/dict input. Require a
+    # positive finite integral number — the stake amount is denominated in
+    # whole units and the signed message carries it verbatim.
+    if (
+        isinstance(amount, bool)
+        or not isinstance(amount, (int, float))
+        or not math.isfinite(amount)
+        or amount <= 0
+        or amount != int(amount)
+    ):
+        raise HTTPException(status_code=400, detail="amount must be a positive integer")
+    amount = int(amount)
     if not isinstance(lock_days, int) or isinstance(lock_days, bool) or not 1 <= lock_days <= MAX_LOCK_DAYS:
         raise HTTPException(status_code=400, detail=f"lock_days must be an integer between 1 and {MAX_LOCK_DAYS}")
     chain_id, address, sign_data, signature = _verified_staking_request(
