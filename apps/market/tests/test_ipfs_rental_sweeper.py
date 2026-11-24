@@ -22,9 +22,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from market_service.domain.market import IpfsRentalToken
+from market_service.domain.market import IpfsRentalToken, MarketJob
 from market_service.services.ipfs_rental_sweeper import IpfsRentalSweeper
 from market_service.storage import get_session_context
+
+
+def _confirmed_job(job_id: str, **overrides) -> MarketJob:
+    """A market job carrying the provider's signed delivery attestation —
+    the evidence the rental sweeper requires before releasing escrow."""
+    data: dict[str, Any] = {
+        "id": job_id,
+        "state": "RUNNING",
+        "payload": {"provider_confirmed": True},
+    }
+    data.update(overrides)
+    return MarketJob(**data)
 
 
 class FakeBlockchainRPCClient:
@@ -81,6 +93,7 @@ async def test_sweeper_releases_expired_pinned_rental(session: AsyncSession) -> 
         updated_at=now - timedelta(days=2),
     )
     session.add(token)
+    session.add(_confirmed_job("ipfs_rental_001"))
     await session.commit()
 
     rpc = FakeBlockchainRPCClient()
@@ -208,6 +221,7 @@ async def test_425_lock_not_sealed_is_retried_by_next_sweep(monkeypatch) -> None
             updated_at=now - timedelta(days=2),
         )
         session.add(token)
+        session.add(_confirmed_job("ipfs_rental_425"))
         await session.commit()
 
     state = {"calls": 0}
@@ -318,6 +332,7 @@ async def test_failed_settle_stamps_the_deferral_marker() -> None:
     and stamps settle_deferral_first_at instead of looping unmarked."""
     async with _session_factory() as session:
         session.add(_expired_token("ak_defer1", "r_defer1"))
+        session.add(_confirmed_job("r_defer1"))
         await session.commit()
 
     rpc = ScriptedRPC(fail_release={"r_defer1"})
@@ -339,6 +354,7 @@ async def test_deferral_past_bound_goes_terminal() -> None:
     first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=7)
     async with _session_factory() as session:
         session.add(_expired_token("ak_terminal", "r_terminal", settle_deferral_first_at=first_at))
+        session.add(_confirmed_job("r_terminal"))
         await session.commit()
 
     rpc = ScriptedRPC(fail_release={"r_terminal"})
@@ -360,6 +376,7 @@ async def test_phantom_escrow_goes_terminal_before_the_bound() -> None:
     first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=10)
     async with _session_factory() as session:
         session.add(_expired_token("ak_phantom", "r_phantom", settle_deferral_first_at=first_at))
+        session.add(_confirmed_job("r_phantom"))
         await session.commit()
 
     rpc = ScriptedRPC(fail_release={"r_phantom"}, missing={"r_phantom"})
@@ -380,6 +397,7 @@ async def test_present_escrow_still_defers_until_the_bound() -> None:
     first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=10)
     async with _session_factory() as session:
         session.add(_expired_token("ak_present", "r_present", settle_deferral_first_at=first_at))
+        session.add(_confirmed_job("r_present"))
         await session.commit()
 
     rpc = ScriptedRPC(fail_release={"r_present"})
@@ -398,6 +416,7 @@ async def test_successful_settle_clears_the_deferral_marker() -> None:
     first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
     async with _session_factory() as session:
         session.add(_expired_token("ak_clear", "r_clear", settle_deferral_first_at=first_at))
+        session.add(_confirmed_job("r_clear"))
         await session.commit()
 
     rpc = ScriptedRPC()
@@ -429,9 +448,11 @@ async def test_stuck_rows_cannot_starve_an_eligible_row() -> None:
                     updated_at=now - timedelta(hours=2),
                 )
             )
+            session.add(_confirmed_job(rid))
         # Newer updated_at than the stuck set: strictly behind them on the
         # first pass, strictly ahead once they rotate.
         session.add(_expired_token("ak_eligible", "r_eligible", updated_at=now - timedelta(hours=1)))
+        session.add(_confirmed_job("r_eligible"))
         await session.commit()
 
     rpc = ScriptedRPC(fail_release=set(stuck_ids))
@@ -448,3 +469,118 @@ async def test_stuck_rows_cannot_starve_an_eligible_row() -> None:
         assert token is not None
         assert token.status == "released"
         assert token.tx_hash == "0xrelease_r_eligible"
+
+
+# --- #2850: delivery-evidence gate -----------------------------------------
+#
+# The refund branch used to be dead code: nothing could write
+# status='refund_pending' (never selected) or pinned=False (stripped by
+# _TOKEN_WRITABLE), so EVERY expired token released escrow to the provider —
+# including rentals where the provider never attested delivery. The release
+# now requires the same evidence the job sweeper's coverage rule demands:
+# payload.provider_confirmed on the bound market job.
+
+
+@pytest.mark.asyncio
+async def test_undelivered_job_token_refunds_buyer() -> None:
+    """A token whose job never got the provider's pin attestation refunds
+    the buyer instead of paying the provider."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_undeliv", "r_undeliv"))
+        session.add(_confirmed_job("r_undeliv", payload={}))
+        await session.commit()
+
+    rpc = ScriptedRPC()
+    sweeper = IpfsRentalSweeper(batch_size=200, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_undeliv")
+        assert token is not None
+        assert token.status == "refunded"
+        assert token.tx_hash == "0xrefund_r_undeliv"
+    assert "r_undeliv" in rpc.refunded
+    assert "r_undeliv" not in rpc.released
+
+
+@pytest.mark.asyncio
+async def test_unresolvable_job_token_refunds_buyer() -> None:
+    """A token whose escrow key resolves to no market job has no delivery
+    evidence at all — fail closed and refund."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_orphan", "r_orphan"))
+        await session.commit()
+
+    rpc = ScriptedRPC()
+    sweeper = IpfsRentalSweeper(batch_size=200, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_orphan")
+        assert token is not None
+        assert token.status == "refunded"
+    assert "r_orphan" in rpc.refunded
+    assert "r_orphan" not in rpc.released
+
+
+@pytest.mark.asyncio
+async def test_open_dispute_freezes_settlement_until_cleared() -> None:
+    """An open dispute freezes BOTH directions (mirror of #1835 F1): the
+    token expires but neither release nor refund fires; clearing the
+    dispute lets the next pass settle on the delivery evidence."""
+    now = datetime.now(UTC).replace(tzinfo=None)
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_disputed", "r_disputed"))
+        session.add(
+            _confirmed_job(
+                "r_disputed",
+                disputed_at=now - timedelta(hours=1),
+                dispute_cleared_at=None,
+            )
+        )
+        await session.commit()
+
+    rpc = ScriptedRPC()
+    sweeper = IpfsRentalSweeper(batch_size=200, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_disputed")
+        assert token is not None
+        assert token.status == "expired"  # access ended; settlement frozen
+        assert token.tx_hash is None
+        assert token.settle_deferral_first_at is None  # deliberate freeze, not a deferral
+    assert "r_disputed" not in rpc.released and "r_disputed" not in rpc.refunded
+
+    async with _session_factory() as session:
+        job = await session.get(MarketJob, "r_disputed")
+        job.dispute_cleared_at = datetime.now(UTC).replace(tzinfo=None)
+        await session.commit()
+
+    await sweeper.sweep_once()
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_disputed")
+        assert token is not None
+        assert token.status == "released"
+    assert "r_disputed" in rpc.released
+
+
+@pytest.mark.asyncio
+async def test_refund_pending_status_is_now_swept() -> None:
+    """status='refund_pending' joined the sweep set — a flagged token is
+    actually refunded now instead of sitting forever."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_flagged", "r_flagged", status="refund_pending"))
+        session.add(_confirmed_job("r_flagged"))
+        await session.commit()
+
+    rpc = ScriptedRPC()
+    sweeper = IpfsRentalSweeper(batch_size=200, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_flagged")
+        assert token is not None
+        assert token.status == "refunded"
+    assert "r_flagged" in rpc.refunded
+    assert "r_flagged" not in rpc.released

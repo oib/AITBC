@@ -10,8 +10,10 @@ On each sweep the worker:
 
 1. Finds active IPFS rental tokens whose ``expires_at`` has passed.
 2. Marks the token as ``expired``.
-3. If the rental was pinned/delivered, releases the on-chain escrow to the
-   provider; otherwise refunds the buyer.
+3. If the bound market job carries the provider's signed delivery
+   attestation (``payload.provider_confirmed``, #1922), releases the
+   on-chain escrow to the provider; otherwise refunds the buyer. An open
+   dispute freezes settlement entirely until it is cleared.
 4. Records the resulting ``release_tx_hash`` or ``refund_tx_hash`` and updates
    the token status to ``released`` or ``refunded``.
 
@@ -36,7 +38,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import BlockchainRPCClient
 
 from ..config import settings
-from ..domain.market import IpfsRentalToken
+from ..domain.market import IpfsRentalToken, MarketJob
 from ..storage import get_session_context
 
 logger = get_logger(__name__)
@@ -138,7 +140,7 @@ class IpfsRentalSweeper:
                 # a token the last pass marked expired but could not release or
                 # refund (e.g. a 425 'lock not sealed yet') must be retried, not
                 # stranded — the sweep only ever finished with a tx_hash.
-                .where(col(IpfsRentalToken.status).in_({"active", "expired"}))
+                .where(col(IpfsRentalToken.status).in_({"active", "expired", "refund_pending"}))
                 .where(col(IpfsRentalToken.tx_hash).is_(None))
                 .where(col(IpfsRentalToken.expires_at).is_not(None))
                 .where(col(IpfsRentalToken.expires_at) < cutoff)
@@ -181,11 +183,15 @@ class IpfsRentalSweeper:
     async def _process_token(self, session: AsyncSession, token: IpfsRentalToken) -> tuple[bool, bool]:
         """Expire a single token and release or refund its escrow.
 
-        The default policy is release to the provider at normal expiration. A
-        token is only refunded when it has been explicitly flagged with
-        ``status == "refund_pending"`` or the rental was never successfully
-        pinned (``pinned == False``). If neither condition is present, the
-        provider is paid.
+        The default policy is release to the provider at normal expiration,
+        but only on verified delivery evidence: the provider-signed pin
+        attestation (``payload.provider_confirmed``) on the bound market
+        job — the same proof ``active_rental_token_covers`` requires before
+        exempting the job's payment from the refund pass (#2491). Without
+        it (or without a resolvable job at all) the buyer is refunded: the
+        token rail must never pay a provider that cannot prove delivery.
+        ``status == "refund_pending"`` or ``pinned == False`` also force a
+        refund. An open dispute freezes settlement until cleared (#1835 F1).
         """
         # Canonicalize addresses before touching any on-chain state.
         token.buyer_address = canonical_address(token.buyer_address or "")
@@ -204,11 +210,29 @@ class IpfsRentalSweeper:
                 token.escrow_contract_id,
             )
             return False, False
-        should_refund = token.status == "refund_pending" or getattr(token, "pinned", True) is False
+        # Capture the flag before the status flip below overwrites it.
+        refund_flagged = token.status == "refund_pending"
+
+        # #2850: resolve the bound market job for delivery evidence and the
+        # dispute freeze. ``job_id`` is the on-chain escrow key — for
+        # job-bound tokens it is the market job id (#2348/#2623).
+        job = await session.get(MarketJob, str(job_id)) if job_id else None
+        delivered = bool(job is not None and (job.payload or {}).get("provider_confirmed"))
+        dispute_open = job is not None and job.disputed_at is not None and job.dispute_cleared_at is None
 
         # Mark the rental as expired first so concurrent access-key checks stop.
         token.status = "expired"
         token.updated_at = datetime.now(UTC)
+
+        if dispute_open:
+            # Mirror the job sweeper's freeze: neither release nor refund
+            # while a dispute is open — the token stays expired-but-unsettled
+            # and the next pass re-checks. Deliberate freezes must not burn
+            # the settle_max_seconds deferral bound.
+            logger.info("Rental %s under open dispute; escrow settlement deferred", job_id)
+            return False, False
+
+        should_refund = refund_flagged or not token.pinned or not delivered
 
         if should_refund:
             tx_hash = await self._refund_escrow(job_id)
