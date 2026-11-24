@@ -68,6 +68,14 @@ class ExchangeMatchingMixin:
         new_remaining = _to_decimal(order["remaining"])
         new_id = order.get("id")
 
+        if head_height is None:
+            # #2832: callers without a head (the unsigned path, the
+            # standalone match_orders wrapper) still expire against the
+            # live chain head when the RPC answers — expired orders must
+            # never stay matchable just because this call site had no
+            # head. A dead RPC keeps the documented #1554 residual.
+            fetched = self._chain_head_height()
+            head_height = fetched if isinstance(fetched, int) else None
         if head_height is not None:
             self._expire_open_orders(cursor, head_height)
 
@@ -84,8 +92,20 @@ class ExchangeMatchingMixin:
         # settlement flag is on.
         lock_col = ", locked_ticks" if settlement else ""
         funded_pred = "AND funded_state = 'funded'" if settlement else ""
+        # #2832: belt under the lazy sweep — a candidate whose expiry_height
+        # has passed must not match even if the sweep above did not run
+        # (no head available). NULL expiry never expires by design (#1554).
+        expiry_pred = "AND (expiry_height IS NULL OR expiry_height > ?)" if head_height is not None else ""
         matching_orders = _match_candidates(
-            cursor, new_type, new_price_ticks, self_guard, guard_address, lock_col, funded_pred
+            cursor,
+            new_type,
+            new_price_ticks,
+            self_guard,
+            guard_address,
+            lock_col,
+            funded_pred,
+            expiry_pred,
+            head_height,
         )
 
         for match_row in matching_orders:
@@ -135,21 +155,31 @@ class ExchangeMatchingMixin:
             conn.close()
 
 
-def _match_candidates(cursor, new_type, new_price_ticks, self_guard, guard_address, lock_col, funded_pred):
+def _match_candidates(
+    cursor, new_type, new_price_ticks, self_guard, guard_address, lock_col, funded_pred, expiry_pred="", expiry_head=None
+):
     """Opposite-side open orders at compatible tick prices, within the
     caller's transaction. The flag-off query is byte-for-byte the phase-2
-    statement — lock_col/funded_pred only exist when settlement is on."""
+    statement — lock_col/funded_pred/expiry_pred only exist when their
+    conditions hold."""
+    # Placeholder order follows the WHERE clause text: price_ticks, then
+    # the self-match guard's LOWER(?), then the expiry bound's ?.
+    params: list = [new_price_ticks]
+    if guard_address:
+        params.append(guard_address)
+    if expiry_pred and expiry_head is not None:
+        params.append(expiry_head)
     if new_type == "BUY":
         # Match against SELL orders with price <= our buy price
-        # lock_col/self_guard/funded_pred are fixed literal fragments, never input
+        # lock_col/self_guard/funded_pred/expiry_pred are fixed literal fragments, never input
         cursor.execute(
             f"""
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
             FROM orders
-            WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard} {funded_pred}
+            WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard} {funded_pred} {expiry_pred}
             ORDER BY price_ticks ASC, id ASC
             """,  # nosec
-            (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
+            tuple(params),
         )
     else:
         # Match against BUY orders with price >= our sell price
@@ -158,10 +188,10 @@ def _match_candidates(cursor, new_type, new_price_ticks, self_guard, guard_addre
             f"""
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
             FROM orders
-            WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard} {funded_pred}
+            WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard} {funded_pred} {expiry_pred}
             ORDER BY price_ticks DESC, id ASC
             """,  # nosec
-            (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
+            tuple(params),
         )
     return cursor.fetchall()
 
