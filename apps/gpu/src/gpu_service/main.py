@@ -100,14 +100,19 @@ _GPU_STATUS_TO_OFFER: dict[str, OfferStatus] = {
     "booked": OfferStatus.RESERVED,
     "online": OfferStatus.AVAILABLE,
     "offline": OfferStatus.DELISTED,
+    # AUDIT-EDGE-GPU-DELIST-RESURRECT (#2904): operator/deregister delists
+    # get a terminal spelling outside BOOKABLE_GPU_STATUSES so the next
+    # heartbeat cannot flip deliberately removed capacity back to
+    # bookable. "offline" stays the liveness spelling only.
+    "deregistered": OfferStatus.DELISTED,
     "in_use": OfferStatus.IN_USE,
 }
 _OFFER_TO_GPU_STATUS: dict[OfferStatus, str] = {
     OfferStatus.AVAILABLE: "available",
     OfferStatus.RESERVED: "booked",
     OfferStatus.IN_USE: "in_use",
-    OfferStatus.DELISTED: "offline",
-    OfferStatus.EXPIRED: "offline",
+    OfferStatus.DELISTED: "deregistered",
+    OfferStatus.EXPIRED: "deregistered",
 }
 
 # Miner/GPU liveness (heartbeat / register / re-register / edge discovery)
@@ -946,7 +951,11 @@ async def deregister_miner(
     from .domain.gpu_market import GPURegistry
 
     try:
-        stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="offline")  # type: ignore[arg-type]
+        stmt = (
+            update(GPURegistry)
+            .where(GPURegistry.miner_id == miner_id)  # type: ignore[arg-type]
+            .values(status="deregistered")  # type: ignore[arg-type]
+        )
         await session.execute(stmt)
         await session.commit()
         return {"status": "ok", "miner_id": miner_id, "message": "Miner deregistered"}
