@@ -21,10 +21,25 @@ management is Alembic's job for this service.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import MetaData
 from sqlmodel import SQLModel
 
 trading_metadata = MetaData()
+
+
+def utcnow_naive() -> datetime:
+    """Current UTC time as a timezone-NAIVE datetime (#2837).
+
+    Every DateTime column in this service is timezone-naive. On SQLite an
+    aware value serializes with a ``+00:00`` suffix, which lexicographically
+    sorts AFTER every naive ``' '``-separated timestamp — expiry sweeps and
+    ORDER BYs then misjudge rows near the boundary; on PostgreSQL binding an
+    aware value into a naive column is an error outright. All writers and
+    sweepers must go through this one helper.
+    """
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class TradingBase(SQLModel):
