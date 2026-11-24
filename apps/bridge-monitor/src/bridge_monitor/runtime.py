@@ -164,7 +164,15 @@ class BridgeMonitorRuntime:
         float check already alerts on balance visibility loss, and blocking
         payouts entirely on a probe failure would trade a soft cap for a
         hard outage."""
-        abs_cap = Decimal(ait_to_units(self.max_payout_ait)) if self.max_payout_ait is not None else None
+        # is_finite() is belt-and-braces: __init__ rejects non-finite env
+        # values, but a programmatically-set cap must not reach ait_to_units
+        # either — Decimal('Infinity') raises OverflowError there, which the
+        # deposit path would retry to FAILED (#2822).
+        abs_cap = (
+            Decimal(ait_to_units(self.max_payout_ait))
+            if self.max_payout_ait is not None and self.max_payout_ait.is_finite()
+            else None
+        )
         balance = self._payout_wallet_balance()
         if balance is None:
             # The fraction cap needs the balance; the absolute ceiling does
