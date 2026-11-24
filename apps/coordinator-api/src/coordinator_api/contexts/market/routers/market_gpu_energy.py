@@ -13,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.market.energy_pricing import NATIVE_UNITS_PER_AIT
+from aitbc.market.energy_pricing import MAX_TBP_WATTS, NATIVE_UNITS_PER_AIT
 from aitbc.market.energy_oracle import EnergyOracleError
 from aitbc.rate_limiting import rate_limit
 
@@ -27,6 +27,33 @@ from ..services.native_energy import NativeEnergyOracle
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+_INT64_MAX = 9_223_372_036_854_775_807
+
+
+def _validate_energy_magnitudes(tbp: int, eur_scaled: int, scale: int) -> None:
+    """#2820: plausibility bands for the miner-writable profile magnitudes.
+
+    These feed the protected-funding floor, so they get the same treatment
+    as the global rate band plus the pricing library's own bounds — an
+    unbounded tbp_watts also overflowed the int64 column at insert.
+    """
+    if tbp > MAX_TBP_WATTS:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"tbp_watts {tbp} exceeds the plausible maximum {MAX_TBP_WATTS}",
+        )
+    if eur_scaled > _INT64_MAX:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh exceeds the int64 scaled range")
+    eur_per_kwh = Decimal(eur_scaled) / Decimal(scale)
+    if eur_per_kwh < settings.energy_eur_per_kwh_min or eur_per_kwh > settings.energy_eur_per_kwh_max:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"eur_per_kwh {eur_per_kwh} outside the plausible band "
+                f"[{settings.energy_eur_per_kwh_min}, {settings.energy_eur_per_kwh_max}]"
+            ),
+        )
 
 
 @router.post("/market/native-energy/profile", status_code=http_status.HTTP_201_CREATED)
@@ -59,6 +86,7 @@ def register_native_energy_profile(
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="tbp_watts must be positive")
     if eur_scaled <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh must be positive")
+    _validate_energy_magnitudes(tbp, eur_scaled, scale)
 
     # #2704: the profile's energy floor feeds protected-funding quotes, so it
     # is owner-scoped. ``provider`` is the creator's miner id (the token sub),

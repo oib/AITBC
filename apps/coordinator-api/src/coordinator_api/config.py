@@ -323,6 +323,16 @@ class Settings(BaseAITBCConfig):
     energy_rate_max_ait_per_eur: Decimal = Field(
         default=Decimal("8"), description="Maximum plausible native AIT/EUR rate accepted by the rate POST"
     )
+    # Plausibility band for POST /market/native-energy/profile (#2820): the
+    # profile's EUR/kWh is miner-writable and feeds the protected-funding
+    # floor — same treatment as the global rate band. tbp_watts is bounded
+    # by the pricing library's MAX_TBP_WATTS instead of a second knob.
+    energy_eur_per_kwh_min: Decimal = Field(
+        default=Decimal("0.01"), description="Minimum plausible EUR/kWh accepted by the profile POST"
+    )
+    energy_eur_per_kwh_max: Decimal = Field(
+        default=Decimal("2.0"), description="Maximum plausible EUR/kWh accepted by the profile POST"
+    )
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
     native_chain_id: str = Field(default="", description="Native chain ID for quote binding; derived from CHAIN_ID when unset")
 
