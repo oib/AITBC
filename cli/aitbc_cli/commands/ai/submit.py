@@ -47,6 +47,18 @@ def _abort_network_error(ctx, e: _ai.NetworkError) -> None:
     _ai.abort(ctx, f"Network error: {detail or e}", from_exception=e)
 
 
+def _accept_not_ready(e: _ai.NetworkError) -> bool:
+    """True when the coordinator says the payment is not held for acceptance yet.
+
+    #2952: ``payment_status=escrowed`` means the escrow is still sealing or a
+    release is in flight — the accept endpoint only answers once the result
+    moves the payment to ``pending_acceptance``. That 409 is a race, not a
+    failure: the wait loop should poll again instead of warning once and
+    never retrying.
+    """
+    return _ai.http_response_status(e) == 409 and "no payment awaiting acceptance" in (_ai.http_error_detail(e) or "").lower()
+
+
 def _try_auto_accept(http_client: _ai.AITBCHTTPClient, job_id: str, accept_key: str) -> bool:
     """Attempt one idempotent accept; returns True if no retry is wanted."""
     try:
@@ -56,6 +68,9 @@ def _try_auto_accept(http_client: _ai.AITBCHTTPClient, job_id: str, accept_key: 
             # Gateway blip: retry the accept on the next poll — the
             # Idempotency-Key makes the replay safe.
             logger.warning("Transient error accepting job %s (will retry): %s", job_id, e)
+            return False
+        if _accept_not_ready(e):
+            logger.info("Job %s payment not awaiting acceptance yet; will retry", job_id)
             return False
         logger.warning("Could not auto-accept job %s: %s", job_id, e)
     except _ai._OPS_ERRORS as e:
@@ -88,7 +103,9 @@ def _await_payment_release(
                 ctx,
                 f"Job {job_id} completed but payment {payment_id} was not released within timeout",
             )
-        if not accept_attempted and status.get("payment_status") in ("escrowed", "pending_acceptance"):
+        # #2952: only pending_acceptance can be accepted — "escrowed" here is
+        # seal/release latency, and POSTing accept for it only earns a 409.
+        if not accept_attempted and status.get("payment_status") == "pending_acceptance":
             accept_attempted = _try_auto_accept(http_client, job_id, accept_key)
         time.sleep(min(poll_interval, 2.0))
         try:
