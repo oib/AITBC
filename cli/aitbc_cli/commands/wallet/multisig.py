@@ -9,8 +9,8 @@ import click
 from eth_utils import to_checksum_address
 
 from ...config import get_config
-from ...utils import DECIMAL, error, output, success
-from ...utils.error_handling import abort
+from ...utils import DECIMAL, error, output, success, warning
+from ...utils.error_handling import abort, validate_address
 from ...utils.http_client import AITBCHTTPClient, http_response_status
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
@@ -134,6 +134,9 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @click.pass_context
 def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, description: str | None):
     """Propose a multi-signature payment to a destination address."""
+    if not validate_address(to_address):
+        abort(None, f"Invalid --to-address '{to_address}': expected a 0x-prefixed 20-byte hex address")
+        return
     try:
         validate_wallet_name(wallet_name)
     except ValueError as e:
@@ -150,19 +153,21 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
         ms_data = json.load(f)
 
     # The stored ``balance`` is a creation-time 0 that nothing ever updates —
-    # sufficiency must come from the chain, same rule as the token wallets
-    # (#2196). A failed lookup aborts rather than proposing against an
-    # unknown balance.
+    # refresh it from the chain when reachable (#2196). Propose itself is
+    # local bookkeeping only: the multisig address cannot spend on-chain
+    # (#2362) and approval never moves funds, so an insufficient or unknown
+    # balance must not block the record — it warns instead (#2945).
     chain_balance = _multisig_chain_balance(ms_data["address"])
     if chain_balance is None:
-        abort(None, f"Cannot verify multisig balance on-chain for {ms_data['address']} — check --rpc-url / node reachability")
-        return
-    ms_data["balance"] = str(chain_balance)
-    write_json_0600(multisig_path, ms_data)
-    if chain_balance < amount:
-        error(f"Insufficient balance. Available: {chain_balance} AIT, Required: {amount} AIT")
-        ctx.exit(1)
-        return
+        warning(f"Could not verify multisig balance on-chain for {ms_data['address']} — recording proposal anyway")
+    else:
+        ms_data["balance"] = str(chain_balance)
+        write_json_0600(multisig_path, ms_data)
+        if chain_balance < amount:
+            warning(
+                f"Proposed amount {amount} AIT exceeds the multisig's on-chain balance "
+                f"({chain_balance} AIT) — the record is bookkeeping-only and cannot settle"
+            )
 
     import secrets
 

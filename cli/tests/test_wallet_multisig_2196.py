@@ -84,9 +84,9 @@ class TestMultisigProposeChainBalance:
         assert result.exit_code == 0, result.output
         assert "mstx_" in result.output or "proposed" in result.output.lower()
 
-    def test_propose_uses_ait_not_units(self, tmp_path, monkeypatch):
-        """Regression pin: raw units must not be compared to the AIT amount —
-        3.9 AIT = ~3.9e18 units; comparing units-as-AIT would pass any amount."""
+    def test_over_balance_propose_warns_not_refuses(self, tmp_path, monkeypatch):
+        """#2945: propose is local bookkeeping — a 3.9 AIT proposal against a
+        0.5 AIT chain balance must succeed with a warning, not refuse."""
         addr, _ = _make_multisig(tmp_path)
         units = int(0.5 * UNITS_PER_AIT)  # only 0.5 AIT on chain
         with (
@@ -99,11 +99,30 @@ class TestMultisigProposeChainBalance:
                 ["multisig-propose", "--wallet", "ms", "--to-address", "0x" + "dd" * 20, "--amount", "3.9"],
                 monkeypatch,
             )
-        assert result.exit_code != 0
-        assert "Insufficient" in result.output
+        assert result.exit_code == 0, result.output
+        assert "mstx_" in result.output or "proposed" in result.output.lower()
+        assert "exceeds" in result.output.lower() or "balance" in result.output.lower()
 
-    def test_propose_aborts_when_chain_lookup_fails(self, tmp_path, monkeypatch):
-        """Unknown balance must abort, never fall back to the stale local 0."""
+    def test_unfunded_multisig_can_propose(self, tmp_path, monkeypatch):
+        """#2945 repro: a zero-balance multisig must still record proposals —
+        the balance check gated bookkeeping on an unspendable address."""
+        addr, _ = _make_multisig(tmp_path)
+        with (
+            patch("aitbc_cli.commands.wallet.multisig.get_config", return_value=_Cfg()),
+            patch("aitbc_cli.commands.wallet.multisig.AITBCHTTPClient") as http_cls,
+        ):
+            http_cls.return_value.get.side_effect = _account_get(0)
+            result = _invoke(
+                tmp_path,
+                ["multisig-propose", "--wallet", "ms", "--to-address", "0x" + "dd" * 20, "--amount", "0.5"],
+                monkeypatch,
+            )
+        assert result.exit_code == 0, result.output
+        assert "proposed" in result.output.lower()
+
+    def test_propose_warns_when_chain_lookup_fails(self, tmp_path, monkeypatch):
+        """#2945: bookkeeping must not require the chain — a failed balance
+        lookup warns and records anyway."""
         _make_multisig(tmp_path)
         with (
             patch("aitbc_cli.commands.wallet.multisig.get_config", return_value=_Cfg()),
@@ -115,8 +134,30 @@ class TestMultisigProposeChainBalance:
                 ["multisig-propose", "--wallet", "ms", "--to-address", "0x" + "dd" * 20, "--amount", "0.1"],
                 monkeypatch,
             )
+        assert result.exit_code == 0, result.output
+        assert "proposed" in result.output.lower()
+        assert "Could not verify" in result.output
+
+    @pytest.mark.parametrize("bad", ["", "not-an-address", "0x1234", "dd" * 20])
+    def test_invalid_to_address_rejected(self, tmp_path, monkeypatch, bad):
+        """#2945: empty/garbage --to-address must fail validation, not reach
+        the balance check and record a bogus recipient."""
+        _make_multisig(tmp_path)
+        with (
+            patch("aitbc_cli.commands.wallet.multisig.get_config", return_value=_Cfg()),
+            patch("aitbc_cli.commands.wallet.multisig.AITBCHTTPClient") as http_cls,
+        ):
+            http_cls.return_value.get.side_effect = _account_get(0)
+            result = _invoke(
+                tmp_path,
+                ["multisig-propose", "--wallet", "ms", "--to-address", bad, "--amount", "0.1"],
+                monkeypatch,
+            )
         assert result.exit_code != 0
-        assert "Cannot verify" in result.output or "on-chain" in result.output
+        assert "to-address" in result.output.lower() or "address" in result.output.lower()
+        # nothing recorded
+        ms = json.loads((tmp_path / "wallets" / "ms_multisig.json").read_text())
+        assert ms["pending_transactions"] == []
 
 
 class TestMultisigSignHonestApproval:
@@ -361,8 +402,9 @@ class TestMultisigUnspendableGuard2362:
     funding it burns funds; propose must not mislabel a 404 as an outage."""
 
     def test_propose_404_is_zero_balance_not_rpc_error(self, tmp_path, monkeypatch):
-        """Account-not-found (404) means zero balance → honest 'Insufficient',
-        never the 'check node reachability' misclassification."""
+        """Account-not-found (404) means zero balance — #2945: bookkeeping
+        propose still succeeds, but the zero-balance warning must be the
+        honest 'exceeds balance' signal, never the 'reachability' mislabel."""
         _make_multisig(tmp_path)
 
         class Http404(Exception):
@@ -380,9 +422,9 @@ class TestMultisigUnspendableGuard2362:
                 ["multisig-propose", "--wallet", "ms", "--to-address", "0x" + "dd" * 20, "--amount", "0.1"],
                 monkeypatch,
             )
-        assert result.exit_code != 0
-        assert "Insufficient" in result.output
+        assert result.exit_code == 0, result.output
         assert "reachability" not in result.output
+        assert "exceeds" in result.output.lower() or "balance" in result.output.lower()
 
     def test_multisig_recipient_refusal_maps_files(self, tmp_path):
         from aitbc_cli.utils.wallet_paths import multisig_recipient_refusal
