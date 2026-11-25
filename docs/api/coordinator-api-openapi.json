@@ -3941,7 +3941,7 @@
             }
           },
           "409": {
-            "description": "bond {bond_id} is already bound to provider {claimed.provider_id} / bond {bond_id} is liquidated for provider {provider_id}; the same on-chain bond cannot reactivate it \u2014 submit a new BOND_LOCK under a new bond_id or resolve the slash appeal via governance / bond {bond_id} is already bound to another provider",
+            "description": "bond {bond_id} is already bound to provider {claimed.provider_id} / bond {bond_id} is liquidated for provider {provider_id}; the same on-chain bond cannot reactivate it \u2014 submit a new BOND_LOCK under a new bond_id or resolve the slash appeal via governance / bond eligibility is suspended; resolve the appeal before rebinding / bond {bond_id} is already bound to another provider",
             "content": {
               "application/json": {
                 "schema": {
@@ -4257,7 +4257,7 @@
             }
           },
           "409": {
-            "description": "provider {provider_id} bond is {bond.status}; {action} cannot reactivate a terminal bond \u2014 create a new on-chain bond first",
+            "description": "provider {bond.provider_id} bond is {bond.status}; {action} requires an active or locked bond / bond changed while the request was in flight; retry",
             "content": {
               "application/json": {
                 "schema": {
@@ -4346,7 +4346,96 @@
             }
           },
           "409": {
-            "description": "provider {provider_id} bond is {bond.status}; {action} cannot reactivate a terminal bond \u2014 create a new on-chain bond first",
+            "description": "provider {bond.provider_id} bond is {bond.status}; {action} requires an active or locked bond / bond changed while the request was in flight; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/providers/{provider_id}/bonds/suspend": {
+      "post": {
+        "tags": [
+          "market-bonds"
+        ],
+        "summary": "Suspend eligibility without moving bond funds",
+        "description": "Suspend a provider's bond eligibility pending governance review (#2966).\n\nAdmin-only and local-only: the suspension is a meta flag\n(``suspension_event_id`` plus audit fields) overlaid on the stored\nACTIVE/LOCKED status \u2014 never a ``ProviderBond.status`` \u2014 so the automatic\nslasher still selects the bond and in-flight violations stay punishable.\nNo RPC and no funds move; ``is_provider_eligible`` reports False and the\nAPI projects ``status: \"suspended\"`` until a matching accepted slash\nappeal lifts the flag. Rebinding cannot bypass a live suspension while\nthe original bond remains active; once it reconciles to a terminal\nstate a genuinely new verified lock may replace it \u2014 that never\nresolves or reactivates the old bond.",
+        "operationId": "suspend_bond_v1_market_providers__provider_id__bonds_suspend_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BondSuspension"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "provider {provider_id} has no bond to {action}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "bond_id does not match the provider's current bond / bond has no verified chain provider to suspend / bond is {bond.status}; only active/locked bonds can be suspended / bond eligibility is already suspended / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -4363,9 +4452,10 @@
         "tags": [
           "market-bonds"
         ],
-        "summary": "Slash a provider bond",
-        "description": "Slash a provider's bond for misbehavior.",
+        "summary": "Manual bond slashing unavailable",
+        "description": "Refuse manual slashes; the admin suspension + appeal workflow owns this now.",
         "operationId": "slash_bond_v1_market_providers__provider_id__bonds_slash_post",
+        "deprecated": true,
         "parameters": [
           {
             "name": "provider_id",
@@ -4436,6 +4526,16 @@
           },
           "404": {
             "description": "provider {provider_id} has no bond to {action}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Manual slashing is unavailable; use the admin bond suspension workflow. No bond state or funds changed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -25520,7 +25620,7 @@
             }
           },
           "409": {
-            "description": "an open appeal already exists for this bond/slash event",
+            "description": "appeal does not name the current suspension / an open appeal already exists for this bond/slash event",
             "content": {
               "application/json": {
                 "schema": {
@@ -25535,6 +25635,77 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/governance/slash-appeals/{appeal_id}/resolve": {
+      "post": {
+        "tags": [
+          "governance"
+        ],
+        "summary": "Resolve Appeal",
+        "description": "Resolve a slash appeal: accept restores the bond's eligibility\nprojection from verified chain state, reject closes the appeal. Admin\nreview only \u2014 no wallet-ownership override, and funds never move here.",
+        "operationId": "resolve_appeal_v1_governance_slash_appeals__appeal_id__resolve_post",
+        "parameters": [
+          {
+            "name": "appeal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Appeal Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlashAppealDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Resolve Appeal V1 Governance Slash Appeals  Appeal Id  Resolve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -37811,6 +37982,28 @@
         ],
         "title": "BondStatusResponse"
       },
+      "BondSuspension": {
+        "properties": {
+          "bond_id": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Bond Id"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bond_id",
+          "reason"
+        ],
+        "title": "BondSuspension"
+      },
       "BountyCreate": {
         "properties": {
           "title": {
@@ -45945,6 +46138,30 @@
         ],
         "title": "SetPriceRequest",
         "description": "Request to set a price"
+      },
+      "SlashAppealDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Decision"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "notes"
+        ],
+        "title": "SlashAppealDecision"
       },
       "SlashAppealRequest": {
         "properties": {

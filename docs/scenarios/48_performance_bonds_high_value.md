@@ -186,17 +186,68 @@ aitbc bond lock --provider-id "$MINER_ID"
 aitbc bond release --provider-id "$MINER_ID"
 ```
 
-> **No withdrawal path:** `bond release` only un-locks a LOCKED bond back
-> to `active` — the bonded amount stays posted. There is no endpoint that
-> frees bond funds; only `slash` (with a governance appeal path) moves
-> them.
-
-A bond can be slashed for misbehavior and then appealed:
+> **`bond release` is not a withdrawal.** It only un-locks a LOCKED bond back
+> to `active` — the bonded amount stays posted. The real withdrawal is the
+> provider-signed on-chain `BOND_RELEASE`, which the chain accepts only after
+> the lock expiry recorded at `BOND_LOCK` time:
 
 ```bash
-aitbc bond slash --provider-id "$MINER_ID" --reason "failed SLA"
-aitbc bond appeal --bond-id <bond-id> --reason "dispute"
+aitbc transactions send \
+  --from "$WALLET" \
+  --to "$PROVIDER_WALLET" \
+  --amount 0 \
+  --type BOND_RELEASE \
+  --payload "$(jq -nc --arg id "$BOND_ID" --arg provider "$PROVIDER_WALLET" '{bond_id:$id,provider:$provider}')"
 ```
+
+`--to` is the bond provider's own wallet (the chain requires the release
+recipient to be the provider) and `provider` inside the payload must equal
+the signing wallet. The transaction moves value=0 — the escrowed principal
+returns to the provider inside the apply — so verify the sealed transaction
+separately (`aitbc transactions status --tx-hash <tx-hash>` or the explorer) before
+claiming the funds moved.
+
+## Suspending, appealing, and resolving a bond
+
+The retired manual `bond slash` route now refuses every request (HTTP 409)
+without touching bond state or funds — automatic chain-backed slashing is
+unchanged. The supported operator flow is:
+
+```bash
+# Admin suspends eligibility locally (no funds move, automatic slashing continues):
+aitbc bond suspend --provider-id "$MINER_ID" --bond-id "$BOND_ID" --reason "operator review"
+
+# The provider (or admin) files an appeal; the server binds the live
+# suspension event automatically:
+aitbc bond appeal --bond-id "$BOND_ID" --reason "dispute"
+
+# An admin reviewer resolves it — accept re-verifies fresh chain state:
+aitbc bond resolve-appeal --appeal-id <appeal-id> --decision accepted --notes "chain verified"
+```
+
+Suspension is an eligibility flag overlaid on the stored status: the API
+reports `status: "suspended"`, `is_provider_eligible` returns false, local
+`lock`/`release` bookkeeping cannot clear it, and rebinding — same or new
+`bond_id` — is refused until the appeal resolves. Rebinding cannot bypass
+a suspension while the original bond remains active. After the original
+bond is reconciled as released or fully slashed, it stays terminal and a
+genuinely new verified lock may be bound; that does not resolve or
+reactivate the old bond. Accepting an appeal
+restores the bond projection only when the chain point-read proves the bond
+`active` with the expected provider and reports the slash hash state the
+review type requires; the restored amount is the *fresh* chain balance, so
+a partial automatic slash while suspended is never undone. Acceptance never
+moves funds and never reverses a sealed on-chain `BOND_SLASH` — a
+terminally liquidated bond recovers only through a genuinely new on-chain
+`BOND_LOCK` under a new `bond_id`.
+
+Historical bookkeeping-only liquidations are not migrated automatically.
+An admin can accept an existing legacy appeal only when the original
+manual audit markers and wallet binding match the bond and a fresh chain
+record confirms it is active with no recorded slash. If the proof is
+missing or ambiguous, the row stays ineligible; a same-ID rebind cannot
+restore it. Rejecting an appeal leaves the suspension or liquidation
+intact.
 
 
 ---
@@ -257,8 +308,9 @@ aitbc bond top-up --provider-id "$MINER_ID" --bond-id "$BOND_ID" --amount 10
 
 ## Validation
 
-- `cli/tests/test_bond.py` — 5 tests covering `bond create`, `status`, `top-up`,
-  `lock`, `release`, and `slash`.
+- `cli/tests/test_bond.py` — covers `bond create`, `status`, `top-up`,
+  `lock`, `release`, `slash` (deprecated refusal), `suspend`, `appeal`,
+  and `resolve-appeal`.
 - `cli/tests/test_cli_comprehensive.py` + `test_cli_basic.py` — 33 passed
   (regression).
 - Live validation on `<hub-node>` + `<node2>`:
@@ -276,7 +328,8 @@ aitbc bond top-up --provider-id "$MINER_ID" --bond-id "$BOND_ID" --amount 10
   transition layer (`BOND_LOCK`/`BOND_RELEASE`/`BOND_SLASH` via
   `_handle_bond_transaction`); the `ProviderBond` record tracks eligibility
   for this slice. Escrowed payment and reputation still provide the
-  economic deterrent.
+  economic deterrent. Automatic chain-backed slashing (downtime, SLA
+  violations) is unchanged; the manual slash endpoint is retired.
 - `provider_id` must equal the registered `Miner.id` (Step 1). Two miners
   may share a payout wallet — eligibility does **not** follow the wallet,
   so a bond on a stale/ghost `provider_id` leaves the live miner
@@ -288,5 +341,7 @@ aitbc bond top-up --provider-id "$MINER_ID" --bond-id "$BOND_ID" --amount 10
   before claiming a paid leg.
 - Set `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD=0` to require a bond for every job,
   or `-1` to disable the automatic high-value gate.
-- The `aitbc bond appeal` command posts to `/v1/governance/slash-appeals` and
-  requires a governance review.
+- `aitbc bond appeal` posts to `/v1/governance/slash-appeals` and
+  `aitbc bond resolve-appeal` posts to `/slash-appeals/{id}/resolve`; both
+  require governance review, and acceptance verifies fresh chain state
+  before restoring local eligibility.

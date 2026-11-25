@@ -5,7 +5,7 @@ REST API for agent DAO voting, proposals, and governance analytics
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, StringConstraints, field_validator
@@ -21,6 +21,7 @@ from ....storage import get_session
 from ....auth import AdminDep, AuthDep
 from ...infrastructure.domain.user import Wallet
 from ..services.governance_service import GovernanceService
+from ..services.slash_appeal_review import resolve_slash_appeal
 
 logger = get_logger(__name__)
 
@@ -82,6 +83,11 @@ class SlashAppealRequest(BaseModel):
     evidence: list[Annotated[str, StringConstraints(max_length=2048)]] = Field(default_factory=list, max_length=20)
     provider_id: str = ""
     slash_event_id: str = ""
+
+
+class SlashAppealDecision(BaseModel):
+    decision: Literal["accepted", "rejected"]
+    notes: str = Field(min_length=1, max_length=500)
 
 
 @router.post("/profiles", response_model=GovernanceProfile)
@@ -308,7 +314,7 @@ def submit_slash_appeal(
     # provider (or an admin) may file — the route used to be anonymous.
     from sqlmodel import col, select as sm_select
 
-    from ...market.domain.provider_bond import ProviderBond
+    from ...market.domain.provider_bond import ProviderBond, suspension_event_id
     from ...market.routers.bonds import _require_provider_access
 
     stmt = sm_select(ProviderBond).where(ProviderBond.bond_id == appeal_request.bond_id)
@@ -321,6 +327,19 @@ def submit_slash_appeal(
             detail="no bond matches the appeal's provider_id/bond_id",
         )
     _require_provider_access(session, user, bond.provider_id)
+    # #2966: an appeal against a suspension must name the live suspension
+    # event. The server binds it when the caller leaves slash_event_id
+    # empty; an explicit id that disagrees is refused — the reviewer must
+    # never resolve against a stale or invented event.
+    event_id = appeal_request.slash_event_id
+    current_event = suspension_event_id(bond)
+    if current_event:
+        if event_id and event_id != current_event:
+            raise HTTPException(
+                status_code=409,
+                detail="appeal does not name the current suspension",
+            )
+        event_id = current_event
     # #2497: one open appeal per bond/slash event — repeats used to stack
     # unbounded rows (60/min) that a reviewer workflow cannot action.
     # Terminal appeals (accepted/rejected) do not block a fresh filing.
@@ -328,7 +347,7 @@ def submit_slash_appeal(
         session.execute(
             sm_select(SlashAppeal).where(
                 SlashAppeal.bond_id == appeal_request.bond_id,
-                SlashAppeal.slash_event_id == appeal_request.slash_event_id,
+                SlashAppeal.slash_event_id == event_id,
                 col(SlashAppeal.status).in_([SlashAppealStatus.SUBMITTED.value, SlashAppealStatus.UNDER_REVIEW.value]),
             )
         )
@@ -344,7 +363,7 @@ def submit_slash_appeal(
         appeal = SlashAppeal(
             bond_id=appeal_request.bond_id,
             provider_id=bond.provider_id or appeal_request.provider_id,
-            slash_event_id=appeal_request.slash_event_id,
+            slash_event_id=event_id,
             reason=appeal_request.reason,
             evidence=appeal_request.evidence,
         )
@@ -356,9 +375,31 @@ def submit_slash_appeal(
             "bond_id": appeal.bond_id,
             "provider_id": appeal.provider_id,
             "status": appeal.status,
+            "slash_event_id": appeal.slash_event_id,
             "created_at": appeal.created_at.isoformat() + "Z" if appeal.created_at else None,
         }
     except Exception as e:
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/slash-appeals/{appeal_id}/resolve")
+@rate_limit(rate=20, per=60)
+def resolve_appeal(
+    request: Request,
+    appeal_id: str,
+    body: SlashAppealDecision,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> dict[str, Any]:
+    """Resolve a slash appeal: accept restores the bond's eligibility
+    projection from verified chain state, reject closes the appeal. Admin
+    review only — no wallet-ownership override, and funds never move here."""
+    return resolve_slash_appeal(
+        session,
+        appeal_id,
+        decision=body.decision,
+        reviewer=str(user["sub"]),
+        notes=body.notes,
+    )

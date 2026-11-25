@@ -520,9 +520,15 @@ def _validate_send_amount(tx_type: str, amount: Decimal) -> bool:
     aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES — no shared
     constants package exists) are REJECTED by apply when value != 0, so
     they need --amount 0; for every other type a zero amount is a no-op
-    that only burns the fee, kept an error."""
+    that only burns the fee, kept an error.
+
+    BOND_RELEASE is a special case kept OUT of the mirrored set: the chain's
+    bond handler enforces value=0 itself (state_transition_bond.py), but the
+    type is not part of _ZERO_VALUE_TX_TYPES — without this clause the CLI
+    would demand a positive amount for a tx the chain only accepts at zero.
+    """
     upper = tx_type.upper()
-    if upper in _ZERO_VALUE_TX_TYPES or upper in _AGENT_SESSION_TX_TYPES:
+    if upper in _ZERO_VALUE_TX_TYPES or upper in _AGENT_SESSION_TX_TYPES or upper == "BOND_RELEASE":
         if amount != 0:
             error(f"{upper} transactions must have amount=0")
             return False

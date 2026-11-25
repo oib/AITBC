@@ -141,8 +141,10 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc bond lock`](bond-lock.md) — Lock a provider's bond while a high-value job is in flight.
 - [`aitbc bond lock-onchain`](bond-lock-onchain.md) — Submit the on-chain BOND_LOCK escrow transaction for a provider bond.
 - [`aitbc bond release`](bond-release.md) — Release a previously locked provider bond.
-- [`aitbc bond slash`](bond-slash.md) — Slash a provider's bond with an optional reason.
+- [`aitbc bond resolve-appeal`](bond-resolve-appeal.md) — Resolve a slash appeal as an admin reviewer.
+- [`aitbc bond slash`](bond-slash.md) — Request a manual slash (unavailable on current coordinators).
 - [`aitbc bond status`](bond-status.md) — Show a provider's bond eligibility status.
+- [`aitbc bond suspend`](bond-suspend.md) — Suspend a provider's bond eligibility without moving funds (admin only).
 - [`aitbc bond top-up`](bond-top-up.md) — Re-verify/rebind a provider's on-chain performance bond.
 
 ## `bootstrap`

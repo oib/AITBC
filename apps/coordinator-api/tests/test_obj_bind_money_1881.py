@@ -135,15 +135,22 @@ class TestBondObjectBinding:
         assert resp.status_code == 200
         assert resp.json()["status"] == "locked"
 
-    def test_admin_can_slash_any_provider(self, client: TestClient, seeded) -> None:
-        _create_bond(client, "miner-1", {"bond_id": "cb-1881"}, _headers("owner1"))
+    def test_admin_cannot_bypass_manual_slash_refusal(self, client: TestClient, seeded) -> None:
+        """#2966: even an admin cannot liquidate through the retired slash
+        route — it fails closed for every caller and every bond."""
+        created = _create_bond(client, "miner-1", {"bond_id": "cb-1881"}, _headers("owner1"))
+        assert created.status_code == 200, created.text
+        bond_id = created.json()["id"]
+        before = client.get(f"/v1/market/bonds/{bond_id}", headers=_headers("admin-a", "admin")).json()
         resp = client.post(
             "/v1/market/providers/miner-1/bonds/slash",
             json={"reason": "fraud"},
             headers=_headers("admin-a", "admin"),
         )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "liquidated"
+        assert resp.status_code == 409
+        after = client.get(f"/v1/market/bonds/{bond_id}", headers=_headers("admin-a", "admin")).json()
+        assert after == before
+        assert after["status"] == "active"
 
     def test_reads_stay_authenticated_not_bound(self, client: TestClient, seeded) -> None:
         # eligibility/bond reads are needed by job matching — any valid

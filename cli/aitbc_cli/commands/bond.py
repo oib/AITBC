@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import quote
 
 import click
 import httpx
@@ -149,7 +150,7 @@ def _bond_proof_fields(
   aitbc bond status --provider-id provider-1"""
 )
 def bond():
-    """Manage provider performance bonds through their lifecycle: create, top-up, lock, release, slash, and appeal."""
+    """Manage provider performance bonds through their lifecycle: create, top-up, lock, release, suspend, appeal, and resolve."""
     pass
 
 
@@ -500,16 +501,91 @@ def release(ctx, provider_id, coordinator_url, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def slash(ctx, provider_id, reason, coordinator_url, format):
-    """Slash a provider's bond with an optional reason."""
+    """Request a manual slash (unavailable on current coordinators)."""
     try:
         client = _api_client(ctx, coordinator_url)
         payload = {"reason": reason} if reason else {}
         result = client.post(f"/v1/market/providers/{provider_id}/bonds/slash", json=payload)
-        output(result, resolve_output_format(ctx, format), title="Bond Slashed")
+        output(result, resolve_output_format(ctx, format), title="Manual Slash Response")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error slashing bond for {provider_id}: {e}", from_exception=e)
+
+
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond suspend --provider-id provider-1 --bond-id bond-123 --reason 'operator review'
+
+  aitbc bond suspend --provider-id provider-1 --bond-id bond-123 --reason 'sla breach' --format json"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
+@click.option("--bond-id", "bond_id", required=True, help="On-chain bond id to suspend (must match the bound bond).")
+@click.option("--reason", required=True, help="Suspension reason recorded for governance review.")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def suspend(ctx, provider_id, bond_id, reason, coordinator_url, format):
+    """Suspend a provider's bond eligibility without moving funds (admin only).
+
+    Local eligibility flag only: the bond's stored status is untouched, the
+    automatic slasher still applies, and no funds move. Only a matching
+    accepted slash appeal (``bond appeal`` then ``bond resolve-appeal``)
+    lifts the suspension. Rebinding cannot bypass a live suspension while
+    the original bond remains active; once it reconciles to a terminal
+    state a genuinely new verified lock may replace it — that never
+    resolves or reactivates the old bond.
+    """
+    if provider_id in {".", ".."}:
+        abort(ctx, "provider id is not a valid path segment")
+    try:
+        client = _api_client(ctx, coordinator_url)
+        result = client.post(
+            f"/v1/market/providers/{quote(provider_id, safe='')}/bonds/suspend",
+            json={"bond_id": bond_id, "reason": reason},
+        )
+        output(result, resolve_output_format(ctx, format), title="Bond Eligibility Suspended")
+    except NetworkError as e:
+        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+    except _OPS_ERRORS as e:
+        abort(ctx, f"Error suspending bond for {provider_id}: {e}", from_exception=e)
+
+
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond resolve-appeal --appeal-id sa_123 --decision accepted --notes 'chain verified unburned'
+
+  aitbc bond resolve-appeal --appeal-id sa_123 --decision rejected --notes 'evidence insufficient'"""
+)
+@click.option("--appeal-id", "appeal_id", required=True, help="Slash appeal ID to resolve.")
+@click.option("--decision", type=click.Choice(["accepted", "rejected"]), required=True, help="Review decision.")
+@click.option("--notes", required=True, help="Reviewer notes recorded on the appeal (1-500 chars).")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def resolve_appeal(ctx, appeal_id, decision, notes, coordinator_url, format):
+    """Resolve a slash appeal as an admin reviewer.
+
+    ``accepted`` restores the bond's local eligibility projection only after
+    the coordinator verifies fresh chain state — it never moves funds and
+    never un-burns a sealed on-chain slash. ``rejected`` closes the appeal
+    and leaves the bond untouched.
+    """
+    if appeal_id in {".", ".."}:
+        abort(ctx, "appeal id is not a valid path segment")
+    try:
+        client = _api_client(ctx, coordinator_url)
+        result = client.post(
+            f"/v1/governance/slash-appeals/{quote(appeal_id, safe='')}/resolve",
+            json={"decision": decision, "notes": notes},
+        )
+        output(result, resolve_output_format(ctx, format), title="Bond Appeal Resolved")
+    except NetworkError as e:
+        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+    except _OPS_ERRORS as e:
+        abort(ctx, f"Error resolving slash appeal {appeal_id}: {e}", from_exception=e)
 
 
 @bond.command(
