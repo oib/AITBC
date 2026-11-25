@@ -49,7 +49,7 @@ on each host (2026-10-31).
 
 ## 3. Enumeration gaps — live vars outside the fleet checker's set
 
-The checker (`scripts/monitoring/fleet-config-check.sh` `VARS` + `EFF_VARS` +
+The checker (`aitbc-ops:scripts/monitoring/fleet-config-check.sh` `VARS` + `EFF_VARS` +
 `SHADOW_CONFLICT_ALLOW` + inline greps) enumerates **46** names; the live union covers **333**. Covered: **38**; gaps: **295**. Dead checker rows (enumerated but absent everywhere on the fleet): `ESCROW_SETTLEMENT_AUTHORITY`, `AGENT_INTEGRATION_ZK_MOCK`, `BOND_ESCROW_ADDRESS`, `SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL`, `CONSENSUS_PROPOSER_ROUND_SECONDS`.
 
 Gaps grouped by file class — full names in the appendix:

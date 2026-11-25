@@ -127,7 +127,7 @@ class ConsensusConfig(BaseModel):
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
-    # purpose is to keep the ids retired on 2 Oct 2026 (scripts/ops/gpu-registry-sweep.py lists them) from being
+    # purpose is to keep the ids retired on 2 Oct 2026 from being
     # registered again by anyone; it does not change what a replay of sealed history produces.
     gpu_retired_ids: str = ""
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.

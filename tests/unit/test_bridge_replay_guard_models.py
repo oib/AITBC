@@ -21,12 +21,12 @@ from aitbc_chain.rpc.routers import bridge as bridge_router
 GUARD = {
     "issued_at": "2026-10-07T12:00:00+00:00",
     "nonce": "ab12cd34ef56",
-    "target_chain_id": "ait-hub.aitbc.bubuit.net",
+    "target_chain_id": "ait-hub.example.net",
     "target_node_id": "hub",
 }
 
 REG_BODY = {
-    "chain_id": "ait-hub.aitbc.bubuit.net",
+    "chain_id": "ait-hub.example.net",
     "address": "0x2ad555a9e5208a6438b24fbda4bc83c4c2453e64",
     "public_key": "0x04deadbeef",
     "signature": "0xsig",
@@ -37,7 +37,7 @@ REG_BODY = {
 }
 
 HDR_BODY = {
-    "chain_id": "ait-hub.aitbc.bubuit.net",
+    "chain_id": "ait-hub.example.net",
     "height": 42,
     "hash": "0xabc",
     "proposer": "0x02b8f2c61db1",

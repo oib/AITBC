@@ -57,14 +57,14 @@ def test_metadata_endpoint_rejected(client, monkeypatch):
 
 def test_private_fleet_endpoint_accepted(client, monkeypatch):
     monkeypatch.delenv("AITBC_OUTBOUND_URL_ALLOWED_TARGETS", raising=False)
-    resp = _register(client, "ssrf-lan", "http://10.9.9.9:8107")
+    resp = _register(client, "ssrf-lan", "http://10.0.0.9:8107")
     assert resp.status_code == 200, resp.text
 
 
 def test_query_in_endpoint_rejected(client, monkeypatch):
     """A stored '?x=1' would rewrite the concatenated /tasks/execute path."""
     monkeypatch.delenv("AITBC_OUTBOUND_URL_ALLOWED_TARGETS", raising=False)
-    resp = _register(client, "ssrf-query", "http://10.9.9.9:8107?next=/admin")
+    resp = _register(client, "ssrf-query", "http://10.0.0.9:8107?next=/admin")
     assert resp.status_code == 422, resp.text
 
 

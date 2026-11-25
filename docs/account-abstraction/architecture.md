@@ -1,6 +1,6 @@
 # Agent spend policy — architecture
 
-Row: **AGENT-WALLET-AA-1** · Gitea [#1136](https://gitea.bubuit.net/oib/aitbc/issues/1136)
+Row: **AGENT-WALLET-AA-1** · Gitea [#1136](https://gitea.example.net/oib/aitbc/issues/1136)
 
 Design-only assessment. Staged delivery is in [`implementation-plan.md`](implementation-plan.md).
 

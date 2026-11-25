@@ -263,7 +263,7 @@ class TestSubscriptionAuth:
         monkeypatch.setenv("PEER_KEYS_DB", str(tmp_path / "peer_keys.db"))
         from aitbc_chain.rpc import peer_keys
 
-        issued = peer_keys.issue("joiner.example.net", "10.9.9.9")
+        issued = peer_keys.issue("joiner.example.net", "10.0.0.9")
         own = client.get("/rpc/lease/joiner.example.net", headers={"X-API-Key": issued})
         assert own.status_code != 403
         other = client.get("/rpc/lease/other-node", headers={"X-API-Key": issued})
@@ -295,7 +295,7 @@ class TestExportChainAuth:
         must still get 403 here."""
         from aitbc_chain.rpc import peer_keys
 
-        issued = peer_keys.issue("joiner.example.net", "10.9.9.9")
+        issued = peer_keys.issue("joiner.example.net", "10.0.0.9")
         assert client.get("/rpc/export-chain", headers={"X-API-Key": issued}).status_code == 403
 
     def test_peer_key_reaches_handler(self, client):

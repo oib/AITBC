@@ -37,7 +37,7 @@
 | keys | **fresh island validator keys** — newly generated, never borrowed from a bc-2 host's `VALIDATOR_KEYS`/`PROPOSER_*` |
 | transition heights | `STATE_TRANSITION_*_HEIGHT=1` for **all** versions — the island starts at v17 rules (newest code, no history to replay) |
 | hub1 memory | node `MemoryMax=512M` / rpc `MemoryMax=256M` — hub1 is a small VPS; these are deploy limits, not fleet values. As deployed: the caps were **lowered to these values post-deploy** and confirmed live |
-| genesis | standard genesis builder — `scripts/ops/build-genesis.py` (over `aitbc_chain.genesis_builder`) + `scripts/ops/verify-genesis-root.py`, the same pair the reset harness drives (`scripts/reset-harness/rehearsal.py:392`) — seeding `bridge_validators` (trusting **bc-2's** set) + island-side `bridge_release_authority`. As deployed: `genesis_hash 0x4a55d897…`, `state_root 0x329bd94e…`, byte-identical `genesis.json` at `/var/lib/aitbc/data/bc-2-island-1/genesis.json` on both hosts |
+| genesis | standard genesis builder — `scripts/ops/build-genesis.py` (over `aitbc_chain.genesis_builder`) + `scripts/ops/verify-genesis-root.py`, the same pair the reset harness drives (`aitbc-ops:scripts/reset-harness/rehearsal.py:392`) — seeding `bridge_validators` (trusting **bc-2's** set) + island-side `bridge_release_authority`. As deployed: `genesis_hash 0x4a55d897…`, `state_root 0x329bd94e…`, byte-identical `genesis.json` at `/var/lib/aitbc/data/bc-2-island-1/genesis.json` on both hosts |
 
 ## The cardinal safety rule — `%N.env` only, never bc-2's env files
 

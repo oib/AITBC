@@ -7,13 +7,13 @@ Prep work for V-5 (checkpoint replay / honest bootstrap). Read-only inventory +
 one bounded verification run on node2. No validators touched; the v9 window was
 unaffected (run happened on node2, in /tmp, against snapshot copies).
 
-## Inputs `scripts/ops/replay-chain.py` expects
+## Inputs `aitbc-ops:scripts/ops/replay-chain.py` expects
 
 ```
-PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/replay-chain.py \
+PYTHONPATH=apps/blockchain-node/src venv/bin/python aitbc-ops:scripts/ops/replay-chain.py \
   --snapshot <chain.db copy, opened ro+immutable> \
   --genesis  <genesis.json — ALLOCATION SET ONLY> \
-  --chain-id ait-hub.aitbc.bubuit.net \
+  --chain-id ait-hub.example.net \
   --env-file <merged env — see below> [--to-height N] [--keep --workdir DIR]
 ```
 
@@ -33,8 +33,8 @@ PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/replay-chain.py 
 
 | input | value | status |
 |---|---|---|
-| snapshot | `hub:/var/backups/aitbc/20260828_010035/chain_ait-hub.aitbc.bubuit.net_chain.db.gz` — oldest complete post-migration backup, blocks 0–122, 160 tx | verified (materializes + replays) |
-| genesis | `hub1:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net-pre-0x-migration-20260828-075825/genesis.json` — 16 allocations, block hash `0xd95e600b…` = live block 0 | **verified** — wrong allocations would diverge at block 1; replay was clean through block 10 |
+| snapshot | `hub:/var/backups/aitbc/20260828_010035/chain_ait-hub.example.net_chain.db.gz` — oldest complete post-migration backup, blocks 0–122, 160 tx | verified (materializes + replays) |
+| genesis | `hub1:/var/lib/aitbc/data/ait-hub.example.net-pre-0x-migration-20260828-075825/genesis.json` — 16 allocations, block hash `0xd95e600b…` = live block 0 | **verified** — wrong allocations would diverge at block 1; replay was clean through block 10 |
 | env | merged file: `cat node.env aitbc-blockchain-node.env blockchain.env` (secrets stripped) — see caveat | verified faithful (same divergence with heights-only vs full merge) |
 
 The staged copy on node2 is at `/tmp/v5-inv/` (`chain-0828.db`,
@@ -94,7 +94,7 @@ v5/v7/v8) may expose further divergences — each is a separate bisect.
 v1-era blocks; v9 rules evaluate identically regardless. Record it as the first
 known replay break for the V-5 work item.
 
-## Backup inventory (chain = ait-hub.aitbc.bubuit.net)
+## Backup inventory (chain = ait-hub.example.net)
 
 - **Daily gzipped dumps** on all 5 nodes under `/var/backups/aitbc/<date>/`,
   continuous from Aug 28 → Sep 29 (earliest live-chain: `20260828_010035`,
@@ -164,7 +164,7 @@ exactly that 122-block window.
 gunzip -c backup/chain.db-20260828_010035.sql.gz > /tmp/ckpt-122.db   # or .backup on the live file
 
 # 2. snapshot a block source covering the range to verify
-ssh hub 'sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
+ssh hub 'sqlite3 /var/lib/aitbc/data/ait-hub.example.net/chain.db \
     ".backup /tmp/chain-live.db"' && scp hub:/tmp/chain-live.db /tmp/
 
 # 3. env: merge per precedence (secrets stripped) — needed even though
@@ -176,16 +176,16 @@ ssh hub 'cat /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-node.env /etc/aitbc
 #    target wholesale; its tip C seeds state and replay runs C+1..tip.
 #    Lineage, state-bearing root proof, and a post-seed root re-check all
 #    gate the first import.
-PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/replay-chain.py \
+PYTHONPATH=apps/blockchain-node/src venv/bin/python aitbc-ops:scripts/ops/replay-chain.py \
     --checkpoint /tmp/ckpt-122.db --snapshot /tmp/chain-live.db \
-    --chain-id ait-hub.aitbc.bubuit.net --env-file /tmp/replay.env
+    --chain-id ait-hub.example.net --env-file /tmp/replay.env
 
 # 5. ladder step — replay to the NEXT checkpoint's tip and compare the
 #    rebuilt non-history state wholesale against that checkpoint file:
-PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/replay-chain.py \
+PYTHONPATH=apps/blockchain-node/src venv/bin/python aitbc-ops:scripts/ops/replay-chain.py \
     --checkpoint /tmp/ckpt-122.db --snapshot /tmp/chain-live.db \
     --to-height <tip-of-next-backup> --compare-state-with /tmp/ckpt-sep01.db \
-    --chain-id ait-hub.aitbc.bubuit.net --env-file /tmp/replay.env
+    --chain-id ait-hub.example.net --env-file /tmp/replay.env
 ```
 
 Note: the planned `--from-height` flag did not get implemented — the

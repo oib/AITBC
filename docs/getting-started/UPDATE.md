@@ -249,11 +249,11 @@ operator's holds file and run the pre-restart gate:
 # table). Every wave brief lists the active holds in its header; the
 # gate below is the mechanical check. It exits non-zero when a binding
 # hold names the host with restart/pull/deploy scope.
-scripts/ops/hold-check.sh <host> /path/to/tasks/HOLDS.md
+aitbc-ops:scripts/ops/hold-check.sh <host> /path/to/tasks/HOLDS.md
 
 # During a hub failover drill window, also run the drill preflight
 # before touching hub1's node/rpc/coordinator-api units:
-scripts/ops/failover-preflight.sh
+aitbc-ops:scripts/ops/failover-preflight.sh
 ```
 
 ```bash

@@ -111,7 +111,7 @@ The the wallet will appear in your toolbar with an orange icon. Click to create 
 
 ### Verify URLs
 
-- Always ensure you're on aitbc.bubuit.net before connecting
+- Always ensure you're on aitbc.example.net before connecting
 - Phishing sites may look identical
 
 ### Use a Password Manager

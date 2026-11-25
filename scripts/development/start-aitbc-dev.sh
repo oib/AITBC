@@ -5,9 +5,17 @@
 
 set -euo pipefail
 
-# Canonical service names (replaces a list of retired unit names).
-# shellcheck disable=SC1091
-source "$(dirname "${BASH_SOURCE[0]}")/../service-management/lib/services.sh"
+# Canonical product service names in startup order. Fleet service-management
+# helpers live in the separate aitbc-ops repository.
+AITBC_SERVICES=(
+    aitbc-coordinator-api
+    aitbc-blockchain-rpc
+    aitbc-blockchain-p2p
+    aitbc-exchange
+    aitbc-market
+    aitbc-trading
+    aitbc-wallet
+)
 
 # ssh target for the blockchain container on node1. This used to be a private
 # ~/.ssh/config alias, so the script only worked on one operator's workstation.

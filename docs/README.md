@@ -250,7 +250,7 @@ Library and tooling READMEs that sit beside their code:
   [crypto](../packages/py/aitbc-crypto/README.md),
   [errors](../packages/py/aitbc-errors/README.md).
 - Tooling: [scripts](../scripts/README.md),
-  [workflow](../scripts/workflow/README.md),
+  workflow automation lives in the companion `aitbc-ops` repository;
   [mcp-server](../mcp-server/README.md),
   [tests](../tests/README.md) and
   [verification](../tests/verification/README.md).
@@ -263,7 +263,7 @@ Library and tooling READMEs that sit beside their code:
 
 AITBC is under active development. Core blockchain, coordinator, wallet,
 market, and CLI services are implemented and run on the public island at
-`hub.aitbc.bubuit.net`. For a component-by-component view, see
+`hub.example.net`. For a component-by-component view, see
 [releases/STATUS.md](releases/STATUS.md).
 
 ## Navigation

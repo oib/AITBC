@@ -42,7 +42,7 @@ EUR serves only as a pricing reference. AIT represents compute, not fiat currenc
 The reference rig is an island-level choice, not a protocol constant — the
 canonical deployment anchors on this hardware because it is what the
 operator runs. An island cloning AITBC can re-anchor on its own rig by
-re-running `scripts/ops/ait-reference-price.py` with its own `--component`
+re-running `aitbc-ops:scripts/ops/ait-reference-price.py` with its own `--component`
 entries and rescaling `GPU_COMPUTE_MULTIPLIER` in
 `aitbc/market/hardware_catalog.py` so the chosen rig's GPU is 1.0×.
 
@@ -61,7 +61,7 @@ Average models served:
 
 ## Operating Cost
 
-Derived by `scripts/ops/ait-reference-price.py` (committed artifact:
+Derived by `aitbc-ops:scripts/ops/ait-reference-price.py` (committed artifact:
 `website/reference.json`, rendered on the exchange page under "How the
 Reference Is Calculated"):
 
@@ -81,7 +81,7 @@ the margin is operator policy, not a cost passthrough).
 Re-derive after changing the rig, tariff, or assumptions:
 
 ```bash
-venv/bin/python scripts/ops/ait-reference-price.py --write-json website/reference.json
+venv/bin/python aitbc-ops:scripts/ops/ait-reference-price.py --write-json website/reference.json
 ```
 
 ## Multi-GPU Scaling

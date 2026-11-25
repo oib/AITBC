@@ -89,7 +89,7 @@ def _make_snapshot(
     if corrupt_chain:
         # Over the size floor but a broken gzip stream — must reach gzip -t
         # and fail there, not at the size check.
-        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(b"\x1f\x8bFAKE" + b"x" * 5000)
+        (d / "chain_ait-hub.example.net_chain.db.gz").write_bytes(b"\x1f\x8bFAKE" + b"x" * 5000)
     elif stray_name:
         # node2's stray short-name dump (~4.6 KB) — clears the size floor and
         # passes gzip -t, but the name is not the production dump's. A run that
@@ -98,16 +98,16 @@ def _make_snapshot(
     elif small_chain:
         # Right name, but below BACKUP_GOOD_MIN_BYTES — e.g. a dump that
         # truncated early. Not good.
-        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(gzip.compress(b"tiny"))
+        (d / "chain_ait-hub.example.net_chain.db.gz").write_bytes(gzip.compress(b"tiny"))
     elif stub_only:
         # The ~70-byte empty-db stubs real snapshots carry — e.g. an island
         # DB that holds nothing. Not the production chain: not good.
         (d / "chain_aitbc_chain.db.gz").write_bytes(gzip.compress(b""))
     elif island_only:
         # A nonzero non-production chain dump (name misses the glob). Not good.
-        (d / "chain_ait-shop-island.aitbc.bubuit.net_chain.db.gz").write_bytes(_big_gz())
+        (d / "chain_ait-shop-island.example.net_chain.db.gz").write_bytes(_big_gz())
     elif good:
-        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(_big_gz())
+        (d / "chain_ait-hub.example.net_chain.db.gz").write_bytes(_big_gz())
     else:
         (d / "postgres_aitbc_market.sql.gz").write_bytes(b"\x1f\x8bFAKE")
     if fresh_mtime:
@@ -126,7 +126,7 @@ def env(tmp_path):
         stub.write_text(body)
         stub.chmod(0o755)
 
-    chain_data = tmp_path / "chaindata" / "ait-hub.aitbc.bubuit.net"
+    chain_data = tmp_path / "chaindata" / "ait-hub.example.net"
     chain_data.mkdir(parents=True)
     (chain_data / "chain.db").write_bytes(b"db")
 
@@ -140,7 +140,7 @@ def env(tmp_path):
     etc_aitbc.mkdir()
     # The script derives the good-chain glob from CHAIN_ID in BLOCKCHAIN_ENV;
     # a file without the line falls back to the generic ait-hub quickstart id.
-    (etc_aitbc / "blockchain.env").write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
+    (etc_aitbc / "blockchain.env").write_text("CHAIN_ID=ait-hub.example.net\n")
     etc_prometheus = tmp_path / "etc-prometheus"
     etc_prometheus.mkdir()
     redis_dir = tmp_path / "redisdir"
@@ -389,11 +389,11 @@ def _today_artifacts(env: SimpleNamespace) -> set[str]:
 def test_glob_derives_from_blockchain_env_old_id(env):
     """CHAIN_ID=ait-hub… in blockchain.env resolves the old artifact name."""
     env_file = env.tmp / "etc-aitbc" / "blockchain.env"
-    env_file.write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
+    env_file.write_text("CHAIN_ID=ait-hub.example.net\n")
     _make_snapshot(env.base, _snap_name(40))
     r = _run(env, BLOCKCHAIN_ENV=str(env_file), BACKUP_KEEP_MIN_GOOD="2")
     assert r.returncode == 0
-    assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" in _today_artifacts(env)
+    assert "chain_ait-hub.example.net_chain.db.gz" in _today_artifacts(env)
     assert "among the last 2 good snapshots" in _log(env)
 
 
@@ -407,7 +407,7 @@ def test_glob_derives_from_blockchain_env_bc2(env):
     assert r.returncode == 0
     arts = _today_artifacts(env)
     assert "chain_bc-2_chain.db.gz" in arts
-    assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" not in arts
+    assert "chain_ait-hub.example.net_chain.db.gz" not in arts
     # the old-id gen is not a good restore point under bc-2 — pruned normally
     assert f"removing '{_snap_name(40)}'" in _log(env)
 
@@ -428,7 +428,7 @@ def test_missing_chain_id_line_falls_back_to_generic_ait_hub(env):
 def test_chain_id_env_var_beats_file(env):
     """An EnvironmentFile-provided CHAIN_ID wins over blockchain.env."""
     env_file = env.tmp / "etc-aitbc" / "blockchain.env"
-    env_file.write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
+    env_file.write_text("CHAIN_ID=ait-hub.example.net\n")
     data = _chain_dir(env.tmp, "bc-2")
     r = _run(env, CHAIN_ID="bc-2", BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data))
     assert r.returncode == 0
@@ -441,7 +441,7 @@ def test_prereset_copy_inside_data_is_not_dumped(env):
     env_file = env.tmp / "etc-aitbc" / "blockchain.env"
     env_file.write_text("CHAIN_ID=bc-2\n")
     data = _chain_dir(env.tmp, "bc-2")
-    archive = data / ".pre-reset-2026-10-20" / "ait-hub.aitbc.bubuit.net"
+    archive = data / ".pre-reset-2026-10-20" / "ait-hub.example.net"
     archive.mkdir(parents=True)
     (archive / "chain.db").write_bytes(b"old-db")
     r = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data))
@@ -463,13 +463,13 @@ def test_rollback_old_chain_only_under_bc2_glob_skips_prune(env):
     assert "chain_bc-2_chain.db.gz" in {f.name for f in gen1.iterdir()}
 
     # Rollback: the .pre-reset copies moved back — only the old chain exists.
-    data2 = _chain_dir(env.tmp, "ait-hub.aitbc.bubuit.net")
+    data2 = _chain_dir(env.tmp, "ait-hub.example.net")
     old = _make_snapshot(env.base, _snap_name(50))
     r2 = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data2))
     assert r2.returncode == 0
     gens = {d.name: d for d in env.base.iterdir() if d.is_dir()}
     gen2 = gens[[n for n in gens if n != gen1.name][0]]
-    assert {f.name for f in gen2.iterdir() if f.name.startswith("chain_")} == {"chain_ait-hub.aitbc.bubuit.net_chain.db.gz"}
+    assert {f.name for f in gen2.iterdir() if f.name.startswith("chain_")} == {"chain_ait-hub.example.net_chain.db.gz"}
     assert "pruning skipped entirely" in _log(env)
     assert old.exists() and gen1.exists()
 
@@ -495,7 +495,7 @@ esac
     (bin_dir / "sqlite3").chmod(0o755)
 
     # A damaged db file alongside the healthy one — the script sweeps every *.db.
-    damaged = env.tmp / "chaindata" / "ait-hub.aitbc.bubuit.net" / "damaged.db"
+    damaged = env.tmp / "chaindata" / "ait-hub.example.net" / "damaged.db"
     damaged.write_bytes(b"not-a-real-db")
 
     old_good = _make_snapshot(env.base, _snap_name(40))

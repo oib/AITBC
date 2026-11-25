@@ -550,9 +550,9 @@ The platform has been audited by:
 
 ## Support
 
-- **Documentation**: https://docs.aitbc.bubuit.net
+- **Documentation**: https://docs.example.net
 - **Discord**: https://discord.gg/aitbc
-- **Email**: aitbc@bubuit.net
+- **Email**: security@example.net
 - **Issues**: https://github.com/oib/AITBC/issues
 
 ## License

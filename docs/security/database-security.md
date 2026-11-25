@@ -38,7 +38,7 @@ engine = create_engine(
 
 ```bash
 # Encrypt database backups
-pg_dump aitbc | gpg --encrypt --recipient aitbc@bubuit.net > backup.sql.gpg
+pg_dump aitbc | gpg --encrypt --recipient security@example.net > backup.sql.gpg
 
 # Decrypt backup
 gpg --decrypt backup.sql.gpg > backup.sql

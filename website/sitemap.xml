@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url><loc>https://hub.aitbc.bubuit.net/</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/explorer.html</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/blocks.html</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/marketplace.html</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/exchange.html</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/bridges.html</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/alerts.html</loc></url>
-    <url><loc>https://hub.aitbc.bubuit.net/follower-api-key-announcement.html</loc></url>
+    <url><loc>https://hub.example.net/</loc></url>
+    <url><loc>https://hub.example.net/explorer.html</loc></url>
+    <url><loc>https://hub.example.net/blocks.html</loc></url>
+    <url><loc>https://hub.example.net/marketplace.html</loc></url>
+    <url><loc>https://hub.example.net/exchange.html</loc></url>
+    <url><loc>https://hub.example.net/bridges.html</loc></url>
+    <url><loc>https://hub.example.net/alerts.html</loc></url>
+    <url><loc>https://hub.example.net/follower-api-key-announcement.html</loc></url>
 </urlset>

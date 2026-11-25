@@ -449,15 +449,15 @@ _FIXTURES = {
     # WEB-BRIDGES-4/-5: realistic row mix — 42-char 0x addresses, 66-char
     # transfer ids, a refunded row, and the live chain names
     # (ait-hub/ait-shadow-soak/ait-v2-leaf-test, full ids ending
-    # .aitbc.bubuit.net) so the desktop-width table-fit guard exercises
+    # .example.net) so the desktop-width table-fit guard exercises
     # the widest Route cell, not a trivially short dataset.
     "/rpc/bridge/transfers": {
         "transfers": [
             {
                 "transfer_id": "0x" + _HEX,
                 "confirm_time": "2026-10-15T19:30:00Z",
-                "source_chain": "ait-hub.aitbc.bubuit.net",
-                "target_chain": "ait-shadow-soak.aitbc.bubuit.net",
+                "source_chain": "ait-hub.example.net",
+                "target_chain": "ait-shadow-soak.example.net",
                 "sender": "0x" + "ef" * 20,
                 "recipient": "0x" + "cd" * 20,
                 "amount": "36000000",
@@ -468,8 +468,8 @@ _FIXTURES = {
             {
                 "transfer_id": "0x" + "12" * 32,
                 "confirm_time": "2026-10-15T18:10:00Z",
-                "source_chain": "ait-hub.aitbc.bubuit.net",
-                "target_chain": "ait-v2-leaf-test.aitbc.bubuit.net",
+                "source_chain": "ait-hub.example.net",
+                "target_chain": "ait-v2-leaf-test.example.net",
                 "sender": "0x" + "aa" * 20,
                 "recipient": "0x" + "aa" * 20,
                 "amount": "12000000",
@@ -480,8 +480,8 @@ _FIXTURES = {
             {
                 "transfer_id": "0x" + "34" * 32,
                 "confirm_time": "2026-10-14T09:00:00Z",
-                "source_chain": "ait-shop-island.aitbc.bubuit.net",
-                "target_chain": "ait-hub.aitbc.bubuit.net",
+                "source_chain": "ait-shop-island.example.net",
+                "target_chain": "ait-hub.example.net",
                 "sender": "0x" + "bb" * 20,
                 "recipient": "0x" + "99" * 20,
                 "amount": "5000000",
@@ -492,7 +492,7 @@ _FIXTURES = {
             {
                 "transfer_id": "0x" + "56" * 32,
                 "confirm_time": "2026-10-15T20:00:00Z",
-                "source_chain": "ait-hub.aitbc.bubuit.net",
+                "source_chain": "ait-hub.example.net",
                 "target_chain": "sepolia",
                 "sender": "0x" + "77" * 20,
                 "recipient": "0x" + "11" * 20,

@@ -108,7 +108,7 @@ class TestAValidateOutboundUrl:
 
     async def test_private_refused(self):
         with pytest.raises(ValueError):
-            await avalidate_outbound_url("http://192.168.0.1/hook")
+            await avalidate_outbound_url("http://10.0.0.1/hook")
 
 
 # --- SSRF-AUDIT-1 (#1523): fleet variant — private LAN allowed, forbidden

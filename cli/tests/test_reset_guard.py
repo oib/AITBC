@@ -1,8 +1,7 @@
 """Tests for aitbc.utils.reset_guard and the guarded reset entry points.
 
 The legacy destructive tools (``aitbc genesis reset``, ``unified_genesis.py``,
-``create-genesis-block.py``, ``reset_chain_0x.py``,
-``reset-follower-to-genesis.sh``) must refuse unless every target resolves
+``reset_chain_0x.py``) must refuse unless every target resolves
 under ``AITBC_RESET_SCRATCH`` — and must never write (or read a keystore from)
 the live paths.
 """
@@ -20,9 +19,7 @@ from aitbc.utils import reset_guard
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 UNIFIED_GENESIS = PROJECT_ROOT / "apps" / "blockchain-node" / "scripts" / "unified_genesis.py"
-CREATE_GENESIS_BLOCK = PROJECT_ROOT / "scripts" / "ops" / "create-genesis-block.py"
-RESET_CHAIN = PROJECT_ROOT / "scripts" / "utils" / "reset_chain_0x.py"
-RESET_FOLLOWER_SH = PROJECT_ROOT / "scripts" / "ops" / "reset-follower-to-genesis.sh"
+RESET_CHAIN = PROJECT_ROOT / "scripts" / "maintenance" / "reset_chain_0x.py"
 MCP_GENESIS_MODULE = PROJECT_ROOT / "mcp-server" / "aitbc_mcp_cli_tools_generated_genesis.py"
 
 
@@ -179,45 +176,6 @@ def test_unified_genesis_live_defaults_refuse(scratch):
     assert "refus" in combined or "reset-guard" in combined
 
 
-def test_create_genesis_block_refuses_without_marker(no_scratch, tmp_path):
-    out = tmp_path / "genesis.json"
-    r = subprocess.run(
-        [sys.executable, str(CREATE_GENESIS_BLOCK), "--chain-id", "bc-2", "--out", str(out)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        cwd=str(PROJECT_ROOT),
-        env={k: v for k, v in os.environ.items() if k != "AITBC_RESET_SCRATCH"},
-    )
-    assert r.returncode != 0
-    assert not out.exists()
-
-
-def test_create_genesis_block_update_env_always_refuses(scratch, tmp_path):
-    keystore = scratch / "keystore.json"
-    keystore.write_text('{"private_key": "0x' + "11" * 32 + '", "address": "0x0000000000000000000000000000000000000000"}')
-    r = subprocess.run(
-        [
-            sys.executable,
-            str(CREATE_GENESIS_BLOCK),
-            "--chain-id",
-            "bc-2",
-            "--out",
-            str(scratch / "genesis.json"),
-            "--keystore",
-            str(keystore),
-            "--update-env",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        cwd=str(PROJECT_ROOT),
-        env={**os.environ, "AITBC_RESET_SCRATCH": str(scratch)},
-    )
-    assert r.returncode != 0
-    assert "update-env" in r.stderr + r.stdout
-
-
 def test_reset_chain_0x_refuses_without_marker(no_scratch, tmp_path):
     db = tmp_path / "chain.db"
     r = subprocess.run(
@@ -231,29 +189,6 @@ def test_reset_chain_0x_refuses_without_marker(no_scratch, tmp_path):
     )
     assert r.returncode == 1
     assert not db.exists()
-
-
-def test_reset_follower_refuses_without_marker(no_scratch):
-    r = subprocess.run(
-        ["bash", str(RESET_FOLLOWER_SH)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        env={k: v for k, v in os.environ.items() if k != "AITBC_RESET_SCRATCH"} | {"CHAIN_ID": "test-chain"},
-    )
-    assert r.returncode == 1
-    assert "AITBC_RESET_SCRATCH" in r.stderr
-
-
-def test_reset_follower_live_defaults_refuse(scratch):
-    r = subprocess.run(
-        ["bash", str(RESET_FOLLOWER_SH)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        env={**os.environ, "AITBC_RESET_SCRATCH": str(scratch), "CHAIN_ID": "test-chain"},
-    )
-    assert r.returncode == 1  # /var/lib/aitbc + /etc/aitbc defaults refuse
 
 
 def test_guard_has_no_live_override():

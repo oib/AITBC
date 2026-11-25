@@ -210,14 +210,14 @@ class TestWebsiteMenuConsistency(unittest.TestCase):
 # Pages listed in website/sitemap.xml get a <link rel="canonical">; dynamic
 # detail pages are deliberately excluded and carry noindex instead.
 SITEMAP_PAGES = {
-    "index.html": "https://hub.aitbc.bubuit.net/",
-    "explorer.html": "https://hub.aitbc.bubuit.net/explorer.html",
-    "blocks.html": "https://hub.aitbc.bubuit.net/blocks.html",
-    "marketplace.html": "https://hub.aitbc.bubuit.net/marketplace.html",
-    "exchange.html": "https://hub.aitbc.bubuit.net/exchange.html",
-    "bridges.html": "https://hub.aitbc.bubuit.net/bridges.html",
-    "alerts.html": "https://hub.aitbc.bubuit.net/alerts.html",
-    "follower-api-key-announcement.html": "https://hub.aitbc.bubuit.net/follower-api-key-announcement.html",
+    "index.html": "https://hub.example.net/",
+    "explorer.html": "https://hub.example.net/explorer.html",
+    "blocks.html": "https://hub.example.net/blocks.html",
+    "marketplace.html": "https://hub.example.net/marketplace.html",
+    "exchange.html": "https://hub.example.net/exchange.html",
+    "bridges.html": "https://hub.example.net/bridges.html",
+    "alerts.html": "https://hub.example.net/alerts.html",
+    "follower-api-key-announcement.html": "https://hub.example.net/follower-api-key-announcement.html",
 }
 DYNAMIC_PAGES = {"block.html", "tx.html", "search.html", "messages.html", "author.html", "topic.html"}
 # WEB-DASH-1: operator credential pages — kept reachable but deliberately

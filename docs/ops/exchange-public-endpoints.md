@@ -34,9 +34,9 @@ whole API. Exact matches publish two handlers and nothing else.
 ## Verification checklist (post-deploy)
 
 ```bash
-curl -sI https://hub.aitbc.bubuit.net/exchange-api/orderbook | grep -E 'HTTP|X-Cache'   # 200, MISS→HIT
-curl -s https://hub.aitbc.bubuit.net/exchange-api/wallet    # 404 (never routed)
-curl -s -X POST https://hub.aitbc.bubuit.net/exchange-api/orderbook  # 405/403
+curl -sI https://hub.example.net/exchange-api/orderbook | grep -E 'HTTP|X-Cache'   # 200, MISS→HIT
+curl -s https://hub.example.net/exchange-api/wallet    # 404 (never routed)
+curl -s -X POST https://hub.example.net/exchange-api/orderbook  # 405/403
 ```
 
 Rollback: remove the two `location =` blocks + the conf.d file,

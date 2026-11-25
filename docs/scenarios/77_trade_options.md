@@ -300,7 +300,7 @@ above. The two defects recorded during the original play are both fixed
    → `table`); only `aitbc --output json` was needed before.
 
 Populated-data replay (21 Nov, node0): `bc-2` registered on the trading
-service (`trade register-chain --endpoint https://hub.aitbc.bubuit.net/rpc`)
+service (`trade register-chain --endpoint https://hub.example.net/rpc`)
 and `trade sync` pulled 11 on-chain offers, so `chains`, `discover`,
 `list`/`history` (S62 trade records) and `subscription-status` (after a
 `watch` lease) all return real rows. Two endpoints remain honestly

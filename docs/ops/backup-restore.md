@@ -132,7 +132,7 @@ The fleet-side `BACKUP_OFFSITE_SCRIPT` hook stays unset **on purpose**: this
 deployment uses a pull model — no fleet host holds credentials for the
 destination, and nothing inbound needs to reach the hosts. The operator's
 machine pulls each host's newest complete generation over the existing ssh
-aliases with `scripts/ops/offsite-pull-backups.sh`.
+aliases with `aitbc-ops:scripts/ops/offsite-pull-backups.sh`.
 
 What is pulled: the newest generation dir under `/var/backups/aitbc/` that
 has been untouched for `STABLE_MIN` (10) minutes — the nightly job finishes

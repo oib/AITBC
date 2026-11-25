@@ -43,7 +43,7 @@ Context:
   is in play.
 - This is the protocol lane — a different path from the ETH-side
   deposit monitor (`apps/bridge-monitor`, `BRIDGE_PAYOUT_*`,
-  `scripts/ops/bridge-admin.sh`). Nothing in this play moves ETH-side
+  `/opt/aitbc-ops/scripts/ops/bridge-admin.sh`). Nothing in this play moves ETH-side
   money.
 - The governing document is
   [bridge-release-exercise](../ops/bridge-release-exercise.md): this

@@ -6,7 +6,7 @@
 ## Problem
 
 `block.bridge_state_root` is a per-block commitment over sealed
-`BRIDGE_LOCK`s. The audit tool (`scripts/ops/bridge-leaf-audit.py`)
+`BRIDGE_LOCK`s. The audit tool (`aitbc-ops:scripts/ops/bridge-leaf-audit.py`)
 rebuilds each leaf two ways:
 
 - **current leaf** — from the local `cross_chain_transfer` row (the data
@@ -53,7 +53,7 @@ existing seal is frozen the moment the boundary is pinned.
 ## Verifying today
 
 ```bash
-venv/bin/python scripts/ops/bridge-leaf-audit.py --db <chain.db>
+venv/bin/python aitbc-ops:scripts/ops/bridge-leaf-audit.py --db <chain.db>
 # default --boundary 30000 prints:
 #   boundary 30000: derivable=1 grandfathered=4 missing_data=0
 ```
@@ -61,7 +61,7 @@ venv/bin/python scripts/ops/bridge-leaf-audit.py --db <chain.db>
 `--boundary 0` disables grandfathering (everything underivable becomes
 `missing_data`); `--boundary <H>` evaluates an alternative height.
 
-Fixtures: `tests/unit/test_bridge_leaf_audit.py` —
+Fixtures: `aitbc-ops:tests/unit/test_bridge_leaf_audit.py` —
 `test_lock_class_boundary_split` (the boundary edge, inclusive-above),
 `test_audit_boundary_counts` (same lock shape lands grandfathered below,
 defect above), `test_cli_default_boundary_is_operator_choice` (the

@@ -51,7 +51,6 @@ SKIP_DIRS = (
     "docs/audit/",
     "scripts/plan/",
     "scripts/maintenance/",
-    "scripts/workflow/",
     "dev/testing/tests/",
 )
 

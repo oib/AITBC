@@ -20,11 +20,11 @@
    the live list; a brief that contradicts it loses. Every wave brief
    lists the active holds in its header; absence of the list means the
    brief is stale — stop and ask.
-2. **Gate the host** — `scripts/ops/hold-check.sh <host>` exits non-zero
+2. **Gate the host** — `aitbc-ops:scripts/ops/hold-check.sh <host>` exits non-zero
    when the holds file's "Binding now" table names the host with
    restart/pull/deploy scope; it fails closed (exit 2) when the file is
    unreadable. During a failover-drill window additionally run
-   `scripts/ops/failover-preflight.sh` before touching a hub's
+   `aitbc-ops:scripts/ops/failover-preflight.sh` before touching a hub's
    node/rpc/coordinator units.
 3. **Phase-0 fresh-start check** — before restarting anything, read
    `ActiveEnterTimestamp` for every unit you are about to touch and
@@ -126,7 +126,7 @@ services up (#1665 evidence).
   `aitbc-*` service after a successful ff (unless `--no-restart`), so
   the stale-unit hazard only exists when pulls happen outside it or
   restarts are skipped.
-- `scripts/monitoring/fleet-config-check.sh` flags checkouts whose
+- `aitbc-ops:scripts/monitoring/fleet-config-check.sh` flags checkouts whose
   HEAD is not a descendant of the latest release tag — run it when
   fleet drift is suspected.
 

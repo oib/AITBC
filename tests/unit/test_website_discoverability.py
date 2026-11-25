@@ -30,7 +30,7 @@ import test_website_api_contract as api_contract
 REPO = Path(__file__).resolve().parents[2]
 WEBSITE = REPO / "website"
 
-CANONICAL_HOST = "https://hub.aitbc.bubuit.net"
+CANONICAL_HOST = "https://hub.example.net"
 
 DENY_RES = {
     "retired hostname hub2": re.compile(r"hub2\.aitbc", re.I),

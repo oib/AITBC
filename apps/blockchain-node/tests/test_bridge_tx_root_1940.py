@@ -727,26 +727,6 @@ class TestV9:
             assert r is not None and "bridge_lock_contract" in r
 
 
-# ----------------------------------------------------------------- ops test
-class TestOpsParam:
-    def test_bridge_value_group_strict_bool(self) -> None:
-        import importlib.util
-        from pathlib import Path
-
-        spec = importlib.util.spec_from_file_location(
-            "gpc", Path(__file__).resolve().parents[3] / "scripts/ops/governance_parameter_change.py"
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        assert "bridge_state_root_tx_only_enabled" in mod.ALL_PARAMETERS
-        assert mod._validated_value("bridge_state_root_tx_only_enabled", " TRUE ") == ("true", ["true"])
-        assert mod._validated_value("bridge_state_root_tx_only_enabled", "1") == ("1", ["1"])
-        assert mod._validated_value("bridge_state_root_tx_only_enabled", "0") == ("0", ["0"])
-        for bad in ("yes", "no", "on", "2", ""):
-            with pytest.raises(SystemExit):
-                mod._validated_value("bridge_state_root_tx_only_enabled", bad)
-
-
 # ------------------------------------------------- rework-required cases
 class TestStoredBodyHashAuthority:
     def test_envelope_without_hash_gets_row_hash(self) -> None:

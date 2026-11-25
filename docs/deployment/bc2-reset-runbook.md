@@ -54,7 +54,7 @@ the chain-formation phase only; nothing here is a downtime budget.
 | A8 | address lists proposed and confirmed | coder proposes, operator confirms | the four `bc-2` validator addresses match each host's live validator set; the allocation-address list names every allocation row's address (treasury the operator supplies, the rest "same as live today"). **Treasury ruling (20 Oct): a single-key address the operator creates off the fleet** — spendability is proven by a signed challenge (`check-alloc-file.py --treasury-proof`). Multisig is not possible on this chain without a consensus feature — ruled out, not discussed further | **done 20 Oct** — treasury `0x4aF8F36d91ff6b0125D18A76f242184e4F083EE0` supplied off-fleet with a verified `personal_sign` proof; the final pair is committed at `docs/deployment/bc2-genesis/` (`allocations.json` sha256 `ca4a1500…`, `classes.json` `836ae037…`, both fully pinned in `tests/unit/test_bc2_genesis_files.py`); `check-alloc-file.py --classes --require-classes --treasury-proof` → all PASS |
 | A9 | offline backups + `.pre-reset` capacity | operator-named for the copies | sizes below; checksums verified against live files; per-host store-file list in `bc2-host-inventory.md` | sized; copies not made |
 | A10 | consumer changes staged not live | repo | `bc2-consumers.md` rows ready: v9 alert removal staged, `WEBSITE_CHAIN_ID=bc-2` line prepared, `BACKUP_GOOD_CHAIN_GLOB` value prepared | staged per consumers doc |
-| A11 | public maintenance notice live **about 3 days ahead** of the window (operator card; publishes only on his word; comes down after the first seal — §D). Served on the hub website — a website session stages the text from `tasks/CHAIN-RESET-NOTICE-DRAFT.md` into the site rendered by `scripts/ops/render-website.sh` | operator-named | notice page serves the window text | drafted (`tasks/CHAIN-RESET-NOTICE-DRAFT.md`), unpublished |
+| A11 | public maintenance notice live **about 3 days ahead** of the window (operator card; publishes only on his word; comes down after the first seal — §D). Served on the hub website — a website session stages the text from `tasks/CHAIN-RESET-NOTICE-DRAFT.md` into the site rendered by `aitbc-ops:scripts/ops/render-website.sh` | operator-named | notice page serves the window text | drafted (`tasks/CHAIN-RESET-NOTICE-DRAFT.md`), unpublished |
 | A12 | capacity re-check at freeze | ungated | fresh `df`/`du` per host at freeze time (today's reads below drift) | read once today |
 | A13 | window named | operator | — | blank field — decided placement: "After rehearsal 4" (card 20 Oct); the ~3-day notice lead (A11) counts back from it |
 
@@ -147,7 +147,7 @@ with an **ungated** verify read.
 | B2 | market + exchange order intake stopped — service stops: `aitbc-market` (hub + node2), `aitbc-exchange` (hub). A stopped unit answers connection refused, not a route-level refusal — that is the mechanism (no pause flag exists on these services). Accepted cost: website exchange/marketplace pages error during the window — cosmetic, no drain dependency | operator-named | `systemctl is-active` = `inactive` on all three units; `ss -ltn` shows the market/exchange ports gone; a POST to each route exits curl rc 7 (connection refused) |
 | B3 | `BRIDGE_LOCKS_PAUSED=true` (env edit + restart `aitbc-blockchain-node` + `aitbc-blockchain-rpc` on all five). The name sits in **two** env files on hub (`blockchain.env` + `bootstrap.env`) — edit and verify every file holding it per host | operator-named — validator-interrupting, all five | `grep '^BRIDGE_LOCKS_PAUSED' /etc/aitbc/*.env` — every file carrying the name shows `true`; the bridge GET reads answer (the 503 lock refusal is proven by the POST probe, which `post-cut-verify.py` runs only under `--probe` on the operator's line). Decided: the new chain launches paused too — C3 writes `true`; the unpause waits for `SEPOLIA-REDEPLOY-1` |
 | B4 | escrow creation stopped — stop `aitbc-coordinator-api` on hub (the upstream surfaces `/v1/market/*`, `/api/orders`, `POST /jobs` → `escrow/create` are already dead under B2; the coordinator's own job/payment path is the last live leg). Stopping is safe pre-cut: the alembic-at-start trap is on *restart*, which next happens under release code on a fresh DB (C5/C6). Residual leg: direct `POST /rpc/escrow/create` on the node is API-key-gated internal — covered by the last-moment re-read | operator-named | `systemctl is-active aitbc-coordinator-api` = `inactive` on hub; **and the last-moment pending-count re-read** — escrow + job pending counts re-read immediately before C1 (any non-zero = stop the cut) |
-| B5 | record heads + roots **and re-run the drain zero-checks** | ungated | `sqlite3 "file:///var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" "SELECT max(height), hash, state_root FROM block"` on all five — all equal; head hash + `state_root` written to the ledger. Plus the `bc2-drain-checklist.md` zero-check reads re-run here — a row that appeared since A3 is a **new drain item and stops the cut** |
+| B5 | record heads + roots **and re-run the drain zero-checks** | ungated | `sqlite3 "file:///var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro" "SELECT max(height), hash, state_root FROM block"` on all five — all equal; head hash + `state_root` written to the ledger. Plus the `bc2-drain-checklist.md` zero-check reads re-run here — a row that appeared since A3 is a **new drain item and stops the cut** |
 
 Lift: the B2/B4 service stops have **no separate lift row** — those units
 come back under the existing C6 restart order, on release code, against
@@ -291,7 +291,7 @@ gated step outside the cut.
 ## E. Rollback before the point — **scratch-rehearsed (`RESET-ROLLBACK-1`), live-path residuals unproven**
 
 Venue decided: the node2 scratch harness (operator card). The rehearsal
-ran 20 Oct on `scripts/reset-harness/rollback.py` and proved every
+ran 20 Oct on `aitbc-ops:scripts/reset-harness/rollback.py` and proved every
 acceptance item on scratch; what it could not prove on live data is
 listed as residual, not as a blocker.
 
@@ -350,7 +350,7 @@ is the standing rpc class, **not** validator-interrupting). Preconditions:
 the soak-end gate green (`bc2-post-cut-owed.md` §2), F4 sealed, and
 `SEPOLIA-REDEPLOY-1` complete — the new contract on Sepolia, Safe-owned
 (the operator checklist is `bc2-sepolia-redeploy-checklist.md`).
-`scripts/ops/unpause-precheck.py` must print **GO** before the operator's
+`aitbc-ops:scripts/ops/unpause-precheck.py` must print **GO** before the operator's
 line; it reads the saved post-cut report, F4 balances, the pause flag on
 every carrier, `BRIDGE_CONTRACT_ADDRESS` in the monitor env, the Sepolia
 contract (code / `owner()` / `getThreshold()`), and head agreement.

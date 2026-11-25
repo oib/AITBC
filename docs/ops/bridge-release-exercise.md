@@ -30,7 +30,7 @@ This runbook covers the **protocol-lane** `BRIDGE_RELEASE`: a cross-chain
 
 It is a **different path** from the ETH-side deposit payout lane
 (`apps/bridge-monitor`, `BRIDGE_PAYOUT_*`, `TRANSFER` envelopes,
-`scripts/ops/bridge-admin.sh`). Nothing in this exercise moves ETH-side
+`/opt/aitbc-ops/scripts/ops/bridge-admin.sh`). Nothing in this exercise moves ETH-side
 money; the ledger-first payout rules below apply only if a companion step
 touches that lane.
 
@@ -392,7 +392,7 @@ this runbook does not use it**:
 > actions use the monitor's own commands, never a raw RPC submit:
 
 ```bash
-cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
+cd /opt/aitbc && /opt/aitbc-ops/scripts/ops/bridge-admin.sh <command>
 #   status <tx_hash>                inspect a ledger row
 #   list [--status S] [--limit N]   recent rows (incl. FUNDING/FAILED)
 #   manual-payout <to> <amount>     manual payout, same ledger-first path
@@ -472,7 +472,7 @@ lane hiccup while the island is up), it goes through these commands only.
 
 - **Lock intake lives on hub's RPC** — hub holds the sole
   `BRIDGE_RELEASE_PRIVATE_KEY` (K-1). Submit locks to hub's bc-2 RPC,
-  then `scripts/ops/bridge-transplant.sh` moves the `pending` ledger
+  then `aitbc-ops:scripts/ops/bridge-transplant.sh` moves the `pending` ledger
   row into hub1's bc-2 db and fires the rpc-island relay from there.
   **Not** co-located intake: `cross_chain_transfer` is rpc-local, so
   the island's own rpc unit is the only correct relayer for the

@@ -1,6 +1,6 @@
 # Agent spend policy — persistence
 
-Row: **AGENT-WALLET-AA-1** · Gitea [#1136](https://gitea.bubuit.net/oib/aitbc/issues/1136)
+Row: **AGENT-WALLET-AA-1** · Gitea [#1136](https://gitea.example.net/oib/aitbc/issues/1136)
 
 Design-only. **Alembic head** on coordinator-api at assessment time:
 `d3e4f5a6b7c8` (`add_escrow_refund_relay_table`). Re-check `alembic heads`

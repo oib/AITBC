@@ -21,7 +21,7 @@ intentionally do not live in this repository.
 - `packages/py/` — shared Python packages
 - `scripts/` — deployment, ops, ci, monitoring helpers
 - `website/` — white-label public hub site (rendered via
-  `scripts/ops/render-website.sh` + `/etc/aitbc/website.env`)
+  the external website renderer + `/etc/aitbc/website.env`)
 - `docs/` — user, deployment, and testing docs; release logs under
   `docs/releases/`
 - `tests/` — repo-level pytest suites
@@ -98,7 +98,7 @@ actions use the monitor's own commands, never a raw RPC submit:
 
 ```bash
 cd /opt/aitbc && PYTHONPATH=apps/bridge-monitor/src venv/bin/python -m bridge_monitor.admin <command>
-# Fleet operators may use the aitbc-ops scripts/ops/bridge-admin.sh wrapper instead.
+# Fleet operators may use aitbc-ops:scripts/ops/bridge-admin.sh instead.
 #   status <tx_hash>                inspect a ledger row
 #   list [--status S] [--limit N]   recent rows (incl. FUNDING/FAILED)
 #   manual-payout <to> <amount>     manual payout, same ledger-first path

@@ -50,16 +50,8 @@ check::except-ratchet::cli/aitbc_cli/utils/output.py	same
 check::except-ratchet::cli/aitbc_cli/utils/signed_rpc.py	same
 check::except-ratchet::cli/tests/test_edge_join_guard.py	same
 check::except-ratchet::scripts/dev/gen_option_coverage.py	same
-check::except-ratchet::scripts/ops/bridge-leaf-audit.py	same
 check::except-ratchet::scripts/ops/check-alloc-file.py	same
-check::except-ratchet::scripts/ops/escrow-stuck-sweep.py	same
-check::except-ratchet::scripts/ops/ops_http.py	same
 check::except-ratchet::scripts/ops/option-coverage.py	same
-check::except-ratchet::scripts/ops/post_activation_audit.py	same
-check::except-ratchet::scripts/ops/post-cut-verify.py	same
-check::except-ratchet::scripts/ops/unpause-precheck.py	same
-check::except-ratchet::scripts/reset-harness/gossip_filter.py	same
-check::except-ratchet::scripts/reset-harness/rehearsal.py	same
 check::except-ratchet::tests/escrow_e2e/conftest.py	same
 check::except-ratchet::tests/unit/test_website_api_contract.py	same
 check::except-ratchet::tests/unit/test_website_states.py	same

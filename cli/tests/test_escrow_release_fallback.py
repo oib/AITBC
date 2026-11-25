@@ -29,7 +29,7 @@ def _config():
     return SimpleNamespace(
         hub_proposer_id="0xPROP",
         blockchain_rpc_api_key=None,
-        hub_discovery_url="https://hub.aitbc.bubuit.net",
+        hub_discovery_url="https://hub.example.net",
         blockchain_rpc_url="http://127.0.0.1:8202",
         coordinator_api_url=None,
     )
@@ -46,7 +46,7 @@ def test_post_escrow_rpc_falls_back_to_hub(monkeypatch):
             self.base_url = base_url
 
         def post(self, endpoint, json=None):
-            if "hub.aitbc" in self.base_url:
+            if "hub.example.net" in self.base_url:
                 return {"tx_hash": "0xrel"}
             raise _StatusError(503, "Settlement key/address is not configured correctly")
 

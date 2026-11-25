@@ -134,10 +134,10 @@ class TestStatusWindows:
             result = runner.invoke(
                 status,
                 obj={"output_format": "json"},
-                args=["--ait-tx-hash", "0xabc", "--hub-url", "https://hub.aitbc.bubuit.net/wallet"],
+                args=["--ait-tx-hash", "0xabc", "--hub-url", "https://hub.example.net/wallet"],
             )
         assert result.exit_code == 0, result.output
-        assert ctor.call_args.kwargs["base_url"] == "https://hub.aitbc.bubuit.net"
+        assert ctor.call_args.kwargs["base_url"] == "https://hub.example.net"
         client.get.assert_called_once_with("/v1/bridge/withdraw/0xabc")
 
 
@@ -187,19 +187,19 @@ class TestNormalizeHubUrl:
     hub proxies /v1/bridge/* at the root, so a path-suffixed URL 404s."""
 
     def test_bare_origin_unchanged(self):
-        assert _normalize_hub_url("https://hub.aitbc.bubuit.net") == "https://hub.aitbc.bubuit.net"
+        assert _normalize_hub_url("https://hub.example.net") == "https://hub.example.net"
 
     def test_trailing_slash_stripped(self):
-        assert _normalize_hub_url("https://hub.aitbc.bubuit.net/") == "https://hub.aitbc.bubuit.net"
+        assert _normalize_hub_url("https://hub.example.net/") == "https://hub.example.net"
 
     def test_path_stripped(self):
-        assert _normalize_hub_url("https://hub.aitbc.bubuit.net/wallet") == "https://hub.aitbc.bubuit.net"
+        assert _normalize_hub_url("https://hub.example.net/wallet") == "https://hub.example.net"
 
     def test_port_preserved(self):
         assert _normalize_hub_url("http://hub:8108/wallet/") == "http://hub:8108"
 
     def test_scheme_less_gets_https(self):
-        assert _normalize_hub_url("hub.aitbc.bubuit.net") == "https://hub.aitbc.bubuit.net"
+        assert _normalize_hub_url("hub.example.net") == "https://hub.example.net"
 
 
 _SELL_QUOTE_LOCKED = {

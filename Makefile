@@ -129,8 +129,6 @@ test-shell:
 	bash scripts/testing/test_disabled_services_guard.sh
 	bash scripts/testing/test_link_systemd_preserve.sh
 	bash scripts/testing/test_coldstart_backup_race.sh
-	bash scripts/testing/test_memory_monitor.sh
-	bash scripts/testing/test_native_energy_rate_refresh.sh
 
 # The required PR gate — one pytest run over every suite classified `fast`
 # in scripts/ci/test_suites.py, plus the repo-root hygiene modules and the

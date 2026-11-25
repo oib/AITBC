@@ -1,7 +1,8 @@
 #!/bin/bash
 # Dry-run the live scenario suite in CI.
-# This does not touch live nodes; it validates shell script syntax and exercises
-# the CLI surface that maps to the live-validated economic loop.
+# This does not touch live nodes; it exercises the product CLI surface that maps
+# to the live-validated economic loop. Fleet workflow scenarios live in the
+# separate aitbc-ops repository.
 
 set -euo pipefail
 
@@ -14,15 +15,7 @@ fi
 
 echo "🧪 Live scenario dry-run"
 
-# 1. Shell script syntax validation for the workflow scenarios
-for script in dev/testing/tests/*.sh scripts/workflow/*.sh; do
-    if [ -f "$script" ]; then
-        bash -n "$script"
-        echo "✅ $script"
-    fi
-done
-
-# 2. CLI smoke checks for validated surface
+# CLI smoke checks for validated surface
 echo "
 🔎 CLI smoke checks"
 $PYTHON -m aitbc_cli --help >/dev/null

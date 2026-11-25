@@ -832,7 +832,7 @@
       "name": "BRIDGE_ADMIN_ADDRESS",
       "op": "none",
       "scope": "files:bridge-validator-keys.env",
-      "note": "ruling 20 Oct: leave \u2014 key-bearing file; only scripts/ops/register_bridge_validators.py reads it; C3 does not edit (plural BRIDGE_ADMIN_ADDRESSES carries)"
+      "note": "ruling 20 Oct: leave \u2014 key-bearing file; only aitbc-ops:scripts/ops/register_bridge_validators.py reads it; C3 does not edit (plural BRIDGE_ADMIN_ADDRESSES carries)"
     },
     {
       "name": "STATE_TRANSITION_V17_HEIGHT",

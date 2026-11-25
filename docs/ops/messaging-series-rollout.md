@@ -52,7 +52,7 @@ the DATA-LAYOUT-2 default flip + a warning log — runtime-identical where
 (already on `0a4d4ab92`); `aitbc-blockchain-rpc` on node0 (`15729e572`,
 same reasoning); coordinator-api, agent-coordinator, event-bridge,
 monitoring (no files in delta); CLI/SDK/MCP and
-`scripts/ops/bridge_outbound_collect.py` (no service or timer runs it —
+`aitbc-ops:scripts/ops/bridge_outbound_collect.py` (no service or timer runs it —
 pull-only, picks up at next invocation); website (re-render only).
 
 **Count: 11 required restarts, down from the 22 in the first plan**

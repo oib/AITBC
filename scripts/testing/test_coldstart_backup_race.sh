@@ -2,7 +2,7 @@
 # Product-side half of the #2950 cold-start race pin: a backup leg must
 # survive a chain.db that is still locked while its node recovers.
 #
-# The original scripts/testing/test_coldstart_db_race.sh also exercises the
+# The original the companion operations coldstart database pin also exercises the
 # OPS bridge-header-hole scan and moves with that scan in the repo split.
 # This file keeps the PRODUCT backup coverage in the product repo. Everything
 # runs in mktemp scratch; no real /var, /etc, PostgreSQL, or systemd path is

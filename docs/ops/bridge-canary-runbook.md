@@ -18,8 +18,8 @@ Therefore:
 
 ```bash
 # capture the window verdict before anything else runs
-AITBC_FLEET_DOMAIN=aitbc.bubuit.net \
-  scripts/monitoring/fleet-config-check.sh hub hub1 node0 node1 node2 \
+AITBC_FLEET_DOMAIN=aitbc.example.net \
+  aitbc-ops:scripts/monitoring/fleet-config-check.sh hub hub1 node0 node1 node2 \
   | sed -n '/v9 shadow window/,/deposit ALERT/p' | tee /tmp/v9-window-verdict.txt
 ```
 
@@ -57,7 +57,7 @@ Expected sequence (new code paths):
 ## 3. Verify ledger + chain (agent)
 
 ```bash
-ssh hub 'cd /opt/aitbc && scripts/ops/bridge-admin.sh status <eth_tx_hash>'
+ssh hub 'cd /opt/aitbc && /opt/aitbc-ops/scripts/ops/bridge-admin.sh status <eth_tx_hash>'
 # expect: status completed, ait_tx_hash set, signed_tx cleared/kept per path
 
 # payout sealed on-chain, all hosts agree
@@ -70,7 +70,7 @@ done
 ## 4. Audit + counters (agent)
 
 ```bash
-scripts/monitoring/bridge-payout-audit.py hub  # row listed, payout sealed
+aitbc-ops:scripts/monitoring/bridge-payout-audit.py hub  # row listed, payout sealed
 for h in hub hub1 node0 node1 node2; do
   ssh $h "curl -s http://127.0.0.1:9009/metrics | grep -E '^v9_'"
 done  # diff against the window-verdict capture; plain canary must add no

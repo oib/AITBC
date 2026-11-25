@@ -81,7 +81,7 @@ _COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 # ETH quotes are derived via live ETH prices. Used when neither
 # AIT_EUR_FIXED_PRICE nor AIT_USD_FIXED_PRICE is configured.
 # Derivation (BOM amortized over a 3-year fully-booked life + wall-draw
-# electricity): scripts/ops/ait-reference-price.py, published in
+# electricity): the companion operations reference-price publisher, published in
 # website/reference.json. See docs/getting-started/ait-value-model.md.
 AIT_REFERENCE_PRICE_EUR = Decimal("0.25")
 

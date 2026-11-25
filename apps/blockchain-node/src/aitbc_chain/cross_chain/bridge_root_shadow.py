@@ -12,7 +12,7 @@ that refuses a block the producer sealed can stall that follower). When
 ``BRIDGE_ROOT_SHADOW_CHECK`` is on it re-derives the trie root from the
 sealed BRIDGE_LOCK transactions *themselves* — payload first, signed
 ``envelope`` fallback for the GAP-47 block-scoped rows, exactly the way
-``scripts/ops/bridge-leaf-audit.py`` and ``bridge_lock_guard`` do — compares
+the companion operations audit tooling and ``bridge_lock_guard`` do — compares
 it to the carried root, and logs + counts on disagreement.
 
 Derivation deliberately never touches the local ``CrossChainTransfer``

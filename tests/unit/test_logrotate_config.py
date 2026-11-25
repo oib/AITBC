@@ -27,8 +27,6 @@ CONF = REPO_ROOT / "scripts" / "deployment" / "aitbc-logrotate.conf"
 SETUP = REPO_ROOT / "scripts" / "deployment" / "setup.sh"
 UPDATE = REPO_ROOT / "scripts" / "deployment" / "update.sh"
 HARDENING = REPO_ROOT / "scripts" / "utils" / "security_hardening.sh"
-MONITORING_SETUP = REPO_ROOT / "scripts" / "workflow" / "16_monitoring_setup.sh"
-EVENT_MONITORING = REPO_ROOT / "scripts" / "workflow" / "37_contract_event_monitoring.sh"
 
 
 def _stanzas(text: str) -> dict[str, str]:
@@ -114,12 +112,7 @@ def test_setup_and_update_install_the_conf():
         assert "-m 0644" in text
 
 
-def test_hardening_and_monitoring_stanzas_fixed():
+def test_hardening_stanza_fixed():
     # The old security_hardening stanza globbed '/var/log/aitbc*.log'
-    # (missing slash — matched nothing); 16_monitoring_setup used
-    # 'create 644 root root' — world-readable logs.
+    # (missing slash — matched nothing).
     assert "/var/log/aitbc*.log" not in HARDENING.read_text()
-    assert "create 644" not in MONITORING_SETUP.read_text()
-    assert "create 644" not in EVENT_MONITORING.read_text()
-    # 37 must not recreate aitbc-events when the canonical conf covers it.
-    assert "logrotate.d/aitbc-events" in EVENT_MONITORING.read_text()

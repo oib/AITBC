@@ -4,7 +4,7 @@ Where the bridge state root is derived from sealed BRIDGE_LOCKs, the
 activation design (docs/design/bridge-state-root-grandfathering.md) will
 eventually refuse a lock that carries no derivable leaf data. This hook is
 the measurement stage: it classifies every lock the seal path is about to
-commit exactly the way ``scripts/ops/bridge-leaf-audit.py`` does — payload
+commit exactly the way the companion operations audit tooling does — payload
 first, signed-envelope fallback for the GAP-47 block-scoped rows — and
 counts what it *would* refuse at/above the operator boundary (30000).
 

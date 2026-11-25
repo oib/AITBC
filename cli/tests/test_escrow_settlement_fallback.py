@@ -10,8 +10,7 @@ import pytest
 import aitbc_cli.commands.market.escrow as esc_mod
 
 DETAIL = (
-    "Settlement key/address is not configured correctly on this node"
-    "; the settlement node is at https://hub.aitbc.bubuit.net/rpc"
+    "Settlement key/address is not configured correctly on this node; the settlement node is at https://hub.example.net/rpc"
 )
 
 
@@ -38,13 +37,13 @@ class _RefuseLocal:
 
     def post(self, endpoint, json=None):
         assert endpoint == "/rpc/escrow/create"
-        if "hub.aitbc" in self.base_url:
+        if "hub.example.net" in self.base_url:
             return {"contract_id": "contract-9"}
         raise _HttpError(DETAIL)
 
 
 def test_settlement_node_url_extracted():
-    assert esc_mod._settlement_node_url(DETAIL) == "https://hub.aitbc.bubuit.net"
+    assert esc_mod._settlement_node_url(DETAIL) == "https://hub.example.net"
     assert esc_mod._settlement_node_url("some other refusal") is None
 
 
@@ -66,7 +65,7 @@ def test_escrow_create_retries_on_settlement_node(monkeypatch):
     monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
 
     config = SimpleNamespace(
-        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.example.net"
     )
     contract = esc_mod._escrow_create(
         SimpleNamespace(),
@@ -79,7 +78,7 @@ def test_escrow_create_retries_on_settlement_node(monkeypatch):
         node_wallet="0xPROP",
     )
     assert contract == "contract-9"
-    assert calls == ["http://127.0.0.1:8202", "https://hub.aitbc.bubuit.net"]
+    assert calls == ["http://127.0.0.1:8202", "https://hub.example.net"]
 
 
 def test_escrow_create_refusal_without_settlement_url_aborts(monkeypatch):
@@ -100,7 +99,7 @@ def test_escrow_create_refusal_without_settlement_url_aborts(monkeypatch):
     )
     monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
     config = SimpleNamespace(
-        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.example.net"
     )
     with pytest.raises(click.Abort):
         esc_mod._escrow_create(
@@ -143,7 +142,7 @@ def test_escrow_create_refuses_foreign_settlement_url(monkeypatch):
     config = SimpleNamespace(
         hub_proposer_id="0xPROP",
         blockchain_rpc_api_key=None,
-        hub_discovery_url="https://hub.aitbc.bubuit.net",
+        hub_discovery_url="https://hub.example.net",
     )
     with pytest.raises(click.Abort):
         esc_mod._escrow_create(
@@ -207,9 +206,7 @@ def _ctx(api_key="tok", url="http://coord:8203"):
 
 
 def _config():
-    return SimpleNamespace(
-        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
-    )
+    return SimpleNamespace(hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.example.net")
 
 
 def _patch_lock_signing(monkeypatch):
@@ -271,7 +268,7 @@ def test_escrow_create_relay_404_falls_back_to_settlement(monkeypatch):
 
         def post(self, endpoint, json=None):
             assert endpoint == "/rpc/escrow/create"
-            if "hub.aitbc" in self.base_url:
+            if "hub.example.net" in self.base_url:
                 return {"contract_id": "contract-9"}
             raise _StatusError(503, DETAIL)
 
@@ -303,7 +300,7 @@ def test_escrow_create_no_token_skips_relay(monkeypatch):
             self.base_url = base_url
 
         def post(self, endpoint, json=None):
-            if "hub.aitbc" in self.base_url:
+            if "hub.example.net" in self.base_url:
                 return {"contract_id": "contract-9"}
             raise _StatusError(503, DETAIL)
 
@@ -343,7 +340,7 @@ def test_escrow_create_relay_error_still_tries_settlement(monkeypatch):
             self.base_url = base_url
 
         def post(self, endpoint, json=None):
-            if "hub.aitbc" in self.base_url:
+            if "hub.example.net" in self.base_url:
                 return {"contract_id": "contract-9"}
             raise _StatusError(503, DETAIL)
 
@@ -396,7 +393,7 @@ def test_node_wallet_prefers_health_over_hub_proposer_id(monkeypatch):
     monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
 
     config = SimpleNamespace(
-        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.example.net"
     )
     esc_mod._escrow_create(
         SimpleNamespace(),
@@ -433,7 +430,7 @@ def test_node_wallet_warned_fallback_to_hub_proposer(monkeypatch, capsys):
     monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
 
     config = SimpleNamespace(
-        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.example.net"
     )
     esc_mod._escrow_create(
         SimpleNamespace(),

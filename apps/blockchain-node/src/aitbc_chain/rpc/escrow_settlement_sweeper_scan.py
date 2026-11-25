@@ -31,7 +31,7 @@ from .escrow_routes import _chain_id, _HUB_RPC_URL
 _logger = get_logger("aitbc_chain.rpc.escrow_settlement_sweeper")
 
 
-# The same threshold scripts/monitoring/escrow-settlements-textfile.py uses,
+# The same threshold the companion operations textfile exporter uses,
 # so a leg the sweeper demotes is a leg the detector would also flag, and vice
 # versa. Deliberately below the 3600 s mempool TTL: demotion is gated on the
 # proposer-mempool probe, so a still-pending tx is never treated as dead.

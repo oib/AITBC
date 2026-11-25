@@ -2,7 +2,7 @@
 
 redact_url used to raise ValueError (``Port could not be cast to integer
 value as '8202:'``) when redact_text matched a URL immediately followed by a
-colon — e.g. ``http://10.103.6.37:8202: All connection attempts failed``.
+colon — e.g. ``http://192.0.2.37:8202: All connection attempts failed``.
 Raised inside the logging formatter it produced ``--- Logging error ---``
 and the log record was lost.
 """
@@ -16,9 +16,9 @@ from aitbc.url_redact import redact_text, redact_url
 
 @pytest.mark.unit
 def test_url_followed_by_colon_does_not_raise():
-    text = "connect http://10.103.6.37:8202: All connection attempts failed"
+    text = "connect http://192.0.2.37:8202: All connection attempts failed"
     out = redact_text(text)
-    assert "10.103.6.37:8202" in out
+    assert "192.0.2.37:8202" in out
     assert out.endswith(": All connection attempts failed")
     assert "Logging error" not in out
 
@@ -27,7 +27,7 @@ def test_url_followed_by_colon_does_not_raise():
 def test_redact_url_trailing_colon_port():
     # The exact shape that raised: netloc ends '8202:' → parts.port ValueError.
     # redact_url drops the unparseable port rather than raising.
-    assert redact_url("http://10.103.6.37:8202:") == "http://10.103.6.37"
+    assert redact_url("http://192.0.2.37:8202:") == "http://192.0.2.37"
 
 
 @pytest.mark.unit

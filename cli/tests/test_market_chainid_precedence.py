@@ -15,9 +15,9 @@ import pytest
 import aitbc_cli.commands.market as market
 import aitbc_cli.utils.island_credentials as ic
 
-OLD = "ait-hub.aitbc.bubuit.net"
+OLD = "ait-hub.example.net"
 NEW = "bc-2"
-OLD_ISLAND = "ait-hub.aitbc.bubuit.net-island"
+OLD_ISLAND = "ait-hub.example.net-island"
 NEW_ISLAND = "bc-2-island"
 
 

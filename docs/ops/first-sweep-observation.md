@@ -25,7 +25,7 @@ On each host you want to compare (hub plus any followers that imported the
 block):
 
 ```bash
-ssh <host> 'sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
+ssh <host> 'sqlite3 /var/lib/aitbc/data/ait-hub.example.net/chain.db \
     ".backup /tmp/chain-<host>.db"'
 scp <host>:/tmp/chain-<host>.db /tmp/
 ```
@@ -36,9 +36,9 @@ itself opens with `mode=ro` and writes nothing.
 ## 3. Run
 
 ```bash
-cd /opt/aitbc    # or any checkout containing scripts/ops/first-sweep-check.py
-python3 scripts/ops/first-sweep-check.py --latest /tmp/chain-hub.db
-python3 scripts/ops/first-sweep-check.py --job-id sw_job_… \
+cd /opt/aitbc    # or any checkout containing aitbc-ops:scripts/ops/first-sweep-check.py
+python3 aitbc-ops:scripts/ops/first-sweep-check.py --latest /tmp/chain-hub.db
+python3 aitbc-ops:scripts/ops/first-sweep-check.py --job-id sw_job_… \
     /tmp/chain-hub.db /tmp/chain-node2.db /tmp/chain-node1.db
 ```
 

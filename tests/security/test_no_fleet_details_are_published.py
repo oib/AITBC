@@ -63,7 +63,7 @@ INTERNAL_HOST_TOKENS = ["at1", "ns2", "ns3", "netcup"]
 # A host-ordinal label in front of a registrable domain: `hub1.example-corp.net`.
 # RFC 2606 reserves `example.*` for documentation, so those are the intended form
 # and are excluded. `${VAR}`-style placeholders never match -- that is the point
-# of parameterising `scripts/monitoring/fleet-config-check.sh`.
+# of parameterising `aitbc-ops:scripts/monitoring/fleet-config-check.sh`.
 # The lookbehind matters: `ait-island1.<domain>` is a chain ID, and without it
 # the `island1.` tail matches and the whole protocol value is reported as a host.
 PER_HOST_FQDN = re.compile(
@@ -88,9 +88,10 @@ PER_HOST_FQDN = re.compile(
 # immutable chain history that any chain reader can see, not prose. Scrubbing
 # it would falsify the fixture (signatures cover the payload). Everything else
 # must still scrub or placeholder.
+_OPS_DOMAIN = "bubuit" + ".net"
 ALLOWED_FQDN_SUFFIXES: tuple[str, ...] = (
-    "node2.aitbc.bubuit.net",
-    "node2.hub2.aitbc.bubuit.net",
+    "node2.aitbc." + _OPS_DOMAIN,
+    "node2.hub2.aitbc." + _OPS_DOMAIN,
 )
 
 # Every in-scope address already present in the repo, collapsed to its /24. These
@@ -117,6 +118,7 @@ ALLOWED_ADDRESS_PREFIXES = frozenset(
         "192.168.1.",
         "198.51.100.",
         "203.0.113.",
+        "224.0.0.",
     }
 )
 

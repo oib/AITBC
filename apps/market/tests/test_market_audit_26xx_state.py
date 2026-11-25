@@ -509,7 +509,7 @@ class TestEdgeAdvertise:
     async def test_signed_create_binds_owner_and_blocks_foreign_update(self, tiered):
         node_id = self._node_id()
         # IP literal — private-LAN space is allowed and needs no DNS.
-        endpoint = "http://10.9.9.9:8111"
+        endpoint = "http://10.0.0.9:8111"
         binding = {"node_id": node_id, "endpoint": endpoint}
         with tiered() as client:
             r1 = client.post(

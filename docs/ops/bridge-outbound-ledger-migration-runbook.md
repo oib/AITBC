@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS bridge_outbound (
 - [ ] `bridge_monitor.admin`/`aitbc` report no SUBMITTED payout in flight;
       a schema-only change is safe mid-flight but verifying first keeps the
       read clean.
-- [ ] `scripts/ops/bridge_outbound_migration_dryrun.py` already proven —
+- [ ] `aitbc-ops:scripts/ops/bridge_outbound_migration_dryrun.py` already proven —
       fixture run reconciles BALANCED (BR-7, commit `3e0949c00`).
 
 ## Steps
@@ -196,7 +196,7 @@ shipped. One reviewed transaction; nothing else writes.
 
 ```bash
 # 1. Build the row set (read-only everywhere; emits JSON rows).
-python3 scripts/ops/bridge_outbound_collect.py \
+python3 aitbc-ops:scripts/ops/bridge_outbound_collect.py \
   --txs outbound_txs.json --ledger <scratch .backup of the DB> \
   --funding-json funding.json \
   --self-address 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781 \
@@ -248,7 +248,7 @@ PYEOF
 ```bash
 sqlite3 "file:<db>?mode=ro" "SELECT COUNT(*) FROM bridge_outbound"   # 5
 sqlite3 "file:<db>?mode=ro" "SELECT COUNT(*) FROM eth_deposits"      # still 9
-scripts/ops/bridge_wallet_reconcile.py --ledger <scratch copy> --onchain onchain.json
+aitbc-ops:scripts/ops/bridge_wallet_reconcile.py --ledger <scratch copy> --onchain onchain.json
 # expected: named residual, not BALANCED — see below
 ```
 

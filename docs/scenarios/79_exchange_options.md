@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > Exchange CLI Options
 > and the exchange-island buy/sell wallet flag.
 >
 > Played on node0 against the live hub exchange at
-> `https://hub.aitbc.bubuit.net` (the exchange service itself is
+> `https://hub.example.net` (the exchange service itself is
 > loopback-bound on hub; nginx serves the public `/api/exchange/*`
 > reads). Every signed or money-moving command stops at a free refusal —
 > a nonexistent `--wallet nosuch-exchopts1`, a positivity guard, a
@@ -59,7 +59,7 @@ breadcrumb: Home > Scenarios > Exchange CLI Options
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - For the live reads: the hub exchange reachable at
-  `https://hub.aitbc.bubuit.net`
+  `https://hub.example.net`
 - No wallet named `nosuch-exchopts1` (the refusing argument)
 
 ---
@@ -152,7 +152,7 @@ participants board — six island nodes are `seeded`; `node0` registered
 itself on 2026-11-19 (#2447):
 
 ```bash
-aitbc exchange node list --exchange-url https://hub.aitbc.bubuit.net
+aitbc exchange node list --exchange-url https://hub.example.net
 ```
 
 **Expected output (exit 0):** JSON `{"nodes": [...]}` — seven rows
@@ -164,7 +164,7 @@ the other six are `"status": "seeded"`, `"registered_at": null`.
 address with no registry row reads back unregistered:
 
 ```bash
-aitbc exchange order my --address 0x0000000000000000000000000000000000000001 --exchange-url https://hub.aitbc.bubuit.net
+aitbc exchange order my --address 0x0000000000000000000000000000000000000001 --exchange-url https://hub.example.net
 ```
 
 **Expected output (exit 0):**
@@ -185,7 +185,7 @@ My exchange orders
 demands credentials, so the flag is exercised as a refusal:
 
 ```bash
-aitbc exchange order book --exchange-url https://hub.aitbc.bubuit.net
+aitbc exchange order book --exchange-url https://hub.example.net
 ```
 
 **Expected output (exit 2):**
@@ -195,7 +195,7 @@ aitbc exchange order book --exchange-url https://hub.aitbc.bubuit.net
 mount — public, live, and free:
 
 ```bash
-aitbc exchange sell_admin status --hub-url https://hub.aitbc.bubuit.net
+aitbc exchange sell_admin status --hub-url https://hub.example.net
 ```
 
 **Expected output (exit 0):** JSON with `"enabled": true`, `chain_id

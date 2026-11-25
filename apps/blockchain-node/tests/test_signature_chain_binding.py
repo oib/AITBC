@@ -6,8 +6,8 @@ canonical-JSON header that contains ``chain_id`` (see
 ``RemoteAttestationService._handle_request``). A signature minted for one
 chain must therefore never verify against another chain's header — the
 property that keeps a retired or parallel chain (e.g. the legacy
-``ait-hub1.aitbc.bubuit.net`` data dir on hub1) from replaying signatures
-onto ``ait-hub.aitbc.bubuit.net``, where the same validator keys are used.
+``ait-hub1.example.net`` data dir on hub1) from replaying signatures
+onto ``ait-hub.example.net``, where the same validator keys are used.
 
 The verifier also falls back to a legacy raw-block-hash check
 (``verify_block_signature``). That fallback is still hash-bound: a
@@ -24,8 +24,8 @@ from aitbc.crypto.consensus_signing import sign_block_hash, sign_consensus_messa
 # authenticates nothing and exists solely so the tests can produce real
 # secp256k1 signatures.
 _TEST_PRIVATE_KEY = "0x" + "11" * 32
-_CHAIN_A = "ait-hub.aitbc.bubuit.net"
-_CHAIN_B = "ait-hub1.aitbc.bubuit.net"
+_CHAIN_A = "ait-hub.example.net"
+_CHAIN_B = "ait-hub1.example.net"
 
 
 def _proposer_address() -> str:

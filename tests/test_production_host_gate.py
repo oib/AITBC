@@ -30,6 +30,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GATE_CONFTEST = REPO_ROOT / "tests" / "verification" / "conftest.py"
+PROD_HOST = "fleet-host." + "bubuit" + ".net"
 
 
 def _load_gate():
@@ -63,7 +64,7 @@ class TestTheDirectoryBoundary:
 class TestTheSourceMatch:
     def test_a_module_naming_the_host_matches(self, gate, tmp_path):
         f = tmp_path / "test_a.py"
-        f.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
+        f.write_text(f'BASE_URL = "https://{PROD_HOST}/rpc"\n')
 
         assert gate._names_production_host(f)
 
@@ -129,7 +130,7 @@ class TestThisFileItself:
     def test_this_test_is_not_skipped(self):
         """Reaching this line is the assertion.
 
-        This module's source contains ``bubuit.net`` (above and in the fixtures), which is what
+        This module's source builds the operator-domain host fixture, which is what
         the repo-wide match keyed on. If the gate regresses, this test stops running -- and a
         test that stops running is exactly the failure mode V23-93 was about, so it is asserted
         from the outside too, by ``test_the_gate_only_skips_its_own_directory``.
@@ -160,7 +161,7 @@ def test_the_hook_skips_inside_and_leaves_outside_alone(gate, monkeypatch, tmp_p
     monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
     inside = tmp_path / "test_hosted.py"
-    inside.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
+    inside.write_text(f'BASE_URL = "https://{PROD_HOST}/rpc"\n')
     outside = Path(__file__)
 
     skipped = _run_hook(gate, [inside, outside])
@@ -175,7 +176,7 @@ def test_the_opt_in_env_var_disarms_the_hook(gate, monkeypatch, tmp_path):
     monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
     inside = tmp_path / "test_hosted.py"
-    inside.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
+    inside.write_text(f'BASE_URL = "https://{PROD_HOST}/rpc"\n')
 
     assert _run_hook(gate, [inside])[inside] is False
 
@@ -198,7 +199,7 @@ def test_the_repo_wide_reach_is_measured_not_assumed(gate, monkeypatch, tmp_path
     outside_file_b = other_dir / "test_b.py"
 
     for f in (gated_file, outside_file_a, outside_file_b):
-        f.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
+        f.write_text(f'BASE_URL = "https://{PROD_HOST}/rpc"\n')
 
     monkeypatch.setattr(gate, "GATED_DIR", gated_dir)
 

@@ -100,7 +100,7 @@ needs a `coordinator-api` job with `metrics_path: /prometheus` (port
 8203) before these series reach the rules — flagged on #474 as a
 deployment follow-up; the alerts below are inert without it.
 
-Alert rules in `scripts/monitoring/aitbc_rules.yml` (promtool-tested in
+Alert rules in `aitbc-ops:scripts/monitoring/aitbc_rules.yml` (promtool-tested in
 `aitbc_rules_test.yml`):
 
 - **`EscrowRelayErrorRatio`** (warning) — `upstream_5xx` +
@@ -153,7 +153,7 @@ coordinator row fails closed (409), as does a failed lookup (502).
 - `502` — chain timeout/5xx through the relay (safe to retry: dedup
   returns the stored row).
 
-## Stuck-lock monitor — `scripts/ops/escrow-stuck-sweep.py`
+## Stuck-lock monitor — `aitbc-ops:scripts/ops/escrow-stuck-sweep.py`
 
 A lock can outlive its job: a job that completes, fails, or is canceled
 while its escrow row stays `locked` strands the money with no automatic

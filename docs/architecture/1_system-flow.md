@@ -2,7 +2,7 @@
 
 > **Authoritative port configuration** is in [Service Ports Reference](../reference/SERVICE_PORTS.md). This document describes the current CLI-driven flow on the live hub/shop island as verified on 2026-10-13 (fleet commit `d09240101`). Port and unit names were checked against `systemctl cat` and `ss -tlnp` on hub and node2.
 
-Chain facts (verified 2026-10-13): chain id `ait-hub.aitbc.bubuit.net`; 1 AIT = 36,000,000 compute-units; state-transition **v14 is armed for height 46,100** (not yet reached — blocks below 46,100 carry `state_transition_version 12` and no `aux_state_root`).
+Chain facts (verified 2026-10-13): chain id `ait-hub.example.net`; 1 AIT = 36,000,000 compute-units; state-transition **v14 is armed for height 46,100** (not yet reached — blocks below 46,100 carry `state_transition_version 12` and no `aux_state_root`).
 
 The canonical customer path is:
 
@@ -32,7 +32,7 @@ aitbc wallet create --name <name> → aitbc auth login --wallet <name>
                                                            pool-hub    8210
 ```
 
-Public customer access to hub services is through nginx (`https://hub.aitbc.bubuit.net/...`) because the coordinator, exchange, and wallet daemon bind `127.0.0.1`. The blockchain RPC binds `0.0.0.0:8202` (peer sync needs it; sensitive routes are API-key gated). The shop miner daemon runs on the follower node (node2) and polls the hub coordinator; it is not a public service.
+Public customer access to hub services is through nginx (`https://hub.example.net/...`) because the coordinator, exchange, and wallet daemon bind `127.0.0.1`. The blockchain RPC binds `0.0.0.0:8202` (peer sync needs it; sensitive routes are API-key gated). The shop miner daemon runs on the follower node (node2) and polls the hub coordinator; it is not a public service.
 
 ## Step-by-step flow
 

@@ -8,7 +8,7 @@ page and the documents it links are the current reference.
 ## Reporting
 
 The reporting policy lives in [.github/SECURITY.md](../../.github/SECURITY.md):
-GitHub private vulnerability reporting or `aitbc@bubuit.net`, never a
+GitHub private vulnerability reporting or `security@example.net`, never a
 public issue. That file also names the scanning tooling (pip-audit,
 Safety, Bandit, CodeQL) and the local scan commands.
 

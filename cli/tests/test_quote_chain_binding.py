@@ -16,7 +16,7 @@ ACCOUNT = "0x" + "11" * 20
 PROVIDER = "0x" + "22" * 20
 NODE_WALLET = "0x" + "33" * 20
 DOMAIN = "aitbc.energy.quote.v1"
-RESOLVED = "ait-hub.aitbc.bubuit.net"
+RESOLVED = "ait-hub.example.net"
 OTHER = "ait-other-chain"
 
 

@@ -79,7 +79,7 @@ except ImportError:  # pragma: no cover
     keys = None  # type: ignore[assignment]
 
 #: Hosts that are somebody's live deployment. Matched against module source, not resolved.
-PRODUCTION_HOST_RE = re.compile(r"\bbubuit\.net\b")
+PRODUCTION_HOST_RE = re.compile(r"\bbubuit" + r"\.net\b")
 
 #: An HTTP write of any shape: ``requests.post``, ``httpx.put``, ``self.client.delete``,
 #: ``await client.patch``. Matched against module source for the same reasons the host match

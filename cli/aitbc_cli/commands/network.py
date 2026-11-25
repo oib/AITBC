@@ -521,7 +521,7 @@ def gossip(ctx, rpc_url, topics):
 
     This does not cover the node process's *outbound* mesh links. Those live in
     aitbc-blockchain-node, which serves no HTTP endpoint; check them with
-    scripts/monitoring/fleet-config-check.sh, which reads GOSSIP_MESH_PEER_URLS
+    the companion operations fleet-config check, which reads GOSSIP_MESH_PEER_URLS
     from the running process.
     """
     fmt = ctx.obj.get("output_format", "table")

@@ -119,14 +119,6 @@ get_allowed_services() {
         aitbc-backup
         aitbc-trading
         aitbc-governance
-        aitbc-chain-isolation-monitor
-        aitbc-memory-monitor
-        # Fleet-wide monitoring timers. They live in scripts/monitoring/, not
-        # in any app's unit list, so a role model that omits them makes the
-        # reconcile sweep unlink them — the update that ran on 2026-10-04
-        # dropped exactly these and the detector/journal scans went dark.
-        aitbc-escrow-settlements
-        aitbc-journal-errors
     )
 
     # Hub-specific services (blockchain producer)
@@ -140,19 +132,11 @@ get_allowed_services() {
         aitbc-blockchain-event-bridge
         aitbc-agent-coordinator
         aitbc-blockchain-explorer
-        # Settlement-authority balance textfile collector — hub only, as
-        # deployed.
-        aitbc-authority-balances
     )
 
     # Follower-specific services (blockchain sync, in addition to base)
     local follower_services=(
         aitbc-blockchain-explorer
-        # Prometheus alert watcher — deployed on every follower and deliberately
-        # not on the hub. aitbc-alert-digest pairs with it: the watcher writes
-        # the alert log the daily digest reads.
-        aitbc-prometheus-watch
-        aitbc-alert-digest
     )
 
     # Shop-specific services (market provider, regardless of blockchain mode)
@@ -261,30 +245,13 @@ is_service_allowed() {
     if is_disabled "$basename"; then
         return 1
     fi
-    # aitbc-cache-monitor is not a role service: it belongs on hosts that run a
-    # local redis-server (its optional EnvironmentFile /etc/aitbc/redis.env
-    # supplies REDISCLI_AUTH). Gate on Redis presence so a relink does not
-    # silently remove it and non-Redis hosts never get a failing timer.
-    if [ "$basename" = "aitbc-cache-monitor" ]; then
-        # systemctl cat avoids the list-unit-files|grep -q pipe: under pipefail,
-        # grep -q's early exit SIGPIPEs systemctl and the pipeline reports 141.
-        systemctl cat redis-server.service >/dev/null 2>&1
-        return
-    fi
     if [ "$basename" = "aitbc-island-ipfs" ]; then
         # Island IPFS is island infrastructure, not a blockchain-mode or
         # market-role service: it runs on whichever nodes form the island,
         # whatever their hub/follower axis says.
-        # Gate on the env file the unit itself consumes, mirroring the
-        # cache-monitor/redis rule above, so a relink does not delete it.
+        # Gate on the env file the unit itself consumes, so a relink does not delete it
+        # when the env file is present.
         [ -f "$ETC_AITBC_DIR/aitbc-island-ipfs.env" ]
-        return
-    fi
-    if [ "$basename" = "aitbc-island-subscription-check" ]; then
-        # Same env-file gate as aitbc-island-ipfs: the unit carries no usable
-        # defaults (its script fails clearly when COORDINATOR_URL/ISLAND_ID
-        # are unset), so the env file's presence is the operator's opt-in.
-        [ -f "$ETC_AITBC_DIR/aitbc-island-subscription-check.env" ]
         return
     fi
     # Per-node escape hatch for units the three role axes cannot express (e.g.
@@ -323,7 +290,7 @@ MODELED_UNITS=$(
     {
         get_allowed_services "hub:shop:gpu"
         get_allowed_services "follower:shop:gpu"
-        printf '%s\n' aitbc-cache-monitor aitbc-island-ipfs aitbc-island-subscription-check
+        printf '%s\n' aitbc-island-ipfs
     } | sort -u
 )
 is_modeled() { printf '%s\n' "$MODELED_UNITS" | grep -qxF "$1"; }
@@ -532,7 +499,7 @@ echo "⚙️  Enabling allowed units for boot..."
 #
 # This is driven off the units actually linked above, not off $ALLOWED_SERVICES:
 # is_service_allowed() is deliberately wider than the role list (EXTRA_SERVICES
-# from node.env, plus the aitbc-island-ipfs and aitbc-cache-monitor gates), so
+# from node.env, plus the aitbc-island-ipfs gate), so
 # keying on the role list left exactly those units linked but never enabled --
 # on a demoted hub that is most of what the node actually runs.
 if [[ "$ROLE_FILTER" == "false" ]]; then

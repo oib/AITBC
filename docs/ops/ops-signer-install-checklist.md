@@ -40,7 +40,7 @@ Legend: `expect` = what success looks like; `STOP` = do not continue.
    # above is the documented path)
 
    # verify on hub afterwards:
-   sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
+   sqlite3 "file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro" \
      "SELECT balance FROM account WHERE address='<ops-address>'"
    ```
 
@@ -184,7 +184,7 @@ Legend: `expect` = what success looks like; `STOP` = do not continue.
 
    ```bash
    tail -3 /var/lib/aitbc/ops-signer-audit.log
-   sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
+   sqlite3 "file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro" \
      "SELECT sender,recipient,value,fee FROM \"transaction\" WHERE tx_hash='<pasted hash>'"
    ```
 
@@ -197,7 +197,7 @@ Legend: `expect` = what success looks like; `STOP` = do not continue.
     systemctl disable --now aitbc-ops-signer
     rm /etc/systemd/system/aitbc-ops-signer.service && systemctl daemon-reload
     rm /etc/aitbc/credentials/ops-wallet-pass
-    sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
+    sqlite3 "file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro" \
       "SELECT balance FROM account WHERE address='<ops-address>'"   # remaining float
     venv/bin/python -m aitbc_cli wallet --wallet-path /var/lib/aitbc/wallets/ops.json send \
       --to-address <funding-wallet> --amount <balance minus ~0.001 fee> --fee 0.0001

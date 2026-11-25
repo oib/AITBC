@@ -22,7 +22,7 @@ aitbc prometheus alerts [OPTIONS]
 | `--notify-url` | text (multiple) | — | no | POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode) |
 | `--notify-format` | choice | `json` | no | Webhook body shape: 'json' posts the full event record (unchanged default); 'ntfy' posts an ntfy publish body built only from alert name, fleet host, severity, state and the click link (watch mode) |
 | `--notify-topic` | text | `aitbc-alerts` | no | ntfy topic for --notify-format=ntfy; travels inside the JSON body, never in the URL (watch mode) |
-| `--notify-click` | text | `https://hub.aitbc.bubuit.net/alerts.html` | no | Public link attached to ntfy notifications (watch mode) |
+| `--notify-click` | text | `https://hub.example.net/alerts.html` | no | Public link attached to ntfy notifications (watch mode) |
 | `--notify-min-severity` | choice | — | no | Push only alerts at or above this severity; lower-severity alerts are still recorded to the alert log but not pushed. Non-alert lifecycle events (e.g. watch started) always notify (watch mode) |
 | `--silence-file` | file | — | no | JSON silence list reloaded each poll, e.g. [{"match": {"alertname": "ServiceDown", "labels": {"instance": "x:9100"}}, "until": "2026-10-05T00:00:00Z", "reason": "maintenance"}]; silenced events are recorded but not notified (watch mode) |
 | `--remind-interval` | integer | `0` | no | Re-emit and re-notify a still-firing alert every N seconds; 0 disables (watch mode) |

@@ -20,10 +20,10 @@ class TestRpcBaseUrl:
         assert _rpc_base_url("http://127.0.0.1:8202/") == "http://127.0.0.1:8202"
 
     def test_rpc_prefix_stripped(self):
-        assert _rpc_base_url("https://hub.aitbc.bubuit.net/rpc") == "https://hub.aitbc.bubuit.net"
+        assert _rpc_base_url("https://hub.example.net/rpc") == "https://hub.example.net"
 
     def test_rpc_prefix_with_trailing_slash(self):
-        assert _rpc_base_url("https://hub.aitbc.bubuit.net/rpc/") == "https://hub.aitbc.bubuit.net"
+        assert _rpc_base_url("https://hub.example.net/rpc/") == "https://hub.example.net"
 
     def test_nested_rpc_prefix(self):
         assert _rpc_base_url("https://hub.example/api/rpc") == "https://hub.example/api"

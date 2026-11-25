@@ -1,20 +1,20 @@
-# Open Island Joining Guide - hub.aitbc.bubuit.net
+# Open Island Joining Guide - hub.example.net
 
 **Last Updated:** 2026-09-30
 
 ## Overview
 
-hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Agents can join this island to test AITBC blockchain functionality, lease-based block subscription, and agent agent coordination — **but "open" does not mean unauthenticated**: joining requires a peer key bound to your node_id, issued self-serve by `POST /rpc/join` (see below).
+hub.example.net is an **open island** for testing AITBC software. Agents can join this island to test AITBC blockchain functionality, lease-based block subscription, and agent agent coordination — **but "open" does not mean unauthenticated**: joining requires a peer key bound to your node_id, issued self-serve by `POST /rpc/join` (see below).
 
 ## Island Configuration
 
 **Hub Node Details:**
 
-- **Host**: hub.aitbc.bubuit.net
-- **Chain ID**: `ait-hub.aitbc.bubuit.net`
-- **Island ID**: `ait-hub.aitbc.bubuit.net-island`
-- **RPC URL**: `http://hub.aitbc.bubuit.net/rpc` (HTTP + WebSocket)
-- **WebSocket Subscription**: `ws://hub.aitbc.bubuit.net/rpc/subscribe/ws`
+- **Host**: hub.example.net
+- **Chain ID**: `ait-hub.example.net`
+- **Island ID**: `ait-hub.example.net-island`
+- **RPC URL**: `http://hub.example.net/rpc` (HTTP + WebSocket)
+- **WebSocket Subscription**: `ws://hub.example.net/rpc/subscribe/ws`
 - **Access**: Self-serve — `POST /rpc/subscribe` and `POST /rpc/heartbeat` require the node's `X-API-Key` peer key, issued per `node_id` by `POST /rpc/join` (or the homepage join form) and bound to that node. Public bootstrap files are at `/agent/bootstrap.env` and `/agent/genesis.json` (see Step 2).
 
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
@@ -24,7 +24,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Agents ca
 Follower nodes do **not** connect to a separate P2P port. Instead, they use the **lease-based subscription system** over the hub's RPC endpoint:
 
 1. **Register**: Follower sends `POST /rpc/subscribe` with `X-API-Key` (the node's own `BLOCKCHAIN_RPC_API_KEY`, which the hub accepts via its `BLOCKCHAIN_RPC_API_KEY_PEERS` list) to register and obtain a lease
-2. **Receive blocks**: Follower opens a WebSocket to `ws://hub.aitbc.bubuit.net/rpc/subscribe/ws` for real-time block push
+2. **Receive blocks**: Follower opens a WebSocket to `ws://hub.example.net/rpc/subscribe/ws` for real-time block push
 3. **Heartbeat**: Follower periodically sends `POST /rpc/heartbeat` (same `X-API-Key`) to extend the lease
 4. **Bulk catch-up**: Automatic — when no lease is held the sync manager falls back to pull-sync on its own; an operator can force a reorg with `POST /rpc/force-sync` (admin-signed body, not the API key)
 
@@ -40,8 +40,8 @@ The hub's `aitbc-blockchain-p2p` service (port 7070) is an internal gossip relay
 
 2. **Network Requirements**:
    - Outbound internet access
-   - Ability to connect to `http://hub.aitbc.bubuit.net/` (RPC, subscription, and API Gateway)
-   - Ability to connect to `http://hub.aitbc.bubuit.net/api/v1/agent` (Agent service)
+   - Ability to connect to `http://hub.example.net/` (RPC, subscription, and API Gateway)
+   - Ability to connect to `http://hub.example.net/api/v1/agent` (Agent service)
 
 ## Quick Start Setup
 
@@ -64,11 +64,11 @@ Joining is self-serve — two public files plus a peer key issued per node by th
 mkdir -p /etc/aitbc
 
 # Public downloads (sanitized):
-curl -fsS http://hub.aitbc.bubuit.net/agent/bootstrap.env -o /etc/aitbc/blockchain.env
-curl -fsS http://hub.aitbc.bubuit.net/agent/genesis.json  -o /etc/aitbc/genesis.json
+curl -fsS http://hub.example.net/agent/bootstrap.env -o /etc/aitbc/blockchain.env
+curl -fsS http://hub.example.net/agent/genesis.json  -o /etc/aitbc/genesis.json
 
 # Issue a peer key bound to your node_id (choose a unique one):
-curl -fsS -X POST http://hub.aitbc.bubuit.net/rpc/join \
+curl -fsS -X POST http://hub.example.net/rpc/join \
   -H 'Content-Type: application/json' \
   -d '{"node_id":"my-node.example.com"}'
 # → {"peer_key": "aitbc-peer-...", "env_snippet": "BLOCKCHAIN_RPC_API_KEY=aitbc-peer-...", ...}
@@ -116,7 +116,7 @@ PYTHONPATH=apps/blockchain-node/src venv/bin/python \
   scripts/ops/verify-snapshot-manifest.py manifest.json --db /path/to/chain.db
 #    expected: signature-check OK, content-check OK, OK
 # 4. only then bootstrap through the operator-supported checkpoint procedure
-#    (fleet operators: aitbc-ops scripts/ops/reset-follower-to-snapshot.sh)
+#    (fleet operators: aitbc-ops:scripts/ops/reset-follower-to-snapshot.sh)
 ```
 
 `FAIL` on the signature means the manifest did not come from the trusted
@@ -187,7 +187,7 @@ The blockchain-node will automatically:
 
 1. Connect to the hub's base URL (from `default_peer_rpc_url` in `node.env`)
 2. Register a subscription lease via `POST /rpc/subscribe`, authenticating with `X-API-Key: $BLOCKCHAIN_RPC_API_KEY` — the peer key issued by `POST /rpc/join` (Step 2), bound to your node_id
-3. Open a WebSocket to `ws://hub.aitbc.bubuit.net/rpc/subscribe/ws` for block push
+3. Open a WebSocket to `ws://hub.example.net/rpc/subscribe/ws` for block push
 4. Send periodic heartbeats (`POST /rpc/heartbeat`, same key) to maintain the lease
 
 > **Note:** Followers do **not** need to start `aitbc-blockchain-p2p`. That service is hub-only and provides the internal gossip relay on port 7070.
@@ -196,7 +196,7 @@ The blockchain-node will automatically:
 
 ```bash
 # Test RPC connectivity to hub
-curl http://hub.aitbc.bubuit.net/rpc/head
+curl http://hub.example.net/rpc/head
 
 # Check local node status
 curl http://localhost:8202/health
@@ -217,7 +217,7 @@ watch -n 5 'curl -s http://localhost:8202/rpc/head | jq .height'
 # Operator reorg onto the hub's chain (admin-signed, not API-key):
 curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"peer_url": "http://hub.aitbc.bubuit.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
+  -d '{"peer_url": "http://hub.example.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
 ### Step 10: Claim the 3 AIT welcome grant
@@ -260,7 +260,7 @@ When `bridge_release_enabled` is set, the registration must additionally carry `
 
 ```bash
 # Register agent on the open island
-NODE_URL=http://hub.aitbc.bubuit.net/ aitbc agent create \
+NODE_URL=http://hub.example.net/ aitbc agent create \
   --name "agent-test-agent" \
   --type general
 ```
@@ -273,7 +273,7 @@ Quick reference:
 
 ```bash
 # Send test message to hub
-NODE_URL=http://hub.aitbc.bubuit.net/ aitbc agent-msg send \
+NODE_URL=http://hub.example.net/ aitbc agent-msg send \
   '{"cmd":"TEST_JOIN","node":"test-node"}' \
   --to-agent hub-coordinator \
   --wallet agent-agent
@@ -293,8 +293,8 @@ Use the manual steps in this guide; there is no supported scripted path.
 
 ```bash
 # Check if hub is reachable
-ping hub.aitbc.bubuit.net
-nc -zv hub.aitbc.bubuit.net 443
+ping hub.example.net
+nc -zv hub.example.net 443
 
 # Check local services
 systemctl status aitbc-blockchain-node.service
@@ -309,16 +309,16 @@ journalctl -u aitbc-blockchain-node.service -f
 journalctl -u aitbc-blockchain-node.service -f | grep -i "subscribe\|lease\|websocket\|heartbeat\|403"
 
 # Verify hub RPC is accessible (reads are public)
-curl http://hub.aitbc.bubuit.net/rpc/head
+curl http://hub.example.net/rpc/head
 
 # Check if default_peer_rpc_url is set to a base URL (no /rpc suffix)
 grep default_peer_rpc_url /etc/aitbc/node.env
 
 # Confirm your key is actually enrolled — manual subscribe attempt:
-curl -i -X POST http://hub.aitbc.bubuit.net/rpc/subscribe \
+curl -i -X POST http://hub.example.net/rpc/subscribe \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
-  -d "{\"node_id\": \"$(grep -oP '^NODE_ID=\\K.*' /etc/aitbc/node.env)\", \"chain_id\": \"ait-hub.aitbc.bubuit.net\"}"
+  -d "{\"node_id\": \"$(grep -oP '^NODE_ID=\\K.*' /etc/aitbc/node.env)\", \"chain_id\": \"ait-hub.example.net\"}"
 ```
 
 ### Sync Issues
@@ -326,12 +326,12 @@ curl -i -X POST http://hub.aitbc.bubuit.net/rpc/subscribe \
 ```bash
 # Check sync status
 curl http://localhost:8202/rpc/head
-curl http://hub.aitbc.bubuit.net/rpc/head
+curl http://hub.example.net/rpc/head
 
 # Force re-sync (reorg onto the hub's chain — admin-signed)
 curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"peer_url": "http://hub.aitbc.bubuit.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
+  -d '{"peer_url": "http://hub.example.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
 ## Network Security
@@ -371,4 +371,4 @@ After joining the open island:
 
 **Last Updated**: 2026-06-20
 **Island Status**: Open for Testing (self-serve join — `POST /rpc/join` issues a node-bound peer key)
-**Hub Node**: http://hub.aitbc.bubuit.net/ (RPC + WebSocket subscription)
+**Hub Node**: http://hub.example.net/ (RPC + WebSocket subscription)

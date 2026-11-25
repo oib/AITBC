@@ -25,7 +25,7 @@ from aitbc.bridge.types import BridgeBlockHeader, ValidatorInfo, ValidatorSet
 from aitbc.crypto.crypto import sign_transaction_data
 from eth_keys import keys
 
-CHAIN = "ait-hub.aitbc.bubuit.net"
+CHAIN = "ait-hub.example.net"
 
 
 def _key() -> tuple[str, str]:

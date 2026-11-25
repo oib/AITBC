@@ -41,8 +41,8 @@ service — verified 16 Oct 2026, see section 2.)
 |---|---|
 | `apps/bridge-monitor/src/bridge_monitor/main.py:136`, `storage.py:38` | `FUNDING` classification + case-insensitive sender match |
 | `apps/bridge-monitor/README.md`, `tests/test_bridge_monitor.py:397` | documented + tested behaviour |
-| `scripts/monitoring/fleet-config-check.sh:786` | compares `BRIDGE_FUNDING_SOURCES` across hosts (monitor is hub-only — expect it listed only on hub) |
-| `scripts/ops/bridge_outbound_collect.py:31` | notes the funding classification |
+| `aitbc-ops:scripts/monitoring/fleet-config-check.sh:786` | compares `BRIDGE_FUNDING_SOURCES` across hosts (monitor is hub-only — expect it listed only on hub) |
+| `aitbc-ops:scripts/ops/bridge_outbound_collect.py:31` | notes the funding classification |
 | `docs/decisions/README.md` | the 30 Sep O-7 decision record |
 | `docs/ops/bridge-canary-runbook.md:109` | canary-from-different-address rule |
 | `docs/security/bridge-custodian.md`, `bridge-threat-model.md` | checklist/threat-model mentions |
@@ -96,8 +96,8 @@ offline CLI keystore. The monitor only needs the *address*.
    allowlist loaded; `/v1/bridge/...` status routes still answer.
 6. **[operator]** Send a small top-up **from F**; check the ledger
    records a `FUNDING` row (deduplicated, no payout):
-   `scripts/ops/bridge-admin.sh status <tx_hash>` and
-   `scripts/ops/bridge-admin.sh list --status funding` — the row's
+   `/opt/aitbc-ops/scripts/ops/bridge-admin.sh status <tx_hash>` and
+   `/opt/aitbc-ops/scripts/ops/bridge-admin.sh list --status funding` — the row's
    `status` must be `FUNDING`, not
    `FAILED`/`SUBMITTED`.
 7. **[operator]** Send the next deposit canary **from a different
@@ -144,7 +144,7 @@ The bridge monitor watches an Ethereum-side RPC; rehearse on Sepolia:
 
 ```bash
 # on hub, dry — print what the monitor would classify
-cd /opt/aitbc && scripts/ops/bridge-admin.sh status <known_deposit_tx>
+cd /opt/aitbc && /opt/aitbc-ops/scripts/ops/bridge-admin.sh status <known_deposit_tx>
 # propose env change against a Sepolia-funded throwaway sender S:
 BRIDGE_FUNDING_SOURCES=S  (in a staging env, never live)
 # send a small Sepolia ETH tx S->bridge deposit address; then check:

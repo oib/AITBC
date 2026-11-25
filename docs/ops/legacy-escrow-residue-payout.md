@@ -62,7 +62,7 @@ the nonce-sharing rules in §5 are.
 
 ## 1. Preconditions and census — re-run at fire time
 
-All reads on hub, read-only. `DB=/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`
+All reads on hub, read-only. `DB=/var/lib/aitbc/data/ait-hub.example.net/chain.db`
 (`sqlite3 -readonly` / `file:…?mode=ro`). The custody derivation is
 `keccak("aitbc.escrow." + job_id)[:20]` checksummed —
 `state/pure_state_transition.py:_escrow_address`; derive with
@@ -107,12 +107,12 @@ The corrected census rule:
 
 Also verify before anything is signed: head ≥ 35400 **and sealing
 normally** (§5 ordering), proposer mempool empty of settlement txs
-(`GET /rpc/mempool?chain_id=ait-hub.aitbc.bubuit.net`), authority nonce ==
+(`GET /rpc/mempool?chain_id=ait-hub.example.net`), authority nonce ==
 expected serial (snapshot: 23 — a gap means a foreign authority tx exists;
 STOP), and `aitbc_escrow_unlanded_settlements == 0` on all five hosts
 (`/var/lib/prometheus/node-exporter/aitbc_escrow_settlements.prom`,
 written minutely by `aitbc-escrow-settlements.timer` /
-`scripts/monitoring/escrow-settlements-textfile.py`).
+`aitbc-ops:scripts/monitoring/escrow-settlements-textfile.py`).
 
 ## 2. Signing helper — the 4-Oct v2-repair shape, recreated per run
 
@@ -148,7 +148,7 @@ Transaction template (same shape the v2 repair used; `to` is the custody
   "fee": "max(36, amount//100)",
   "nonce": <live authority nonce>,
   "type": "ESCROW_RELEASE",
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-hub.example.net",
   "payload": {
     "action": "escrow_release",
     "job_id": "<job>",

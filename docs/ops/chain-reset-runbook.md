@@ -70,7 +70,7 @@ All scratch-only: keys minted fresh under `--scratch`, deleted with
 teardown, never derived from fleet material; nothing touches live
 units, env files, ports, data dirs, wallets or keystores.
 
-- **`scripts/reset-harness/rehearsal.py`** — five scratch node processes
+- **`aitbc-ops:scripts/reset-harness/rehearsal.py`** — five scratch node processes
   (`systemd-run` transient units, per-instance data dirs, loopback ports,
   cgroup caps): 4 proposers + 1 follower. Builds genesis via
   `scripts/ops/build-genesis.py` + `verify-genesis-root.py`, then runs
@@ -84,7 +84,7 @@ units, env files, ports, data dirs, wallets or keystores.
   plane degradation), `untrusted` (TRUSTED_PROPOSERS refusal).
   Live-host protection: refuses on load/memory budget breach and on a
   second concurrent run.
-- **`scripts/reset-harness/rollback.py`** — the pre-PONR rollback
+- **`aitbc-ops:scripts/reset-harness/rollback.py`** — the pre-PONR rollback
   rehearsal: every cut step reverted in order; byte-equal restore from
   both the `.pre-reset` copies and a separate backup; the bare-restart
   trap documented (old code stalls head −1 without a hub; current code
@@ -92,7 +92,7 @@ units, env files, ports, data dirs, wallets or keystores.
   detection (`ActiveEnterTimestamp`/`ExecMainStartTimestamp`/`MainPID`);
   frozen-head resume; the partial-start proof (one validator up →
   `max(height)=0`, the point cannot be crossed early).
-- **`scripts/ops/post-cut-verify.py`** — one read-only post-cut sweep,
+- **`aitbc-ops:scripts/ops/post-cut-verify.py`** — one read-only post-cut sweep,
   manifest-driven so the same code runs against the rehearsal harness
   and the live fleet: genesis sha256 ×5, heads equal and moving, env-set
   landed on every carrier, bridge pause at the admission gate, balances

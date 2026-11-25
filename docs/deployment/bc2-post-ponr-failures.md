@@ -91,7 +91,7 @@ filter and bind variants). M8 is a decision class — the runbook
 procedure re-run is its own rehearsal.
 
 Proposed register row — real gap, not built: wire
-`scripts/monitoring/attestation-arrival-textfile.py` (systemd timer +
+`aitbc-ops:scripts/monitoring/attestation-arrival-textfile.py` (systemd timer +
 textfile dir) so the already-loaded `aitbc-attestation-arrival` group gets
 its `aitbc_attestation_*` series — until then nothing on production alerts
 a single silently-degraded validator (M6).

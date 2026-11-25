@@ -358,4 +358,4 @@ If you couldn't find the answer to your question, please:
 1. Search the [documentation](../)
 2. Check [GitHub Issues](https://github.com/oib/AITBC/issues)
 3. Search the repo docs under `docs/`
-4. Email the maintainer at aitbc@bubuit.net
+4. Email the maintainer at security@example.net

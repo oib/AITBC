@@ -21,10 +21,10 @@ Scope rules for this document:
 
 A structured copy of this set lives in `bc2-environment-set.json` beside
 this file (one row per name: op, scope, class, value). It feeds
-`scripts/ops/env-set-plan.py`, which prints the per-host edit plan
+`aitbc-ops:scripts/ops/env-set-plan.py`, which prints the per-host edit plan
 (`plan`) and an anchored PASS/FAIL sheet (`verify`) without ever writing
 an env file or printing a non-public value. A unit test
-(`tests/unit/test_env_set_plan.py`) fails when this document and the JSON
+(`aitbc-ops:tests/unit/test_env_set_plan.py`) fails when this document and the JSON
 drift apart.
 
 ## Node unit (`aitbc-blockchain-node`)
@@ -34,7 +34,7 @@ drift apart.
 | `CHAIN_ID` | `bc-2` | reset chain id |
 | `SUPPORTED_CHAINS` | `bc-2` | admission list |
 | `BLOCK_PRODUCTION_CHAINS` | `bc-2` | proposers only |
-| `NETWORK_ID` | — | inert: no reader in the code — `NETWORK_ID=1337` appears only in `scripts/workflow/01_preflight_setup.sh:70` and `scripts/workflow-agent/01_preflight_setup_agent.sh:108` for their own preflight output; no action at the cut |
+| `NETWORK_ID` | — | inert: no reader in the code — `NETWORK_ID=1337` appears only in `aitbc-ops:scripts/workflow/01_preflight_setup.sh:70` and `scripts/workflow-agent/01_preflight_setup_agent.sh:108` for their own preflight output; no action at the cut |
 | `STATE_TRANSITION_V2_HEIGHT` … `STATE_TRANSITION_V14_HEIGHT` | `1` each | falsy thresholds are *inactive*, not height-0; `1` makes producer and replay agree v14 from block 1 (`apps/blockchain-node/tests/golden/GATES.md` `gates1` proof) |
 | `STATE_TRANSITION_V16_HEIGHT` | keep | GPU-ADMISSION-1 gate; unarmed until the operator pins a height fleet-wide — do not write `1` |
 | `BRIDGE_LOCK_LEAF_V2_HEIGHT` | `1` | `>=` gate — activates from block 1 |
@@ -111,7 +111,7 @@ except where `aitbc-blockchain-p2p.env` pins its own (`PROPOSER_ID`,
 ## Other service classes
 
 Every unit whose env chain includes `CHAIN_ID` needs the new id at the
-cut. The live inventory found `CHAIN_ID=ait-hub.aitbc.bubuit.net` (and
+cut. The live inventory found `CHAIN_ID=ait-hub.example.net` (and
 matching `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`/
 `BLOCK_PRODUCTION_CHAINS`) across 101 file assignments; the classes are:
 
@@ -143,12 +143,12 @@ matching `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`/
 `NATIVE_CHAIN_ID` — a name the earlier errata missed. It is read by the
 coordinator's `config.py` and bound into GPU energy quotes at
 `market_gpu.py`. Live it is set only on hub
-(`ait-hub.aitbc.bubuit.net`; unset on the other four hosts). On bc-2 the
+(`ait-hub.example.net`; unset on the other four hosts). On bc-2 the
 hub pin is a stale old-chain value: **drop the line** in the same env
 edit as `CHAIN_ID` — setting it to `bc-2` is equivalent, and dropping is
 the safe default because the coordinator now derives the quote chain
 from `CHAIN_ID` when `NATIVE_CHAIN_ID` is unset (#307). A hub that
-keeps the old pin emits quotes bound to `ait-hub.aitbc.bubuit.net`, and
+keeps the old pin emits quotes bound to `ait-hub.example.net`, and
 a configured CLI verifier refuses them.
 
 **Per-service `*_DEFAULT_CHAIN_ID` rows** — five services stamp the old id
@@ -185,7 +185,7 @@ testnet") — bc-2 is a testnet-era reset; the validator set is the four
 | `TRUSTED_PROPOSERS` | `genesis,<the four current validators>` — **decided 20 Oct 2026: set it** (operator answer: "Set it"). A non-empty set turns on a membership check for **every** imported block (only listed proposers accepted, so any later validator-set change must update the list on **every host in the same change** or the new proposer's blocks are refused) and lets unsigned blocks through only for listed proposers. Every bc-2 node file-loads genesis, so block 0 never reaches the import validator — `genesis` matters only for a node that bulk-pulls from height 0 without the file. The four addresses come from each host's live `VALIDATOR_SET` (a coder proposes the list, the operator confirms it — A1/A2); the resolved value is checked before the node units start (`bc2-reset-runbook.md` C5) (`sync_validator.py`) |
 | `GENESIS_ADDRESS` / `GENESIS_WALLET_ADDRESS` | the new genesis identity per the allocation plan — treasury "**New address, will supply**" (operator card 20 Oct), all other accounts "**Same as live today**"; both lists outstanding |
 | `BRIDGE_ADMIN_ADDRESSES` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live admin set |
-| `BRIDGE_ADMIN_ADDRESS` (singular) | **ruling 20 Oct: leave it** — declared in `bridge-validator-keys.env` (a key-bearing file) on all five hosts; the only reader is `scripts/ops/register_bridge_validators.py`, an operator-run helper. C3 does not edit that file; the plural `BRIDGE_ADMIN_ADDRESSES` carries |
+| `BRIDGE_ADMIN_ADDRESS` (singular) | **ruling 20 Oct: leave it** — declared in `bridge-validator-keys.env` (a key-bearing file) on all five hosts; the only reader is `aitbc-ops:scripts/ops/register_bridge_validators.py`, an operator-run helper. C3 does not edit that file; the plural `BRIDGE_ADMIN_ADDRESSES` carries |
 | `BRIDGE_RELEASE_AUTHORITY` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live authority (consensus-visible release admission) |
 | `BRIDGE_MULTISIG_VALIDATORS` | **resolved 20 Oct: integer `4`** — a count N, not an address list (every reader is `int(...)`: `config.py:587`, `cross_chain/bridge.py:77-81` release fence `N ≥ threshold`, `rpc/bridge.py:795` display only; the SDK field `aitbc/bridge/types.py` `multisig_validators` is an int too). Nothing computes quorum or membership from N — the genesis `bridge_validators` rows carry membership. Now a public set row in the table above |
 | `BRIDGE_MAX_LOCK_AMOUNT` | **decided 20 Oct: keep `36000000000` base units = 1000 AIT** ("Keep live + 1000 AIT"; 36,000,000 units/AIT); `0`/unset fails closed — production refuses locks |

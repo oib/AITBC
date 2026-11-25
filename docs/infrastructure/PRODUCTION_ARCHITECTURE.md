@@ -187,29 +187,22 @@ GPU (`:8101`), FFmpeg (`:8230`), whisper, ollama and peertube-pruner blocks were
 removed from the public edge nginx — those services are node-local on GPU
 nodes only.
 
-### Edge topology — all nodes behind an edge host
+### Edge topology — nodes behind edge termination
 
-Every public `*.aitbc.bubuit.net` node name (`node0`, `node1`, `node2`) and
-`gitea.bubuit.net` resolves to a single edge host — `redacted-host`
-(`redacted-host.example.invalid`, `80.109.18.113`). TLS terminates there (Let's Encrypt
-`bubuit.net` cert, certbot-managed vhosts in `/etc/nginx/sites-enabled/`); the
-edge nginx then proxies by `server_name` to each node's LAN address
-(`node0` → `198.51.100.93`, `node1` → `198.51.100.40`, `node2` → `198.51.100.136`,
-`gitea` → the local Incus container). Websocket paths `/rpc/subscribe/ws` and
-`/rpc/gossip/ws` get dedicated upgrade-enabled locations with 3600s
-read/send timeouts; `/health` is a separate low-log location; everything else
-falls through to `/` → the node-local nginx, which applies its own vhost,
-auth, and rate limits. The edge sets `Host`, `X-Real-IP`,
-`X-Forwarded-For`, `X-Forwarded-Proto` — node services must therefore derive
-public URLs from configured FQDNs, never from reflected headers (see
-`_join_public_base_url` / the #1875/#1911 hardening).
+Production-style deployments normally place public node names behind one or
+more TLS edge proxies. The edge terminates TLS and proxies by `server_name`
+to the node-local nginx listener; websocket paths `/rpc/subscribe/ws` and
+`/rpc/gossip/ws` need upgrade-enabled locations with long read/send timeouts,
+`/health` is usually a separate low-log location, and everything else falls
+through to the node-local vhost, auth, and rate limits. The edge sets `Host`,
+`X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto` — node services must
+therefore derive public URLs from configured FQDNs, never from reflected
+headers (see `_join_public_base_url` / the #1875/#1911 hardening).
 
-`hub` and `hub1` are **not** behind this edge — they sit on private Incus
-subnets behind their own TLS edges (`redacted-host` `152.53.242.245`, `redacted-host`
-`95.216.198.140`), so their public names resolve to those edge IPs directly.
-Fleet nodes cannot reach each other over SSH; the only host with ssh reach to
-every node is the operator's IDE host (`redacted-host`) via jump aliases — which is also
-why `redacted-host` can serve as the edge.
+Operators may split hubs, followers, and compute nodes across different edge
+or private-network topologies. Concrete host names, addresses, and reachability
+for the reference fleet are operational details and live in the companion
+`aitbc-ops` repository rather than in this public product documentation.
 
 ### Public surfaces by node kind (post-2026-09-23 dedup)
 

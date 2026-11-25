@@ -103,7 +103,7 @@ container on the bridge, whether or not a proxy fronts it from outside.
 | Prometheus postgres exporter | 9187 | Same host monitoring path; configured outside this repo |
 | API Gateway | 8201 | Was `0.0.0.0` on node2 (repo unit default); customer traffic arrives via local nginx `localhost:8201`, so loopback is sufficient — unit template now pins `127.0.0.1`, live bind change pending on #1731 |
 | Blackbox exporter | 9115 | `*:9115` on hub1 — Debian unit default all-interfaces; host package config, not a repo unit |
-| coTURN | 3478 | Bound to the node0 LAN address `198.51.100.93` plus loopback — LAN-scoped by design, not `0.0.0.0`; host package config |
+| coTURN | 3478 | Bound to the customer node LAN address plus loopback — LAN-scoped by design, not `0.0.0.0`; host package config |
 | LLMNR | 5355 | `systemd-resolved` responder on all nodes — OS-level link-local multicast, not a repo unit |
 
 The previous last entry (Blockchain Node Metrics 9009) was closed by adding

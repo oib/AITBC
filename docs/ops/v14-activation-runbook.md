@@ -3,9 +3,9 @@
 Audience: the operator on call when the chain does something odd at or after
 block 46,100. Read §1 once before the height; use §3 when something breaks.
 
-Fleet: node0, node1, node2, hub1, hub — chain `ait-hub.aitbc.bubuit.net`,
+Fleet: node0, node1, node2, hub1, hub — chain `ait-hub.example.net`,
 RPC on `127.0.0.1:8202`, chain DB at
-`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db` on every host.
+`/var/lib/aitbc/data/ait-hub.example.net/chain.db` on every host.
 Code references are against the deployed commit (`ce99ea30c` lineage).
 
 ## 1. What activates at 46,100
@@ -65,7 +65,7 @@ The block-46,100 aux root must equal the fleet shadow fingerprint at that
 height (shadow was armed pre-activation):
 
 ```bash
-ssh $h "sqlite3 'file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro' \
+ssh $h "sqlite3 'file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro' \
   'SELECT fingerprint FROM shadow_side_root WHERE block_height=46100;'"
 ```
 
@@ -73,7 +73,7 @@ Whole-window audit in one shot (hashes identical ×5, stamps, proposer
 rotation, attestation):
 
 ```bash
-cd /opt/aitbc && venv/bin/python scripts/ops/post_activation_audit.py \
+cd /opt/aitbc && venv/bin/python aitbc-ops:scripts/ops/post_activation_audit.py \
   --activation-height 46100 --window 12
 ```
 
@@ -81,7 +81,7 @@ Alerts — none of these should fire in the 46,090→now window:
 
 ```bash
 curl -s 'http://127.0.0.1:9090/api/v1/query?query=ALERTS{alertstate="firing"}'   # on hub
-curl -s 'https://hub.aitbc.bubuit.net/explorer-api/api/alerts'
+curl -s 'https://hub.example.net/explorer-api/api/alerts'
 ```
 
 Watched rules: `ChainDiverged`, `ChainDivergenceSeen`, `ServiceDown`,
