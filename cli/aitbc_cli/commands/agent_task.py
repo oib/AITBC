@@ -623,6 +623,21 @@ def _wait_for_task_result(
             result = found["task_result"]
             paid = found.get("task_paid", {})
             success(f"Task {task_id} finished: {result.get('status')}")
+            # #2955: a failed task refunds through the provider-signed fail
+            # path (or the timeout sweeper as a backstop) — surface the
+            # escrow state so the buyer sees where the money is without a
+            # separate `agent-task status` call.
+            escrow_state: dict[str, Any] = {}
+            try:
+                escrow = _task_escrow(client, task_id, buyer_agent, signing_key)
+                if escrow:
+                    escrow_state = {
+                        "escrow_status": escrow.get("escrow_status"),
+                        "tx_hash_refund": escrow.get("tx_hash_refund"),
+                        "tx_hash_release": escrow.get("tx_hash_release"),
+                    }
+            except _OPS_ERRORS:
+                escrow_state = {}
             output(
                 {
                     "task_id": task_id,
@@ -630,6 +645,7 @@ def _wait_for_task_result(
                     "result_ref": result.get("result_ref"),
                     "result_hash": result.get("result_hash"),
                     "tx_hash": paid.get("tx_hash"),
+                    **escrow_state,
                 },
                 ctx.obj.get("output_format", "table"),
             )

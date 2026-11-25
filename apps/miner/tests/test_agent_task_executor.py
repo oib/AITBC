@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import agent_task_executor as ate
 import pytest
+import requests
 
 PROVIDER = "0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2"
 BUYER = "buyer-node0"
@@ -168,7 +169,7 @@ class TestExecution:
     def test_accept_executes_and_pays(self, executor, monkeypatch):
         task_id = "t-1"
         self._setup_accept(executor, monkeypatch, task_id)
-        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio-bytes")
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio-bytes")
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hello"}')
         monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
@@ -182,6 +183,51 @@ class TestExecution:
         assert result_msg["status"] == "success"
         assert executor["sent"][1][1]["tx_hash"] == "0xrel"
 
+    def test_accept_falls_back_to_coordinator_proxy(self, executor, monkeypatch):
+        """#2955 wiring pin: the accept path must consult the fallback chain.
+
+        Mutation target: reverting the call-site in ``_handle_task_accept``
+        back to a bare ``_ipfs_cat`` MUST fail this pin — the swarm-class
+        error would propagate and the task would fail instead of executing.
+        """
+        task_id = "t-1"
+        self._setup_accept(executor, monkeypatch, task_id)
+
+        def swarm_broken(cid, **k):
+            raise requests.ReadTimeout("bitswap session hung")
+
+        proxy_calls = []
+        seen_payloads = []
+        monkeypatch.setattr(ate, "_ipfs_cat", swarm_broken)
+        monkeypatch.setattr(ate, "_coordinator_payload_cat", lambda tid: proxy_calls.append(tid) or b"proxy-audio")
+        monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
+        monkeypatch.setitem(
+            ate.SERVICE_HANDLERS, "whisper", lambda req, payload: seen_payloads.append(payload) or b'{"text":"hi"}'
+        )
+        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+
+        stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
+        assert stats["executed"] == 1
+        assert stats["failed"] == 0
+        assert proxy_calls == [task_id]  # the proxy was consulted for this task
+        assert seen_payloads == [b"proxy-audio"]  # its bytes reached the service handler
+        assert executor["sent"][0][1]["status"] == "success"
+
+    def test_accept_local_success_never_touches_proxy(self, executor, monkeypatch):
+        """#2955 control direction: a healthy swarm read never consults the proxy."""
+        task_id = "t-1"
+        self._setup_accept(executor, monkeypatch, task_id)
+        proxy_calls = []
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"local-audio")
+        monkeypatch.setattr(ate, "_coordinator_payload_cat", lambda tid: proxy_calls.append(tid) or b"proxy")
+        monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
+        monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hi"}')
+        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+
+        stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
+        assert stats["executed"] == 1
+        assert proxy_calls == []
+
     def test_accept_without_quote_ignored(self, executor, monkeypatch):
         monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [_msg("m1", "task_accept", {"task_id": "nope"})])
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
@@ -190,7 +236,7 @@ class TestExecution:
 
     def test_execution_failure_fails_task(self, executor, monkeypatch):
         self._setup_accept(executor, monkeypatch)
-        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio")
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio")
 
         def boom(req, payload):
             raise RuntimeError("whisper exploded")
@@ -702,7 +748,7 @@ class TestEscrowGateAndInboundSig:
         monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [_msg("m-a", "task_accept", {"task_id": "t-1"})])
         monkeypatch.setattr(ate, "_task_escrow_status", lambda t: escrow)
         called = []
-        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: called.append(cid) or b"x")
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: called.append(cid) or b"x")
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 0 and stats["failed"] == 0
         assert called == []  # no work performed against a bookkeeping-only lock
@@ -818,7 +864,7 @@ class TestTaskAcceptSenderBinding:
         monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [msg])
         monkeypatch.setattr(ate, "_task_escrow_status", lambda t: _locked_escrow("t-1"))
         called = []
-        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: called.append(cid) or b"x")
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: called.append(cid) or b"x")
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 0 and stats["failed"] == 0
         assert called == []  # no paid work triggered by the impostor
@@ -831,7 +877,7 @@ class TestTaskAcceptSenderBinding:
         msg = _msg("m-ok", "task_accept", {"task_id": "t-1"}, sender=BUYER)
         monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [msg])
         monkeypatch.setattr(ate, "_task_escrow_status", lambda t: _locked_escrow("t-1"))
-        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio")
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b"{}")
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
         monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
