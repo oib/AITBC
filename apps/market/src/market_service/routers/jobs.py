@@ -8,14 +8,22 @@ must stay registered before ``/v1/market/jobs/{job_id}`` — the order below
 matches the original file.
 """
 
-from typing import Annotated, Any
+import json
+import os
+import re
+from typing import Annotated, Any, cast
 
+import requests
 from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.market.job_request_signature import verify_jobs_request_signature
+from aitbc.utils.chain_id import resolve_chain_id
 
+from ..config import settings
 from ..deps import (
     _has_operator_credential,
     _is_operator,
@@ -29,8 +37,10 @@ from ..gates import (
     _billing_attestation_gate,
     _job_party_addresses,
     _job_party_signature_gate,
+    _pin_attestation_expected_provider,
     _pin_confirm_attestation_gate,
     _pin_size_bound_gate,
+    _pin_size_quota_mb,
     _provider_release_window_gate,
     _signed_jobs_request,
     _warn_secret_query_transport,
@@ -49,6 +59,140 @@ from ..services.market_service import (
 logger = get_logger("market_service.main")
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# #2968: provider-side content rescue proxy
+#
+# Market IPFS rentals are not agent-coordinator tasks, so the #2955 task
+# payload proxy cannot authorize or serve them. The market job itself is the
+# authority: it binds buyer, provider, rental CID and quota. The hub island
+# daemon is a bootstrap member the buyer can reach even when the provider's
+# direct bitswap leg is broken, so the market service can export that exact
+# DAG as a CAR stream for the provider. The provider then imports the CAR
+# into its own daemon only after verifying every CAR block hash locally;
+# the proxy is transport, not a content authority.
+_CONTENT_CID_RE = re.compile(r"[A-Za-z0-9]{1,256}")
+_CAR_OVERHEAD_NUMERATOR = 11  # quota + 10% transfer framing overhead
+_CAR_OVERHEAD_DENOMINATOR = 10
+_CAR_OVERHEAD_FLOOR = 1024 * 1024
+
+
+def _market_island_ipfs_api() -> str:
+    return os.environ.get("MARKET_ISLAND_IPFS_API") or os.environ.get("ISLAND_IPFS_API", "http://127.0.0.1:5002")
+
+
+def _content_car_cap(job: dict[str, Any], authoritative_quota_mb: int | None = None) -> int:
+    """CAR transfer ceiling, preferring the offer's server-side quota.
+
+    ``job.constraints`` is caller-writable at creation. When the offer row
+    publishes ``disk_quota_mb`` it is the authority; the caller-supplied copy
+    is only a compatibility fallback for rows whose offer cannot be resolved.
+    """
+    constraints = job.get("constraints") or {}
+    try:
+        quota_mb = authoritative_quota_mb or int(constraints.get("disk_quota_mb") or 100)
+    except (TypeError, ValueError):
+        quota_mb = 100
+    quota = max(1, quota_mb) * 1024 * 1024
+    return quota * _CAR_OVERHEAD_NUMERATOR // _CAR_OVERHEAD_DENOMINATOR + _CAR_OVERHEAD_FLOOR
+
+
+def _dag_stat_total_size(text: str) -> int | None:
+    total: int | None = None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            size = json.loads(line).get("TotalSize")
+            size = int(size) if size is not None else None
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if size is not None:
+            total = size if total is None else max(total, size)
+    return total
+
+
+def _open_content_car(cid: str, cap: int) -> requests.Response:
+    """Open a bounded Kubo ``dag/export`` stream for ``cid`` on the hub daemon."""
+    base = _market_island_ipfs_api().rstrip("/")
+    try:
+        stat = requests.post(f"{base}/api/v0/dag/stat", params={"arg": cid}, timeout=30)
+        if stat.status_code == 200:
+            total = _dag_stat_total_size(stat.text)
+            if total is not None and total > cap:
+                raise JSONResponseError(413, f"content is {total} bytes, over the {cap}-byte proxy cap")
+        upstream = requests.post(
+            f"{base}/api/v0/dag/export",
+            params={"arg": cid},
+            timeout=(5, 120),
+            stream=True,
+        )
+    except JSONResponseError:
+        raise
+    except requests.RequestException as e:
+        raise JSONResponseError(502, f"hub island IPFS unreachable: {e}") from None
+    if upstream.status_code == 200:
+        return upstream
+    try:
+        detail = upstream.text[:200]
+    except requests.RequestException:
+        detail = f"HTTP {upstream.status_code}"
+    upstream.close()
+    raise JSONResponseError(502, f"hub island IPFS dag/export failed: {detail}") from None
+
+
+class JSONResponseError(Exception):
+    def __init__(self, status_code: int, detail: str) -> None:
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(detail)
+
+
+def _stream_car_capped(upstream: requests.Response, cap: int):
+    received = 0
+    try:
+        for chunk in upstream.iter_content(1024 * 1024):
+            received += len(chunk)
+            if received > cap:
+                raise ValueError(f"content CAR exceeds {cap} bytes")
+            yield chunk
+    finally:
+        upstream.close()
+
+
+async def _provider_delivery_gate(
+    svc: MarketService,
+    job_id: str,
+    proof: dict[str, Any],
+    route: str,
+    binding: dict[str, Any],
+) -> tuple[dict[str, Any] | None, JSONResponse | None]:
+    """Verify a provider-signed delivery-plane request bound to the job CID."""
+    job = await svc.get_market_job(job_id)
+    if not job:
+        return None, JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+    error, signer = verify_jobs_request_signature(
+        signer_address=proof.get("signer_address"),
+        chain_id=proof.get("chain_id"),
+        issued_at=proof.get("issued_at"),
+        route=route,
+        signature=proof.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding=binding,
+    )
+    if error or not signer:
+        return None, JSONResponse(status_code=403, content={"error": error or "provider signature required"})
+    expected = await _pin_attestation_expected_provider(svc, job)
+    if not expected:
+        return None, JSONResponse(status_code=403, content={"error": "provider identity unresolvable for this job"})
+    if canonical_address(signer) != canonical_address(expected):
+        return None, JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
+    job_cid = str((job.get("payload") or {}).get("cid") or "")
+    if str(binding.get("cid") or "") != job_cid:
+        return None, JSONResponse(status_code=403, content={"error": "delivery-plane binding cid does not match this job"})
+    return job, None
 
 
 @router.post("/v1/market/jobs", dependencies=[Depends(require_market_api_key)])
@@ -327,6 +471,103 @@ async def resolve_market_job_dispute(
     except Exception as e:
         logger.error("Error in POST /v1/market/jobs/%s/dispute/resolve: %s: %s", job_id, type(e).__name__, str(e))
         raise
+
+
+@router.get(
+    "/v1/market/jobs/{job_id}/content-car",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Verified-provider CAR export stream",
+            "content": {"application/vnd.ipld.car": {"schema": {"type": "string", "format": "binary"}}},
+        }
+    },
+)
+async def get_market_job_content_car(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    signer_address: str | None = None,
+    chain_id: str | None = None,
+    issued_at: int | None = None,
+    signature: str | None = None,
+) -> Any:
+    """Stream the job CID as a CAR export through the hub island daemon (#2968).
+
+    This is a delivery-plane rescue path for the job provider when the direct
+    buyer→provider bitswap leg is broken. It is not a public gateway: the
+    provider signs the concrete route with a binding over the job's stored CID,
+    the rental must still be active, and the response is capped by the rental
+    disk quota. Content integrity is end-to-end because the provider verifies
+    every CAR block hash locally before importing the DAG into its own IPFS
+    daemon.
+    """
+    proof = {
+        "signer_address": signer_address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": signature,
+    }
+    # Fetch once for the cid before verifying — the binding must cover the
+    # stored cid, not a caller-chosen one.
+    job_lookup = await svc.get_market_job(job_id)
+    if not job_lookup:
+        return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+    cid = str((job_lookup.get("payload") or {}).get("cid") or "")
+    if not _CONTENT_CID_RE.fullmatch(cid):
+        return JSONResponse(status_code=404, content={"error": "job has no valid content CID"})
+    route = f"/v1/market/jobs/{job_id}/content-car"
+    binding = {"cid": cid}
+    job, gate = await _provider_delivery_gate(svc, job_id, proof, route, binding)
+    if gate is not None:
+        return gate
+    job = cast(dict[str, Any], job)
+    if str(job.get("state") or "").upper() not in {"QUEUED", "RUNNING"}:
+        return JSONResponse(status_code=409, content={"error": "content rescue is only available for active rentals"})
+    authoritative_quota = await _pin_size_quota_mb(svc, job)
+    cap = _content_car_cap(job, authoritative_quota)
+    try:
+        upstream = await run_in_threadpool(_open_content_car, cid, cap)
+    except JSONResponseError as e:
+        return JSONResponse(status_code=e.status_code, content={"error": e.detail})
+    return StreamingResponse(_stream_car_capped(upstream, cap), media_type="application/vnd.ipld.car")
+
+
+@router.post("/v1/market/jobs/{job_id}/pin-error")
+async def report_market_job_pin_error(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    report: dict[str, Any] | None = None,
+) -> Any:
+    """Record the provider's persistent delivery failure on the job (#2968).
+
+    The report is signed by the same provider identity that may attest
+    delivery and is bound to the job CID. Because that signer is the payee,
+    the report is safe non-delivery evidence: the unconfirmed job becomes
+    FAILED with a public error and its escrowed payment becomes
+    refund_pending for the normal buyer-refund sweep.
+    """
+    report_data: Any = report or {}
+    if not isinstance(report_data, dict):
+        return JSONResponse(status_code=400, content={"error": "pin error report must be an object"})
+    report = report_data
+    cid = str(report.get("cid") or "")
+    error_text = str(report.get("error") or "")
+    if not error_text.strip():
+        return JSONResponse(status_code=400, content={"error": "error is required"})
+    if len(error_text) > 500:
+        return JSONResponse(status_code=400, content={"error": "error must be at most 500 characters"})
+    route = f"/v1/market/jobs/{job_id}/pin-error"
+    binding = {"cid": cid, "error": error_text}
+    job, gate = await _provider_delivery_gate(svc, job_id, report, route, binding)
+    if gate is not None:
+        return gate
+    job = cast(dict[str, Any], job)
+    if (job.get("payload") or {}).get("provider_confirmed"):
+        return JSONResponse(status_code=409, content={"error": "job already has provider delivery confirmation"})
+    try:
+        return await svc.report_market_job_pin_error(job_id, cid, error_text)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
 
 @router.post("/v1/market/jobs/{job_id}/pin-confirm", dependencies=[Depends(require_market_api_key)])

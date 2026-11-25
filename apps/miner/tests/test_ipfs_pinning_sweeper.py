@@ -1,9 +1,12 @@
 """Unit tests for the provider-side IPFS hosting sweeper."""
 
+import base64
+import hashlib
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import base58
 import ipfs_pinning_sweeper
 import pytest
 
@@ -506,3 +509,231 @@ def test_pin_cid_rejects_ipfs_path_args(sweeper):
     assert ipfs_pinning_sweeper._unpin_cid("/ipfs/" + CID) is False
     assert ipfs_pinning_sweeper._object_size("a/b") is None
     assert not any(u.endswith(("/pin/add", "/pin/rm", "/dag/stat")) for u in sweeper["ipfs"])
+
+
+def _uvarint(value: int) -> bytes:
+    out = bytearray()
+    while True:
+        byte = value & 0x7F
+        value >>= 7
+        if value:
+            out.append(byte | 0x80)
+        else:
+            out.append(byte)
+            return bytes(out)
+
+
+def _cidv0_for_block(data: bytes) -> tuple[str, bytes]:
+    multihash = b"\x12\x20" + hashlib.sha256(data).digest()
+    return base58.b58encode(multihash).decode(), multihash
+
+
+def _car_for_block(data: bytes) -> tuple[str, bytes]:
+    """Small but structurally valid single-block CARv1 for sweeper tests."""
+    cid_text, cid_bytes = _cidv0_for_block(data)
+    # DAG-CBOR: {"roots": [<cid bytes>], "version": 1}. The sweeper verifies
+    # block hashes and root presence itself; this header keeps the fixture
+    # realistic for a real Kubo import shape.
+    header = b"\x82" + b"\x65roots" + b"\x81" + bytes([0x58, len(cid_bytes)]) + cid_bytes + b"\x67version" + b"\x01"
+    section = cid_bytes + data
+    car = _uvarint(len(header)) + header + _uvarint(len(section)) + section
+    return cid_text, car
+
+
+def _cidv1_raw_for_block(data: bytes) -> tuple[str, bytes]:
+    multihash = b"\x12\x20" + hashlib.sha256(data).digest()
+    cid_bytes = b"\x01\x55" + multihash  # CIDv1, raw codec
+    encoded = base64.b32encode(cid_bytes).decode().lower().rstrip("=")
+    return "b" + encoded, cid_bytes
+
+
+# --- #2968: hub CAR fallback + persistent delivery-error surfacing ---------
+
+
+@pytest.mark.unit
+def test_direct_pin_failure_imports_market_car_and_confirms(state_path, sweeper):
+    """When the direct swarm leg cannot pin, the sweeper downloads the signed
+    market CAR proxy stream, imports it into the local daemon, pins the CID,
+    and confirms delivery."""
+    payload_block = b"rental payload bytes"
+    car_cid, car_bytes = _car_for_block(payload_block)
+    job = _job("job-car", state="QUEUED", cid=car_cid)
+    calls = {"pin_add": 0, "car_get": [], "dag_import": 0}
+
+    def fake_post(url, **kwargs):
+        if url.endswith("/api/v0/pin/add"):
+            calls["pin_add"] += 1
+            if calls["pin_add"] == 1:
+                import requests
+
+                raise requests.ReadTimeout("direct bitswap timeout")
+            return _resp({})
+        if url.endswith("/api/v0/dag/import"):
+            calls["dag_import"] += 1
+            assert kwargs.get("files")
+            assert kwargs.get("params") == {"pin-roots": "false"}
+            return _resp({})
+        if url.endswith("/api/v0/dag/stat"):
+            return _resp({}, text='{"TotalSize": 1000}')
+        if "/v1/market/jobs/" in url and url.endswith("/pin-confirm"):
+            return _resp({})
+        return _resp({})
+
+    car = _resp({})
+    car.iter_content = lambda *a, **k: iter([car_bytes])
+
+    def fake_get(url, **kwargs):
+        if url.endswith("/content-car"):
+            calls["car_get"].append((url, kwargs.get("params", {})))
+            return car
+        return _jobs_response([job])(url, **kwargs)
+
+    with (
+        patch.object(ipfs_pinning_sweeper.requests, "post", side_effect=fake_post),
+        patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=fake_get),
+    ):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+
+    assert result["pinned"] == 1
+    assert result["confirmed"] == 1
+    assert calls["dag_import"] == 1
+    assert calls["pin_add"] == 2
+    assert calls["car_get"]
+    assert calls["car_get"][0][1]["signer_address"] == PROVIDER
+
+
+@pytest.mark.unit
+def test_tampered_market_car_never_reaches_dag_import(state_path, sweeper):
+    """The market proxy is transport, not authority: a hash-mismatched CAR is
+    rejected locally before any byte is offered to the provider blockstore."""
+    payload_block = b"rental payload bytes"
+    car_cid, car_bytes = _car_for_block(payload_block)
+    tampered = bytearray(car_bytes)
+    tampered[-1] ^= 0x01
+    job = _job("job-tampered-car", state="QUEUED", cid=car_cid)
+    calls = {"dag_import": 0}
+
+    import requests
+
+    def fake_post(url, **kwargs):
+        if url.endswith("/api/v0/pin/add"):
+            raise requests.ReadTimeout("direct bitswap timeout")
+        if url.endswith("/api/v0/dag/import"):
+            calls["dag_import"] += 1
+            return _resp({})
+        if url.endswith("/api/v0/dag/stat"):
+            return _resp({}, text='{"TotalSize": 1000}')
+        return _resp({})
+
+    car = _resp({})
+    car.iter_content = lambda *a, **k: iter([bytes(tampered)])
+
+    def fake_get(url, **kwargs):
+        if url.endswith("/content-car"):
+            return car
+        return _jobs_response([job])(url, **kwargs)
+
+    with (
+        patch.object(ipfs_pinning_sweeper.requests, "post", side_effect=fake_post),
+        patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=fake_get),
+    ):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+
+    assert result["errors"] == 1
+    assert result["pinned"] == 0
+    assert calls["dag_import"] == 0
+
+
+@pytest.mark.unit
+def test_persistent_pin_failure_reports_delivery_error_once(state_path, sweeper, monkeypatch):
+    """Transient failure stays local; the configured consecutive-failure
+    threshold writes a signed pin-error report once, and a later success
+    clears the bookkeeping."""
+    monkeypatch.setenv("IPFS_HOSTING_FAILURE_REPORT_THRESHOLD", "2")
+    job = _job("job-fail", state="QUEUED")
+    reports = []
+
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_pin_with_market_fallback", lambda *a, **k: (False, "both paths failed"))
+    monkeypatch.setattr(
+        ipfs_pinning_sweeper,
+        "_report_pin_error",
+        lambda market_url, job_id, cid, provider, error: reports.append((job_id, cid, provider, error)) or True,
+    )
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=_jobs_response([job])):
+        first = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+        assert reports == []
+        second = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+        assert reports == [("job-fail", CID, PROVIDER, "both paths failed")]
+        third = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+
+    assert first["errors"] == second["errors"] == third["errors"] == 1
+    assert reports == [("job-fail", CID, PROVIDER, "both paths failed")]
+    state = ipfs_pinning_sweeper._load_state(state_path)
+    assert state["_delivery_failures"]["job-fail"]["reported"] is True
+
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_pin_with_market_fallback", lambda *a, **k: (True, None))
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=_jobs_response([job])):
+        recovered = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert recovered["pinned"] == 1
+    assert "_delivery_failures" not in ipfs_pinning_sweeper._load_state(state_path)
+
+
+@pytest.mark.unit
+def test_car_integrity_validator_accepts_valid_car(tmp_path):
+    _cid, car_bytes = _car_for_block(b"verified rental block")
+    car_path = tmp_path / "valid.car"
+    car_path.write_bytes(car_bytes)
+    with car_path.open("rb") as car_file:
+        ipfs_pinning_sweeper._validate_car_integrity(car_file, _cid, len(car_bytes) + 1024)
+
+
+@pytest.mark.unit
+def test_car_integrity_validator_rejects_tampered_block_before_import(tmp_path):
+    cid, car_bytes = _car_for_block(b"verified rental block")
+    tampered = bytearray(car_bytes)
+    tampered[-1] ^= 0x01
+    car_path = tmp_path / "tampered.car"
+    car_path.write_bytes(bytes(tampered))
+    with car_path.open("rb") as car_file, pytest.raises(ValueError, match="hash does not match"):
+        ipfs_pinning_sweeper._validate_car_integrity(car_file, cid, len(car_bytes) + 1024)
+
+
+@pytest.mark.unit
+def test_car_integrity_validator_rejects_missing_job_root(tmp_path):
+    cid, car_bytes = _car_for_block(b"verified rental block")
+    other_cid, _other_car = _car_for_block(b"different block")
+    car_path = tmp_path / "wrong-root.car"
+    car_path.write_bytes(car_bytes)
+    with car_path.open("rb") as car_file, pytest.raises(ValueError, match="does not contain the job CID root"):
+        ipfs_pinning_sweeper._validate_car_integrity(car_file, other_cid, len(car_bytes) + 1024)
+
+
+@pytest.mark.unit
+def test_car_integrity_validator_accepts_base32_cidv1(tmp_path):
+    data = b"cidv1 raw rental block"
+    cid, cid_bytes = _cidv1_raw_for_block(data)
+    header = b"header"
+    section = cid_bytes + data
+    car = _uvarint(len(header)) + header + _uvarint(len(section)) + section
+    car_path = tmp_path / "cidv1.car"
+    car_path.write_bytes(car)
+    with car_path.open("rb") as car_file:
+        ipfs_pinning_sweeper._validate_car_integrity(car_file, cid, len(car) + 1024)
+
+
+@pytest.mark.unit
+def test_fallback_error_report_redacts_signed_request_urls():
+    import requests
+
+    response = requests.Response()
+    response.status_code = 403
+    response.url = "http://market.internal/v1/market/jobs/job/content-car?signer_address=0xProvider&signature=secret-sig"
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        detail = ipfs_pinning_sweeper._safe_exception_detail(error)
+    else:
+        raise AssertionError("raise_for_status did not raise")
+    assert "signature" not in detail
+    assert "market.internal" not in detail
+    assert "<url>" in detail

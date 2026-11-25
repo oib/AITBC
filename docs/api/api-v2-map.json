@@ -6970,6 +6970,13 @@
           ]
         },
         {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/content-car",
+          "upstream": "/v1/market/jobs/{job_id}/content-car",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/market/v1/market/jobs/{job_id}/dispute",
           "upstream": "/v1/market/jobs/{job_id}/dispute",
           "methods": [
@@ -6986,6 +6993,13 @@
         {
           "public": "/api/v2/market/v1/market/jobs/{job_id}/pin-confirm",
           "upstream": "/v1/market/jobs/{job_id}/pin-confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/pin-error",
+          "upstream": "/v1/market/jobs/{job_id}/pin-error",
           "methods": [
             "POST"
           ]
