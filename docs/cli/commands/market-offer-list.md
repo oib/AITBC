@@ -15,7 +15,7 @@ aitbc market offer-list [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--service-type` | text | — | no | Filter by service type |
-| `--status` | text | — | no | Filter by status (active/inactive) |
+| `--status` | text | — | no | Filter by status (active/inactive/all) |
 | `--output` | choice | — | no | Output format (alias for --format) |
 | `--format` | choice | — | no | Output format |
 

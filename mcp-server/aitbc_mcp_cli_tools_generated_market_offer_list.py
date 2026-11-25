@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_offer_list(
     service_type: Annotated[str | None, Field(description="Filter by service type")] = None,
-    status: Annotated[str | None, Field(description="Filter by status (active/inactive)")] = None,
+    status: Annotated[str | None, Field(description="Filter by status (active/inactive/all)")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
     market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
