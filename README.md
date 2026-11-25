@@ -4,7 +4,7 @@
 
 [![CI](https://img.shields.io/badge/Gitea%20Actions-CI-blue)](https://gitea.invalid/oib/aitbc/actions)
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
 [![Version](https://img.shields.io/badge/version-v0.25.9-blue?style=flat-square)]()
 
@@ -74,4 +74,6 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup, conventions, and the PR p
 
 ## License
 
-[MIT License](LICENSE) — Copyright (c) 2025–2026 AITBC.
+The AITBC product core is licensed under the [GNU Affero General Public License v3.0](LICENSE). Copyright (c) 2025–2026 AITBC.
+
+`contracts/`, `docs/`, and `website/` remain permissively licensed; commercial licensing for the product core is available from the rights holder. See [LICENSING.md](LICENSING.md).
