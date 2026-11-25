@@ -192,10 +192,11 @@ def test_run_ollama_never_releases_buyer_side(monkeypatch):
     import urllib.request
 
     class _FakeResp:
-        def read(self):
+        def read(self, size=-1):
             import json as _json
 
-            return _json.dumps({"response": "hi", "eval_count": 10}).encode()
+            body = _json.dumps({"response": "hi", "eval_count": 10}).encode()
+            return body if size < 0 else body[:size]
 
         def __enter__(self):
             return self

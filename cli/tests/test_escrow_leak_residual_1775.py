@@ -55,8 +55,8 @@ class _FakeResp:
     def __exit__(self, *a: Any) -> None:
         return None
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        return self._body if size < 0 else self._body[:size]
 
 
 @pytest.fixture
