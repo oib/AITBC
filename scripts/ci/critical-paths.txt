@@ -24,7 +24,10 @@ apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py	8
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	144
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py	2
 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py	2
-apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py	16
+# bridge_validator floor drops 16→8 with the OPS corpus carve-out: the lost
+# references were grep-level mentions inside tests for deleted fleet-operation scripts;
+# eight direct product-side test files still reference the module.
+apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py	8
 apps/blockchain-node/src/aitbc_chain/state/state_transition.py	93
 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py	17
 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py	33

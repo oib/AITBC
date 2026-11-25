@@ -289,16 +289,16 @@ sudo systemctl reload nginx
 #### Production
 
 ```env
-VITE_API_URL=https://aitbc.bubuit.net/api
-VITE_WS_URL=wss://aitbc.bubuit.net/ws
+VITE_API_URL=https://aitbc.example.net/api
+VITE_WS_URL=wss://aitbc.example.net/ws
 VITE_NETWORK=mainnet
 ```
 
 #### Staging
 
 ```env
-VITE_API_URL=https://staging.aitbc.bubuit.net/api
-VITE_WS_URL=wss://staging.aitbc.bubuit.net/ws
+VITE_API_URL=https://staging.example.net/api
+VITE_WS_URL=wss://staging.example.net/ws
 VITE_NETWORK=testnet
 ```
 
@@ -405,5 +405,5 @@ if (import.meta.env.DEV) {
 
 ## Support
 
-- Documentation: `docs/` in this repository (no `docs.aitbc.bubuit.net` site exists)
+- Documentation: `docs/` in this repository (no `docs.example.net` site exists)
 - Issues: [GitHub Issues](https://github.com/oib/AITBC/issues)

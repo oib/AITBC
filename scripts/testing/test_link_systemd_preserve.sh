@@ -2,8 +2,9 @@
 # Dry-run proof for the selective reconcile sweep in link-systemd.sh
 # (Task 108). The 2026-10-04 deploy showed the old blanket
 # `find ... -name 'aitbc-*' -delete` unlinked every operator-linked repo
-# unit the role model did not list — escrow-settlements, journal-errors,
-# prometheus-watch, authority-balances went dark fleet-wide.
+# unit the role model did not list — the fleet monitoring timers of that
+# era went dark fleet-wide. Those timers are OPS-side after the repo split;
+# this pin now exercises the same sweep semantics with product units.
 #
 # Runs the real, unmodified script against a sandboxed systemd dir with a
 # stubbed systemctl — nothing outside the temp dir is touched. Exits
@@ -123,13 +124,6 @@ mkunit  apps/node             aitbc-blockchain-node.service
 mkunit  apps/market           aitbc-market.service
 mkunit  apps/explorer         aitbc-blockchain-explorer.service
 mkunit  apps/coordinator-api  aitbc-coordinator-api.service
-# Monitoring units as they exist in the real scripts/monitoring/
-mktimer scripts/monitoring    aitbc-escrow-settlements
-mktimer scripts/monitoring    aitbc-journal-errors
-mktimer scripts/monitoring    aitbc-authority-balances
-mkunit  scripts/monitoring    aitbc-prometheus-watch.service
-mktimer scripts/monitoring    aitbc-chain-isolation-monitor
-mktimer scripts/monitoring    aitbc-memory-monitor
 # Deliberately unmodeled repo unit — the preserve-passthrough case
 mktimer scripts/monitoring    aitbc-operator-preserve
 # Unmodeled repo timer with NO service — exercises the orphan-timer guard
@@ -171,7 +165,7 @@ cp "$REPO_ROOT/scripts/utils/link-systemd.sh" "$FAKE_REPO/scripts/utils/"
 cp "$REPO_ROOT/scripts/utils/systemd-env.sh" "$FAKE_REPO/scripts/utils/"
 
 # =========================================================================
-echo "== role: follower:customer:nogpu — monitoring units linked, preserve works =="
+echo "== role: follower:customer:nogpu — product units linked, preserve works =="
 mkrole follower customer nogpu
 # Pre-linked operator units: one unmodeled (must survive), one modeled but
 # role-excluded (must be dropped), plus foreign/dangling entries.
@@ -189,11 +183,10 @@ ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.timer" \
 
 run_link follower
 
-check "follower: escrow-settlements timer linked"  file_there "$SYSTEMD_DIR/aitbc-escrow-settlements.timer"
-check "follower: escrow-settlements svc linked"    file_there "$SYSTEMD_DIR/aitbc-escrow-settlements.service"
-check "follower: journal-errors linked"            file_there "$SYSTEMD_DIR/aitbc-journal-errors.timer"
-check "follower: prometheus-watch linked"          file_there "$SYSTEMD_DIR/aitbc-prometheus-watch.service"
-check "follower: authority-balances NOT linked"    file_gone  "$SYSTEMD_DIR/aitbc-authority-balances.timer"
+check "follower: blockchain-node linked"           file_there "$SYSTEMD_DIR/aitbc-blockchain-node.service"
+check "follower: blockchain-explorer linked"       file_there "$SYSTEMD_DIR/aitbc-blockchain-explorer.service"
+check "follower: market NOT linked"                file_gone  "$SYSTEMD_DIR/aitbc-market.service"
+check "follower: coordinator-api NOT linked"       file_gone  "$SYSTEMD_DIR/aitbc-coordinator-api.service"
 check "unmodeled operator unit preserved"          file_there "$SYSTEMD_DIR/aitbc-operator-preserve.timer"
 check "preserved unit keeps .wants entry"          file_there "$SYSTEMD_DIR/timers.target.wants/aitbc-operator-preserve.timer"
 check "role-excluded modeled unit removed"         file_gone  "$SYSTEMD_DIR/aitbc-market.service"
@@ -202,28 +195,26 @@ check "foreign (non-repo) link kept"               file_there "$SYSTEMD_DIR/aitb
 check "regular operator file kept"                 file_there "$SYSTEMD_DIR/aitbc-manual.service"
 
 # =========================================================================
-echo "== role: hub:customer:nogpu — hub set, no follower-only units =="
+echo "== role: hub:customer:nogpu — hub product set =="
 rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
 mkrole hub customer nogpu
 run_link hub
-check "hub: authority-balances linked"             file_there "$SYSTEMD_DIR/aitbc-authority-balances.timer"
-check "hub: authority-balances svc linked"         file_there "$SYSTEMD_DIR/aitbc-authority-balances.service"
-check "hub: escrow-settlements linked"             file_there "$SYSTEMD_DIR/aitbc-escrow-settlements.timer"
-check "hub: journal-errors linked"                 file_there "$SYSTEMD_DIR/aitbc-journal-errors.timer"
-check "hub: prometheus-watch NOT linked"           file_gone  "$SYSTEMD_DIR/aitbc-prometheus-watch.service"
+check "hub: blockchain-node linked"                file_there "$SYSTEMD_DIR/aitbc-blockchain-node.service"
+check "hub: blockchain-explorer linked"            file_there "$SYSTEMD_DIR/aitbc-blockchain-explorer.service"
+check "hub: market linked"                         file_there "$SYSTEMD_DIR/aitbc-market.service"
 check "hub: coordinator-api linked"                file_there "$SYSTEMD_DIR/aitbc-coordinator-api.service"
 check "hub: blockchain-explorer linked"            file_there "$SYSTEMD_DIR/aitbc-blockchain-explorer.service"
-check "hub: timer enables logged"                  log_has    "enable aitbc-escrow-settlements.timer"
+check "hub: service enables logged"                log_has    "enable aitbc-coordinator-api.service"
 
 # =========================================================================
 echo "== role: follower:shop:gpu — validator/shop shape =="
 rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
 mkrole follower shop gpu
 run_link shop
-check "shop: prometheus-watch linked"              file_there "$SYSTEMD_DIR/aitbc-prometheus-watch.service"
+check "shop: blockchain-node linked"               file_there "$SYSTEMD_DIR/aitbc-blockchain-node.service"
 check "shop: market linked"                        file_there "$SYSTEMD_DIR/aitbc-market.service"
 check "shop: coordinator-api linked"               file_there "$SYSTEMD_DIR/aitbc-coordinator-api.service"
-check "shop: authority-balances NOT linked"        file_gone  "$SYSTEMD_DIR/aitbc-authority-balances.timer"
+check "shop: blockchain-explorer linked"           file_there "$SYSTEMD_DIR/aitbc-blockchain-explorer.service"
 
 # =========================================================================
 echo "== orphan timer guard =="
@@ -241,13 +232,13 @@ check "orphan timer removed"                       file_gone  "$SYSTEMD_DIR/aitb
 # =========================================================================
 echo "== DISABLED_SERVICES wins over preserve =="
 rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
-mkrole follower customer nogpu 'DISABLED_SERVICES="aitbc-operator-preserve aitbc-journal-errors"'
+mkrole follower customer nogpu 'DISABLED_SERVICES="aitbc-operator-preserve aitbc-blockchain-explorer"'
 ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.timer" "$SYSTEMD_DIR/"
 ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.service" "$SYSTEMD_DIR/"
 run_link disabled
 check "DISABLED unmodeled unit removed"            file_gone  "$SYSTEMD_DIR/aitbc-operator-preserve.timer"
-check "DISABLED modeled unit not relinked"         file_gone  "$SYSTEMD_DIR/aitbc-journal-errors.timer"
-check "DISABLED unit never enabled"                log_hasnt  "enable aitbc-journal-errors.timer"
+check "DISABLED modeled unit not relinked"         file_gone  "$SYSTEMD_DIR/aitbc-blockchain-explorer.service"
+check "DISABLED unit never enabled"                log_hasnt  "enable aitbc-blockchain-explorer.service"
 
 # =========================================================================
 echo "== no role files — follower:customer:nogpu defaults =="
@@ -257,9 +248,9 @@ echo "== no role files — follower:customer:nogpu defaults =="
 rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
 rm -f "$ETC_DIR/node.env" "$ETC_DIR/blockchain.env"
 run_link norole
-check "default: escrow-settlements linked"         file_there "$SYSTEMD_DIR/aitbc-escrow-settlements.timer"
-check "default: prometheus-watch linked"           file_there "$SYSTEMD_DIR/aitbc-prometheus-watch.service"
-check "default: authority-balances NOT linked"     file_gone  "$SYSTEMD_DIR/aitbc-authority-balances.timer"
+check "default: blockchain-node linked"            file_there "$SYSTEMD_DIR/aitbc-blockchain-node.service"
+check "default: blockchain-explorer linked"        file_there "$SYSTEMD_DIR/aitbc-blockchain-explorer.service"
+check "default: market NOT linked"                 file_gone  "$SYSTEMD_DIR/aitbc-market.service"
 check "default: hub-only unit not linked"          file_gone  "$SYSTEMD_DIR/aitbc-coordinator-api.service"
 
 # =========================================================================

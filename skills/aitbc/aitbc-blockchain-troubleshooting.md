@@ -103,7 +103,7 @@ ssh <node1> 'sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, 
 journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
 
 # Verify RPC endpoint is accessible
-curl -s http://<node1>:8202/rpc/genesis_allocations?chain_id=ait-hub.aitbc.bubuit.net
+curl -s http://<node1>:8202/rpc/genesis_allocations?chain_id=ait-hub.example.net
 ```
 
 **Solution - restore state, never delete block 0:**

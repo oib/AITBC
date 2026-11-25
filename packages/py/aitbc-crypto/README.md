@@ -179,6 +179,6 @@ For security issues, please email security@aitbc.dev rather than opening public 
 
 ## Support
 
-- **Documentation**: https://aitbc.bubuit.net/docs/
+- **Documentation**: https://github.com/oib/AITBC/tree/main/docs
 - **Issues**: https://github.com/oib/AITBC/issues
 - **Security**: security@aitbc.dev

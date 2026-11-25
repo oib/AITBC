@@ -162,7 +162,7 @@ within ~2 AITBC blocks. End-to-end: **1–5 minutes** typical.
 
 ```bash
 # ledger row on hub (operator):
-ssh hub 'cd /opt/aitbc && scripts/ops/bridge-admin.sh \
+ssh hub 'cd /opt/aitbc && /opt/aitbc-ops/scripts/ops/bridge-admin.sh \
   status <eth_tx_hash>'
 #   expect: status completed, ait_tx_hash set
 
@@ -172,7 +172,7 @@ cd /opt/aitbc && venv/bin/python -m aitbc_cli wallet balance --name sepolia
 #   sealed-time oracle rates — re-check live)
 
 # ETH side (read-only):
-venv/bin/python scripts/ops/sepolia_balance.py \
+venv/bin/python aitbc-ops:scripts/ops/sepolia_balance.py \
   <node0-sepolia-address> 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781
 #   node0 down 0.002 ETH + gas; bridge up 0.002 ETH — bridge nonce is
 #   outbound-only, so a deposit does not bump it (12 at the 21 Nov check)
@@ -245,7 +245,7 @@ ssh hub 'curl -s http://localhost:8108/v1/bridge/withdraw/<ait_tx_hash>'
 #   (or MCP: get_eth_bridge_withdrawal(ait_tx_hash=..., role="hub"))
 
 # ETH side:
-venv/bin/python scripts/ops/sepolia_balance.py \
+venv/bin/python aitbc-ops:scripts/ops/sepolia_balance.py \
   <node2-sepolia-address> 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781
 #   node2 sepolia +~0.0007 ETH; bridge wallet nonce 12 -> 13
 #   (point-in-time, 21 Nov — was 0 -> 1 in the original play)

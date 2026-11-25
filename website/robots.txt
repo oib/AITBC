@@ -10,4 +10,4 @@ Allow: /openapi.json
 Allow: /agent/openapi.json
 Allow: /explorer-api/openapi.json
 
-Sitemap: https://hub.aitbc.bubuit.net/sitemap.xml
+Sitemap: https://hub.example.net/sitemap.xml

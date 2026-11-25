@@ -35,7 +35,6 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HEALTH_CHECK_SH = REPO_ROOT / "scripts" / "monitoring" / "health_check.sh"
-SERVICES_SH = REPO_ROOT / "scripts" / "service-management" / "lib" / "services.sh"
 CONSTANTS_PY = REPO_ROOT / "aitbc" / "constants.py"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 DOCS_DIR = REPO_ROOT / "docs"
@@ -77,10 +76,7 @@ NON_SPEC_HEALTH_PATHS: dict[int, set[str]] = {
 # them means deciding what those services are, not editing a path. Frozen so the set cannot
 # grow while that decision is outstanding; 9090 and 9093 are Prometheus and Alertmanager,
 # whose real liveness path is /-/healthy.
-UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
-    (9090, "/-/healthy"),
-    (9093, "/-/healthy"),
-}
+UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = set()
 
 # Matches a literal liveness-probe URL against the loopback host, capturing port and path.
 #
@@ -238,23 +234,6 @@ class TestHealthGatesCanFail:
 class TestPortMapsAgree:
     """Three files write the port map down. They disagreed; two of them were wrong."""
 
-    def test_services_sh_agrees_with_the_health_map(self):
-        shell = _shell_map(SERVICES_SH.read_text(), "AITBC_SERVICE_PORTS")
-        health = {svc: port for svc, (port, _) in _endpoint_map().items()}
-        disagreements = {svc: (port, health[svc]) for svc, port in shell.items() if svc in health and health[svc] != port}
-        assert not disagreements, (
-            f"lib/services.sh and health_check.sh disagree (service: services.sh, health_check.sh): {disagreements}"
-        )
-
-    def test_services_sh_ports_are_ports_something_binds(self):
-        shell = _shell_map(SERVICES_SH.read_text(), "AITBC_SERVICE_PORTS")
-        stray = {svc: port for svc, port in shell.items() if port not in DECLARED_PORTS}
-        assert not stray, f"lib/services.sh points at ports no service declares: {stray}"
-
-    def test_no_two_services_share_a_port_in_services_sh(self):
-        shell = _shell_map(SERVICES_SH.read_text(), "AITBC_SERVICE_PORTS")
-        assert len(set(shell.values())) == len(shell), f"two services in lib/services.sh claim the same port: {shell}"
-
     def test_constants_agree_with_the_health_map(self):
         from aitbc.constants import (
             AGENT_COORDINATOR_PORT,
@@ -305,26 +284,6 @@ class TestUndeclaredPortInventory:
 
 class TestSpecificRegressions:
     """The individual gates this finding repaired, pinned by the shape that was wrong."""
-
-    def test_deploy_nginx_does_not_proxy_health_to_a_404(self):
-        text = (REPO_ROOT / "scripts" / "deployment" / "deploy" / "deploy-to-server.sh").read_text()
-        assert "proxy_pass http://127.0.0.1:8203/v1/health" not in text, (
-            "the generated nginx config proxies the public /health to a path coordinator-api 404s"
-        )
-
-    def test_chaos_test_asks_for_a_path_that_answers_ok(self):
-        """It greps stdout for "ok"; a 404 body has none, so every pod read as down."""
-        text = (REPO_ROOT / "scripts" / "testing" / "chaos_test_network.py").read_text()
-        assert "/v1/health" not in text
-        assert "coordinator:8203/health" in text
-
-    def test_rotate_jwt_secret_verifies_the_service_it_names(self):
-        """The market gate probed 8104, which is trading, and passed while market was down."""
-        text = (REPO_ROOT / "scripts" / "ops" / "rotate_jwt_secret.sh").read_text()
-        market = re.search(r'"aitbc-market"\)(.*?);;', text, re.DOTALL)
-        assert market, "the aitbc-market case is gone from rotate_jwt_secret.sh"
-        assert "8102" in market.group(1), "the market gate does not probe market"
-        assert "8104" not in market.group(1), "the market gate still probes trading"
 
     def test_monitoring_blackbox_targets_are_reachable_paths(self):
         text = (REPO_ROOT / "docs" / "infrastructure" / "monitoring-setup.md").read_text()

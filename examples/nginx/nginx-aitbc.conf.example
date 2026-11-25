@@ -811,7 +811,7 @@ server {
     # #1202 (R10-BRIDGE-EXPOSE-1): scoping review of the former blanket
     # /v1/bridge/ -> wallet_service/ prefix. The public subset is large by
     # design: the exchange page (website/exchange.js) and the wallet CLI
-    # bridge/sell commands (--hub-url https://hub.aitbc.bubuit.net, documented
+    # bridge/sell commands (--hub-url https://hub.example.net, documented
     # in docs/scenarios/81_wallet_options.md) legitimately use most routes,
     # including admin-keyed reads (float, settlements, sell/*) from remote
     # shop nodes.

@@ -155,8 +155,7 @@ pip install -r requirements-dev.txt
 /opt/aitbc/scripts/utils/link-systemd.sh
 
 # Or link manually:
-for svc in /opt/aitbc/apps/*/aitbc-*.service /opt/aitbc/scripts/utils/aitbc-*.service \
-          /opt/aitbc/scripts/monitoring/aitbc-*.service; do
+for svc in /opt/aitbc/apps/*/aitbc-*.service /opt/aitbc/scripts/utils/aitbc-*.service; do
     [ -f "$svc" ] && ln -sf "$svc" /etc/systemd/system/
 done
 systemctl daemon-reload

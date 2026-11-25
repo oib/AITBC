@@ -56,7 +56,7 @@ have no such unit (`systemctl cat` → "No files found"); their
 
 ### Store files (`/var/lib/aitbc/data/`)
 
-- Chain dir `ait-hub.aitbc.bubuit.net/`: `chain.db` (+`-shm`/`-wal`),
+- Chain dir `ait-hub.example.net/`: `chain.db` (+`-shm`/`-wal`),
   `genesis.json`, `genesis.json.pre-reset.20260903-191240`,
   `chain.pre-snapshot.20260909-*` (2), `chain.db.bak.*` sets (20260910,
   -20260927-fork, -20260928-27207wedge, -pre-gpu-clean-20261002).
@@ -91,7 +91,7 @@ ships inert on this host (enabled post-cut, operator-named).
 
 ### Store files
 
-- Chain dir `ait-hub.aitbc.bubuit.net/` with `chain.db`.
+- Chain dir `ait-hub.example.net/` with `chain.db`.
 - Top-level `genesis.json` (old artifact).
 - Service DBs: `admin_nonces.db`, `agent_coordinator.db`,
   `agent_management.db` (dead name — see note above),
@@ -120,7 +120,7 @@ operator-named).
 
 ### Store files
 
-- Chain dir `ait-hub.aitbc.bubuit.net/` + **top-level `chain.db`**.
+- Chain dir `ait-hub.example.net/` + **top-level `chain.db`**.
 - Service DBs: `admin_nonces.db`, `agent_coin_requests.db`,
   `aitbc_edge.db`, `bridge_deposits.db`, `coordinator.db` (+`.backup`,
   `.backup2`), `gpu_service.db`, `keystore.db`,
@@ -144,7 +144,7 @@ operator-named).
 
 ### Store files
 
-- Chain dir `ait-hub.aitbc.bubuit.net/` + **top-level `chain.db`**
+- Chain dir `ait-hub.example.net/` + **top-level `chain.db`**
   (+`chain.db.ait-testnet.bak`, `chain.db.backup.20260428_082834`,
   `mempool.db.ait-testnet.bak`).
 - Service DBs: `admin_nonces.db`, `agent_coin_requests.db`,
@@ -174,7 +174,7 @@ operator-named).
 
 ### Store files
 
-- Chain dir `ait-hub.aitbc.bubuit.net/` + **top-level `chain.db`**,
+- Chain dir `ait-hub.example.net/` + **top-level `chain.db`**,
   `chain_aitbc.db`, `chain-backup-2026-08-22.db`,
   `pre-migrate-20260816_220424-island-chain.db`.
 - Service DBs: `admin_nonces.db`, `agent_coin_requests.db`,

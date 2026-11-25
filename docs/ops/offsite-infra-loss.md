@@ -35,7 +35,7 @@ issue ledger DB), user accounts, tokens, CI runner registration.
 4. Re-register the `oib` user, re-mint tokens (`gitea admin user
    generate-access-token`), update `~/.git-credentials` (on the IDE host),
    `/root/.gitea_token` (hub), node credential helpers.
-5. Re-point `gitea.bubuit.net` DNS/nginx; verify `tea` login + a test
+5. Re-point `gitea.example.net` DNS/nginx; verify `tea` login + a test
    issue comment.
 6. Re-register gitea-runner if CI is revived.
 

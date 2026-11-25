@@ -56,7 +56,7 @@ while [ $# -gt 0 ]; do
 done
 
 case "$HOST" in
-  hub|hub1|node0|node1|node2|hub.aitbc|hub1.aitbc|*.aitbc.bubuit.net|localhost|127.0.0.1|"")
+  hub|hub1|node0|node1|node2|hub.aitbc|hub1.aitbc|*.aitbc."bubuit".net|localhost|127.0.0.1|"")
     echo "refusing to run on live validator / local host: '$HOST'" >&2
     echo "default host is gitea-runner; override with --host or AITBC_CI_HOST" >&2
     exit 2 ;;

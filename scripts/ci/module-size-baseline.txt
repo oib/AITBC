@@ -12,4 +12,3 @@
 2384	apps/wallet/src/wallet_app/bridge/bridge_db.py
 2514	mcp-server/aitbc_mcp_cli_tools.py
 2407	mcp-server/aitbc_mcp_rpc_tools.py
-2437	scripts/reset-harness/rehearsal.py

@@ -6,7 +6,7 @@ read-only baseline 20 Oct: **0 firing, 0 pending**).
 
 ## The stack (unchanged by the cut)
 
-- **Fleet rules**: `scripts/monitoring/aitbc_rules.yml` — 4 record rules +
+- **Fleet rules**: `aitbc-ops:scripts/monitoring/aitbc_rules.yml` — 4 record rules +
   **53 alerts**; deployed identical (sha256) on all five hosts.
 - **Hub-only rules**: `/etc/prometheus/aitbc_hub_rules.yml` — **23 alerts**
   (authority/governance float guards, bridge set, `ChainDiverged`).

@@ -166,7 +166,7 @@ class TestJoinPublicUrls:
     bootstrap/subscribe URLs pointing at an attacker host)."""
 
     def test_join_ignores_spoofed_forwarding_headers(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("AITBC_HOSTNAME", "hub.aitbc.bubuit.net")
+        monkeypatch.setenv("AITBC_HOSTNAME", "hub.example.net")
         monkeypatch.setenv("AITBC_PROTOCOL", "https")
 
         response = client.post(
@@ -181,7 +181,7 @@ class TestJoinPublicUrls:
         assert response.status_code == 200, response.text
         data = response.json()
         for url in (data["bootstrap_env_url"], data["genesis_json_url"], data["subscribe_url"]):
-            assert url.startswith("https://hub.aitbc.bubuit.net"), url
+            assert url.startswith("https://hub.example.net"), url
             assert "evil.example" not in url
 
     def test_join_without_config_never_reflects_host_header(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

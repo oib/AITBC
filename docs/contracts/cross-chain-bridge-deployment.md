@@ -99,7 +99,7 @@ The Sepolia rehearsal found three failure modes, all fixed in the tooling
 
 ## Configuration preflight
 
-`scripts/ops/bridge_mainnet_preflight.py` checks the seven env knobs
+`aitbc-ops:scripts/ops/bridge_mainnet_preflight.py` checks the seven env knobs
 (network name, resolved Chainlink feed, confirmation depth, AIT price
 pins, staleness gate, payout cap) in two profiles:
 

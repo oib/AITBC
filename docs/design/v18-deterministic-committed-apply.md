@@ -43,7 +43,7 @@ Same env→literal pattern v15/v17 followed:
   held on main, the env value becomes a code literal default — the
   end-state `state_transition_v9_height = 30400` already shows
   (`config.py:835`). Until then the env pin is the contract.
-- **Fleet watch.** `scripts/monitoring/fleet-config-check.sh` carries the
+- **Fleet watch.** `aitbc-ops:scripts/monitoring/fleet-config-check.sh` carries the
   pinned-height list at `:155-160` (last entry
   `STATE_TRANSITION_V17_HEIGHT`, `:160`); it gains
   `STATE_TRANSITION_V18_HEIGHT` in the same change so a host missing the
@@ -165,7 +165,7 @@ branch is unreachable on replay but must exist for safety.
   `BOND_RELEASE` at the lock boundary returns the same verdict on every
   host (both compare `block_time`, not wall clock).
 - [ ] **`fleet-config-check.sh` gains `STATE_TRANSITION_V18_HEIGHT`** in
-  its pinned list (`scripts/monitoring/fleet-config-check.sh:155-160`).
+  its pinned list (`aitbc-ops:scripts/monitoring/fleet-config-check.sh:155-160`).
 - [ ] **Cross-DB `committed_fingerprint` regression pin.** The two-
   database replay harness (`tests/unit/test_v9_type_coverage_replay.py`,
   `_replay_twice` `:539-567`) gains an assertion comparing

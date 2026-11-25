@@ -31,7 +31,7 @@ def _config():
     return SimpleNamespace(
         hub_proposer_id="0xPROP",
         blockchain_rpc_api_key=None,
-        hub_discovery_url="https://hub.aitbc.bubuit.net",
+        hub_discovery_url="https://hub.example.net",
         blockchain_rpc_url="http://127.0.0.1:8202",
         coordinator_api_url="http://localhost:8203",
     )

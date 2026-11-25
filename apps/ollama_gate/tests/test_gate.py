@@ -80,7 +80,7 @@ def test_metadata_routes_ignore_spoofed_forwarding_headers(client):
     """A client-asserted edge/trusted IP in XFF or X-Real-IP must not buy
     trust: the gate authorizes on the job token only, never on client IP."""
     spoofed = {
-        "X-Forwarded-For": "198.51.100.1, 192.168.0.1",
+        "X-Forwarded-For": "192.0.2.1, 198.51.100.1",
         "X-Real-IP": "95.216.198.140",
         "X-Access-Key": "access-key-1",
         "X-Access-Secret": "s",

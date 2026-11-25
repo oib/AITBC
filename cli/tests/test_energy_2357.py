@@ -175,7 +175,7 @@ def test_parse_quote_valid_unsigned_quote_still_verifies(runner, tmp_path):
     )
     q = EnergyQuote(
         domain="aitbc.energy.quote.v1",
-        chain_id="ait-hub.aitbc.bubuit.net",
+        chain_id="ait-hub.example.net",
         settlement_asset="AITBC",
         settlement_unit_scale=10**18,
         buyer=to_canonical("0x" + "11" * 20),
@@ -203,7 +203,7 @@ def test_parse_quote_valid_unsigned_quote_still_verifies(runner, tmp_path):
     quote_file.write_text(json.dumps(q.to_dict(include_signature=True)))
 
     config = _config()
-    config.native_chain_id = "ait-hub.aitbc.bubuit.net"
+    config.native_chain_id = "ait-hub.example.net"
     config.energy_operator_address = "0x" + "33" * 20
     with (
         patch("aitbc_cli.commands.energy.get_config", return_value=config),

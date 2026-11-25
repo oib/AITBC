@@ -1,7 +1,7 @@
 # Explorer read-API rate limit — nginx limit_req
 
 Status: **applied on hub 6 Nov 2026** — `explorer_api` zone live; verified
-429s on burst through `https://hub.aitbc.bubuit.net/explorer-api/`.
+429s on burst through `https://hub.example.net/explorer-api/`.
 Closes the nginx layer of PI-EX-001 (#1176) and is part of the
 PI-API-001 (#1177) hub-side rollout.
 

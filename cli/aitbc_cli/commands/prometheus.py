@@ -229,10 +229,15 @@ def _save_firing_state(path: str, firing: dict[str, dict[str, Any]]) -> None:
     """Persist the firing map atomically beside the alert log."""
     target = Path(path)
     tmp = target.with_suffix(target.suffix + ".tmp")
-    tmp.write_text(
-        json.dumps({"version": 1, "firing": {k: {"alert": v["alert"], "silenced": v["silenced"]} for k, v in firing.items()}})
-    )
-    os.replace(tmp, target)
+    try:
+        tmp.write_text(
+            json.dumps(
+                {"version": 1, "firing": {k: {"alert": v["alert"], "silenced": v["silenced"]} for k, v in firing.items()}}
+            )
+        )
+        os.replace(tmp, target)
+    except OSError as exc:
+        logger.warning("firing-state file %s is not writable (%s); restart dedupe is degraded for this run", path, exc)
 
 
 def _open_alert_log(path: str) -> logging.Logger | None:
@@ -346,7 +351,7 @@ def _notify(
     *,
     notify_format: str = "json",
     topic: str = "aitbc-alerts",
-    click_url: str = "https://hub.aitbc.bubuit.net/alerts.html",
+    click_url: str = "https://hub.example.net/alerts.html",
     token: str | None = None,
 ) -> None:
     """POST the event to every notify URL, with one retry per URL.
@@ -647,7 +652,7 @@ def _event_epoch(record: dict[str, Any]) -> float | None:
 @click.option(
     "--notify-click",
     "notify_click",
-    default="https://hub.aitbc.bubuit.net/alerts.html",
+    default="https://hub.example.net/alerts.html",
     envvar="AITBC_WATCH_NOTIFY_CLICK",
     help="Public link attached to ntfy notifications (watch mode)",
 )

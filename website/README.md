@@ -23,7 +23,7 @@ committed files but can be overridden per deployment via
 | `WEBSITE_CHAIN_ID` | `chainId` in `config.js`, `dashboard.js`, `follower-api-key-announcement.html` |
 | `CONTACT_EMAIL` | site footer + `/rpc/network-info` (read by `aitbc-blockchain-rpc.service` via `EnvironmentFile`) |
 
-When `/etc/aitbc/website.env` exists, `scripts/ops/render-website.sh`
+When `/etc/aitbc/website.env` exists, the external website renderer
 rewrites the tokens in place — `update.sh` runs it after every pull so the
 rendered values survive updates. Fallbacks when a variable is unset:
 `AITBC_HOSTNAME` / `HUB_DISCOVERY_URL` and `CHAIN_ID` from `node.env`.

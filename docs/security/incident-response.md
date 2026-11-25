@@ -32,7 +32,7 @@ management, or legal mailboxes:
 
 ```bash
 # Security contact (all severities)
-SECURITY_CONTACT="aitbc@bubuit.net"
+SECURITY_CONTACT="security@example.net"
 
 # Or open a private security advisory on GitHub:
 # https://github.com/oib/AITBC/security

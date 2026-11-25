@@ -163,7 +163,7 @@ optional; the chain-table rebuild must not depend on it.
 ## 8. Tool sketch
 
 ```
-venv/bin/python scripts/ops/rebuild-escrows.py \
+venv/bin/python aitbc-ops:scripts/ops/rebuild-escrows.py \
     --db /var/lib/aitbc/data/<chain_id>/chain.db \
     [--job-id <id>] [--write] [--report /tmp/escrow-recon.json]
 ```
@@ -199,7 +199,7 @@ venv/bin/python scripts/ops/rebuild-escrows.py \
 
 ## 11. Write-phase runbook (added 2026-10-12 — escrow-repair.py)
 
-The write phase is a separate tool (`scripts/ops/escrow-repair.py`), not a
+The write phase is a separate tool (`aitbc-ops:scripts/ops/escrow-repair.py`), not a
 flag on the proof. It runs on a **snapshot copy** produced by its own
 `snapshot` subcommand; live databases are written only when the operator
 opens the phase (the tool additionally requires `--allow-live-path` on live
@@ -207,9 +207,9 @@ paths).
 
 ### Per-host backup procedure (each host, in order node2 → node0 → node1 → hub1 → hub)
 
-1. `venv/bin/python scripts/ops/rebuild-escrows.py --db <chain.db> --plan` —
+1. `venv/bin/python aitbc-ops:scripts/ops/rebuild-escrows.py --db <chain.db> --plan` —
    record the pre-state plan (counts + anomalies) into the operator log.
-2. `venv/bin/python scripts/ops/escrow-repair.py snapshot --db <chain.db> --to <backup-dir>` —
+2. `venv/bin/python aitbc-ops:scripts/ops/escrow-repair.py snapshot --db <chain.db> --to <backup-dir>` —
    the sqlite backup API copies from a `mode=ro` connection, so the live
    node keeps running; the dir is created mode 700. Record the printed
    source sha256 — that checksum proves the backup post-dates the run.

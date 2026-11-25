@@ -39,9 +39,9 @@ class TestWrapperBuildCmd:
 
     def test_bind_host_env_is_honoured(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _clear(monkeypatch)
-        monkeypatch.setenv("BIND_HOST", "198.51.100.136")
+        monkeypatch.setenv("BIND_HOST", "192.0.2.136")
         cmd = _load_wrapper().build_cmd()
-        assert cmd[cmd.index("--host") + 1] == "198.51.100.136"
+        assert cmd[cmd.index("--host") + 1] == "192.0.2.136"
 
     def test_no_wildcard_bind(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _clear(monkeypatch)

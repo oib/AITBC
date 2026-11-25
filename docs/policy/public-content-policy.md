@@ -93,6 +93,6 @@ Exact wording, ready to paste once the operator fills the contact:
 ## Contact
 
 The contact is `CONTACT_EMAIL` in `/etc/aitbc/website.env` on the hub
-(currently `andreas.fleckl@bubuit.net`); `render-website.sh` writes it
-between the `aitbc-contact` markers on the messages page. Filled 16 Oct
-2026 — no open items remain.
+(the live value is operator configuration and intentionally stays outside the
+public repo); the external renderer writes it between the `aitbc-contact`
+markers on the messages page.

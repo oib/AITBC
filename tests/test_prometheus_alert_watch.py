@@ -189,22 +189,6 @@ def test_an_unwritable_alert_log_does_not_stop_the_watcher(watch, tmp_path) -> N
     assert _kinds(printed) == ["prometheus_watch_started", "prometheus_alert_firing", "prometheus_alert_resolved"]
 
 
-def test_the_watch_unit_writes_the_alert_log_inside_a_path_its_sandbox_allows() -> None:
-    """ProtectSystem=strict makes /var read-only: the unit needs the log directory in ReadWritePaths or the file is never written."""
-    unit = (REPO / "scripts" / "monitoring" / "aitbc-prometheus-watch.service").read_text()
-    exec_start = next(line for line in unit.splitlines() if line.startswith("ExecStart="))
-    assert "--alert-log /var/log/aitbc/alerts.log" in exec_start
-    read_write = next(line for line in unit.splitlines() if line.startswith("ReadWritePaths="))
-    assert "/var/log/aitbc" in read_write.split("=", 1)[1].split()
-
-
-def test_the_watch_unit_loads_an_optional_env_file_and_runs_a_watchdog() -> None:
-    """Tuning knobs live in /etc/aitbc/prometheus-watch.env; WatchdogSec restarts a hung loop, not just a crash."""
-    unit = (REPO / "scripts" / "monitoring" / "aitbc-prometheus-watch.service").read_text()
-    assert "EnvironmentFile=-/etc/aitbc/prometheus-watch.env" in unit
-    assert any(line.startswith("WatchdogSec=") for line in unit.splitlines())
-
-
 def _capture_notify(monkeypatch, fail_urls: set[str] | None = None) -> list[tuple[str, dict[str, Any]]]:
     """Stub ``httpx.post`` and collect (url, payload) pairs; ``fail_urls`` always raise."""
     sent: list[tuple[str, dict[str, Any]]] = []
@@ -692,7 +676,7 @@ def test_ntfy_format_posts_a_whitelisted_publish_body(watch, monkeypatch, notify
     for body in payloads:
         assert set(body) == {"topic", "title", "message", "priority", "tags", "click"}
         assert body["topic"] == "aitbc-alerts"
-        assert body["click"] == "https://hub.aitbc.bubuit.net/alerts.html"
+        assert body["click"] == "https://hub.example.net/alerts.html"
     # Nothing outside the whitelist: no addresses, hashes, paths or annotation text.
     for body in captured:
         wire = body["body"].decode()

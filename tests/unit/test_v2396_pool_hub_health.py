@@ -25,7 +25,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 import pytest
-import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.sql.elements import TextClause
@@ -251,7 +250,6 @@ def test_the_settings_default_port_is_the_one_the_unit_binds() -> None:
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HEALTH_CHECK_SH = REPO_ROOT / "scripts" / "monitoring" / "health_check.sh"
 POOL_HUB_UNIT = REPO_ROOT / "apps" / "pool-hub" / "aitbc-pool-hub.service"
-PROMETHEUS_YML = REPO_ROOT / "scripts" / "monitoring" / "prometheus.yml"
 
 
 def _monitored_url() -> str:
@@ -281,13 +279,3 @@ def test_the_monitored_path_is_a_route_the_app_serves() -> None:
     paths = {route.path for route in app.routes if hasattr(route, "path")}
 
     assert urlparse(_monitored_url()).path in paths
-
-
-def test_prometheus_scrapes_pool_hub() -> None:
-    """poolhub_miners_online is exported and was scraped by nothing."""
-    config = yaml.safe_load(PROMETHEUS_YML.read_text(encoding="utf-8"))
-    jobs = {job["job_name"]: job for job in config["scrape_configs"]}
-
-    assert "pool-hub" in jobs, "no scrape job for pool-hub"
-    assert jobs["pool-hub"]["static_configs"][0]["targets"] == ["127.0.0.1:8210"]
-    assert jobs["pool-hub"]["metrics_path"] == "/metrics"

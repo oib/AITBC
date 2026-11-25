@@ -1,7 +1,7 @@
 """#947: scripts/utils/cleanup_fake_gpus.py is retired.
 
 It DELETEs /v1/market/gpu/<id> with no Authorization against a hard-coded
-id list — the registry sweep tooling (scripts/ops/gpu-registry-sweep.py)
+id list — fleet registry-sweep tooling in the companion aitbc-ops repo
 covers stale offers. Gone, and staying gone is pinned.
 """
 

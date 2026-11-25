@@ -191,9 +191,9 @@ restart by construction. PASS requires all of:
 ## Reference
 
 - Shadow machinery: `apps/blockchain-node/src/aitbc_chain/state/v9_policy.py`
-- Window check: `scripts/monitoring/fleet-config-check.sh` "v9 shadow
+- Window check: `aitbc-ops:scripts/monitoring/fleet-config-check.sh` "v9 shadow
   window (pin gate)"
-- Alert rules tested: `scripts/monitoring/aitbc_rules_test.yml`
+- Alert rules tested: `aitbc-ops:scripts/monitoring/aitbc_rules_test.yml`
   (`promtool test rules`) — V9ShadowRejection, V9AttestationRefusal,
   AttestationLagRefusal (#1294 liveness/rule split)
 - Phase-2 description: `docs/releases/v0.25/v0.25.8_change.log`

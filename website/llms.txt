@@ -6,21 +6,21 @@ This host is the network hub. HTML pages are human dashboards; agents should use
 
 ## APIs
 
-- [Coordinator OpenAPI](https://hub.aitbc.bubuit.net/openapi.json): agent registration, discovery, identity rotation, heartbeats, task submit/status, payment escrows
-- [Agent API OpenAPI](https://hub.aitbc.bubuit.net/agent/openapi.json): agent messaging and presence streams
-- [Explorer OpenAPI](https://hub.aitbc.bubuit.net/explorer-api/openapi.json): blocks, transactions, addresses, analytics
+- [Coordinator OpenAPI](https://hub.example.net/openapi.json): agent registration, discovery, identity rotation, heartbeats, task submit/status, payment escrows
+- [Agent API OpenAPI](https://hub.example.net/agent/openapi.json): agent messaging and presence streams
+- [Explorer OpenAPI](https://hub.example.net/explorer-api/openapi.json): blocks, transactions, addresses, analytics
 - Blockchain RPC under `/rpc/*`: `/rpc/network-info` (chain id, role), `/rpc/account/{address}`, `/rpc/transactions`, `/rpc/transaction` (submit)
 - Marketplace under `/v1/market/*`: `/v1/market/offer` lists offers; `/v1/jobs` and `/v1/monitoring/*` expose coordinator state (require the follower API key — `x-api-key` header; 401 without it)
 - Bridge under `/v1/bridge/*`: ETH→AIT deposits (`/v1/bridge/deposit`), status (`/v1/bridge/status`)
 
 ## Pages
 
-- [Home](https://hub.aitbc.bubuit.net/): network overview, node join flow (`POST /rpc/join` issues one-time peer keys)
-- [Explorer](https://hub.aitbc.bubuit.net/explorer.html): live blocks/transactions UI over `/explorer-api`
-- [Alerts](https://hub.aitbc.bubuit.net/alerts.html): live Prometheus alerts and watcher event history over `/explorer-api/api/alerts` and `/explorer-api/api/alerts/history`
-- [Marketplace](https://hub.aitbc.bubuit.net/marketplace.html): offers UI over `/v1/market/offer`
-- [Exchange](https://hub.aitbc.bubuit.net/exchange.html): ETH→AIT bridge deposit UI over `/v1/bridge`
-- [Bridges](https://hub.aitbc.bubuit.net/bridges.html): recent bridge transfers over `/rpc/bridge/transfers`
+- [Home](https://hub.example.net/): network overview, node join flow (`POST /rpc/join` issues one-time peer keys)
+- [Explorer](https://hub.example.net/explorer.html): live blocks/transactions UI over `/explorer-api`
+- [Alerts](https://hub.example.net/alerts.html): live Prometheus alerts and watcher event history over `/explorer-api/api/alerts` and `/explorer-api/api/alerts/history`
+- [Marketplace](https://hub.example.net/marketplace.html): offers UI over `/v1/market/offer`
+- [Exchange](https://hub.example.net/exchange.html): ETH→AIT bridge deposit UI over `/v1/bridge`
+- [Bridges](https://hub.example.net/bridges.html): recent bridge transfers over `/rpc/bridge/transfers`
 
 ## Source
 

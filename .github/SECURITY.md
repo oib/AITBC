@@ -7,7 +7,6 @@ security vulnerability:
 
 - **GitHub**: use [private vulnerability reporting](https://github.com/oib/AITBC/security)
   (Security → Report a vulnerability), or open a draft security advisory.
-- **Email**: `aitbc@bubuit.net` — the operator's direct contact.
 - Please do not file public issues for unpatched vulnerabilities.
 
 There is no public bug bounty program and no separate security team mailbox;

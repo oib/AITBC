@@ -49,9 +49,9 @@ Short-address forms only; no keys, tokens, signatures, or wallet files.
 
 | id | item | bucket | today's read (2026-10-31, command) | zero-check re-run | action tool | who names it | order dependency | if skipped |
 |---|---|---|---|---|---|---|---|---|
-| B1 | coin request `redacted-host.example.invalid-48Caf435-1793083474` — PENDING, 36,000,000 units | archive | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/hermes_coin_requests.db?mode=ro' \"SELECT id,status,amount FROM coin_requests WHERE status='PENDING'\""` → 3 PENDING | no `PENDING` rows | `aitbc coin-requests reject <id>` (bookkeeping only) | one operator-named line per row or a batch-reject line | before the cut; independent | pending row archives with the DB |
-| B2 | coin request `redacted-host.example.invalid-48Caf435-1793088928` — PENDING, 108,000,000 u | archive | same → PENDING | same | same as B1 | same as B1 | same as B1 | same |
-| B3 | coin request `redacted-host.example.invalid-Bc306DfF-1793098741` — PENDING, 108,000,000 u | archive | same → PENDING | same | same as B1 | same as B1 | same as B1 | same |
+| B1 | coin request `req-node0.example.net-48Caf435-1793083474` — PENDING, 36,000,000 units | archive | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/hermes_coin_requests.db?mode=ro' \"SELECT id,status,amount FROM coin_requests WHERE status='PENDING'\""` → 3 PENDING | no `PENDING` rows | `aitbc coin-requests reject <id>` (bookkeeping only) | one operator-named line per row or a batch-reject line | before the cut; independent | pending row archives with the DB |
+| B2 | coin request `req-node0.example.net-48Caf435-1793088928` — PENDING, 108,000,000 u | archive | same → PENDING | same | same as B1 | same as B1 | same as B1 | same |
+| B3 | coin request `req-node0.example.net-Bc306DfF-1793098741` — PENDING, 108,000,000 u | archive | same → PENDING | same | same as B1 | same as B1 | same as B1 | same |
 
 ## Class C — evidence only (not drain items; re-read as sameness checks)
 

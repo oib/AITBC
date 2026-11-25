@@ -15,7 +15,7 @@ model-management routes (/api/pull, /api/create, /api/delete, /api/copy,
 OLLAMA-GATE-EDGE-TRUST-1 (#1937): ``/api/tags`` and ``/api/version`` used to
 stay public — "model discovery is not paid work". Live verification on
 node2 showed the nginx ``allow`` list in front of this gate can only trust
-the edge proxy addresses (198.51.100.1 / 192.168.0.1): every public client
+the edge proxy addresses: every public client
 arrives through them, so the IP layer gives no per-client discrimination
 and unauthenticated internet traffic could enumerate the shop's model
 inventory. Both metadata routes now carry the same ``require_job_access``

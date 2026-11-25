@@ -148,7 +148,7 @@ binds below are Debian package defaults, not a cross-node requirement.
 | Prometheus Redis Exporter | 9121 | `*` (all) | customer (node0) | `prometheus-redis-exporter.service`; `ARGS=""` in `/etc/default/` → package default all-interfaces. Local prometheus scrapes it, so loopback would suffice — tightening is an ops change, tracked under #1731 |
 | Prometheus Postgres Exporter | 9187 | `*` (all) | customer (node0) | `prometheus-postgres-exporter.service`; same all-interfaces default, same pending tightening |
 | Blackbox Exporter | 9115 | `*` (all) | hub1 | `blackbox-exporter.service`; Debian unit default all-interfaces; probe targets are configured host-side |
-| coTURN (STUN/TURN) | 3478 | `198.51.100.93` + `127.0.0.1` | customer (node0) | `coturn.service`; bound to the LAN address (not `0.0.0.0`) — LAN-scoped by design for WebRTC-style relay; no public exposure |
+| coTURN (STUN/TURN) | 3478 | `<node-lan-address>` + `127.0.0.1` | customer (node0) | `coturn.service`; bound to the LAN address (not `0.0.0.0`) — LAN-scoped by design for WebRTC-style relay; no public exposure |
 | LLMNR | 5355 | `0.0.0.0` / `[::]` | all nodes | `systemd-resolved` LLMNR/mDNS responder; OS-level noise, link-local multicast only — disable via `LLMNR=no` in resolved.conf if unwanted (ops change) |
 | Postfix | 25 | `0.0.0.0` / `[::]` | hub1, customer, shop, replica | Debian-default MTA (`inet_interfaces = all`); local delivery only. Verified live 2026-11-11: present on hub1/node0/node1/node2, **absent on hub**. Also present on the non-AITBC infrastructure hosts |
 

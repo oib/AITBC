@@ -115,18 +115,18 @@ Total faucet ask ≈ 0.030 Sepolia ETH.
 
 ## Reading a balance — read-only public RPC
 
-`scripts/ops/sepolia_balance.py` is stdlib-only, uses no keys and reads
+`aitbc-ops:scripts/ops/sepolia_balance.py` is stdlib-only, uses no keys and reads
 no environment variables. Both queries run at block tag `latest`
 (confirmed state):
 
 ```bash
 # on the host (or anywhere with outbound https):
 cd /opt/aitbc
-venv/bin/python scripts/ops/sepolia_balance.py 0x<node0-address>
+venv/bin/python aitbc-ops:scripts/ops/sepolia_balance.py 0x<node0-address>
 # 0x…  0.01 ETH  nonce=0
 
 # explicit endpoint + all five addresses + bridge float in one pass:
-venv/bin/python scripts/ops/sepolia_balance.py \
+venv/bin/python aitbc-ops:scripts/ops/sepolia_balance.py \
   --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
   $SEPOLIA_ADDR_HUB $SEPOLIA_ADDR_HUB1 $SEPOLIA_ADDR_NODE0 \
   $SEPOLIA_ADDR_NODE1 $SEPOLIA_ADDR_NODE2 \
@@ -148,7 +148,7 @@ this doc's custody inventory mirrors it — keep them in sync when a
 wallet rotates.
 
 The rotation-aware reconcile is
-`scripts/ops/bridge_wallet_rotation_report.py` (report-only, Sepolia):
+`aitbc-ops:scripts/ops/bridge_wallet_rotation_report.py` (report-only, Sepolia):
 it reads the ledger plus an operator-supplied tx dump, attributes
 deposits to the wallet that received them (`eth_deposits.deposit_address`),
 labels sends between listed wallets as internal transfers, and exits 1

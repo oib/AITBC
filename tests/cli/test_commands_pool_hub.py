@@ -242,14 +242,14 @@ class TestPoolHubCommands:
         self._follower_env(monkeypatch)
         for name in ("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_LOCAL_URL"):
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv("HUB_RPC_URL", "http://10.103.5.113:8202")
-        assert _default_pool_hub_url() == "https://10.103.5.113/pool-hub"
+        monkeypatch.setenv("HUB_RPC_URL", "http://192.0.2.113:8202")
+        assert _default_pool_hub_url() == "https://192.0.2.113/pool-hub"
 
     def test_default_pool_hub_url_explicit_pool_hub_url_wins_over_rpc(self, monkeypatch):
         from aitbc_cli.commands.pool_hub import _default_pool_hub_url
 
         self._follower_env(monkeypatch)
-        monkeypatch.setenv("HUB_RPC_URL", "http://10.103.5.113:8202")
+        monkeypatch.setenv("HUB_RPC_URL", "http://192.0.2.113:8202")
         monkeypatch.setenv("POOL_HUB_URL", "https://pool.example.net/custom")
         assert _default_pool_hub_url() == "https://pool.example.net/custom"
 

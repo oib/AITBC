@@ -15,7 +15,7 @@ from aitbc_chain.lease_tracker import LEASE_PREFIX, LEASE_SET, LeaseTracker
 
 NODE = "0x51cEe80240DBB2fdcDBF1Fd806659b05242e7903"
 CHAIN_A = "ait-testchain.local"
-CHAIN_B = "ait-shop-island.aitbc.bubuit.net"
+CHAIN_B = "ait-shop-island.example.net"
 
 
 class FakeRedis:

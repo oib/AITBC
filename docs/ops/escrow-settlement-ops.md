@@ -118,7 +118,7 @@ The fleet pins `state_transition_v3_height=5470` via `blockchain.env`
 
 ### 1.5 The unlanded-settlement detector
 
-`scripts/monitoring/escrow-settlements-textfile.py`, run every minute by
+`aitbc-ops:scripts/monitoring/escrow-settlements-textfile.py`, run every minute by
 `aitbc-escrow-settlements.timer` (one systemd unit per host). It opens each
 `data/*/chain.db` under `AITBC_DATA_DIR` **read-only** (`mode=ro`) and flags
 every escrow leg that claims settled — by `status`, by a settlement
@@ -253,7 +253,7 @@ separately (#2264).
 
 ## 2. Alert response
 
-Severity and expressions below are the repo's `scripts/monitoring/aitbc_rules.yml`.
+Severity and expressions below are the repo's `aitbc-ops:scripts/monitoring/aitbc_rules.yml`.
 "Confirm" commands are read-only. **Agent-safe** = read and report only.
 **Operator-only** = anything that mutates a host, restarts a service,
 submits a transaction, or touches a key.
@@ -307,7 +307,7 @@ open failure counts as failure by design).
 `aitbc_escrow_open_tx_only_locks > 0` for 15 m. A sealed `ESCROW_LOCK`
 transaction exists with no escrow row and no settlement leg — the count
 is already minus the known-artifacts registry
-(`scripts/monitoring/escrow-known-artifacts.yml`), so every lock that
+(`aitbc-ops:scripts/monitoring/escrow-known-artifacts.yml`), so every lock that
 alerts is unregistered and holds custody nothing will settle.
 
 - **Confirm:** the per-job series names them:

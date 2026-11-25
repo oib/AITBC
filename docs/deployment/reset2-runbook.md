@@ -52,7 +52,7 @@ applies.
    = ~150 concurrent CLI processes saturated the small hub VPS
    (load ~90, sshd down ~15 min, chain paused while hub held the
    proposer slot). Cap small-host storm concurrency at 20–40.
-   `scripts/stress/KNOWN.md` carries the convention.
+   `aitbc-ops:scripts/stress/KNOWN.md` carries the convention.
 4. **Watcher discipline** (#741, stress-2/3): timers arm from
    `locked_until`, never from wall-clock estimates; a watcher failure
    must fail loud, not swallow. The stress-2 maturity watcher fired

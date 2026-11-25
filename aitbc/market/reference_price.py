@@ -1,7 +1,7 @@
 """Reference-price derivation for the 1 AIT = 1 compute-hour standard.
 
 Pure data + pure functions: no I/O, no config, no network — the same contract
-as ``hardware_catalog.py``. Consumed by ``scripts/ops/ait-reference-price.py``,
+as ``hardware_catalog.py``. Consumed by the companion operations reference-price publisher,
 which prints the breakdown and emits ``website/reference.json``, the artifact
 the exchange page renders under "How the reference is calculated".
 

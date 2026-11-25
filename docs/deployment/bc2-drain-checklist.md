@@ -1,6 +1,6 @@
 # bc-2 Drain Checklist — old-chain items to settle or clear
 
-The old chain (`ait-hub.aitbc.bubuit.net`) must be drained before the cut
+The old chain (`ait-hub.example.net`) must be drained before the cut
 (plan W3, gate A3 in `bc2-reset-runbook.md`). This file is the per-item
 checklist: what each item read today, which tool disposes of it, which class
 of operator line the action needs, and the read that proves it is zero.
@@ -27,14 +27,14 @@ wallet files. Deposit rows are counted once: `prepaid_deposits` and the
 
 | id | item | today's read (2026-10-20, exact command) | zero-check read (run again at B5) | action tool | who names it | order dependency | if skipped |
 |---|---|---|---|---|---|---|---|
-| A1 | escrow `sw_job_20260910163039_207d09b8` — 60,912 u, lock height 1262 | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro' \"SELECT job_id,status,amount FROM escrow WHERE job_id='sw_job_20260910163039_207d09b8'\""` → `locked` | `escrow` row `refunded`/`released`, or job absent from `WHERE status='locked'`; sealed tx in `'transaction'` | operator-repair path of `docs/ops/escrow-settlement-ops.md` §1.4 — a settlement tx signed with the settlement-authority key (`ESCROW_RELEASE_PRIVATE_KEY`) submitted to the hub RPC; the `/rpc/escrow/{id}/release\|refund` routes answer 409 for v2-era locks and cannot be used | one operator-named chain-write line per escrow (policy: refund to buyer `0x08aB8011…`); write-off stays available if a precheck fails | day-of prechecks per §1.4: no earlier settlement for the job in `'transaction'` or mempool, authority balance covers value+fee, no coordinator/sweeper re-drive; then one block per escrow | ~0.0017 AIT owed to the buyer stays locked; row unresolved |
+| A1 | escrow `sw_job_20260910163039_207d09b8` — 60,912 u, lock height 1262 | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro' \"SELECT job_id,status,amount FROM escrow WHERE job_id='sw_job_20260910163039_207d09b8'\""` → `locked` | `escrow` row `refunded`/`released`, or job absent from `WHERE status='locked'`; sealed tx in `'transaction'` | operator-repair path of `docs/ops/escrow-settlement-ops.md` §1.4 — a settlement tx signed with the settlement-authority key (`ESCROW_RELEASE_PRIVATE_KEY`) submitted to the hub RPC; the `/rpc/escrow/{id}/release\|refund` routes answer 409 for v2-era locks and cannot be used | one operator-named chain-write line per escrow (policy: refund to buyer `0x08aB8011…`); write-off stays available if a precheck fails | day-of prechecks per §1.4: no earlier settlement for the job in `'transaction'` or mempool, authority balance covers value+fee, no coordinator/sweeper re-drive; then one block per escrow | ~0.0017 AIT owed to the buyer stays locked; row unresolved |
 | A2 | escrow `sw_job_20260910163341_207d09b8` — 25,056 u, 1265 | same query, `job_id='sw_job_20260910163341_207d09b8'` → `locked` | same | same as A1 | same as A1 | same as A1 | ~0.0007 AIT locked |
 | A3 | escrow `sw_job_20260910163355_88d364d9` — 18,000 u, 1265 | same query, `job_id='sw_job_20260910163355_88d364d9'` → `locked` | same | same as A1 | same as A1 | same as A1 | ~0.0005 AIT locked |
 | A4 | escrow `ipfs_rental_20260910144545_e01131a8` — 36,000,000 u (**99.4% of the total**), 1277 | same query, `job_id='ipfs_rental_20260910144545_e01131a8'` → `locked` | same | same as A1 | same as A1 | same as A1 | 1.0000 AIT locked |
 | A5 | escrow `sw_job_20260910203053_207d09b8` — 60,500 u, 1501 | same query, `job_id='sw_job_20260910203053_207d09b8'` → `locked` | same | same as A1 | same as A1 | same as A1 | ~0.0017 AIT locked |
 | A6 | escrow `edge-test-002` — 36,000 u, 1598 | same query, `job_id='edge-test-002'` → `locked` | same | same as A1 | same as A1 | same as A1 | ~0.0010 AIT locked |
 | A7 | governance proposal `gap57-aux-sync-test` — `active`, 0 votes, window ended 2026-09-23 | `ssh hub 'aitbc http call blockchain-rpc governance/proposal/gap57-aux-sync-test --method=GET'` → `"status": "active"` | same read → status not `active` (or the expected refusal/no-op recorded) | `aitbc governance execute gap57-aux-sync-test` (or `close`) — expected to refuse or no-op: 0 votes, window long past | one operator-named chain-write line (execution signs on-chain); record the apply-result read | independent; before the cut | stale `active` row if the old chain ever restarts; else none |
-| A8 | agent coin request `redacted-host.example.invalid-94Bb6b87-1788974409` — PENDING, 100 AIT | `ssh hub 'aitbc --output=json coin-requests list'` → 1 `pending` row | `aitbc coin-requests list` shows no `pending` row | **decided (D1): reject** — `aitbc coin-requests reject <id>`, bookkeeping only; the approve+execute path is **not** taken, so nothing here moves AIT | decided — the reject is the class-B disposition at B1 | before the cut; independent | decided — a kept pending row would be noise under the plan's D5 (fresh start) |
+| A8 | agent coin request `req-hub2.example.net-94Bb6b87-1788974409` — PENDING, 100 AIT | `ssh hub 'aitbc --output=json coin-requests list'` → 1 `pending` row | `aitbc coin-requests list` shows no `pending` row | **decided (D1): reject** — `aitbc coin-requests reject <id>`, bookkeeping only; the approve+execute path is **not** taken, so nothing here moves AIT | decided — the reject is the class-B disposition at B1 | before the cut; independent | decided — a kept pending row would be noise under the plan's D5 (fresh start) |
 
 ## Class B — service-DB dispositions (no AIT moves, nothing signed)
 
@@ -44,7 +44,7 @@ claimed anywhere here; the plan requires the drain *checks* to read clean.
 
 | id | item | today's read (2026-10-20, exact command) | zero-check read (at B5) | action tool | who names it | order dependency | if skipped |
 |---|---|---|---|---|---|---|---|
-| B1 | pending agent coin request (same row as A8) | `ssh hub 'aitbc --output=json coin-requests list'` → 1 `pending` | no `pending` row | `aitbc coin-requests reject redacted-host.example.invalid-94Bb6b87-1788974409` | **decided (D1): reject** — the sender's `hub2` hostname is retired and unreachable | with A8, before the cut | noise only; the row archives with the DB under the plan's D5 (fresh start) |
+| B1 | pending agent coin request (same row as A8) | `ssh hub 'aitbc --output=json coin-requests list'` → 1 `pending` | no `pending` row | `aitbc coin-requests reject req-hub2.example.net-94Bb6b87-1788974409` | **decided (D1): reject** — the sender's `hub2` hostname is retired and unreachable | with A8, before the cut | noise only; the row archives with the DB under the plan's D5 (fresh start) |
 
 ## Class C — evidence only (not drain items)
 

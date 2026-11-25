@@ -28,7 +28,7 @@ breadcrumb: Home > Scenarios > Market CLI Options
 > spent, and no market record is created.
 >
 > Played on node0 (checkout `23665e09a`) against the live hub market on
-> `hub.aitbc.bubuit.net`; the node's real chain id is `bc-2`.
+> `hub.example.net`; the node's real chain id is `bc-2`.
 
 ### What You'll Learn
 
@@ -181,13 +181,13 @@ signing; nothing sent).
 `--rating`, `--comment`, `--reviewer-id` and `--market-url` ride along:
 
 ```bash
-aitbc market rate --service-id nosuch-mo1 --rating 3 --comment 'mo1 probe' --reviewer-id mo1 --market-url https://hub.aitbc.bubuit.net
+aitbc market rate --service-id nosuch-mo1 --rating 3 --comment 'mo1 probe' --reviewer-id mo1 --market-url https://hub.example.net
 ```
 
 **Expected output:** `No such service: nosuch-mo1` (exit 1).
 
 ```bash
-aitbc market ratings --service-id nosuch-mo1 --limit 5 --offset 0 --market-url https://hub.aitbc.bubuit.net
+aitbc market ratings --service-id nosuch-mo1 --limit 5 --offset 0 --market-url https://hub.example.net
 ```
 
 **Expected output:** `No such service: nosuch-mo1` (exit 1).

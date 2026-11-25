@@ -407,7 +407,7 @@ def reset_genesis(
     wallet_dir = wallet_dir or DEFAULT_WALLET_DIR
 
     db_path = data_dir / chain_id / "chain.db"
-    reset_script = _repo_root() / "scripts" / "utils" / "reset_chain_0x.py"
+    reset_script = _repo_root() / "scripts" / "maintenance" / "reset_chain_0x.py"
 
     if not reset_script.exists():
         error(f"Reset script not found: {reset_script}")

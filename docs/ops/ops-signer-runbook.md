@@ -60,7 +60,7 @@ venv/bin/python -m aitbc_cli wallet --wallet-name treasury send \
 Verify the funding leg sealed:
 
 ```bash
-sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
+sqlite3 "file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro" \
   "SELECT balance, nonce FROM account WHERE address='<ops-address>'"
 # expect 1,800,000,000 units (50 AIT)
 ```
@@ -160,7 +160,7 @@ EOF
 Verify on-chain (read-only, on hub):
 
 ```bash
-sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
+sqlite3 "file:/var/lib/aitbc/data/ait-hub.example.net/chain.db?mode=ro" \
   "SELECT block_height,type,sender,recipient,value,fee FROM \"transaction\"
     WHERE tx_hash='<pasted hash>'"
 # expect TRANSFER, sender = ops address, value = 1, fee = 3600

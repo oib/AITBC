@@ -36,7 +36,7 @@ pip install aitbc-sdk
 ```python
 from aitbc_sdk import AITBCClient
 
-with AITBCClient(base_url="https://aitbc.bubuit.net", api_key="your-api-key") as client:
+with AITBCClient(base_url="https://aitbc.example.net", api_key="your-api-key") as client:
     print(client.health().status)
     print(client.wallet.get_balance("wallet-123").balance)   # Decimal
 ```
@@ -57,7 +57,7 @@ with AITBCClient(base_url="https://aitbc.bubuit.net", api_key="your-api-key") as
 from aitbc_sdk import AITBCClient
 
 client = AITBCClient(
-    base_url="https://aitbc.bubuit.net",
+    base_url="https://aitbc.example.net",
     api_key="your-api-key",   # sent as X-Api-Key; omit to send no auth header
     timeout=30.0,
     max_retries=3,
@@ -112,7 +112,7 @@ Receipts use a separate client:
 ```python
 from aitbc_sdk import CoordinatorReceiptClient, verify_receipt
 
-with CoordinatorReceiptClient(base_url="https://aitbc.bubuit.net", api_key="your-api-key") as rc:
+with CoordinatorReceiptClient(base_url="https://aitbc.example.net", api_key="your-api-key") as rc:
     latest = rc.fetch_latest("job-123")          # None if there is no receipt yet
     history = rc.fetch_history("job-123")
     status = rc.summarize_receipts("job-123")    # ReceiptStatus
@@ -170,6 +170,6 @@ MIT License - see LICENSE file for details.
 
 ## Support
 
-- **Documentation**: https://aitbc.bubuit.net/docs/
+- **Documentation**: https://github.com/oib/AITBC/tree/main/docs
 - **Issues**: https://github.com/oib/AITBC/issues
 - **Discussions**: https://github.com/oib/AITBC/discussions

@@ -1,7 +1,7 @@
 """Live edge probes — read-only regression checks against a deployed AITBC edge.
 
 These are NOT pytest tests: they issue real HTTP requests to a live target
-(default ``https://hub.aitbc.bubuit.net``, override with
+(default ``https://hub.example.net``, override with
 ``AITBC_LIVE_BASE_URL``) and are meant for the nightly/ops tier, never the
 pre-commit or fast CI gate.
 
@@ -45,7 +45,7 @@ from dataclasses import dataclass
 
 import httpx
 
-BASE_URL = os.environ.get("AITBC_LIVE_BASE_URL", "https://hub.aitbc.bubuit.net").rstrip("/")
+BASE_URL = os.environ.get("AITBC_LIVE_BASE_URL", "https://hub.example.net").rstrip("/")
 TIMEOUT = float(os.environ.get("AITBC_LIVE_PROBE_TIMEOUT", "10"))
 RATELIMIT_PROBE_COUNT = int(os.environ.get("AITBC_LIVE_RATELIMIT_PROBE_COUNT", "105"))
 RATELIMIT_PROBE_ENABLED = os.environ.get("AITBC_LIVE_PROBE_RATELIMIT", "1") == "1"

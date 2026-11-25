@@ -7,7 +7,7 @@ address their key derives to, and a failed key load logged a warning and let sta
 
 Both faults are unrecoverable once written, because the chain commits to them. Every
 validating follower stalls at the first bad block forever, and the only remedy is manual
-database surgery on each one (`scripts/ops/backfill-follower-gap.sh`). A node that refuses
+database surgery on each one (using the companion operations backfill helper). A node that refuses
 to start is a five-minute fix; a chain with an unverifiable range in the middle is not.
 
 So the check runs at the moment production actually begins, not at import: a node that

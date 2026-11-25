@@ -125,10 +125,10 @@ The AITBC platform consists of the core components below (10 listed) working tog
 
 ## Quick Links
 
-[Trade Exchange](https://aitbc.bubuit.net/Exchange/)
-[Market](https://aitbc.bubuit.net/market/)
-[Explorer](https://aitbc.bubuit.net/explorer/)
-[API Docs](https://aitbc.bubuit.net/api/docs)
+[Trade Exchange](https://aitbc.example.net/Exchange/)
+[Market](https://aitbc.example.net/market/)
+[Explorer](https://aitbc.example.net/explorer/)
+[API Docs](https://aitbc.example.net/api/docs)
 
 ## Status Legend
 
@@ -146,4 +146,4 @@ For component-specific issues:
 
 - Check individual documentation pages
 - Visit the [GitHub repository](https://github.com/oib/AITBC)
-- Contact: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)
+- Contact: [security@example.net](mailto:security@example.net)

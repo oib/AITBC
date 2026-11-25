@@ -49,10 +49,21 @@ _HEX_RE = re.compile(r"(?:0x)?[0-9a-fA-F]+")
 #: it stands alone until that module lands.
 FORBIDDEN_WRITE_PREFIXES = ("/var/lib/aitbc", "/etc/aitbc", "/root")
 
-#: Chain ids a scratch build refuses outright — the live fleet's id lives here
-#: until the shared guard module owns the canonical list. The pre-reset id
-#: stays: its data dirs still exist as custody archives a build must not touch.
-LIVE_CHAIN_IDS = ("ait-hub.aitbc.bubuit.net", "bc-2")
+#: Chain ids a scratch build refuses outright. The current public chain id is
+#: plain text; the retired pre-reset id is pinned by digest so the product repo
+#: does not republish the operator domain while the custody-archive protection
+#: still applies. The companion operations repository owns the readable inventory.
+LIVE_CHAIN_IDS = ("bc-2",)
+RETIRED_LIVE_CHAIN_ID_SHA256 = frozenset(
+    {
+        "9f82951d274d63dc03ec119c350525ae886d60708c30d42d96ea2451b2ca2c40",
+    }
+)
+
+
+def is_live_chain_id(chain_id: str) -> bool:
+    """Whether ``chain_id`` is protected against scratch-genesis overwrite."""
+    return chain_id in LIVE_CHAIN_IDS or hashlib.sha256(chain_id.encode()).hexdigest() in RETIRED_LIVE_CHAIN_ID_SHA256
 
 
 class GenesisBuildError(ValueError):
@@ -266,7 +277,7 @@ def build_genesis_doc(
     cid = str(chain_id or "").strip()
     if not cid or not _CHAIN_ID_RE.fullmatch(cid):
         raise GenesisBuildError(f"chain_id must be non-empty [A-Za-z0-9._-]: {chain_id!r}")
-    if cid in LIVE_CHAIN_IDS:
+    if is_live_chain_id(cid):
         raise GenesisBuildError(f"refusing to build a genesis for live chain id {cid!r}")
 
     norm_allocs, total = _normalize_allocations(allocations)

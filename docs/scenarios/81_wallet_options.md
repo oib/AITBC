@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > Wallet CLI Options
 > and `address --name`.
 >
 > Played on node0 against the live hub bridge mount at
-> `https://hub.aitbc.bubuit.net`. Every command that would sign a
+> `https://hub.example.net`. Every command that would sign a
 > transaction, move funds, or write a wallet file on success runs under
 > `aitbc wallet --wallet-name nosuch-walletopts1` (a wallet that does not
 > exist), a dead endpoint (`http://127.0.0.1:9`), or a guard argument
@@ -58,7 +58,7 @@ breadcrumb: Home > Scenarios > Wallet CLI Options
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - For the live reads: the hub bridge mount reachable at
-  `https://hub.aitbc.bubuit.net`
+  `https://hub.example.net`
 - No wallet named `nosuch-walletopts1` (the refusing argument)
 
 ---
@@ -88,7 +88,7 @@ Wallet 'nosuch-walletopts1' not found as a file wallet.
 public through the hub's nginx bridge mount:
 
 ```bash
-aitbc wallet bridge float --hub-url https://hub.aitbc.bubuit.net
+aitbc wallet bridge float --hub-url https://hub.example.net
 ```
 
 **Expected output (exit 0):** JSON with `eth_address`, `balance_eth`,
@@ -101,7 +101,7 @@ aitbc wallet bridge float --hub-url https://hub.aitbc.bubuit.net
 `--kind` are server-side filters:
 
 ```bash
-aitbc wallet bridge settlements --state needs_review --kind trade --hub-url https://hub.aitbc.bubuit.net
+aitbc wallet bridge settlements --state needs_review --kind trade --hub-url https://hub.example.net
 ```
 
 **Expected output (exit 0):**
@@ -131,7 +131,7 @@ aitbc wallet bridge settlements --hub-url http://127.0.0.1:9
 `--hub-url`:
 
 ```bash
-aitbc wallet bridge status --today --hub-url https://hub.aitbc.bubuit.net
+aitbc wallet bridge status --today --hub-url https://hub.example.net
 aitbc wallet bridge status --24h
 ```
 
@@ -154,13 +154,13 @@ so the request goes to the passed hub origin — the error URL proves
 it:
 
 ```bash
-aitbc wallet bridge status --ait-tx-hash 0x0000000000000000000000000000000000000000000000000000000000000000 --hub-url https://hub.aitbc.bubuit.net
+aitbc wallet bridge status --ait-tx-hash 0x0000000000000000000000000000000000000000000000000000000000000000 --hub-url https://hub.example.net
 ```
 
 **Expected output (exit 1):**
 
 ```
-Failed to get withdrawal status: GET request failed: 404 Client Error: Not Found for url: https://hub.aitbc.bubuit.net/v1/bridge/withdraw/0x000...
+Failed to get withdrawal status: GET request failed: 404 Client Error: Not Found for url: https://hub.example.net/v1/bridge/withdraw/0x000...
 ```
 
 The URL in the error is the passed `--hub-url` origin, not the local
@@ -174,7 +174,7 @@ Both sell commands resolve the wallet file first
 quote POST or the lock signature — nothing reaches the hub:
 
 ```bash
-aitbc wallet bridge sell quote --amount 1 --eth-address 0x0000000000000000000000000000000000000001 --wallet-name nosuch-walletopts1 --hub-url https://hub.aitbc.bubuit.net
+aitbc wallet bridge sell quote --amount 1 --eth-address 0x0000000000000000000000000000000000000001 --wallet-name nosuch-walletopts1 --hub-url https://hub.example.net
 aitbc wallet bridge sell lock --quote-id nosuch-quote --wallet-name nosuch-walletopts1 --hub-url http://127.0.0.1:9
 ```
 

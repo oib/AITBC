@@ -36,7 +36,7 @@ aitbc messaging stats            # snapshot incl. checkpoint digest
 aitbc messaging state            # totals + index height
 ```
 
-## Alerts (`aitbc-messaging` group in `scripts/monitoring/aitbc_rules.yml`)
+## Alerts (`aitbc-messaging` group in `aitbc-ops:scripts/monitoring/aitbc_rules.yml`)
 
 ### MessagingIndexLag (info)
 
@@ -131,4 +131,4 @@ spam; the alert itself is informational and needs no action.
 Who handles them, and what the response can and cannot do, is drafted in
 [docs/policy/public-content-policy.md](../policy/public-content-policy.md).
 Contact: the `CONTACT_EMAIL` value in `/etc/aitbc/website.env` on the hub
-(currently `andreas.fleckl@bubuit.net`), also shown on the messages page.
+(currently `operator-contact@example.net`), also shown on the messages page.

@@ -54,7 +54,7 @@ the soak-end gate and a per-item word.
 | item | host | path / unit | size | gate | precondition | verify before | verify after |
 |---|---|---|---|---|---|---|---|
 | `.pre-reset` tree | each of five | `/var/lib/aitbc/.pre-reset-<YYYY-MM-DD>/` (the whole tree: chain dir, service DBs, stray top-level `chain.db`, `*.bak` residue — per the `bc2-host-inventory.md` store list) | per C2 `du -s` evidence | **per-item word** | soak-end gate green | `du -s` + `find` listing matches the inventory list | path absent |
-| old chain data dir | each of five | inside the `.pre-reset` tree (`ait-hub.aitbc.bubuit.net/`) | same | per-item word | same | same listing | same |
+| old chain data dir | each of five | inside the `.pre-reset` tree (`ait-hub.example.net/`) | same | per-item word | same | same listing | same |
 | stale top-level `chain.db` + `*.bak` residue | per inventory | inside the `.pre-reset` tree | same | per-item word | same | same | same |
 | offline backups | A9 location | per `bc2-host-inventory.md` backup section | A9 figures | per-item word | same; **custody material (`keystore.db`, `admin_nonces.db`) deletes only after the offline backup is verified to hold a copy** | backup archive listing covers the custody files | per item |
 | old-chain `data/` residue | all five | anything left under `/var/lib/aitbc/data` outside `bc-2/` | — | per-item word | same | `find /var/lib/aitbc/data -name chain.db` lists only the live store | `data/` holds only `bc-2` |

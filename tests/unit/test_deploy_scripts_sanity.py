@@ -39,12 +39,3 @@ def test_no_conflict_markers_in_tracked_scripts():
             if any(m.match(line) for m in MARKERS):
                 offenders.append(f"{rel}:{i}: {line[:40]}")
     assert not offenders, "unresolved conflict markers in tracked files:\n" + "\n".join(offenders)
-
-
-def test_deploy_scripts_parse():
-    deploy_dir = REPO / "scripts/deployment/deploy"
-    scripts = sorted(deploy_dir.glob("*.sh"))
-    assert scripts, "no deploy scripts found"
-    for script in scripts:
-        result = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
-        assert result.returncode == 0, f"bash -n failed for {script.name}: {result.stderr[:200]}"

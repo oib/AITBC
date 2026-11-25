@@ -46,13 +46,8 @@ PIPEFAIL = re.compile(r"^\s*set\s+[-\w\s]*\bpipefail\b", re.M)
 # caller's shell, which is not this check's business.
 SKIP_SUFFIXES = (".bashrc", ".profile", ".env")
 
-# The same reasoning, for a whole directory the suffix rule cannot see.
-# V23-99. `scripts/service-management/lib/services.sh` is the canonical service list,
-# `source`d by diagnose-, fix-, run-local- and stop-services. It declares AITBC_SERVICES
-# and AITBC_SERVICE_PORTS and defines one helper; it has no main body to protect. Putting
-# `set -euo pipefail` in it would switch strict mode on inside four callers that never
-# asked for it, which is the wholesale flip V23-23 said not to do.
-SKIP_DIRS = ("scripts/service-management/lib",)
+# No whole-directory sourced-fragment exemptions survive the ops carve-out.
+SKIP_DIRS: tuple[str, ...] = ()
 
 # Scripts whose omission is a deliberate, documented design decision rather than an
 # oversight. Each is exempt from the *specific* settings named, and nothing else -- an
@@ -107,10 +102,6 @@ SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
     "scripts/deployment/deploy.sh": ("set -u", "set -o pipefail"),
     # Sourced helpers should not flip the caller's shell options.
     "scripts/utils/agent_followup.sh": ("set -e", "set -u", "set -o pipefail"),
-    # env_config.sh is documented "Source this file:" — variable defaults
-    # for a parent shell; strict mode in it would leak into every caller
-    # (deploy-mesh-network.sh), the same reasoning as agent_followup.
-    "scripts/utils/env_config.sh": ("set -e", "set -u", "set -o pipefail"),
     # Bash/zsh completion scripts are sourced by the shell's completion system;
     # strict mode in them would leak into the user's interactive shell.
     "cli/completion/aitbc_completion.sh": ("set -e", "set -u", "set -o pipefail"),

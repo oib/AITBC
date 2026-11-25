@@ -8,7 +8,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - **PRODUCT** — public `aitbc` repo: needed by a stranger operating a node/island, or referenced from product runtime/tests/hooks in a way that must remain available.
 - **OPS** — private `aitbc-ops` repo: fleet monitoring, incident/forensics, failover, multi-host deployment, production stress/chaos, internal mirroring and agent-workflow machinery.
 - **DEV-INFRA** — product-side engineering gates/generators invoked by hooks, CI, release, docs, packaging, or test development; tagged distinctly because hook survival depends on it.
-- **LEAK** — file content contains `bubuit.net`, `198.51.100.x`, or `203.0.113.x` and therefore enters the scrub pass regardless of class.
+- **LEAK** — file content contains the operator domain or internal fleet address prefixes and therefore enters the scrub pass regardless of class.
 - **XB->OPS** / **XB->PRODUCT-SIDE** — the file statically references scripts across the OPS vs PRODUCT-side boundary; these are carve-out break-points. PRODUCT and DEV-INFRA are the same side because both stay public.
 
 ## Counts by top-level directory
@@ -94,7 +94,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/ci/mypy-precommit.sh` — **DEV-INFRA** — refs: hook: .pre-commit-config.yaml; script: scripts/ci/run-suite-manual.sh, scripts/dev/setup.sh; doc: 5 refs incl. docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.22_change.log; other: Makefile
 - `scripts/ci/render-c901-watch-list.py` — **DEV-INFRA** — refs: test: tests/ci/test_render_c901_watch_list.py; script: scripts/ci/c901-watch-list.md; doc: docs/ci-cd/README.md
 - `scripts/ci/repo-python.sh` — **DEV-INFRA** — refs: test: tests/unit/test_repo_python.py; script: scripts/ci/render-c901-watch-list.py; doc: docs/releases/v0.25/v0.25.11_change.log
-- `scripts/ci/run-suite-manual.sh` — **DEV-INFRA** — refs: script: scripts/ci/manual-ci-known-red.txt; LEAK(bubuit.net)
+- `scripts/ci/run-suite-manual.sh` — **DEV-INFRA** — refs: script: scripts/ci/manual-ci-known-red.txt; LEAK(operator-domain)
 - `scripts/ci/setup-job-logging.sh` — **DEV-INFRA** — refs: script: scripts/ci/check_deprecation_cleanup.sh
 - `scripts/ci/setup-python-venv.sh` — **DEV-INFRA** — refs: ci: .gitea/workflows/ci.yml, .gitea/workflows/nightly.yml; test: tests/unit/test_setup_python_venv.py; script: scripts/ci/mypy-precommit.sh, scripts/ci/run-suite-manual.sh, scripts/security/dependency-scan.sh
 - `scripts/ci/test_suites.py` — **DEV-INFRA** — refs: ci: .gitea/workflows/ci.yml, .gitea/workflows/nightly.yml, .github/workflows/ci.yml; test: tests/ci/test_manual_gate_fast_suites.py; script: scripts/ci/check_test_suite_parity.py, scripts/ci/run-suite-manual.sh; other: Makefile
@@ -113,13 +113,13 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/deployment/deploy/deploy-domain.sh` — **OPS** — refs: no exact static refs
 - `scripts/deployment/deploy/deploy-env.sh` — **OPS** — refs: test: tests/unit/test_deploy_blockchain_explorer_env_2781.py; script: 8 refs incl. scripts/deployment/deploy/deploy-all-remote.sh, scripts/deployment/deploy/deploy-blockchain-and-explorer.sh; doc: docs/deployment/script-environment.md
 - `scripts/deployment/deploy/deploy-explorer-remote.sh` — **OPS** — refs: no exact static refs
-- `scripts/deployment/deploy/deploy-explorer.sh` — **OPS** — refs: doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.11_change.log, docs/releases/v0.23/v0.23.34_change.log; LEAK(bubuit.net)
+- `scripts/deployment/deploy/deploy-explorer.sh` — **OPS** — refs: doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.11_change.log, docs/releases/v0.23/v0.23.34_change.log; LEAK(operator-domain)
 - `scripts/deployment/deploy/deploy-in-container.sh` — **OPS** — refs: no exact static refs
 - `scripts/deployment/deploy/deploy-nginx-reverse-proxy.sh` — **OPS** — refs: doc: docs/releases/v0.25/v0.25.8_change.log
 - `scripts/deployment/deploy/deploy-to-aitbc-container.sh` — **OPS** — refs: no exact static refs
 - `scripts/deployment/deploy/deploy-to-container.sh` — **OPS** — XB->PRODUCT-SIDE scripts/deployment/setup.sh; refs: no exact static refs
 - `scripts/deployment/deploy/deploy-to-container.sh.example` — **OPS** — refs: no exact static refs
-- `scripts/deployment/deploy/deploy-to-server.sh` — **OPS** — refs: doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.11_change.log; LEAK(bubuit.net)
+- `scripts/deployment/deploy/deploy-to-server.sh` — **OPS** — refs: doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.11_change.log; LEAK(operator-domain)
 - `scripts/deployment/init_proposer.py` — **PRODUCT** — refs: script: scripts/deployment/setup.sh
 - `scripts/deployment/install-profiles.sh` — **PRODUCT** — refs: script: scripts/deployment/deploy.sh, scripts/deployment/setup.sh, scripts/deployment/update.sh; doc: 10 refs incl. docs/deployment/fleet-roles.md, docs/development/2_setup.md; other: requirements-test.txt
 - `scripts/deployment/run-migrations.sh` — **PRODUCT** — refs: app/cli/pkg: apps/blockchain-node/migrations/versions/9f8e7d6c5b4a_backfill_escrows_from_lock_tx.py, apps/blockchain-node/tests/test_migration_graph.py; test: apps/blockchain-node/tests/test_migration_graph.py, tests/unit/test_deploy_migrations.py; script: scripts/deployment/deploy.sh, scripts/deployment/update.sh; doc: docs/getting-started/UPDATE.md, docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log
@@ -153,7 +153,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/extract_openapi_specs.py` — **DEV-INFRA** — OpenAPI extraction generator used by drift gate; refs: app/cli/pkg: apps/api-gateway/src/api_gateway/main.py; script: scripts/ci/check-openapi-drift.sh; doc: 4 refs incl. docs/api/README.md, docs/apps/exchange/exchange.md; other: .gitignore, Makefile
 - `scripts/generate_cli_docs.py` — **DEV-INFRA** — CLI docs generator; refs: test: tests/test_cli_docs_sync.py; script: scripts/ci/check-cli-docs.sh, scripts/docs/gen_cli_command_docs.py; doc: docs/ci-cd/README.md
 - `scripts/generate_dev_keys.py` — **DEV-INFRA** — development key material generator; not production runtime; refs: doc: docs/releases/v0.4/v0.4.26_AGENT_A_COMPLETED.md, docs/releases/v0.4/v0.4.26_change.log
-- `scripts/gpu/README.md` — **PRODUCT** — refs: test: tests/unit/test_v2399_health_gate_paths.py; script: scripts/services/gpu/gpu_miner_host.py; doc: docs/architecture/edge_gpu_setup.md, docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log; other: .secrets.baseline; LEAK(bubuit.net)
+- `scripts/gpu/README.md` — **PRODUCT** — refs: test: tests/unit/test_v2399_health_gate_paths.py; script: scripts/services/gpu/gpu_miner_host.py; doc: docs/architecture/edge_gpu_setup.md, docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log; other: .secrets.baseline; LEAK(operator-domain)
 - `scripts/lint/no_float_money.py` — **DEV-INFRA** — refs: hook: .pre-commit-config.yaml; app/cli/pkg: apps/blockchain-node/tests/test_signed_payload_money_is_float.py, apps/coordinator-api/alembic/versions/c7d1f4a9e230_v23_money_columns_to_numeric.py, apps/coordinator-api/alembic/versions/f2b6c04a91d8_v23_budget_columns_to_numeric.py; test: apps/blockchain-node/tests/test_signed_payload_money_is_float.py; script: 4 refs incl. scripts/ci/mypy-precommit.sh, scripts/ci/run-suite-manual.sh; doc: 4 refs incl. docs/architecture/money-types-and-the-signature-boundary.md, docs/releases/v0.22/release.log; other: Makefile
 - `scripts/lint/no_float_money_baseline.json` — **DEV-INFRA** — refs: hook: .pre-commit-config.yaml
 - `scripts/lint/no_orphan_modules.py` — **DEV-INFRA** — refs: hook: .pre-commit-config.yaml; test: tests/unit/test_v23103_orphan_modules.py; script: scripts/lint/no_orphan_modules_baseline.json; doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log
@@ -161,7 +161,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/maintenance/aitbc-backup-verify.service` — **PRODUCT** — refs: doc: docs/ops/backup-assurance.md
 - `scripts/maintenance/aitbc-backup-verify.timer` — **PRODUCT** — refs: doc: docs/ops/backup-assurance.md
 - `scripts/maintenance/aitbc-backup.service` — **PRODUCT** — refs: script: scripts/deployment/setup.sh; doc: docs/releases/v0.5/v0.5.4_change.log
-- `scripts/maintenance/aitbc-backup.sh` — **PRODUCT** — refs: unit: scripts/maintenance/aitbc-backup.service; app/cli/pkg: cli/aitbc_cli/core/node_client.py; test: tests/test_backup_pg_owner.py, tests/unit/test_aitbc_backup.py; script: scripts/deployment/setup.sh, scripts/maintenance/aitbc-backup.service, scripts/testing/test_coldstart_db_race.sh; doc: 9 refs incl. docs/deployment/bc2-consumers.md, docs/getting-started/UPDATE.md; LEAK(bubuit.net)
+- `scripts/maintenance/aitbc-backup.sh` — **PRODUCT** — refs: unit: scripts/maintenance/aitbc-backup.service; app/cli/pkg: cli/aitbc_cli/core/node_client.py; test: tests/test_backup_pg_owner.py, tests/unit/test_aitbc_backup.py; script: scripts/deployment/setup.sh, scripts/maintenance/aitbc-backup.service, scripts/testing/test_coldstart_db_race.sh; doc: 9 refs incl. docs/deployment/bc2-consumers.md, docs/getting-started/UPDATE.md; LEAK(operator-domain)
 - `scripts/maintenance/aitbc-backup.timer` — **PRODUCT** — refs: script: scripts/deployment/setup.sh; doc: docs/releases/v0.5/v0.5.4_change.log
 - `scripts/migration/create_advanced_market_tables.py` — **PRODUCT** — refs: test: tests/unit/test_v23103_orphan_modules.py
 - `scripts/migration/create_agent_tables.py` — **PRODUCT** — refs: no exact static refs
@@ -190,7 +190,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/monitoring/aitbc-escrow-residue.timer` — **OPS** — refs: no exact static refs
 - `scripts/monitoring/aitbc-escrow-settlements.service` — **OPS** — refs: no exact static refs
 - `scripts/monitoring/aitbc-escrow-settlements.timer` — **OPS** — refs: no exact static refs
-- `scripts/monitoring/aitbc-hub-watch-deadman.service` — **OPS** — refs: script: scripts/security/security_audit.py; LEAK(bubuit.net)
+- `scripts/monitoring/aitbc-hub-watch-deadman.service` — **OPS** — refs: script: scripts/security/security_audit.py; LEAK(operator-domain)
 - `scripts/monitoring/aitbc-hub-watch-deadman.timer` — **OPS** — refs: no exact static refs
 - `scripts/monitoring/aitbc-island-subscription-check.service` — **OPS** — refs: test: tests/unit/test_security_audit_root_and_perm.py; script: scripts/security/security_audit.py
 - `scripts/monitoring/aitbc-island-subscription-check.timer` — **OPS** — refs: no exact static refs
@@ -211,8 +211,8 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/monitoring/aitbc_hub1_rules.yml` — **OPS** — refs: no exact static refs
 - `scripts/monitoring/aitbc_hub_rules.yml` — **OPS** — refs: script: scripts/monitoring/aitbc_rules_test.yml; doc: 4 refs incl. docs/infrastructure/monitoring-setup.md, docs/ops/native-energy-rate-guard-deploy.md
 - `scripts/monitoring/aitbc_rules.yml` — **OPS** — refs: script: scripts/monitoring/aitbc_rules_test.yml; doc: 9 refs incl. docs/deployment/bc2-alert-window.md, docs/deployment/bc2-consumers.md
-- `scripts/monitoring/aitbc_rules_test.yml` — **OPS** — refs: doc: 4 refs incl. docs/deployment/bc2-consumers.md, docs/ops/v9-pre-pin-checklist.md; LEAK(bubuit.net)
-- `scripts/monitoring/alert-digest.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-alert-digest.service; test: tests/unit/test_alert_digest.py; script: scripts/monitoring/aitbc-alert-digest.service; doc: docs/infrastructure/monitoring-setup.md; LEAK(bubuit.net)
+- `scripts/monitoring/aitbc_rules_test.yml` — **OPS** — refs: doc: 4 refs incl. docs/deployment/bc2-consumers.md, docs/ops/v9-pre-pin-checklist.md; LEAK(operator-domain)
+- `scripts/monitoring/alert-digest.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-alert-digest.service; test: tests/unit/test_alert_digest.py; script: scripts/monitoring/aitbc-alert-digest.service; doc: docs/infrastructure/monitoring-setup.md; LEAK(operator-domain)
 - `scripts/monitoring/attestation-arrival-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-attestation-arrival.service; test: tests/unit/test_attestation_arrival_textfile.py; script: scripts/monitoring/aitbc-attestation-arrival.service; doc: docs/deployment/bc2-consumers.md, docs/deployment/bc2-post-ponr-failures.md, docs/infrastructure/monitoring-setup.md
 - `scripts/monitoring/authority-balances-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-authority-balances.service; test: tests/unit/test_authority_balances_textfile.py; script: scripts/monitoring/aitbc-authority-balances.service, scripts/monitoring/aitbc_hub_rules.yml; doc: docs/infrastructure/monitoring-setup.md
 - `scripts/monitoring/backup-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-backup-metrics.service; test: tests/unit/test_backup_textfile.py; script: scripts/monitoring/aitbc-backup-metrics.service
@@ -232,18 +232,18 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/monitoring/examples/tests/__init__.py` — **OPS** — refs: no exact static refs
 - `scripts/monitoring/fleet-config-check.sh` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/consensus_digest.py, cli/aitbc_cli/commands/network.py; test: tests/security/test_no_fleet_details_are_published.py; script: scripts/ops/gpu-registry-sweep.py; doc: 11 refs incl. docs/cli/commands/network-gossip.md, docs/deployment/bc3-env-map.md
 - `scripts/monitoring/health_check.sh` — **PRODUCT** — explicit issue ruling; product health endpoint check used by deployment/control paths; refs: app/cli/pkg: cli/aitbc_cli/commands/control.py, cli/aitbc_cli/commands/health.py, cli/tests/test_control_installed_filter.py; test: 4 refs incl. cli/tests/test_control_installed_filter.py, tests/unit/test_env_source_as_shell_2787.py; script: 8 refs incl. scripts/deployment/deploy.sh, scripts/deployment/setup.sh; doc: 13 refs incl. docs/archive/security/testing-procedures.md, docs/deployment/STAGING.md; other: health-check.sh
-- `scripts/monitoring/hub-watch-deadman-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-hub-watch-deadman.service; script: scripts/monitoring/aitbc-hub-watch-deadman.service; LEAK(bubuit.net)
+- `scripts/monitoring/hub-watch-deadman-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-hub-watch-deadman.service; script: scripts/monitoring/aitbc-hub-watch-deadman.service; LEAK(operator-domain)
 - `scripts/monitoring/island-subscription-check.sh` — **OPS** — refs: unit: scripts/monitoring/aitbc-island-subscription-check.service; script: scripts/monitoring/aitbc-island-subscription-check.service, scripts/testing/test_link_systemd_preserve.sh
-- `scripts/monitoring/island-swarm-probe-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-island-swarm-probe.service; script: scripts/monitoring/aitbc-island-swarm-probe.service; LEAK(bubuit.net)
+- `scripts/monitoring/island-swarm-probe-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-island-swarm-probe.service; script: scripts/monitoring/aitbc-island-swarm-probe.service; LEAK(operator-domain)
 - `scripts/monitoring/journal-errors-textfile.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-journal-errors.service; test: tests/unit/test_journal_errors_textfile.py; script: scripts/monitoring/aitbc-journal-errors.service; doc: docs/infrastructure/monitoring-setup.md, docs/releases/v0.25/v0.25.9_change.log
-- `scripts/monitoring/memory-monitor.sh` — **OPS** — refs: unit: scripts/monitoring/aitbc-memory-monitor.service; test: tests/unit/test_memory_monitor_cgroup.py; script: scripts/monitoring/aitbc-memory-monitor.service, scripts/testing/test_memory_monitor.sh; LEAK(bubuit.net)
+- `scripts/monitoring/memory-monitor.sh` — **OPS** — refs: unit: scripts/monitoring/aitbc-memory-monitor.service; test: tests/unit/test_memory_monitor_cgroup.py; script: scripts/monitoring/aitbc-memory-monitor.service, scripts/testing/test_memory_monitor.sh; LEAK(operator-domain)
 - `scripts/monitoring/monitor-prs.py` — **OPS** — refs: doc: docs/releases/v0.10/v0.10.13_AGENTS.md, docs/releases/v0.10/v0.10.13_change.log
 - `scripts/monitoring/native-energy-rate-refresh.sh` — **OPS** — refs: unit: scripts/monitoring/aitbc-native-energy-rate-refresh.service; script: scripts/monitoring/aitbc-native-energy-rate-refresh.service, scripts/monitoring/aitbc_hub_rules.yml, scripts/testing/test_native_energy_rate_refresh.sh; doc: docs/ops/native-energy-rate-guard-deploy.md
 - `scripts/monitoring/network_monitor.sh` — **OPS** — refs: no exact static refs
 - `scripts/monitoring/ntfy-alert-bridge.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-ntfy-bridge.service; test: tests/unit/test_ntfy_alert_bridge.py; script: scripts/monitoring/aitbc-ntfy-bridge.service
 - `scripts/monitoring/ntfy-heartbeat.py` — **OPS** — refs: unit: scripts/monitoring/aitbc-ntfy-heartbeat-daily.service, scripts/monitoring/aitbc-ntfy-heartbeat-hourly.service; test: tests/unit/test_ntfy_heartbeat.py; script: scripts/monitoring/aitbc-ntfy-heartbeat-daily.service, scripts/monitoring/aitbc-ntfy-heartbeat-hourly.service; doc: docs/infrastructure/monitoring-setup.md
-- `scripts/monitoring/production_monitoring.sh` — **OPS** — XB->PRODUCT-SIDE scripts/monitoring/health_check.sh; refs: test: tests/unit/test_v23100_monitoring_targets.py; LEAK(bubuit.net)
-- `scripts/monitoring/prometheus.yml` — **OPS** — refs: test: tests/test_prometheus_config.py; doc: 4 refs incl. docs/DESIGN_CYCLE.md, docs/infrastructure/monitoring-setup.md; LEAK(bubuit.net)
+- `scripts/monitoring/production_monitoring.sh` — **OPS** — XB->PRODUCT-SIDE scripts/monitoring/health_check.sh; refs: test: tests/unit/test_v23100_monitoring_targets.py; LEAK(operator-domain)
+- `scripts/monitoring/prometheus.yml` — **OPS** — refs: test: tests/test_prometheus_config.py; doc: 4 refs incl. docs/DESIGN_CYCLE.md, docs/infrastructure/monitoring-setup.md; LEAK(operator-domain)
 - `scripts/monitoring/setup-contract-monitoring.sh` — **OPS** — refs: doc: docs/deployment/SMART_CONTRACT_DEPLOYMENT.md
 - `scripts/monitoring/state-digest-remote.py` — **OPS** — refs: doc: docs/releases/v0.25/v0.25.8_change.log
 - `scripts/monitoring/state-digest-spec.py` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/tests/test_fleet_digest_spec.py; test: apps/blockchain-node/tests/test_fleet_digest_spec.py; script: scripts/monitoring/fleet-config-check.sh; doc: docs/releases/v0.25/v0.25.8_change.log
@@ -252,7 +252,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/notifications/config.sh` — **DEV-INFRA** — template for contract deployment notification/API environment; not node runtime; refs: no exact static refs
 - `scripts/openapi_error_responses.py` — **DEV-INFRA** — OpenAPI helper consumed by extraction/drift tooling; refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/rpc/routers/cross_chain.py; test: tests/unit/test_openapi_error_responses.py; doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log
 - `scripts/ops/ait-reference-price.py` — **OPS** — refs: app/cli/pkg: aitbc/market/reference_price.py, aitbc/oracles/price_oracle.py; doc: docs/getting-started/ait-value-model.md, docs/ops/pricing-energy-exchange.md, docs/releases/v0.25/v0.25.9_change.log; other: website/exchange.html, website/reference.json
-- `scripts/ops/backfill-follower-gap.sh` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/proposer_identity.py; test: tests/unit/test_backfill_follower_gap.py; doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log; LEAK(bubuit.net)
+- `scripts/ops/backfill-follower-gap.sh` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/proposer_identity.py; test: tests/unit/test_backfill_follower_gap.py; doc: docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log; LEAK(operator-domain)
 - `scripts/ops/backup-verify.py` — **PRODUCT** — per-node backup verification invoked by aitbc-backup-verify.service; relocate near maintenance; refs: unit: scripts/maintenance/aitbc-backup-verify.service; test: tests/test_backup_verify.py; script: scripts/maintenance/aitbc-backup-verify.service; doc: docs/ops/backup-assurance.md, docs/ops/backup-restore.md, docs/releases/v0.26/v0.26.0_change.log
 - `scripts/ops/bridge-admin.sh` — **OPS** — refs: app/cli/pkg: apps/bridge-monitor/README.md, apps/bridge-monitor/src/bridge_monitor/admin.py, cli/aitbc_cli/commands/bridge/_ledger.py; doc: 9 refs incl. AGENTS.md, docs/cli/commands/bridge-deposits.md
 - `scripts/ops/bridge-leaf-audit.py` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_lock_guard.py, apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_root_shadow.py; test: tests/unit/test_bridge_leaf_audit.py; script: scripts/ci/manual-ci-known-red.txt; doc: docs/deployment/bc2-consumers.md, docs/design/bridge-state-root-grandfathering.md
@@ -277,12 +277,12 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/ops/exchange_verify.py` — **PRODUCT** — aitbc exchange verify CLI locates and executes this script; refs: app/cli/pkg: cli/aitbc_cli/commands/exchange/hub_orders.py, cli/tests/test_exchange_verify.py, mcp-server/aitbc_mcp_cli_tools_generated_exchange.py; test: cli/tests/test_exchange_verify.py, tests/unit/test_exchange_verify.py; doc: 7 refs incl. docs/apps/exchange/exchange.md, docs/cli/commands/README.md
 - `scripts/ops/failover-gen.py` — **OPS** — refs: test: tests/test_failover_gen_proto.py; doc: docs/ops/failover-runbook.md
 - `scripts/ops/failover-preflight.sh` — **OPS** — refs: test: tests/test_failover_preflight.py; doc: docs/getting-started/UPDATE.md, docs/ops/failover-runbook.md, docs/ops/fleet-wave-runbook.md
-- `scripts/ops/failover-readback.sh` — **OPS** — refs: test: tests/unit/test_failover_readback.py; doc: docs/ops/failover-runbook.md, docs/releases/v0.28/v0.28.0_change.log; LEAK(bubuit.net)
+- `scripts/ops/failover-readback.sh` — **OPS** — refs: test: tests/unit/test_failover_readback.py; doc: docs/ops/failover-runbook.md, docs/releases/v0.28/v0.28.0_change.log; LEAK(operator-domain)
 - `scripts/ops/first-sweep-check.py` — **OPS** — refs: test: tests/unit/test_first_sweep_check.py; doc: docs/deployment/bc2-consumers.md, docs/ops/first-sweep-observation.md
 - `scripts/ops/fix-x-forwarded-proto.sh` — **OPS** — refs: no exact static refs
 - `scripts/ops/gen-window-ledger.py` — **OPS** — refs: test: tests/test_gen_window_ledger.py
-- `scripts/ops/governance_parameter_change.py` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/tests/test_bridge_tx_root_1940.py, apps/blockchain-node/tests/test_governance_execute_rehearsal.py; test: apps/blockchain-node/tests/test_bridge_tx_root_1940.py, apps/blockchain-node/tests/test_governance_execute_rehearsal.py, tests/unit/test_governance_parameter_change.py; doc: docs/releases/v0.25/v0.25.10_change.log; LEAK(bubuit.net)
-- `scripts/ops/gpu-registry-sweep.py` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/config_consensus.py; test: tests/unit/test_cleanup_fake_gpus_retired.py, tests/unit/test_gpu_registry_sweep.py; script: scripts/ops/replay-chain.py; LEAK(bubuit.net)
+- `scripts/ops/governance_parameter_change.py` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/tests/test_bridge_tx_root_1940.py, apps/blockchain-node/tests/test_governance_execute_rehearsal.py; test: apps/blockchain-node/tests/test_bridge_tx_root_1940.py, apps/blockchain-node/tests/test_governance_execute_rehearsal.py, tests/unit/test_governance_parameter_change.py; doc: docs/releases/v0.25/v0.25.10_change.log; LEAK(operator-domain)
+- `scripts/ops/gpu-registry-sweep.py` — **OPS** — refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/config_consensus.py; test: tests/unit/test_cleanup_fake_gpus_retired.py, tests/unit/test_gpu_registry_sweep.py; script: scripts/ops/replay-chain.py; LEAK(operator-domain)
 - `scripts/ops/hold-check.sh` — **OPS** — refs: test: tests/test_hold_check.py; doc: docs/getting-started/UPDATE.md, docs/ops/fleet-wave-runbook.md
 - `scripts/ops/host-compare.py` — **OPS** — refs: test: tests/test_host_compare.py
 - `scripts/ops/key-audit.py` — **PRODUCT** — aitbc-backup.sh invokes key audit before backup; relocate with backup tooling; refs: script: scripts/maintenance/aitbc-backup.sh; doc: 6 refs incl. docs/deployment/bc3-genesis/README.md, docs/deployment/reset2-runbook.md
@@ -295,16 +295,16 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/ops/option-coverage-exclusions.json` — **DEV-INFRA** — data consumed by option-coverage generator; refs: test: tests/test_option_coverage.py; script: scripts/ops/option-coverage.py; doc: docs/scenarios/85_secret_forms.md
 - `scripts/ops/option-coverage.py` — **DEV-INFRA** — scenario/operator-option coverage documentation generator; refs: test: tests/test_option_coverage.py; script: scripts/ci/manual-ci-known-red.txt; doc: docs/releases/v0.26/v0.26.0_change.log, docs/scenarios/80_required_flags.md
 - `scripts/ops/post-cut-verify.py` — **OPS** — refs: test: tests/test_post_cut_verify.py; script: scripts/ci/manual-ci-known-red.txt; doc: docs/ops/chain-reset-runbook.md
-- `scripts/ops/post_activation_audit.py` — **OPS** — refs: test: tests/unit/test_post_activation_audit.py; script: scripts/ci/manual-ci-known-red.txt; doc: docs/deployment/bc2-consumers.md, docs/ops/v14-activation-runbook.md; LEAK(bubuit.net)
+- `scripts/ops/post_activation_audit.py` — **OPS** — refs: test: tests/unit/test_post_activation_audit.py; script: scripts/ci/manual-ci-known-red.txt; doc: docs/deployment/bc2-consumers.md, docs/ops/v14-activation-runbook.md; LEAK(operator-domain)
 - `scripts/ops/post_cut_checks.py` — **OPS** — refs: no exact static refs
 - `scripts/ops/rebuild-escrows.py` — **OPS** — refs: test: tests/unit/test_rebuild_escrows.py; doc: docs/design/escrow-rebuild-from-chain.md
 - `scripts/ops/reconcile-operations.py` — **OPS** — refs: doc: docs/releases/v0.25/v0.25.7_change.log
 - `scripts/ops/register_bridge_validators.py` — **OPS** — refs: test: tests/test_register_bridge_validators.py, tests/unit/test_register_bridge_validators_file_source.py; doc: docs/deployment/bc2-environment-set.json, docs/deployment/bc2-environment-set.md
 - `scripts/ops/render-bootstrap-env.sh` — **PRODUCT** — open-island bootstrap env renderer used by joining flow; refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/app.py; other: examples/blockchain.env.open-island, examples/nginx/nginx-aitbc.conf.example, website/README.md
-- `scripts/ops/render-website.sh` — **OPS** — refs: test: tests/unit/test_render_website.py; script: scripts/deployment/update.sh; doc: 5 refs incl. AGENTS.md, docs/deployment/bc2-consumers.md; other: examples/website.env.example, website/README.md; LEAK(bubuit.net)
-- `scripts/ops/replay-chain.py` — **OPS** — refs: test: tests/test_replay_chain.py, tests/unit/test_replay_chain.py; script: scripts/ops/gpu-registry-sweep.py; doc: docs/ops/v5-replay-inventory.md, docs/releases/v0.25/v0.25.8_change.log, docs/releases/v0.25/v0.25.9_change.log; LEAK(bubuit.net)
+- `scripts/ops/render-website.sh` — **OPS** — refs: test: tests/unit/test_render_website.py; script: scripts/deployment/update.sh; doc: 5 refs incl. AGENTS.md, docs/deployment/bc2-consumers.md; other: examples/website.env.example, website/README.md; LEAK(operator-domain)
+- `scripts/ops/replay-chain.py` — **OPS** — refs: test: tests/test_replay_chain.py, tests/unit/test_replay_chain.py; script: scripts/ops/gpu-registry-sweep.py; doc: docs/ops/v5-replay-inventory.md, docs/releases/v0.25/v0.25.8_change.log, docs/releases/v0.25/v0.25.9_change.log; LEAK(operator-domain)
 - `scripts/ops/reset-follower-to-genesis.sh` — **OPS** — XB->PRODUCT-SIDE scripts/ops/build-genesis.py; refs: doc: docs/releases/v0.24/v0.24.1_change.log
-- `scripts/ops/reset-follower-to-snapshot.sh` — **OPS** — SSH-orchestrated fleet follower recovery with hub root access and internal default HUB; product sync_divergence reference is a break-point; refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/sync_divergence.py; script: scripts/monitoring/aitbc_hub_rules.yml; doc: docs/agent/guides/open-island-joining-guide.md; LEAK(bubuit.net)
+- `scripts/ops/reset-follower-to-snapshot.sh` — **OPS** — SSH-orchestrated fleet follower recovery with hub root access and internal default HUB; product sync_divergence reference is a break-point; refs: app/cli/pkg: apps/blockchain-node/src/aitbc_chain/sync_divergence.py; script: scripts/monitoring/aitbc_hub_rules.yml; doc: docs/agent/guides/open-island-joining-guide.md; LEAK(operator-domain)
 - `scripts/ops/rotate_api_key_secret.sh` — **OPS** — refs: no exact static refs
 - `scripts/ops/rotate_jwt_secret.sh` — **OPS** — refs: doc: docs/deployment/environment-configuration.md
 - `scripts/ops/secret_scan.py` — **DEV-INFRA** — repository secret scanning gate/helper; refs: no exact static refs
@@ -328,7 +328,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/reset-harness/gossip_filter.py` — **OPS** — refs: script: scripts/ci/manual-ci-known-red.txt
 - `scripts/reset-harness/rehearsal.py` — **OPS** — XB->PRODUCT-SIDE scripts/ops/build-genesis.py; refs: test: tests/test_reset_harness.py; script: scripts/ci/manual-ci-known-red.txt, scripts/ci/module-size-baseline.txt; doc: docs/ops/chain-reset-runbook.md, docs/ops/companion-island-deploy.md
 - `scripts/reset-harness/rehearsal_keys.py` — **OPS** — refs: no exact static refs
-- `scripts/reset-harness/rollback.py` — **OPS** — refs: doc: docs/deployment/bc2-reset-runbook.md, docs/ops/chain-reset-runbook.md; LEAK(bubuit.net)
+- `scripts/reset-harness/rollback.py` — **OPS** — refs: doc: docs/deployment/bc2-reset-runbook.md, docs/ops/chain-reset-runbook.md; LEAK(operator-domain)
 - `scripts/security/aitbc-security-nightly.service` — **OPS** — fleet-scheduled security audit unit; XB->PRODUCT-SIDE scripts/security/nightly-security.sh; refs: script: scripts/security/security_audit.py
 - `scripts/security/aitbc-security-nightly.timer` — **OPS** — fleet schedule for security-nightly service; refs: no exact static refs
 - `scripts/security/dependency-scan.sh` — **DEV-INFRA** — dependency vulnerability scan for engineering/CI use; refs: ci: .github/SECURITY.md; test: tests/test_dependency_security.py; doc: 6 refs incl. docs/getting-started/installation/installation.md, docs/releases/v0.4/RELEASE_v0.4.10.md
@@ -342,7 +342,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/service-management/diagnose-services.sh` — **OPS** — refs: no exact static refs
 - `scripts/service-management/fix-services.sh` — **OPS** — refs: doc: docs/releases/v0.4/v0.4.27_AGENT_B.md, docs/releases/v0.4/v0.4.27_change.log
 - `scripts/service-management/lib/services.sh` — **OPS** — XB->PRODUCT-SIDE scripts/monitoring/health_check.sh; refs: script: scripts/ci/check-shell-strict-mode.py; other: .secrets.baseline
-- `scripts/service-management/run-local-services.sh` — **OPS** — refs: doc: docs/releases/v0.4/v0.4.26_change.log; LEAK(bubuit.net)
+- `scripts/service-management/run-local-services.sh` — **OPS** — refs: doc: docs/releases/v0.4/v0.4.26_change.log; LEAK(operator-domain)
 - `scripts/service-management/stop-services.sh` — **OPS** — refs: doc: docs/releases/v0.4/v0.4.27_AGENT_B.md, docs/releases/v0.4/v0.4.27_change.log
 - `scripts/services/agent-coordinator-wrapper.py` — **PRODUCT** — refs: no exact static refs
 - `scripts/services/gpu/gpu_exchange_status.py` — **DEV-INFRA** — demo/diagnostic probe pinned by tests; not service runtime; refs: no exact static refs
@@ -353,14 +353,14 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/setup/install-system-deps.sh` — **PRODUCT** — refs: no exact static refs
 - `scripts/stress/KNOWN.md` — **OPS** — refs: script: scripts/docs/orphan-docs-baseline.txt; doc: docs/deployment/reset2-runbook.md
 - `scripts/stress/MATURITY.md` — **OPS** — refs: script: scripts/docs/orphan-docs-baseline.txt
-- `scripts/stress/README.md` — **OPS** — refs: script: scripts/docs/orphan-docs-baseline.txt; LEAK(bubuit.net)
+- `scripts/stress/README.md` — **OPS** — refs: script: scripts/docs/orphan-docs-baseline.txt; LEAK(operator-domain)
 - `scripts/stress/baseline.sh` — **OPS** — refs: no exact static refs
-- `scripts/stress/lib.sh` — **OPS** — refs: test: tests/unit/test_stress_refusal_class.py, tests/unit/test_stress_spend_guard.py; LEAK(bubuit.net)
+- `scripts/stress/lib.sh` — **OPS** — refs: test: tests/unit/test_stress_refusal_class.py, tests/unit/test_stress_spend_guard.py; LEAK(operator-domain)
 - `scripts/stress/maturity-watcher.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/01-transfers.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/02-messaging.sh` — **OPS** — refs: no exact static refs
-- `scripts/stress/plays/03-ai-job.sh` — **OPS** — refs: no exact static refs; LEAK(bubuit.net)
-- `scripts/stress/plays/04-escrow.sh` — **OPS** — refs: no exact static refs; LEAK(bubuit.net)
+- `scripts/stress/plays/03-ai-job.sh` — **OPS** — refs: no exact static refs; LEAK(operator-domain)
+- `scripts/stress/plays/04-escrow.sh` — **OPS** — refs: no exact static refs; LEAK(operator-domain)
 - `scripts/stress/plays/05-gpu.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/06-market.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/07-agent-staking.sh` — **OPS** — refs: no exact static refs
@@ -368,7 +368,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/stress/plays/09-bond.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/10-liquidity.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/11-bond-release.sh` — **OPS** — refs: no exact static refs
-- `scripts/stress/plays/12-bridge.sh` — **OPS** — refs: no exact static refs; LEAK(bubuit.net)
+- `scripts/stress/plays/12-bridge.sh` — **OPS** — refs: no exact static refs; LEAK(operator-domain)
 - `scripts/stress/plays/13-governance.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/14-island.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/15-committed-table.sh` — **OPS** — XB->PRODUCT-SIDE scripts/ops/side-root-probe.py; refs: no exact static refs
@@ -379,8 +379,8 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/stress/plays/21-ipfs-subscribe.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/22-exchange-anchor.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/plays/23-bond-slash.sh` — **OPS** — refs: no exact static refs
-- `scripts/stress/plays/24-bonded-job-slash.sh` — **OPS** — refs: no exact static refs; LEAK(bubuit.net)
-- `scripts/stress/preflight.sh` — **OPS** — refs: no exact static refs; LEAK(bubuit.net)
+- `scripts/stress/plays/24-bonded-job-slash.sh` — **OPS** — refs: no exact static refs; LEAK(operator-domain)
+- `scripts/stress/preflight.sh` — **OPS** — refs: no exact static refs; LEAK(operator-domain)
 - `scripts/stress/run.sh` — **OPS** — refs: no exact static refs
 - `scripts/stress/watch.sh` — **OPS** — refs: no exact static refs
 - `scripts/sync/sync_detector.sh` — **OPS** — refs: no exact static refs
@@ -390,14 +390,14 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/testing/chaos_test_database.py` — **OPS** — chaos scenario against database availability; refs: other: .secrets.baseline
 - `scripts/testing/chaos_test_network.py` — **OPS** — chaos/failure-injection network scenario; refs: no exact static refs
 - `scripts/testing/qa-cycle.py` — **DEV-INFRA** — engineering QA/review automation rather than node runtime; refs: doc: 5 refs incl. docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log
-- `scripts/testing/quick_test.py` — **PRODUCT** — refs: no exact static refs; LEAK(bubuit.net)
+- `scripts/testing/quick_test.py` — **PRODUCT** — refs: no exact static refs; LEAK(operator-domain)
 - `scripts/testing/run_all_tests.sh` — **OPS** — multi-site/fleet test runner; refs: doc: docs/releases/v0.24/v0.24.1_change.log
 - `scripts/testing/run_load_tests.sh` — **DEV-INFRA** — engineering load-test runner; not required for node runtime; refs: test: tests/README.md
-- `scripts/testing/scalability_validation.py` — **PRODUCT** — refs: test: tests/unit/test_scalability_validation.py; doc: docs/releases/v0.4/v0.4.16_SECURITY_FIXES.md, docs/releases/v0.4/v0.4.16_changelog.md; LEAK(bubuit.net)
+- `scripts/testing/scalability_validation.py` — **PRODUCT** — refs: test: tests/unit/test_scalability_validation.py; doc: docs/releases/v0.4/v0.4.16_SECURITY_FIXES.md, docs/releases/v0.4/v0.4.16_changelog.md; LEAK(operator-domain)
 - `scripts/testing/soak_test_consensus.py` — **PRODUCT** — refs: doc: docs/releases/v0.7/v0.7.5_change.log
 - `scripts/testing/test_coldstart_db_race.sh` — **OPS** — cold-start race harness primarily pins OPS bridge-header scan; product backup coverage must be duplicated or split; XB->PRODUCT-SIDE scripts/maintenance/aitbc-backup.sh; refs: no exact static refs
 - `scripts/testing/test_disabled_services_guard.sh` — **PRODUCT** — refs: doc: docs/ops/fleet-is-hub-semantics.md; other: Makefile
-- `scripts/testing/test_link_systemd_preserve.sh` — **PRODUCT** — pin for PRODUCT link-systemd sweep semantics; OPS unit names are fixture cases to generalize during carve-out; XB->OPS scripts/monitoring/aitbc-native-energy-rate-refresh.service, scripts/monitoring/aitbc-native-energy-rate-refresh.timer, scripts/monitoring/island-subscription-check.sh; refs: other: Makefile; LEAK(bubuit.net)
+- `scripts/testing/test_link_systemd_preserve.sh` — **PRODUCT** — pin for PRODUCT link-systemd sweep semantics; OPS unit names are fixture cases to generalize during carve-out; XB->OPS scripts/monitoring/aitbc-native-energy-rate-refresh.service, scripts/monitoring/aitbc-native-energy-rate-refresh.timer, scripts/monitoring/island-subscription-check.sh; refs: other: Makefile; LEAK(operator-domain)
 - `scripts/testing/test_memory_monitor.sh` — **OPS** — live test of OPS memory monitor; refs: other: Makefile
 - `scripts/testing/test_native_energy_rate_refresh.sh` — **OPS** — live test of OPS native-energy refresh timer; refs: other: Makefile
 - `scripts/testing/test_workflow.sh` — **PRODUCT** — refs: no exact static refs
@@ -432,7 +432,7 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 - `scripts/utils/reset_chain_0x.py` — **OPS** — destructive chain reset helper for fleet operations; refs: test: tests/unit/test_reset_chain_0x_genesis.py; other: .secrets.baseline
 - `scripts/utils/rotate_service_accounts.py` — **OPS** — fleet wallet/account rotation operation; refs: test: tests/test_rotate_service_accounts.py; other: .secrets.baseline
 - `scripts/utils/run_comprehensive_planning_cleanup.sh` — **OPS** — internal documentation/planning cleanup operation; refs: no exact static refs
-- `scripts/utils/security_hardening.sh` — **PRODUCT** — refs: test: tests/unit/test_security_hardening.py; doc: docs/getting-started/installation/installation.md, docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log; LEAK(bubuit.net)
+- `scripts/utils/security_hardening.sh` — **PRODUCT** — refs: test: tests/unit/test_security_hardening.py; doc: docs/getting-started/installation/installation.md, docs/releases/v0.23/release.log, docs/releases/v0.23/v0.23.34_change.log; LEAK(operator-domain)
 - `scripts/utils/setup-credentials.py` — **PRODUCT** — refs: doc: docs/archive/security/SECURITY_FIXES_SUMMARY.md
 - `scripts/utils/setup-dev-permissions.sh` — **DEV-INFRA** — development workstation permission setup; refs: no exact static refs
 - `scripts/utils/sync.sh` — **OPS** — gitea-to-GitHub mirror/fleet synchronization tool; refs: no exact static refs
@@ -473,44 +473,44 @@ Base commit: `ae618255e9`. Generated inventory count: **420 tracked path entries
 
 ## LEAK inventory for scrub pass
 
-**34 files** under `scripts/` contain the specified internal-topology tokens. The scan found bubuit.net occurrences; no `198.51.100.x` or `203.0.113.x` literals were present in this checkout. Classification does not change the scrub requirement for anything remaining PRODUCT-side.
+**34 files** under `scripts/` contain the specified internal-topology tokens. The scan found operator-domain occurrences; no `fleet-prefix-a` or `fleet-prefix-b` literals were present in this checkout. Classification does not change the scrub requirement for anything remaining PRODUCT-side.
 
 | file | class | tokens |
 |---|---|---|
-| `scripts/ci/run-suite-manual.sh` | DEV-INFRA | bubuit.net |
-| `scripts/deployment/deploy/deploy-explorer.sh` | OPS | bubuit.net |
-| `scripts/deployment/deploy/deploy-to-server.sh` | OPS | bubuit.net |
-| `scripts/gpu/README.md` | PRODUCT | bubuit.net |
-| `scripts/maintenance/aitbc-backup.sh` | PRODUCT | bubuit.net |
-| `scripts/monitoring/aitbc-hub-watch-deadman.service` | OPS | bubuit.net |
-| `scripts/monitoring/aitbc_rules_test.yml` | OPS | bubuit.net |
-| `scripts/monitoring/alert-digest.py` | OPS | bubuit.net |
-| `scripts/monitoring/hub-watch-deadman-textfile.py` | OPS | bubuit.net |
-| `scripts/monitoring/island-swarm-probe-textfile.py` | OPS | bubuit.net |
-| `scripts/monitoring/memory-monitor.sh` | OPS | bubuit.net |
-| `scripts/monitoring/production_monitoring.sh` | OPS | bubuit.net |
-| `scripts/monitoring/prometheus.yml` | OPS | bubuit.net |
-| `scripts/ops/backfill-follower-gap.sh` | OPS | bubuit.net |
-| `scripts/ops/failover-readback.sh` | OPS | bubuit.net |
-| `scripts/ops/governance_parameter_change.py` | OPS | bubuit.net |
-| `scripts/ops/gpu-registry-sweep.py` | OPS | bubuit.net |
-| `scripts/ops/post_activation_audit.py` | OPS | bubuit.net |
-| `scripts/ops/render-website.sh` | OPS | bubuit.net |
-| `scripts/ops/replay-chain.py` | OPS | bubuit.net |
-| `scripts/ops/reset-follower-to-snapshot.sh` | OPS | bubuit.net |
-| `scripts/reset-harness/rollback.py` | OPS | bubuit.net |
-| `scripts/service-management/run-local-services.sh` | OPS | bubuit.net |
-| `scripts/stress/README.md` | OPS | bubuit.net |
-| `scripts/stress/lib.sh` | OPS | bubuit.net |
-| `scripts/stress/plays/03-ai-job.sh` | OPS | bubuit.net |
-| `scripts/stress/plays/04-escrow.sh` | OPS | bubuit.net |
-| `scripts/stress/plays/12-bridge.sh` | OPS | bubuit.net |
-| `scripts/stress/plays/24-bonded-job-slash.sh` | OPS | bubuit.net |
-| `scripts/stress/preflight.sh` | OPS | bubuit.net |
-| `scripts/testing/quick_test.py` | PRODUCT | bubuit.net |
-| `scripts/testing/scalability_validation.py` | PRODUCT | bubuit.net |
-| `scripts/testing/test_link_systemd_preserve.sh` | PRODUCT | bubuit.net |
-| `scripts/utils/security_hardening.sh` | PRODUCT | bubuit.net |
+| `scripts/ci/run-suite-manual.sh` | DEV-INFRA | operator-domain |
+| `scripts/deployment/deploy/deploy-explorer.sh` | OPS | operator-domain |
+| `scripts/deployment/deploy/deploy-to-server.sh` | OPS | operator-domain |
+| `scripts/gpu/README.md` | PRODUCT | operator-domain |
+| `scripts/maintenance/aitbc-backup.sh` | PRODUCT | operator-domain |
+| `scripts/monitoring/aitbc-hub-watch-deadman.service` | OPS | operator-domain |
+| `scripts/monitoring/aitbc_rules_test.yml` | OPS | operator-domain |
+| `scripts/monitoring/alert-digest.py` | OPS | operator-domain |
+| `scripts/monitoring/hub-watch-deadman-textfile.py` | OPS | operator-domain |
+| `scripts/monitoring/island-swarm-probe-textfile.py` | OPS | operator-domain |
+| `scripts/monitoring/memory-monitor.sh` | OPS | operator-domain |
+| `scripts/monitoring/production_monitoring.sh` | OPS | operator-domain |
+| `scripts/monitoring/prometheus.yml` | OPS | operator-domain |
+| `scripts/ops/backfill-follower-gap.sh` | OPS | operator-domain |
+| `scripts/ops/failover-readback.sh` | OPS | operator-domain |
+| `scripts/ops/governance_parameter_change.py` | OPS | operator-domain |
+| `scripts/ops/gpu-registry-sweep.py` | OPS | operator-domain |
+| `scripts/ops/post_activation_audit.py` | OPS | operator-domain |
+| `scripts/ops/render-website.sh` | OPS | operator-domain |
+| `scripts/ops/replay-chain.py` | OPS | operator-domain |
+| `scripts/ops/reset-follower-to-snapshot.sh` | OPS | operator-domain |
+| `scripts/reset-harness/rollback.py` | OPS | operator-domain |
+| `scripts/service-management/run-local-services.sh` | OPS | operator-domain |
+| `scripts/stress/README.md` | OPS | operator-domain |
+| `scripts/stress/lib.sh` | OPS | operator-domain |
+| `scripts/stress/plays/03-ai-job.sh` | OPS | operator-domain |
+| `scripts/stress/plays/04-escrow.sh` | OPS | operator-domain |
+| `scripts/stress/plays/12-bridge.sh` | OPS | operator-domain |
+| `scripts/stress/plays/24-bonded-job-slash.sh` | OPS | operator-domain |
+| `scripts/stress/preflight.sh` | OPS | operator-domain |
+| `scripts/testing/quick_test.py` | PRODUCT | operator-domain |
+| `scripts/testing/scalability_validation.py` | PRODUCT | operator-domain |
+| `scripts/testing/test_link_systemd_preserve.sh` | PRODUCT | operator-domain |
+| `scripts/utils/security_hardening.sh` | PRODUCT | operator-domain |
 
 ## High-priority carve-out break-points
 

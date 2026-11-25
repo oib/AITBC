@@ -496,7 +496,7 @@ Because JWT and API-key material is frozen at process import (see [When configur
 
 1. Generate and install new values in the env files on every host that must share them.
 2. **Restart together** every unit that reads those variables — staggered restarts leave a window where some processes verify tokens with the old `JWT_SECRET` / `API_KEY_HASH_SECRET` while others issue with the new one (#1718).
-3. Prefer the scripted ordering in `scripts/ops/rotate_jwt_secret.sh` / `rotate_api_key_secret.sh` when using them; if you edit by hand, mirror the same “all consumers at once” rule.
+3. Prefer the scripted ordering in `aitbc-ops:scripts/ops/rotate_jwt_secret.sh` / `rotate_api_key_secret.sh` when using them; if you edit by hand, mirror the same “all consumers at once” rule.
 
 Signing keys (`ESCROW_RELEASE_PRIVATE_KEY`, bridge/wallet keys) follow the same rule: env change → restart the signing service before relying on the new key.
 
@@ -519,7 +519,7 @@ Signing keys (`ESCROW_RELEASE_PRIVATE_KEY`, bridge/wallet keys) follow the same 
 **Purpose:** White-label branding for the public website served by the hub — domain, chain id, and contact email shown on the site and in `/rpc/network-info`.
 
 The site is served by nginx straight from the `website/` checkout. When this
-file exists, `scripts/ops/render-website.sh` (invoked by `update.sh` after
+file exists, `aitbc-ops:scripts/ops/render-website.sh` (invoked by `update.sh` after
 every pull) rewrites the committed domain/chain-id tokens in the static files.
 Without the file nothing is rendered and the committed values are served.
 
@@ -534,7 +534,7 @@ Without the file nothing is rendered and the committed values are served.
 ### Services That Load This File
 
 - `aitbc-blockchain-rpc.service` — `CONTACT_EMAIL` for the network-info payload
-- `scripts/ops/render-website.sh` — all variables (runs under `update.sh`, not a service)
+- `aitbc-ops:scripts/ops/render-website.sh` — all variables (runs under `update.sh`, not a service)
 
 ### Example
 

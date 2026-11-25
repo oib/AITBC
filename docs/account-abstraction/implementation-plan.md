@@ -1,6 +1,6 @@
 # Agent spend policy and session credentials — implementation plan
 
-Row: **AGENT-WALLET-AA-1** · Gitea [#1136](https://gitea.bubuit.net/oib/aitbc/issues/1136)
+Row: **AGENT-WALLET-AA-1** · Gitea [#1136](https://gitea.example.net/oib/aitbc/issues/1136)
 
 This document is **design only**. It describes how AITBC should give **agents
 permission to spend, not ownership of the wallet**, in terms that match the

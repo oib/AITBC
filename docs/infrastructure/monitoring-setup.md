@@ -36,10 +36,10 @@ aitbc prometheus check                # promtool config + rules
 
 In watch mode, each alert state change is emitted as a single JSON line to stdout and also logged: `prometheus_alert_firing` when an alert starts firing (again, if it had resolved), `prometheus_alert_still_firing` when a reminder interval is set (see below), and `prometheus_alert_resolved`, with `duration_seconds`, when it stops. Every record carries `via` (`startup` when the watcher sees a firing alert on its first poll after (re)start, `transition` for a state change, `silence_expired` for an alert that left a silence while still firing, `reminder`), `timestamp` (naive UTC ISO) and `timestamp_unix` (epoch). A poll that Prometheus does not answer changes nothing, so an outage never reads as every alert resolving. With `--alert-log PATH` the same lines are also appended to PATH, rotated at 5 MiB with 5 backups. That file holds only these events plus the `prometheus_watch_started` marker the watcher writes once per (re)start, unlike the service log, which carries one httpx line per poll; if PATH cannot be written the watcher says so once and carries on with the journal and the service log.
 
-A systemd unit is provided in `scripts/monitoring/aitbc-prometheus-watch.service`. Install it with:
+A systemd unit is provided in `aitbc-ops:scripts/monitoring/aitbc-prometheus-watch.service`. Install it with:
 
 ```bash
-sudo cp scripts/monitoring/aitbc-prometheus-watch.service /etc/systemd/system/
+sudo cp /opt/aitbc-ops/scripts/monitoring/aitbc-prometheus-watch.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now aitbc-prometheus-watch
 ```
@@ -66,7 +66,7 @@ AITBC_WATCH_METRICS_FILE=/var/lib/prometheus/node-exporter/aitbc_prometheus_watc
 # ntfy mode (SD-2c) — only when pointing at the operator's ntfy server:
 # AITBC_WATCH_NOTIFY_FORMAT=ntfy
 # AITBC_WATCH_NOTIFY_TOPIC=aitbc-alerts
-# AITBC_WATCH_NOTIFY_CLICK=https://hub.aitbc.bubuit.net/alerts.html
+# AITBC_WATCH_NOTIFY_CLICK=https://hub.example.net/alerts.html
 # AITBC_WATCH_NOTIFY_TOKEN=tk_…   (env only — never an argument or part of the URL)
 ```
 
@@ -78,11 +78,11 @@ Each `--notify-url` (repeatable, or space-separated in `AITBC_WATCH_NOTIFY_URL`)
 
 ### ntfy mode (`AITBC_WATCH_NOTIFY_FORMAT=ntfy`)
 
-With `--notify-format ntfy` the watcher posts an ntfy publish body instead — `{topic, title, message, priority, tags, click}` — where only a whitelist ever leaves the host: the alert name, a fleet host name (`hub`, `hub1`, `node0`, `node1`, `node2` — any other label value becomes `fleet`), severity, state text (`started` / `firing` / `still firing` / `resolved`, with duration on resolve) and the `--notify-click` link. No addresses, hashes, keys, paths, env values, labels or annotation text are forwarded. The topic travels inside the body, never in the URL, so `--notify-url` is the server base (`https://ntfy.bubuit.net`) and one URL serves every topic.
+With `--notify-format ntfy` the watcher posts an ntfy publish body instead — `{topic, title, message, priority, tags, click}` — where only a whitelist ever leaves the host: the alert name, a fleet host name (`hub`, `hub1`, `node0`, `node1`, `node2` — any other label value becomes `fleet`), severity, state text (`started` / `firing` / `still firing` / `resolved`, with duration on resolve) and the `--notify-click` link. No addresses, hashes, keys, paths, env values, labels or annotation text are forwarded. The topic travels inside the body, never in the URL, so `--notify-url` is the server base (`https://ntfy.example.net`) and one URL serves every topic.
 
 The ntfy server is deny-all, so `AITBC_WATCH_NOTIFY_TOKEN` carries the bearer token for `Authorization: Bearer …` — env only, never an argument or part of the URL, and never logged. With the token unset the watcher skips the send, counts it in `aitbc_prometheus_watch_notify_errors_total` and logs one token-free line. Priorities: critical 5, error/high 4, warning 3, info and resolved 2; tags mark the state. The severity floor, still-firing reminders and the silence list behave exactly as in json mode, and the default `json` wire format is unchanged.
 
-The same flags and env keys drive `scripts/monitoring/alert-digest.py`, which posts the daily summary as `AITBC daily digest` (priority 2, counts and alert names only), and `scripts/monitoring/ntfy-heartbeat.py --kind hourly|daily`, which posts the dead-man heartbeat to the `aitbc-heartbeat` topic (`AITBC_HEARTBEAT_URL`, falling back to the first `AITBC_WATCH_NOTIFY_URL`; same token env). `aitbc-ntfy-heartbeat-hourly`/`daily` `.service`/`.timer` units ship beside them — the hub sends daily at 07:00 UTC and node0 optionally at 07:30 UTC.
+The same flags and env keys drive `aitbc-ops:scripts/monitoring/alert-digest.py`, which posts the daily summary as `AITBC daily digest` (priority 2, counts and alert names only), and `aitbc-ops:scripts/monitoring/ntfy-heartbeat.py --kind hourly|daily`, which posts the dead-man heartbeat to the `aitbc-heartbeat` topic (`AITBC_HEARTBEAT_URL`, falling back to the first `AITBC_WATCH_NOTIFY_URL`; same token env). `aitbc-ntfy-heartbeat-hourly`/`daily` `.service`/`.timer` units ship beside them — the hub sends daily at 07:00 UTC and node0 optionally at 07:30 UTC.
 
 That ntfy server is an operator-run side channel hosted outside this repository (SD-2a); this repo only needs the URL, topic and token — never its server setup.
 
@@ -138,7 +138,7 @@ The shipped rules include `PrometheusWatchStale` (fires when the heartbeat is ab
 | a remote-write host's prometheus dies or wedges, host and node-exporter up | `RemoteWriteHostSilent` | critical |
 | hub's own prometheus dies | `ServiceDown` on hub1's `hub-prometheus` scrape job | critical |
 
-`RemoteWriteHostSilent` lives in `aitbc_hub_rules.yml` (hub only: on any other host every roster entry would look silent). It compares the static roster recording rule `aitbc_expected_remote_write_host` (keyed on the `node` external label) against each remote host's own prometheus self-scrape `up{job="prometheus"}` — a series only remote_write can deliver, so silence means the remote prometheus or its write path died, not merely a scrape target; `absent()` cannot do this per host. **Edit the roster in that file whenever a host joins or leaves the fleet.** Detection is ~7m (5m staleness lookback + `for: 2m`). The hub self-watch job is a commented sample in `scripts/monitoring/prometheus.yml`, to be enabled in hub1's live file only. Deploy order: hub first (`deploy-rules.sh`), then every other host for the `PrometheusWatchStale` severity change; not during a drill.
+`RemoteWriteHostSilent` lives in `aitbc_hub_rules.yml` (hub only: on any other host every roster entry would look silent). It compares the static roster recording rule `aitbc_expected_remote_write_host` (keyed on the `node` external label) against each remote host's own prometheus self-scrape `up{job="prometheus"}` — a series only remote_write can deliver, so silence means the remote prometheus or its write path died, not merely a scrape target; `absent()` cannot do this per host. **Edit the roster in that file whenever a host joins or leaves the fleet.** Detection is ~7m (5m staleness lookback + `for: 2m`). The hub self-watch job is a commented sample in `aitbc-ops:scripts/monitoring/prometheus.yml`, to be enabled in hub1's live file only. Deploy order: hub first (`deploy-rules.sh`), then every other host for the `PrometheusWatchStale` severity change; not during a drill.
 
 ### Public alerts page
 
@@ -153,7 +153,7 @@ No nginx change is needed — all ride the existing `/explorer-api/` location. T
 
 ### Journal error coverage
 
-`aitbc-journal-errors.timer` (every 5 min) runs `scripts/monitoring/journal-errors-textfile.py`, which counts warning-and-worse journal entries per unit over a rolling 15-minute window into `/var/lib/prometheus/node-exporter/aitbc_journal.prom`.
+`aitbc-journal-errors.timer` (every 5 min) runs `aitbc-ops:scripts/monitoring/journal-errors-textfile.py`, which counts warning-and-worse journal entries per unit over a rolling 15-minute window into `/var/lib/prometheus/node-exporter/aitbc_journal.prom`.
 
 Two journald signals are merged, because aitbc services log through stdout: journald tags every such line `PRIORITY=6` (info), so the true level only exists in the message text as a leading `[WARNING]`/`[ERROR]`/`[CRITICAL]` token. Pass 1 fetches `journalctl -p err` (real priorities — systemd's own records like watchdog kills and unit failures), pass 2 fetches `journalctl -g` with a regex for the text levels our services emit; results are deduplicated on the journal cursor. The `/api/journal/recent` endpoint uses the same union, so what the page shows and what the alert counts come from the same definition of "warning-or-worse".
 
@@ -164,7 +164,7 @@ Two journald signals are merged, because aitbc services log through stdout: jour
 The unit runs as `aitbc` with `SupplementaryGroups=systemd-journal`; install as symlinks into the checkout like the other monitoring units:
 
 ```bash
-sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-journal-errors.{service,timer} /etc/systemd/system/
+sudo ln -sfn /opt/aitbc-ops/scripts/monitoring/aitbc-journal-errors.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-journal-errors.timer
 ```
 
@@ -172,7 +172,7 @@ A single logged error keeps the count non-zero until it slides out of the 15-min
 
 ### Env-var presence coverage
 
-`aitbc-env-watch.timer` (every 15 min) runs `scripts/monitoring/env-watch-textfile.py`, which greps declared env files for `^VAR=` assignment lines and writes `/var/lib/prometheus/node-exporter/aitbc_env_watch.prom`. It exists because a var dropped from an env file is invisible until the service restarts — the running process keeps its old environment (`RECEIPT_SIGNING_KEY_HEX` sat missing from the coordinator env for days in Oct 2026; signing broke only at the eventual restart). The coordinator also self-reports at every boot: production startup logs `Receipt signing: enabled`, or an ERROR the journal collector pages on when the key is unset.
+`aitbc-env-watch.timer` (every 15 min) runs `aitbc-ops:scripts/monitoring/env-watch-textfile.py`, which greps declared env files for `^VAR=` assignment lines and writes `/var/lib/prometheus/node-exporter/aitbc_env_watch.prom`. It exists because a var dropped from an env file is invisible until the service restarts — the running process keeps its old environment (`RECEIPT_SIGNING_KEY_HEX` sat missing from the coordinator env for days in Oct 2026; signing broke only at the eventual restart). The coordinator also self-reports at every boot: production startup logs `Receipt signing: enabled`, or an ERROR the journal collector pages on when the key is unset.
 
 - `aitbc_env_var_present{service,var}` — 1 when the var is assigned in any of the service's env files (OR across files, matching `EnvironmentFile=` stacking); `AITBCReceiptSigningKeyAbsent` fires when it is 0 for 15 min. Entries written `service@unit=VAR:files` only emit this series where the named systemd unit is installed, so hosts that never deploy the service (e.g. hub1, which has no `aitbc-coordinator-api` unit) cannot page the alert (#2233)
 - `aitbc_env_watch_scrape_success{file}` / `aitbc_env_watch_timestamp_seconds` — collector health; `AITBCEnvWatchStale` fires on a 45-min-old timestamp
@@ -181,7 +181,7 @@ A single logged error keeps the count non-zero until it slides out of the 15-min
 The watch list is `AITBC_ENV_WATCH` in the unit (`service[@unit]=VAR:file[,file...]` entries; the coordinator receipt key ships as the default, gated on `aitbc-coordinator-api.service` being installed). Install on every monitored host — the `@unit` gate keeps hosts that never deploy a watched service quiet:
 
 ```bash
-sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-env-watch.{service,timer} /etc/systemd/system/
+sudo ln -sfn /opt/aitbc-ops/scripts/monitoring/aitbc-env-watch.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-env-watch.timer
 ```
 
@@ -191,7 +191,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-env-watch.time
 
 The blockchain node main process exposes `/metrics` on `AITBC_NODE_METRICS_PORT` (default `9009`). The RPC process and the coordinator API also expose `/metrics` (or `/prometheus`) on their normal ports. Key series to watch:
 
-**Note on RPC metrics.** The RPC process imports Python modules that define node-only gauges such as `blockchain_block_height`, `blockchain_poa_valid_subscribers` and `blockchain_sync_lag_blocks`, but it does not update them. Those series are zero or stale on the RPC target, so `scripts/monitoring/prometheus.yml` drops them with `metric_relabel_configs` on the `node2-blockchain-rpc` job. The canonical values are scraped from the node target on port `9009`.
+**Note on RPC metrics.** The RPC process imports Python modules that define node-only gauges such as `blockchain_block_height`, `blockchain_poa_valid_subscribers` and `blockchain_sync_lag_blocks`, but it does not update them. Those series are zero or stale on the RPC target, so `aitbc-ops:scripts/monitoring/prometheus.yml` drops them with `metric_relabel_configs` on the `node2-blockchain-rpc` job. The canonical values are scraped from the node target on port `9009`.
 
 - `blockchain_block_height` - current block height.
 - `blockchain_poa_valid_subscribers{chain_id}` - number of valid subscribers at block broadcast time.
@@ -283,7 +283,7 @@ It stays quiet until Prometheus holds 15 minutes of history, and never fires on 
 
 ### Authority account balances
 
-The node exporters carry no account balances, so nothing warned when the escrow settlement authority ran short of fee float. Escrow release and refund debit `max(36, amount // 100)` units (1% of the settled amount) from that account; once its balance is below the fee, both fail and the escrowed funds stay locked until it is topped up. `scripts/monitoring/authority-balances-textfile.py` reads the settlement and bridge release authorities from the local RPC and writes them as a node_exporter textfile, once a minute, from `aitbc-authority-balances.timer`:
+The node exporters carry no account balances, so nothing warned when the escrow settlement authority ran short of fee float. Escrow release and refund debit `max(36, amount // 100)` units (1% of the settled amount) from that account; once its balance is below the fee, both fail and the escrowed funds stay locked until it is topped up. `aitbc-ops:scripts/monitoring/authority-balances-textfile.py` reads the settlement and bridge release authorities from the local RPC and writes them as a node_exporter textfile, once a minute, from `aitbc-authority-balances.timer`:
 
 | Series | Meaning |
 |---|---|
@@ -292,7 +292,7 @@ The node exporters carry no account balances, so nothing warned when the escrow 
 | `aitbc_authority_scrape_success{role,address}` | 1 when the account was read in the last run, else 0 |
 | `aitbc_authority_scrape_timestamp_seconds` | Unix time the last run finished |
 
-Alerts in `scripts/monitoring/aitbc_hub_rules.yml` (tests in `aitbc_rules_test.yml`). The authority rules live in their own file because they are only valid where the exporter runs: `AuthorityBalanceStale` uses `absent()`, so loading them on a host without the timer fires the alert permanently. Every host loads `aitbc_rules.yml`; only hub also loads `aitbc_hub_rules.yml`.
+Alerts in `aitbc-ops:scripts/monitoring/aitbc_hub_rules.yml` (tests in `aitbc_rules_test.yml`). The authority rules live in their own file because they are only valid where the exporter runs: `AuthorityBalanceStale` uses `absent()`, so loading them on a host without the timer fires the alert permanently. Every host loads `aitbc_rules.yml`; only hub also loads `aitbc_hub_rules.yml`.
 
 | Alert | Fires when | Severity |
 |---|---|---|
@@ -320,7 +320,7 @@ Hub's `rule_files:` in `/etc/prometheus/prometheus.yml` lists `aitbc_hub_rules.y
 
 ## Bridge validator-set health
 
-`scripts/monitoring/bridge-set-textfile.py` reads `chain.db` read-only (`mode=ro`) and exports the bridge validator-set gauges — active rows, how many are also current consensus attesters (`possible_signers`), the multisig threshold, set age, a freshness flag, and scrape success. `aitbc-bridge-set.timer` runs it minutely on the hub:
+`aitbc-ops:scripts/monitoring/bridge-set-textfile.py` reads `chain.db` read-only (`mode=ro`) and exports the bridge validator-set gauges — active rows, how many are also current consensus attesters (`possible_signers`), the multisig threshold, set age, a freshness flag, and scrape success. `aitbc-bridge-set.timer` runs it minutely on the hub:
 
 | Alert | meaning | severity |
 |---|---|---|
@@ -353,9 +353,9 @@ Install is the same manual shape as the authority exporter — copy `aitbc-bridg
 
 ## Attestation arrival
 
-`scripts/monitoring/attestation-arrival-textfile.py` reads `data/*/chain.db` read-only (`mode=ro`) and measures the sealed outcome of remote attestation: each block's `block_metadata.attestations` lists only the remote signatures that arrived before sealing, so a validator absent from the list was too late or never arrived. `aitbc-attestation-arrival.timer` runs it minutely on **every** host — the sealed chain is byte-identical fleet-wide and every node's local Prometheus loads `aitbc_rules.yml`, so the series must exist locally for the rules to fire there (hub sees all five via remote_write either way). This is the M6 detector: a validator that stops attesting while still proposing shows up as a rising `aitbc_attestation_consecutive_missed{validator=...}` streak while quorum and proposer rotation stay green.
+`aitbc-ops:scripts/monitoring/attestation-arrival-textfile.py` reads `data/*/chain.db` read-only (`mode=ro`) and measures the sealed outcome of remote attestation: each block's `block_metadata.attestations` lists only the remote signatures that arrived before sealing, so a validator absent from the list was too late or never arrived. `aitbc-attestation-arrival.timer` runs it minutely on **every** host — the sealed chain is byte-identical fleet-wide and every node's local Prometheus loads `aitbc_rules.yml`, so the series must exist locally for the rules to fire there (hub sees all five via remote_write either way). This is the M6 detector: a validator that stops attesting while still proposing shows up as a rising `aitbc_attestation_consecutive_missed{validator=...}` streak while quorum and proposer rotation stay green.
 
-Alerts in `scripts/monitoring/aitbc_rules.yml` (group `aitbc-attestation-arrival`):
+Alerts in `aitbc-ops:scripts/monitoring/aitbc_rules.yml` (group `aitbc-attestation-arrival`):
 
 | alert | meaning | severity |
 |---|---|---|
@@ -367,7 +367,7 @@ Alerts in `scripts/monitoring/aitbc_rules.yml` (group `aitbc-attestation-arrival
 None of the four uses `absent()`, so a host without the timer stays quiet rather than firing. Install is the fleet-wide manual shape — link the pair on every host, `daemon-reload`, `enable --now`:
 
 ```bash
-sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-attestation-arrival.{service,timer} /etc/systemd/system/
+sudo ln -sfn /opt/aitbc-ops/scripts/monitoring/aitbc-attestation-arrival.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-attestation-arrival.timer
 ```
 
@@ -380,7 +380,7 @@ The service runs `ProtectSystem=strict` with `ReadOnlyPaths=/var/lib/aitbc` — 
 The working probe is `aitbc-island-swarm-probe.timer` on **each island member**: every minute it runs `ipfs swarm connect` to every *other* member's public multiaddr (self-dial fails with "dial to self attempted", so the peer list excludes the local node) and writes `aitbc_island_swarm_probe_success{peer,instance}` + duration to the node_exporter textfile. Series reach hub over the member's `remote_write`. Per-host peers live in `/etc/aitbc/aitbc-island-swarm-probe.env` as `AITBC_ISLAND_SWARM_PROBE_PEERS="name=<multiaddr> ..."`; the script default covers the two-member bc-2 island.
 
 ```bash
-sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-island-swarm-probe.{service,timer} /etc/systemd/system/
+sudo ln -sfn /opt/aitbc-ops/scripts/monitoring/aitbc-island-swarm-probe.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-island-swarm-probe.timer
 ```
 

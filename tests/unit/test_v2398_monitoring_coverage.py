@@ -26,11 +26,9 @@ import textwrap
 from pathlib import Path
 
 import pytest
-import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HEALTH_CHECK_SH = REPO_ROOT / "scripts" / "monitoring" / "health_check.sh"
-PROMETHEUS_YML = REPO_ROOT / "scripts" / "monitoring" / "prometheus.yml"
 SECURITY_HARDENING_SH = REPO_ROOT / "scripts" / "utils" / "security_hardening.sh"
 
 # Every service in the map, and the file that decides which port it binds.  The point of
@@ -300,7 +298,7 @@ def test_security_hardening_does_not_generate_a_third_health_check() -> None:
     text = SECURITY_HARDENING_SH.read_text(encoding="utf-8")
 
     assert "scripts/health-check.sh" not in text, "it still writes a health checker into the git checkout"
-    assert "aitbc.bubuit.net/api/v1/health" not in text, "it still probes a different host's API"
+    assert "aitbc.example.net/api/v1/health" not in text, "it still probes a different host's API"
     assert "scripts/monitoring/health_check.sh" in text
 
 
@@ -324,54 +322,3 @@ def test_the_scheduled_command_is_the_script_that_exists() -> None:
     assert scheduled, "the cron line no longer runs $health_check with a mode"
     assert scheduled.group(1) in {"all", "services", "endpoints", "resources", "blockchain", "infrastructure"}
     assert HEALTH_CHECK_SH.exists()
-
-
-# --- 4. prometheus ----------------------------------------------------------------------
-
-
-def _jobs() -> dict[str, dict]:
-    config = yaml.safe_load(PROMETHEUS_YML.read_text(encoding="utf-8"))
-    return {job["job_name"]: job for job in config["scrape_configs"]}
-
-
-_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
-
-
-def _scrape_target(job: dict) -> str:
-    """The job's first target as ``host:port`` with loopback spellings unified.
-
-    #1187 bound the metrics exporters to 127.0.0.1 and the fleet-detail scrub
-    # (#1212) removed host literals, so targets may read ``127.0.0.1``,
-    ``localhost`` or ``::1`` — all the same loopback intent.
-    """
-    target = job["static_configs"][0]["targets"][0]
-    host, _, port = target.rpartition(":")
-    host = host.strip("[]")
-    return f"{'127.0.0.1' if host in _LOOPBACK_HOSTS else host}:{port}"
-
-
-@pytest.mark.parametrize("job,port", [("trading", 8104), ("governance", 8105)])
-def test_the_service_is_scraped(job: str, port: int) -> None:
-    """Of the six services the health map was missing, these two export /metrics."""
-    jobs = _jobs()
-
-    assert job in jobs, f"no scrape job for {job}"
-    assert _scrape_target(jobs[job]) == f"127.0.0.1:{port}"
-    assert jobs[job]["metrics_path"] == "/metrics"
-
-
-def test_the_blockchain_job_targets_a_port_something_binds() -> None:
-    """8006 until now, where nothing has ever listened — the same fictional port the stale
-    hyphenated script claimed for this service. The RPC process exports the series."""
-    assert _scrape_target(_jobs()["blockchain-node"]) == "127.0.0.1:8202"
-
-
-def test_no_scrape_job_points_at_a_service_the_health_map_disagrees_about() -> None:
-    """Both files name ports for the same services; they must not contradict each other."""
-    monitored = {service.removeprefix("aitbc-"): _port_of(url) for service, url in _service_endpoints().items()}
-
-    for name, job in _jobs().items():
-        host, _, port = _scrape_target(job).rpartition(":")
-        if host != "127.0.0.1" or name not in monitored:
-            continue
-        assert int(port) == monitored[name], f"{name}: prometheus says {port}, health_check.sh says {monitored[name]}"

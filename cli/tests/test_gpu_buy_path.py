@@ -26,9 +26,9 @@ ACCOUNT = "0x" + "11" * 20
 PROVIDER = "0x" + "22" * 20
 NODE_WALLET = "0x" + "33" * 20
 UUID_BUYER = "3f2c9a1b-7d4e-4c1a-9b2e-5d6f7a8b9c0d"
-PUBLIC_URL = "https://hub.aitbc.bubuit.net"
+PUBLIC_URL = "https://hub.example.net"
 DOMAIN = "aitbc.energy.quote.v1"
-RESOLVED = "ait-hub.aitbc.bubuit.net"
+RESOLVED = "ait-hub.example.net"
 
 
 @pytest.fixture

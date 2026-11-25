@@ -242,7 +242,7 @@ class TestClientSinks(unittest.TestCase):
         for p in sorted(WEBSITE.glob("*.html")):
             src = p.read_text(encoding="utf-8")
             for m in re.finditer(r'<(?:script|link|img|iframe)\b[^>]*(?:src|href)\s*=\s*"(https?://[^"]+)"', src):
-                if not m.group(1).startswith("https://hub.aitbc.bubuit.net"):
+                if not m.group(1).startswith("https://hub.example.net"):
                     bad.append(f"{p.name}: external include {m.group(1)[:60]}")
         self.assertEqual([], bad, "\n".join(bad))
 

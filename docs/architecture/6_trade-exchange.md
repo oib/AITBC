@@ -4,7 +4,7 @@ Ethereum-to-AITBC exchange: ETH deposit requests, payment tracking, and
 wallet-based user accounts on the coordinator API.
 
 > **Note:** An earlier version of this document described a public hosted
-> exchange at `aitbc.bubuit.net` with a web frontend, `X-Session-Token`
+> exchange at `aitbc.example.net` with a web frontend, `X-Session-Token`
 > headers, and `/api/*` routes. That deployment does not exist — the real
 > surface is the coordinator-api exchange router plus the standalone
 > exchange/bridge service described below.

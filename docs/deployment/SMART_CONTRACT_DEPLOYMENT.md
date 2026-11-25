@@ -241,7 +241,7 @@ export TESTNET_EXPLORER_URL=<testnet-explorer-url>
 Automated monitoring is configured during deployment:
 
 ```bash
-bash scripts/monitoring/setup-contract-monitoring.sh <network>
+bash /opt/aitbc-ops/scripts/monitoring/setup-contract-monitoring.sh <network>
 ```
 
 This creates:
@@ -284,7 +284,7 @@ Alerts are sent to:
 Verify monitoring is working:
 
 ```bash
-bash scripts/monitoring/verify-monitoring.sh <network>
+bash /opt/aitbc-ops/scripts/monitoring/verify-monitoring.sh <network>
 ```
 
 ---

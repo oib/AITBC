@@ -138,7 +138,7 @@ def test_matrix_live_issued_key_rejects_operational_reads(
     monkeypatch.setenv("PEER_KEYS_DB", str(tmp_path / "peer_keys.db"))
     from aitbc_chain.rpc import peer_keys
 
-    issued = peer_keys.issue("matrix-issued.example.net", "10.10.10.10")
+    issued = peer_keys.issue("matrix-issued.example.net", "10.0.0.10")
     assert matrix_client.get(f"{prefix}{path}", headers={"X-API-Key": issued}).status_code == 403
 
 

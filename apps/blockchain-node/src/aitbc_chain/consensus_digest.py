@@ -10,7 +10,7 @@ Scope (deliberately narrow — the digest must be IDENTICAL on correctly
 configured validators, so node-local tuning stays out):
 
 * every ``state_transition_v*_height`` activation pin (the same set
-  ``scripts/monitoring/fleet-config-check.sh`` watches, v2–v25),
+  the companion operations repository watches, v2–v25),
 * ``consensus_*``, ``pbft_*`` and ``multi_validator_*`` settings — the
   consensus rule flags, thresholds and round timings that change what a
   validator will attest/propose,

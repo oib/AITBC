@@ -295,7 +295,7 @@ aitbc bridge register-validator --chain-id bc-2 --address 0x00000000000000000000
 | ok | `balance`/`pending`/`oracle-status`/`security-status`/`status` `--rpc-url` family, `pending --chain-id`, `deposits --status`/`--repo-root`, `sign-proof --output` |
 | expected-refusal | `status --transfer-id` (404), `proof` anchor flags + `--rpc-url` (404), `deposits --tx-hash` (ledger rc 1), `lock --asset/--issued-at/--nonce` (422), `lock`/`unlock --wallet-name` (wallet not found, exit 1), `unlock --signature` (403), `confirm --rpc-url` (422), `ingest-header --re-sign` (CLI abort, exit 4), `store-header`/`ingest-header`/`attest`/`register-validator` store and admin flags (403) |
 | 🔒 by design | `confirm --confirmer-private-key`, `lock`/`unlock --wallet-password`, `ingest-header --private-key`, `register-validator --admin-private-key` |
-| operator-only | `scripts/ops/bridge-admin.sh` `manual-payout` / `abandon-and-resign` / `write-off` — shell ops, not CLI options |
+| operator-only | `/opt/aitbc-ops/scripts/ops/bridge-admin.sh` `manual-payout` / `abandon-and-resign` / `write-off` — shell ops, not CLI options |
 
 **Noise noted (not drift):** `deposits --tx-hash` on a node without
 `/etc/aitbc/aitbc-bridge-monitor.env` prints the monitor's env-file

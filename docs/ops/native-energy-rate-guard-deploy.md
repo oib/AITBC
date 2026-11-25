@@ -16,9 +16,9 @@ Stack contents (on top of the v11 bake `d6fc3aba19`):
 
 | file | host(s) | destination | restart needed |
 |---|---|---|---|
-| `scripts/monitoring/native-energy-rate-refresh.sh` | hub only | runs in place — the unit `ExecStart`s `/opt/aitbc/scripts/monitoring/native-energy-rate-refresh.sh` (#1729; the `/usr/local/sbin` copy is no longer used) | `daemon-reload` + next timer run picks it up |
+| `aitbc-ops:scripts/monitoring/native-energy-rate-refresh.sh` | hub only | runs in place — the unit `ExecStart`s `/opt/aitbc-ops/scripts/monitoring/native-energy-rate-refresh.sh` (#1729; the `/usr/local/sbin` copy is no longer used) | `daemon-reload` + next timer run picks it up |
 | `apps/coordinator-api/` (config.py, market_gpu.py) | hub only | `/opt/aitbc` pull | `aitbc-coordinator-api` restart — the band check is process code |
-| `scripts/monitoring/aitbc_hub_rules.yml` | hub only | `/etc/prometheus/aitbc_hub_rules.yml` | `promtool check` + `systemctl reload prometheus` (or HUP) |
+| `aitbc-ops:scripts/monitoring/aitbc_hub_rules.yml` | hub only | `/etc/prometheus/aitbc_hub_rules.yml` | `promtool check` + `systemctl reload prometheus` (or HUP) |
 | `aitbc/market/energy_pricing.py`, `cli/`, `apps/blockchain-node/rpc/escrow_routes.py` | all five | `/opt/aitbc` pull | none dedicated — the window value is unchanged (86400); rides the normal repo rollout. The node fallback and CLI binding are value-identical, so skipping a restart loses nothing. |
 
 Prerequisite on hub: `/var/lib/prometheus/node-exporter/` already exists

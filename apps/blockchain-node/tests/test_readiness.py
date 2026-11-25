@@ -128,9 +128,9 @@ class TestRequestLoggingLevels:
         is a client error, not an unhandled engine failure — and it must never
         reach the database layer (unknown ids could touch a stray or archived
         chain.db on disk)."""
-        resp = client.get(f"/rpc/accounts/{_MISSING_ADDR}?chain_id=ait-hub.aitbc.bubuit.net")
+        resp = client.get(f"/rpc/accounts/{_MISSING_ADDR}?chain_id=ait-hub.example.net")
         assert resp.status_code == 400
-        assert "ait-hub.aitbc.bubuit.net" in resp.json()["detail"]
+        assert "ait-hub.example.net" in resp.json()["detail"]
 
     def test_known_chain_id_keeps_the_404_contract(self, client):
         """The supported chain still answers the ordinary account miss — the
@@ -145,17 +145,17 @@ class TestRequestLoggingLevels:
         the ait-hub residual was ~5.1k such hits each logged as an unhandled
         error. The early reject must answer before the handler runs."""
         caplog.set_level(logging.INFO, logger="aitbc_chain.app")
-        resp = client.get("/rpc/accounts?chain_id=ait-hub.aitbc.bubuit.net")
+        resp = client.get("/rpc/accounts?chain_id=ait-hub.example.net")
         assert resp.status_code == 400
-        assert "ait-hub.aitbc.bubuit.net" in resp.json()["detail"]
+        assert "ait-hub.example.net" in resp.json()["detail"]
         assert not [r for r in _client_errors(caplog) if r.levelno >= logging.WARNING]
 
     def test_unknown_chain_id_rejected_on_snapshot_and_supply(self, client):
         """Same early reject on the other unguarded scope-reading routes."""
         for path in ("/rpc/state/snapshot", "/rpc/supply"):
-            resp = client.get(path, params={"chain_id": "ait-hub.aitbc.bubuit.net"})
+            resp = client.get(path, params={"chain_id": "ait-hub.example.net"})
             assert resp.status_code == 400, path
-            assert "ait-hub.aitbc.bubuit.net" in resp.json()["detail"]
+            assert "ait-hub.example.net" in resp.json()["detail"]
 
     def test_supported_chain_id_still_served_on_list_route(self, client):
         resp = client.get("/rpc/accounts?chain_id=bc-2.test")

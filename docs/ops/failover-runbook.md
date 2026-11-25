@@ -31,7 +31,7 @@ keeps the public view identical on both sides of the flip.
 | alerts | hub `alerts.log` tail | nothing firing that names hub1 |
 | executor exclusivity | `journalctl -t <executor tags> --since -10min` on hub | no other wave in progress |
 
-Convenience: `scripts/ops/failover-preflight.sh` implements most of this
+Convenience: `aitbc-ops:scripts/ops/failover-preflight.sh` implements most of this
 table (heads scan with re-read on mid-block disagreement, hub1
 unit/cgroup/services reads, edge-host swap, live-site sha, canary) and exits
 non-zero on any FAIL. The swap and canary rows need `redacted-host_SSH_TARGET` and
@@ -51,7 +51,7 @@ Prepare three files (off-box generation, then install on hub):
 | `to-hub1.conf` | upstream/vhost include for the failover target (a 4-line `proxy_pass https://hub1.<vhost>` + `proxy_ssl_server_name`/`proxy_ssl_name`/`Host` stub) | staged copy sha |
 
 The variant is reproducible from the repo, not a frozen copy:
-`scripts/ops/failover-gen.py <live-file> <output> [include-path]` parses
+`aitbc-ops:scripts/ops/failover-gen.py <live-file> <output> [include-path]` parses
 hub's live site file and rewrites each FLIP location block to
 `include` the hub1 upstream stub, emitting the carve-out locations
 ahead of the flipped prefixes. The sets are defined in the script:
@@ -82,7 +82,7 @@ nginx config.
 
 ## Baseline read-back (pre-flip)
 
-`scripts/ops/failover-readback.sh pre` (or `reverse` — same expectation):
+`aitbc-ops:scripts/ops/failover-readback.sh pre` (or `reverse` — same expectation):
 fires one GET per FLIP and STAY path through hub's public front with a
 unique User-Agent, then counts hits in hub1's nginx access log.
 
