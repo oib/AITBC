@@ -104,7 +104,7 @@ def test_release_failure_retains_quote_and_retry_releases(executor, monkeypatch)
     _seed_quote(task_id)
     handler_calls = _wire_successful_exec(monkeypatch)
     completes = iter([None, {"tx_hash_release": "0xrel"}])
-    monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: next(completes))
+    monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: next(completes))
 
     inbox1 = [_msg("m-a1", "task_accept", {"task_id": task_id})]
     monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: inbox1)

@@ -721,6 +721,38 @@ def get_task_payload(
     return StreamingResponse(_stream_capped(upstream, cap), media_type="application/octet-stream")
 
 
+@router.get("/tasks/{task_id}/result")
+@rate_limit(rate=60, per=60)
+def get_task_result(
+    request: Request,
+    principal: OptionalAgent,
+    task_id: str,
+) -> StreamingResponse:
+    """Stream the task's result CID from the coordinator island daemon (#2967).
+
+    Symmetric reverse of the payload proxy: the provider pins its result on
+    its own island daemon and the buyer reads it through the swarm — the same
+    broken-leg data plane, opposite direction. The hub daemon reaches the
+    provider fine, so the coordinator can serve the bytes over the
+    authenticated control plane. The ref is recorded on the escrow entry by
+    the completing provider (never caller-controlled at read time); reads are
+    party-scoped and byte-capped exactly like the payload proxy.
+    """
+    authorize_any_principal(principal, "tasks_result")
+    if not state.payment_escrow:
+        raise HTTPException(status_code=503, detail="Payment escrow not available")
+    entry = state.payment_escrow.get_escrow_for_task(task_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    authorize_escrow_party(principal, entry.requester, entry.agent, "tasks_result")
+    result_ref = entry.metadata.get("result_ref")
+    if not isinstance(result_ref, str) or not _PAYLOAD_CID_RE.fullmatch(result_ref):
+        raise HTTPException(status_code=404, detail="No result ref recorded for task")
+    cap = _payload_proxy_max_bytes()
+    upstream = _open_payload_cat(result_ref, cap)
+    return StreamingResponse(_stream_capped(upstream, cap), media_type="application/octet-stream")
+
+
 _CALLER_SIG_MAX_SKEW_SECONDS = 300
 
 
@@ -906,6 +938,18 @@ async def complete_task(request: Request, task_id: str, principal: OptionalAgent
         # without this it escaped as an unhandled 500.
         raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
     await _require_provider_signature(entry, "complete", task_id, body)
+    # #2967: the completing provider may report the result CID it pinned on
+    # its own daemon. Recording it on the durable escrow entry is what lets
+    # the result proxy serve buyer-side retrieval when the direct swarm leg
+    # is broken. The field is unsigned-but-provider-authenticated — the
+    # caller just proved control of the provider wallet, and integrity for
+    # the buyer is end-to-end via result_hash regardless. Only the bare-CID
+    # shape is stored; anything else is ignored rather than failing the
+    # completion itself.
+    result_ref = body.get("result_ref")
+    if isinstance(result_ref, str) and _PAYLOAD_CID_RE.fullmatch(result_ref):
+        entry.metadata["result_ref"] = result_ref
+        escrow_mgr.persist_entry(entry)
     try:
         # On-chain release only when the lock actually settled on-chain;
         # bookkeeping-only escrows stay off-chain.

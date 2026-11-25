@@ -604,10 +604,19 @@ def _signed_body(
     return body
 
 
-def _complete_task(task_id: str, provider_wallet: str, amount_units: int | None = None) -> dict[str, Any] | None:
+def _complete_task(
+    task_id: str, provider_wallet: str, amount_units: int | None = None, result_ref: str | None = None
+) -> dict[str, Any] | None:
     try:
         extra = {"amount_units": amount_units} if amount_units is not None else {"amount_units": 0}
         body = _signed_body("complete", task_id, provider_wallet, extra)
+        # #2967: report the result CID so the coordinator can serve it back
+        # to the buyer over the control plane when the direct swarm leg is
+        # broken. Added post-signing — the signature shape must stay exactly
+        # what the coordinator verifies; the provider auth already covers the
+        # write and buyer-side integrity is end-to-end via result_hash.
+        if result_ref:
+            body["result_ref"] = result_ref
         headers = _agent_request_headers(
             AGENT_EXECUTOR_ID,
             timestamp=body.get("timestamp") if isinstance(body.get("timestamp"), str) else None,
@@ -1040,7 +1049,9 @@ def _retry_escrow_release(
             "result_hash": prior["result_hash"],
         },
     )
-    complete = _complete_task(task_id, provider_wallet, amount_units=prior.get("amount_units"))
+    complete = _complete_task(
+        task_id, provider_wallet, amount_units=prior.get("amount_units"), result_ref=prior.get("result_ref")
+    )
     if complete:
         _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": complete.get("tx_hash_release")})
         state["quotes"].pop(task_id, None)
@@ -1148,7 +1159,7 @@ def _deliver_and_release(
         quote_units = ait_to_units(Decimal(str(quote["price"])))
     except (ValueError, TypeError, ArithmeticError) as exc:
         logger.debug("quoted price not unit-convertible for %s: %s", task_id, exc)
-    complete = _complete_task(task_id, provider_wallet, amount_units=quote_units)
+    complete = _complete_task(task_id, provider_wallet, amount_units=quote_units, result_ref=result_ref)
     if complete:
         tx_hash = complete.get("tx_hash_release")
         _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": tx_hash})

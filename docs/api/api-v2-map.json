@@ -676,6 +676,13 @@
           ]
         },
         {
+          "public": "/api/v2/agent-coordinator/v1/tasks/{task_id}/result",
+          "upstream": "/v1/tasks/{task_id}/result",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/agent-coordinator/v1/users/{user_id}/permissions",
           "upstream": "/v1/users/{user_id}/permissions",
           "methods": [
