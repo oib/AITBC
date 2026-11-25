@@ -32,6 +32,7 @@ from .energy_pricing import (
     evaluate_quote,
     to_scaled,
 )
+from .job_routing import is_market_ipfs_escrow_rail
 from .offer_fsm import OfferFSM, OfferStatus
 
 __all__ = [
@@ -46,6 +47,7 @@ __all__ = [
     "FeeModel",
     "FeePolicy",
     "FundingBreakdown",
+    "is_market_ipfs_escrow_rail",
     "OfferFSM",
     "OfferStatus",
     "QuoteResult",

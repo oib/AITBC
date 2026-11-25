@@ -36,6 +36,7 @@ import requests
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import AITBCError
+from aitbc.market import is_market_ipfs_escrow_rail
 from aitbc.zk_model_circuits import ModelCircuit, get_model, text_to_field_array
 
 # Same logger name as production_miner so journal lines keep their tag.
@@ -369,6 +370,17 @@ def execute_job(job, available_models):
     payload = job.get("payload", {})
     logger.info("Executing job %s: %s", job_id, payload)
     job_type = payload.get("type")
+    if is_market_ipfs_escrow_rail(payload):
+        # #2970: market IPFS rentals are hosted by ipfs_pinning_sweeper, not by
+        # this generic executor. The coordinator row is an escrow/payment rail;
+        # submitting either success or failure here would falsely mutate a
+        # lifecycle this component does not own.
+        logger.info(
+            "Ignoring market IPFS escrow rail job %s; market job %s is owned by the IPFS pinning sweeper",
+            job_id,
+            payload.get("market_job_id"),
+        )
+        return False
     # Market/CLI may submit plugin-style types; map them to the worker's
     # canonical task handlers.
     _TYPE_ALIASES = {
