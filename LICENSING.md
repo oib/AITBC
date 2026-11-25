@@ -48,4 +48,4 @@ SOFTWARE.
 
 Commercial licenses for the AGPLv3 product core are available from the rights
 holder for users who cannot or do not wish to comply with AGPLv3. Contact:
-the rights holder through the [AITBC GitHub repository](https://github.com/oib/AITBC).
+[andreas.fleckl@bubuit.net](mailto:andreas.fleckl@bubuit.net).
