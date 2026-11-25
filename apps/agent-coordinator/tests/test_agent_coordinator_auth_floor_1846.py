@@ -17,6 +17,10 @@ credential at all. Pins:
 from __future__ import annotations
 
 import base64
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -69,14 +73,24 @@ def _pubkey_b64() -> str:
 
 
 class TestDefaultMode:
-    def test_in_code_default_is_enforce(self):
+    def test_in_code_default_is_enforce(self, tmp_path):
         """The shipped default must be enforce — advisory was the hole."""
-        import importlib
-
-        import agent_app.config as cfg
-
-        importlib.reload(cfg)
-        assert cfg.settings.agent_msg_signature_mode == "enforce"
+        env = os.environ.copy()
+        env.pop("AGENT_MSG_SIGNATURE_MODE", None)
+        app_root = Path(__file__).resolve().parents[1]
+        repo_root = app_root.parents[1]
+        env["PYTHONPATH"] = os.pathsep.join([str(app_root / "src"), str(repo_root)])
+        out = subprocess.check_output(
+            [
+                sys.executable,
+                "-c",
+                "from agent_app.config import settings; print(settings.agent_msg_signature_mode)",
+            ],
+            cwd=tmp_path,
+            env=env,
+            text=True,
+        )
+        assert out.strip() == "enforce"
 
 
 class TestAdvisoryAuthFloor:
