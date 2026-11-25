@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-24
+**Last Updated**: 2026-11-25
 
 ---
 
@@ -58,12 +58,12 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1529
+- **Markdown files under docs/**: 1530
 
 | Directory | Files | Description |
 |---|---|---|
 | [account-abstraction](account-abstraction/) | 5 |  |
-| [agent](agent/) | 9 | Single agent integration and coordination |
+| [agent](agent/) | 10 | Single agent integration and coordination |
 | [agent-coordinator](agent-coordinator/) | 18 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 13 | Agent SDK and communication guide |
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
@@ -165,6 +165,7 @@ Inbound markdown links per document (top referrers).
 | [agent/blockchain/verification.md](agent/blockchain/verification.md) | [agent/README.md](agent/README.md), [agent/blockchain/overview.md](agent/blockchain/overview.md) |
 | [agent/guides/agent-messaging.md](agent/guides/agent-messaging.md) | [agent/guides/open-island-joining-guide.md](agent/guides/open-island-joining-guide.md), [getting-started/free-ait.md](getting-started/free-ait.md), [getting-started/node/agent-messaging.md](getting-started/node/agent-messaging.md) |
 | [agent/guides/open-island-joining-guide.md](agent/guides/open-island-joining-guide.md) | [getting-started/open-island.md](getting-started/open-island.md) |
+| [agent/repo-split-manifest.md](agent/repo-split-manifest.md) | [agent/README.md](agent/README.md) |
 | [api/README.md](api/README.md) | [api/examples/python-sdk-examples.md](api/examples/python-sdk-examples.md), [reference/faq.md](reference/faq.md) |
 | [api/blockchain/README.md](api/blockchain/README.md) | [api/market-api.md](api/market-api.md) |
 | [api/escrow-api.md](api/escrow-api.md) | [api/blockchain/README.md](api/blockchain/README.md), [api/market-api.md](api/market-api.md) |
