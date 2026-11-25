@@ -14,7 +14,7 @@ import re
 from typing import Annotated, Any, cast
 
 import requests
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -570,18 +570,23 @@ async def report_market_job_pin_error(
         return JSONResponse(status_code=400, content={"error": str(e)})
 
 
-@router.post("/v1/market/jobs/{job_id}/pin-confirm", dependencies=[Depends(require_market_api_key)])
+@router.post("/v1/market/jobs/{job_id}/pin-confirm")
 async def confirm_market_job_pin(
     job_id: str,
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
     confirm_data: dict[str, Any] | None = None,
 ) -> Any:
     """Confirm that a job's content has been pinned.
 
-    #1922: unsigned ``size`` / ``pin_tx_hash`` updates are informational
-    only — the buyer's ``aitbc market host`` flow reports the pinned size
-    that way, but they never mark the job delivered: the state stays
-    QUEUED/RUNNING-as-was and release still demands verified pin evidence.
+    #1922/#2973: unsigned ``size`` / ``pin_tx_hash`` updates are
+    informational only and still require the market API credential. They
+    never mark the job delivered: the state stays QUEUED/RUNNING-as-was and
+    release still demands verified pin evidence. The provider-signed
+    ``provider_confirmed`` attestation is an alternative credential: the
+    autonomous sweeper does not hold the user-distributed market key, so
+    the API key must not be evaluated as a hard dependency before the
+    wallet-attestation gate.
     ``provider_confirmed`` is the provider's own delivery attestation, so
     it requires the job provider's wallet signature (the same canonical
     jobs-request proof the read routes accept, bound to this route) plus a
@@ -594,6 +599,13 @@ async def confirm_market_job_pin(
     """
     try:
         confirm_data = confirm_data or {}
+        try:
+            await require_market_api_key(request)
+            api_key_error = None
+        except HTTPException as e:
+            api_key_error = e
+        if api_key_error is not None and not confirm_data.get("provider_confirmed"):
+            return JSONResponse(status_code=api_key_error.status_code, content={"detail": api_key_error.detail})
         logger.info("POST /v1/market/jobs/%s/pin-confirm called", job_id)
         # size lands verbatim in job.payload and is later summed into usage
         # analytics — reject anything that is not a non-negative int before
@@ -601,12 +613,12 @@ async def confirm_market_job_pin(
         pin_size = confirm_data.get("size")
         if pin_size is not None and (isinstance(pin_size, bool) or not isinstance(pin_size, int) or pin_size < 0):
             return JSONResponse(status_code=400, content={"error": "size must be a non-negative integer"})
-        bound = await _pin_size_bound_gate(svc, job_id, confirm_data, pin_size)
-        if bound is not None:
-            return bound
         gate = await _pin_confirm_attestation_gate(svc, job_id, confirm_data, pin_size)
         if gate is not None:
             return gate
+        bound = await _pin_size_bound_gate(svc, job_id, confirm_data, pin_size)
+        if bound is not None:
+            return bound
         result = await svc.confirm_market_job_pin(
             job_id,
             size=confirm_data.get("size"),
