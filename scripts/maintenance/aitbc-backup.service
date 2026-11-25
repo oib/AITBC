@@ -2,7 +2,10 @@
 Description=AITBC Daily Backup
 # network-online (not just network.target): post-boot Persistent catch-up can
 # fire while interfaces/DNS are still settling (#1304).
-After=network-online.target network.target redis.service postgresql.service
+# aitbc-blockchain-node.service in the boot ordering only helps the boot
+# transaction overlap; the node is Type=simple so 'started' is not 'chain.db
+# open' — the real cold-start tolerance is the bounded retry in the script (#2950).
+After=network-online.target network.target redis.service postgresql.service aitbc-blockchain-node.service
 Wants=network-online.target redis.service
 
 [Service]
