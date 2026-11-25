@@ -182,8 +182,9 @@ def test_hermes_malformed_duration_refunds(escrow_spy: tuple[list[Any], list[Any
 
     monkeypatch.setattr(jobs_mod, "AITBCHTTPClient", _Client)
     with pytest.raises(click.Abort):
-        jobs_mod._run_hermes(_ctx(), _offer(), "hi", 60, "0xB", "dead", "json")
+        jobs_mod._run_hermes(_ctx(), _offer(price_unit="per_processing_hour"), "hi", 60, "0xB", "dead", "json")
     assert len(creates) == 1
+    assert creates[0][0][4] == jobs_mod.Decimal("1")
     assert len(refunds) == 1
 
 
@@ -247,6 +248,7 @@ def test_whisper_malformed_duration_refunds(
     with pytest.raises(click.Abort):
         jobs_mod._run_whisper(_ctx(), offer, str(audio), "0xB", "dead", None, "transcribe", "text", "json")
     assert len(creates) == 1
+    assert creates[0][0][4] == jobs_mod.Decimal("1")
     assert len(refunds) == 1
 
 
@@ -265,4 +267,41 @@ def test_ffmpeg_malformed_hours_refunds(
     with pytest.raises(click.Abort):
         jobs_mod._run_ffmpeg(_ctx(), offer, str(video), "0xB", "dead", "mp4", "h264", "1080p", "4M", "json")
     assert len(creates) == 1
+    assert creates[0][0][4] == jobs_mod.Decimal("1")
     assert len(refunds) == 1
+
+
+# --- MARKET-ESCROW-STRAND-1 (#2953): lock amount respects the offer floor ---
+
+
+def test_ollama_subminimum_estimate_locks_offer_minimum(
+    escrow_spy: tuple[list[Any], list[Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reproducer: 512 tokens at 0.001 AIT/1k estimates 0.000512, but the
+    market floor is one billed unit. Registration and the on-chain lock must
+    both use 0.001 — otherwise registration 400s and the raw lock proceeds."""
+    creates, refunds = escrow_spy
+    registered: list[Any] = []
+
+    def _headers(*a: Any) -> dict[str, str]:
+        registered.append(a)
+        return {}
+
+    monkeypatch.setattr(jobs_mod, "_paid_shop_headers", _headers)
+
+    def _resp(req: Any, timeout: int = 0) -> Any:
+        return _FakeResp({"response": "hi", "eval_count": 1})
+
+    monkeypatch.setattr(urllib.request, "urlopen", _resp)
+    offer = _offer("ollama", price="0.001", price_unit="per_1k_tokens")
+    jobs_mod._run_ollama(_ctx(), offer, "prompt", "0xB", "dead", 512, False, "json")
+    assert len(creates) == 1
+    assert creates[0][0][4] == jobs_mod.Decimal("0.001")
+    assert registered[0][-1] == jobs_mod.Decimal("0.001")
+    assert refunds == []
+
+
+def test_offer_minimum_helper_only_raises_below_floor() -> None:
+    offer = _offer("ollama", price="0.001", price_unit="per_1k_tokens")
+    assert jobs_mod._lock_amount_respecting_offer_minimum(offer, jobs_mod.Decimal("0.000512")) == jobs_mod.Decimal("0.001")
+    assert jobs_mod._lock_amount_respecting_offer_minimum(offer, jobs_mod.Decimal("0.002")) == jobs_mod.Decimal("0.002")
