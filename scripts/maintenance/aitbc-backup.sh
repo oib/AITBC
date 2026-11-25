@@ -44,6 +44,15 @@ BACKUP_GOOD_MIN_BYTES="${BACKUP_GOOD_MIN_BYTES:-4096}"
 # "would remove" instead of deleting. First deploy should run this once so the
 # operator sees the one-off deletion list before it happens for real.
 BACKUP_PRUNE_DRYRUN="${BACKUP_PRUNE_DRYRUN:-}"
+# #2950: cold-start tolerance for the sqlite legs. Post-boot Persistent
+# catch-up can reach a chain/service db while its node is still opening or
+# recovering it — the 25 Nov node1 outage showed a ~3min lock window, far
+# beyond the old fixed 2x30s budget. Each attempt additionally carries a
+# sqlite busy timeout, so short lock bursts are absorbed inside a single
+# attempt and the retry budget only pays for real recovery windows.
+BACKUP_DB_ATTEMPTS="${BACKUP_DB_ATTEMPTS:-5}"
+BACKUP_DB_RETRY_SLEEP="${BACKUP_DB_RETRY_SLEEP:-45}"
+BACKUP_DB_SQLITE_TIMEOUT_MS="${BACKUP_DB_SQLITE_TIMEOUT_MS:-15000}"
 LOG_TAG="aitbc-backup"
 # Exit status of the run; legs that leave no usable snapshot set it nonzero.
 _BACKUP_RC=0
@@ -243,18 +252,18 @@ if [ -d "$CHAIN_DB_DIR" ]; then
         # not a valid snapshot — delete it so the prune step can't take it
         # for a good one and throw away older good dumps (#894).
         # Post-boot Persistent catch-up can reach a chain.db that is still
-        # being created or is briefly locked by its starting node — retry the
-        # dump once after a pause before declaring failure (#1304).
+        # being created or locked by its starting/recovering node — retry on
+        # the BACKUP_DB_* budget before declaring failure (#1304, #2950).
         _dump_ok=false
-        for _attempt in 1 2; do
-            if sqlite3 "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
+        for ((_attempt = 1; _attempt <= BACKUP_DB_ATTEMPTS; _attempt++)); do
+            if sqlite3 -cmd ".timeout ${BACKUP_DB_SQLITE_TIMEOUT_MS}" "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
                 && ! zcat "$dest" | grep -qE '^ROLLBACK; -- due to errors$'; then
                 _dump_ok=true
                 break
             fi
-            if [ "$_attempt" -eq 1 ]; then
-                warn "SQLite $(basename "$dbfile") dump attempt 1 failed — retrying in 30s"
-                sleep 30
+            if [ "$_attempt" -lt "$BACKUP_DB_ATTEMPTS" ]; then
+                warn "SQLite $(basename "$dbfile") dump attempt $_attempt/$BACKUP_DB_ATTEMPTS failed — retrying in ${BACKUP_DB_RETRY_SLEEP}s"
+                sleep "$BACKUP_DB_RETRY_SLEEP"
             fi
         done
         if [ "$_dump_ok" = true ]; then
@@ -289,18 +298,18 @@ if [ -d "$SVC_DB_DIR" ]; then
         fi
         rel="${dbfile#"${SVC_DB_DIR}"/}"
         dest="${BACKUP_DIR}/svc_$(echo "$rel" | tr '/' '_')"
-        # Same post-boot transient as the chain sweep (#1304): a service db
-        # can be briefly locked while its unit is still starting.
+        # Same post-boot transient as the chain sweep (#1304, #2950): a
+        # service db can be locked while its unit is still starting.
         _svc_ok=false
-        for _attempt in 1 2; do
-            if sqlite3 -readonly "$dbfile" ".backup '${dest}'" 2>/dev/null \
+        for ((_attempt = 1; _attempt <= BACKUP_DB_ATTEMPTS; _attempt++)); do
+            if sqlite3 -cmd ".timeout ${BACKUP_DB_SQLITE_TIMEOUT_MS}" -readonly "$dbfile" ".backup '${dest}'" 2>/dev/null \
                 && gzip -f "$dest"; then
                 _svc_ok=true
                 break
             fi
-            if [ "$_attempt" -eq 1 ]; then
-                warn "SQLite svc $(basename "$dbfile") backup attempt 1 failed — retrying in 30s"
-                sleep 30
+            if [ "$_attempt" -lt "$BACKUP_DB_ATTEMPTS" ]; then
+                warn "SQLite svc $(basename "$dbfile") backup attempt $_attempt/$BACKUP_DB_ATTEMPTS failed — retrying in ${BACKUP_DB_RETRY_SLEEP}s"
+                sleep "$BACKUP_DB_RETRY_SLEEP"
             fi
         done
         if [ "$_svc_ok" = true ]; then
