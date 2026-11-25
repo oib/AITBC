@@ -237,12 +237,13 @@ class _DbReservationMixin:
                 cast(Any, MempoolEntry.received_at),
                 cast(Any, MempoolEntry.sender),
                 cast(Any, MempoolEntry.nonce),
+                cast(Any, MempoolEntry.signed),
             ).where(cast(Any, MempoolEntry.chain_id == chain_id))
         ).all()
         return list(
             _order_for_drain(
-                _DrainCand(fee=f, tx_hash=h, size_bytes=s, sender=snd or None, nonce=n, payload=r)
-                for h, f, s, r, snd, n in entries
+                _DrainCand(fee=f, tx_hash=h, size_bytes=s, sender=snd or None, nonce=n if sgn else None, payload=r)
+                for h, f, s, r, snd, n, sgn in entries
             )
         )
 
@@ -381,15 +382,17 @@ class _DbReservationMixin:
                 )
                 reserved = {r[0] for r in cur.fetchall()}
                 cur.execute(
-                    "SELECT tx_hash, fee, size_bytes, received_at, sender, nonce FROM mempool WHERE chain_id=?",
+                    "SELECT tx_hash, fee, size_bytes, received_at, sender, nonce, signed FROM mempool WHERE chain_id=?",
                     (chain_id,),
                 )
                 rows = cur.fetchall()
                 # Reuse the ORM-free candidate ordering: build _DrainCand list.
                 cands = list(
                     _order_for_drain(
-                        _DrainCand(fee=int(f), tx_hash=h, size_bytes=int(s), sender=snd or None, nonce=n, payload=r)
-                        for h, f, s, r, snd, n in rows
+                        _DrainCand(
+                            fee=int(f), tx_hash=h, size_bytes=int(s), sender=snd or None, nonce=n if sgn else None, payload=r
+                        )
+                        for h, f, s, r, snd, n, sgn in rows
                     )
                 )
                 picked = self._pick_within_bounds(cands, reserved, kw["max_count"], kw["max_bytes"])

@@ -403,6 +403,7 @@ class _DbAdmissionMixin:
                         cast(Any, MempoolEntry.received_at),
                         cast(Any, MempoolEntry.sender),
                         cast(Any, MempoolEntry.nonce),
+                        cast(Any, MempoolEntry.signed),
                     ).where(cast(Any, MempoolEntry.chain_id == chain_id))
                 ).all()
 
@@ -410,8 +411,11 @@ class _DbAdmissionMixin:
                 total_bytes = 0
                 blocked: set[str] = set()
                 for c in _order_for_drain(
-                    _DrainCand(fee=f, tx_hash=h, size_bytes=s, sender=snd or None, nonce=n, payload=r)
-                    for h, f, s, r, snd, n in entries
+                    # #2944: only signed entries own a nonce slot; unsigned
+                    # protocol writes pass nonce=None so drain serializes
+                    # them behind the sender's signed run.
+                    _DrainCand(fee=f, tx_hash=h, size_bytes=s, sender=snd or None, nonce=n if sgn else None, payload=r)
+                    for h, f, s, r, snd, n, sgn in entries
                 ):
                     if len(picked) >= max_count:
                         break
