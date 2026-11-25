@@ -126,53 +126,104 @@ class _DrainCand:
     payload: Any
 
 
+def _contiguous_nonce_run(slotted: list[_DrainCand]) -> list[_DrainCand]:
+    """The prefix of ``slotted`` (sorted by nonce) with no nonce gaps."""
+    run: list[_DrainCand] = []
+    prev = None
+    for c in slotted:
+        if prev is not None and c.nonce != prev + 1:
+            break
+        run.append(c)
+        prev = c.nonce
+    return run
+
+
+def _sender_drain_runs(by_sender: dict[str, list[_DrainCand]]) -> dict[str, list[_DrainCand]]:
+    """Truncate each sender's list to its contiguous nonce run in place and
+    return the sender's unsigned (nonce-exempt) candidates (#2944)."""
+    unsigned_by_sender: dict[str, list[_DrainCand]] = {}
+    for sender, lst in by_sender.items():
+        slotted = sorted(
+            (c for c in lst if c.nonce is not None),
+            key=lambda c: c.nonce if c.nonce is not None else 0,
+        )
+        unsigned = [c for c in lst if c.nonce is None]
+        lst[:] = _contiguous_nonce_run(slotted)
+        if unsigned:
+            unsigned_by_sender[sender] = unsigned
+    return unsigned_by_sender
+
+
+def _heap_entry(c: _DrainCand) -> tuple[int, str, _DrainCand]:
+    return (-c.fee, c.tx_hash, c)
+
+
+def _seed_ready(
+    by_sender: dict[str, list[_DrainCand]],
+    unsigned_by_sender: dict[str, list[_DrainCand]],
+    independent: list[_DrainCand],
+) -> tuple[list[tuple[int, str, _DrainCand]], dict[str, int]]:
+    """Initial drain heap: independents plus each sender's head — or its
+    unsigned writes when the sender has no slotted run at all."""
+    import heapq
+
+    ready = [_heap_entry(c) for c in independent]
+    heapq.heapify(ready)
+    next_idx = dict.fromkeys(by_sender, 0)
+    for sender, lst in by_sender.items():
+        if lst:
+            heapq.heappush(ready, _heap_entry(lst[0]))
+        else:
+            for c in unsigned_by_sender.pop(sender, []):
+                heapq.heappush(ready, _heap_entry(c))
+    return ready, next_idx
+
+
 def _order_for_drain(cands: Iterable[_DrainCand]) -> list[_DrainCand]:
     """Order drain candidates so a sender's tx never precedes its own lower nonce.
 
     Global fee order lets a high-fee later nonce drain before its predecessor
     and get rejected as a nonce gap (#1068). Instead each sender contributes
     only the contiguous run from its lowest pooled nonce — a gapped nonce
-    stays in the pool — and the ready heads merge by fee. Entries without a
-    sender/nonce slot are independent and always ready.
+    stays in the pool — and the ready heads merge by fee.
+
+    Unsigned protocol-internal writes (``nonce=None``) carry a sender but no
+    slot: they are nonce-exempt at apply, so any of them that drains while
+    the sender's signed txs are still pooled takes the live account nonce
+    and kills every pending signed tx behind it (#2944 — a queued
+    STAKE_LOCK sealed ahead of a pending LIQUIDITY_DEPOSIT and the deposit
+    died ``nonce_below_confirmed``). They therefore drain only after the
+    sender's contiguous slotted run is exhausted; senders with no slotted
+    entries keep them ready immediately. Entries without a sender at all
+    are independent and always ready.
     """
     import heapq
 
     by_sender: dict[str, list[_DrainCand]] = {}
     independent: list[_DrainCand] = []
     for c in cands:
-        if c.sender and c.nonce is not None:
+        if c.sender:
             by_sender.setdefault(c.sender, []).append(c)
         else:
             independent.append(c)
 
-    for lst in by_sender.values():
-        lst.sort(key=lambda c: c.nonce if c.nonce is not None else 0)
-        run: list[_DrainCand] = []
-        prev = None
-        for c in lst:
-            if prev is not None and c.nonce != prev + 1:
-                break
-            run.append(c)
-            prev = c.nonce
-        lst[:] = run
-
-    ready: list[tuple[int, str, _DrainCand]] = [(-c.fee, c.tx_hash, c) for c in independent]
-    heapq.heapify(ready)
-    next_idx: dict[str, int] = {}
-    for sender, lst in by_sender.items():
-        next_idx[sender] = 0
-        heapq.heappush(ready, (-lst[0].fee, lst[0].tx_hash, lst[0]))
+    unsigned_by_sender = _sender_drain_runs(by_sender)
+    ready, next_idx = _seed_ready(by_sender, unsigned_by_sender, independent)
 
     ordered: list[_DrainCand] = []
     while ready:
         _, _, c = heapq.heappop(ready)
         ordered.append(c)
-        if c.sender is not None:
-            i = next_idx[c.sender] + 1
-            next_idx[c.sender] = i
-            lst = by_sender[c.sender]
-            if i < len(lst):
-                heapq.heappush(ready, (-lst[i].fee, lst[i].tx_hash, lst[i]))
+        if c.sender is None:
+            continue
+        i = next_idx[c.sender] + 1
+        next_idx[c.sender] = i
+        lst = by_sender[c.sender]
+        if i < len(lst):
+            heapq.heappush(ready, _heap_entry(lst[i]))
+        else:
+            for u in unsigned_by_sender.pop(c.sender, []):
+                heapq.heappush(ready, _heap_entry(u))
     return ordered
 
 

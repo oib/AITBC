@@ -298,3 +298,79 @@ class TestInitMempool:
         drained = pool.drain(max_count=10, max_bytes=1_000_000)
         assert [t.content["nonce"] for t in drained] == [7]
         assert pool.size() == 1
+
+
+class TestDrainUnsignedSerialization:
+    """#2944: unsigned protocol-internal writes are nonce-exempt at apply —
+    they take the live account nonce, so one that drains while the sender's
+    signed txs are still pooled kills every signed tx behind it
+    (nonce_below_confirmed). Drain must hold them behind the sender's
+    contiguous signed run."""
+
+    @pytest.mark.parametrize("kind", ["memory", "db"])
+    def test_unsigned_waits_for_signed_run(self, kind, tmp_path):
+        pool = (
+            InMemoryMempool()
+            if kind == "memory"
+            else DatabaseMempool(f"sqlite:///{tmp_path / 'm2944.db'}", max_size=100, min_fee=0)
+        )
+        signed_tx = {
+            "from": "0xAAA",
+            "to": "0xBBB",
+            "amount": 1,
+            "fee": 10,
+            "nonce": 5,
+            "signature": "0xsig",
+        }
+        unsigned_tx = {
+            "from": "0xaaa",
+            "to": "0xESCROW",
+            "amount": 2,
+            "fee": 50,
+            "type": "STAKE_LOCK",
+        }
+        other_unsigned = {
+            "from": "0xCCC",
+            "to": "0xDDD",
+            "amount": 3,
+            "fee": 0,
+            "type": "STAKE_RELEASE",
+        }
+        # Unsigned added first and the signed tx carries the higher fee —
+        # pre-fix fee order would still let the protocol write jump the queue
+        # only via the independent path; the pin is the relative order.
+        pool.add(unsigned_tx)
+        pool.add(signed_tx)
+        pool.add(other_unsigned)
+
+        drained = pool.drain(max_count=10, max_bytes=1_000_000)
+        hashes = [t.tx_hash for t in drained]
+        assert hashes.index(compute_tx_hash(signed_tx)) < hashes.index(compute_tx_hash(unsigned_tx))
+        assert compute_tx_hash(other_unsigned) in hashes
+
+    @pytest.mark.parametrize("kind", ["memory", "db"])
+    def test_unsigned_drains_after_full_signed_run(self, kind, tmp_path):
+        pool = (
+            InMemoryMempool()
+            if kind == "memory"
+            else DatabaseMempool(f"sqlite:///{tmp_path / 'm2944b.db'}", max_size=100, min_fee=0)
+        )
+        txs = [{"from": "0xS", "to": "0xT", "amount": 1, "fee": 10, "nonce": n, "signature": "0xs"} for n in (5, 6)]
+        unsigned_tx = {"from": "0xs", "to": "0xE", "amount": 9, "fee": 50, "type": "STAKE_LOCK"}
+        for tx in [*txs, unsigned_tx]:
+            pool.add(tx)
+
+        drained = pool.drain(max_count=10, max_bytes=1_000_000)
+        assert [t.tx_hash for t in drained] == [compute_tx_hash(t) for t in (*txs, unsigned_tx)]
+
+    @pytest.mark.parametrize("kind", ["memory", "db"])
+    def test_unsigned_only_sender_still_drains(self, kind, tmp_path):
+        pool = (
+            InMemoryMempool()
+            if kind == "memory"
+            else DatabaseMempool(f"sqlite:///{tmp_path / 'm2944c.db'}", max_size=100, min_fee=0)
+        )
+        unsigned_tx = {"from": "0xU", "to": "0xE", "amount": 1, "fee": 0, "type": "STAKE_LOCK"}
+        pool.add(unsigned_tx)
+        drained = pool.drain(max_count=10, max_bytes=1_000_000)
+        assert [t.tx_hash for t in drained] == [compute_tx_hash(unsigned_tx)]

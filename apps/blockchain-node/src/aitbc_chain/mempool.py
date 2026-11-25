@@ -255,7 +255,9 @@ class InMemoryMempool:
                         fee=tx.fee,
                         tx_hash=tx.tx_hash,
                         size_bytes=tx.size_bytes,
-                        sender=slot[0] if slot else None,
+                        # #2944: unsigned protocol writes keep their real sender
+                        # so drain can hold them behind the sender's signed run.
+                        sender=slot[0] if slot else (_tx_sender(tx.content) or None),
                         nonce=slot[1] if slot else None,
                         payload=tx,
                     )
