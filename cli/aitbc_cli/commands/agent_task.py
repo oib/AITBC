@@ -550,33 +550,74 @@ def _submit_task(
 _RESULT_MAX_BYTES = 64 * 1024 * 1024
 
 
-def _fetch_result_capped(ipfs_api: str, result_ref: object) -> bytes:
+def _valid_result_ref(result_ref: object) -> str:
+    """Bare-CID gate shared by both result fetch paths (#1971/#1939)."""
+    import re as _re
+
+    if not isinstance(result_ref, str) or not _re.fullmatch(r"[A-Za-z0-9]{1,256}", result_ref):
+        error(f"Refusing malformed result_ref from provider: {result_ref!r}")
+        raise click.Abort()
+    return result_ref
+
+
+# #2967: the local swarm read is the fast path when the buyer↔provider
+# bitswap leg works — but when it is broken the read hangs to whatever
+# timeout we set, so the fuse is short and the control-plane fallback
+# takes over. 20s mirrors the miner executor's payload fuse (#2955).
+_RESULT_LOCAL_FUSE_SECONDS = 20
+
+
+def _fetch_result_capped(ipfs_api: str, result_ref: object, fuse: int = _RESULT_LOCAL_FUSE_SECONDS) -> bytes:
     """Fetch a provider-named result from the local Kubo daemon (#1971).
 
     result_ref is provider-controlled and Kubo resolves cat args as IPFS
     *paths*, so only a bare alphanumeric CID may reach the daemon (same gate as
     the miner's payload_ref check, #1939); the read is streamed and size-capped.
+    Raises on failure — callers decide whether a fallback path exists.
     """
-    import re as _re
-
     import requests as _requests
 
-    if not isinstance(result_ref, str) or not _re.fullmatch(r"[A-Za-z0-9]{1,256}", result_ref):
-        error(f"Refusing malformed result_ref from provider: {result_ref!r}")
-        raise click.Abort()
-    try:
-        with _requests.post(f"{ipfs_api}/api/v0/cat", params={"arg": result_ref}, timeout=120, stream=True) as resp:
-            resp.raise_for_status()
-            chunks: list[bytes] = []
-            total = 0
-            for chunk in resp.iter_content(chunk_size=65536):
-                total += len(chunk)
-                if total > _RESULT_MAX_BYTES:
-                    raise ValueError(f"result exceeds {_RESULT_MAX_BYTES} bytes")
-                chunks.append(chunk)
-    except _OPS_ERRORS as e:
-        error(f"Could not fetch result {result_ref}: {e}")
-        raise click.Abort() from e
+    cid = _valid_result_ref(result_ref)
+    with _requests.post(f"{ipfs_api}/api/v0/cat", params={"arg": cid}, timeout=(5, fuse), stream=True) as resp:
+        resp.raise_for_status()
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=65536):
+            total += len(chunk)
+            if total > _RESULT_MAX_BYTES:
+                raise ValueError(f"result exceeds {_RESULT_MAX_BYTES} bytes")
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _fetch_result_via_coordinator(
+    client: AITBCHTTPClient,
+    task_id: str,
+    agent_id: str,
+    signing_key: str | None,
+) -> bytes:
+    """Fetch the result through the coordinator's party-scoped proxy (#2967).
+
+    The proxy streams the task's recorded result CID from the hub island
+    daemon — the propagation-independent path when the direct buyer↔provider
+    bitswap leg is broken. Signed with the same ``X-Agent-*`` headers as the
+    inbox poll; the read is streamed and capped exactly like the local cat.
+    """
+    import requests as _requests
+
+    headers = dict(client.headers or {})
+    if signing_key:
+        headers.update(signed_request_headers(agent_id, signing_key))
+    url = f"{client.base_url}/v1/tasks/{task_id}/result"
+    with _requests.get(url, headers=headers, timeout=(5, 120), stream=True) as resp:
+        resp.raise_for_status()
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=65536):
+            total += len(chunk)
+            if total > _RESULT_MAX_BYTES:
+                raise ValueError(f"result exceeds {_RESULT_MAX_BYTES} bytes")
+            chunks.append(chunk)
     return b"".join(chunks)
 
 
@@ -653,6 +694,46 @@ def _wait_for_task_result(
         time.sleep(5)
     warning(f"Timed out waiting for result after {wait_seconds}s — escrow will refund on expiry")
     output({"task_id": task_id, "escrow_id": escrow_id, "status": "waiting"}, ctx.obj.get("output_format", "table"))
+
+
+def _retrieve_result_bytes(
+    client: AITBCHTTPClient,
+    task_id: str,
+    buyer_agent: str,
+    signing_key: str | None,
+    result_ref: str,
+) -> tuple[bytes, str]:
+    """Fetch result bytes: local swarm fast path, coordinator-proxy fallback (#2967).
+
+    The local swarm read is the fast path when the buyer↔provider bitswap
+    leg works; when it is broken (or no local daemon runs at all) the
+    coordinator's party-scoped proxy serves the same bytes over the
+    authenticated control plane after a short fuse. result_hash verification
+    at the call site is path-independent. Returns ``(data, served_by)``;
+    aborts when both paths fail.
+    """
+    ipfs_api = _resolve_ipfs_api({})
+    data: bytes | None = None
+    served_by = ""
+    local_error: Exception | None = None
+    if _daemon_available(ipfs_api):
+        try:
+            data = _fetch_result_capped(ipfs_api, result_ref)
+            served_by = "local-swarm"
+        except _OPS_ERRORS as e:
+            local_error = e
+            warning(f"Local swarm read failed ({e}) — falling back to the coordinator proxy")
+    try:
+        if data is None:
+            data = _fetch_result_via_coordinator(client, task_id, buyer_agent, signing_key)
+            served_by = "coordinator-proxy"
+    except _OPS_ERRORS as e:
+        if local_error is not None:
+            error(f"Could not fetch result {result_ref}: local swarm failed ({local_error}); proxy failed ({e})")
+        else:
+            error(f"Could not fetch result {result_ref} via coordinator proxy: {e}")
+        raise click.Abort() from e
+    return data, served_by
 
 
 @click.group(
@@ -918,11 +999,10 @@ def result(
         raise click.Abort()
 
     result_ref = task_result["result_ref"]
-    ipfs_api = _resolve_ipfs_api({})
-    if not _daemon_available(ipfs_api):
-        error(f"No local island IPFS daemon reachable at {ipfs_api}")
-        raise click.Abort()
-    data = _fetch_result_capped(ipfs_api, result_ref)
+    _valid_result_ref(result_ref)
+    data, served_by = _retrieve_result_bytes(client, task_id, buyer_agent, signing_key, result_ref)
+    if served_by == "coordinator-proxy":
+        info("Result served by the coordinator proxy (local swarm path unavailable)")
     expected = task_result.get("result_hash")
     actual = hashlib.sha256(data).hexdigest()
     if expected and expected != actual:

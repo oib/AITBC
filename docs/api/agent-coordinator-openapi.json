@@ -932,6 +932,84 @@
         }
       }
     },
+    "/v1/tasks/{task_id}/result": {
+      "get": {
+        "summary": "Get Task Result",
+        "description": "Stream the task's result CID from the coordinator island daemon (#2967).\n\nSymmetric reverse of the payload proxy: the provider pins its result on\nits own island daemon and the buyer reads it through the swarm \u2014 the same\nbroken-leg data plane, opposite direction. The hub daemon reaches the\nprovider fine, so the coordinator can serve the bytes over the\nauthenticated control plane. The ref is recorded on the escrow entry by\nthe completing provider (never caller-controlled at read time); reads are\nparty-scoped and byte-capped exactly like the payload proxy.",
+        "operationId": "get_task_result_v1_tasks__task_id__result_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found / No result ref recorded for task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "payload is {total} bytes, over the {cap} cap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "island IPFS unreachable: {e} / island IPFS cat failed: {detail}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Payment escrow not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",

@@ -172,7 +172,9 @@ class TestExecution:
         monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio-bytes")
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hello"}')
-        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+        monkeypatch.setattr(
+            ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: {"tx_hash_release": "0xrel"}
+        )
 
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
@@ -182,6 +184,48 @@ class TestExecution:
         assert result_msg["result_ref"] == "bafyResult"
         assert result_msg["status"] == "success"
         assert executor["sent"][1][1]["tx_hash"] == "0xrel"
+
+    def test_result_ref_reaches_complete_call(self, executor, monkeypatch):
+        """#2967 wiring pin: the executor must report the result CID to the
+        coordinator at completion — that write is what the buyer-side result
+        proxy serves. Reverting the result_ref kwarg at the call-site must
+        kill this pin."""
+        task_id = "t-1"
+        self._setup_accept(executor, monkeypatch, task_id)
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio-bytes")
+        monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
+        monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hello"}')
+        complete_kwargs = {}
+
+        def capture_complete(t, w, amount_units=None, result_ref=None):
+            complete_kwargs["result_ref"] = result_ref
+            return {"tx_hash_release": "0xrel"}
+
+        monkeypatch.setattr(ate, "_complete_task", capture_complete)
+        stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
+        assert stats["executed"] == 1
+        assert complete_kwargs.get("result_ref") == "bafyResult"
+
+    def test_complete_body_carries_result_ref(self, monkeypatch):
+        """#2967: _complete_task puts the unsigned result_ref into the POST body."""
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        calls = {}
+
+        def fake_post(url, json=None, headers=None, timeout=None):
+            calls["body"] = json
+            resp = type("R", (), {"status_code": 200, "json": lambda self: {"tx_hash_release": "0x"}, "text": ""})()
+            return resp
+
+        key = generate_ethereum_private_key()
+        addr = derive_ethereum_address(key)
+        monkeypatch.setattr(ate, "_signing_material", lambda w: (key, addr))
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        monkeypatch.setattr(ate, "_agent_request_headers", lambda *a, **k: {})
+        ate._complete_task("t-9", addr, amount_units=7, result_ref="bafyXyz")
+        assert calls["body"].get("result_ref") == "bafyXyz"
+        # the signature shape is untouched — result_ref stays unsigned
+        assert "result_ref" not in str(calls["body"].get("signature", ""))
 
     def test_accept_falls_back_to_coordinator_proxy(self, executor, monkeypatch):
         """#2955 wiring pin: the accept path must consult the fallback chain.
@@ -204,7 +248,9 @@ class TestExecution:
         monkeypatch.setitem(
             ate.SERVICE_HANDLERS, "whisper", lambda req, payload: seen_payloads.append(payload) or b'{"text":"hi"}'
         )
-        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+        monkeypatch.setattr(
+            ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: {"tx_hash_release": "0xrel"}
+        )
 
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
@@ -222,7 +268,9 @@ class TestExecution:
         monkeypatch.setattr(ate, "_coordinator_payload_cat", lambda tid: proxy_calls.append(tid) or b"proxy")
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hi"}')
-        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+        monkeypatch.setattr(
+            ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: {"tx_hash_release": "0xrel"}
+        )
 
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
@@ -880,7 +928,9 @@ class TestTaskAcceptSenderBinding:
         monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b"{}")
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
-        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+        monkeypatch.setattr(
+            ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: {"tx_hash_release": "0xrel"}
+        )
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
 
