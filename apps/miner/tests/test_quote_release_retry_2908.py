@@ -87,7 +87,7 @@ def _seed_quote(task_id="t-1"):
 
 
 def _wire_successful_exec(monkeypatch):
-    monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio-bytes")
+    monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio-bytes")
     monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
     handler_calls = []
 
@@ -133,7 +133,7 @@ def test_release_failure_retains_quote_and_retry_releases(executor, monkeypatch)
 def test_terminal_failure_pops_quote(executor, monkeypatch):
     task_id = "t-fail"
     _seed_quote(task_id)
-    monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio")
+    monkeypatch.setattr(ate, "_ipfs_cat", lambda cid, **k: b"audio")
 
     def boom(req, payload):
         raise RuntimeError("whisper exploded")

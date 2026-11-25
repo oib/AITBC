@@ -669,6 +669,13 @@
           ]
         },
         {
+          "public": "/api/v2/agent-coordinator/v1/tasks/{task_id}/payload",
+          "upstream": "/v1/tasks/{task_id}/payload",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/agent-coordinator/v1/users/{user_id}/permissions",
           "upstream": "/v1/users/{user_id}/permissions",
           "methods": [

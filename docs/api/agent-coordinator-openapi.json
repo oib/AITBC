@@ -854,6 +854,84 @@
         }
       }
     },
+    "/v1/tasks/{task_id}/payload": {
+      "get": {
+        "summary": "Get Task Payload",
+        "description": "Stream the task's payload CID from the coordinator island daemon.\n\nParty-or-admin scoped exactly like the escrow row reads: the payload is\nthe buyer's paid input, so it must not be enumerable by unrelated\nauthenticated principals.",
+        "operationId": "get_task_payload_v1_tasks__task_id__payload_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found / No payload ref recorded for task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "payload is {total} bytes, over the {cap} cap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "island IPFS unreachable: {e} / island IPFS cat failed: {detail}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Payment escrow not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",

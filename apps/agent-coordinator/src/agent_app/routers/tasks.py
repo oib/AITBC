@@ -1,11 +1,15 @@
 import asyncio
 import json
+import os
+import re
 import time
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+import requests
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.payment_escrow import EscrowStatus
@@ -198,6 +202,12 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         if not same_terms:
             raise ValueError(f"task_id {task_id} already has an active escrow with different payment terms")
         escrow = existing
+        # #2955: backfill the payload ref on a replay when the first write
+        # predates the proxy — the payload endpoint keys off the entry.
+        payload_ref = request.task_data.get("payload_ref")
+        if isinstance(payload_ref, str) and "payload_ref" not in escrow.metadata:
+            escrow.metadata["payload_ref"] = payload_ref
+            state.payment_escrow.persist_entry(escrow)
     else:
         escrow = state.payment_escrow.create_escrow(
             task_id=task_id,
@@ -217,6 +227,11 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         escrow.metadata["timeout_seconds"] = str(request.payment.timeout_seconds)
         if request.payment.auto_reinvest_pct is not None:
             escrow.metadata["auto_reinvest_pct"] = str(request.payment.auto_reinvest_pct)
+        # #2955: the payload proxy serves the buyer's input CID to the escrow
+        # parties; the ref rides the task_data, so pin it to the durable entry.
+        payload_ref = request.task_data.get("payload_ref")
+        if isinstance(payload_ref, str):
+            escrow.metadata["payload_ref"] = payload_ref
         state.payment_escrow.persist_entry(escrow)
     contract_id = _lock_escrow_on_chain_with_retry(escrow, request.payment, task_id)
     return escrow.escrow_id, contract_id, escrow.status.value
@@ -569,6 +584,141 @@ def get_escrow_status(
         },
         "timestamp": datetime.now(UTC).isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# #2955: party-scoped task payload proxy
+#
+# The buyer pins its input on its own island daemon and the provider reads it
+# through the IPFS swarm. That data plane is best-effort: a provider whose
+# bitswap path to the buyer is broken watches its local cat hang to the full
+# timeout and the paid task fails. The hub daemon is a public bootstrap
+# member the buyer's daemon can reach, so the coordinator can serve the same
+# bytes over the authenticated control plane. The ref is pinned to the
+# durable escrow entry at submit time; reads are party-scoped like every
+# other escrow row read (#1884) and byte-capped like the miner's own cat.
+# ---------------------------------------------------------------------------
+
+_PAYLOAD_CID_RE = re.compile(r"[A-Za-z0-9]{1,256}")
+_PAYLOAD_PROXY_MAX_ENV = "AGENT_TASK_PAYLOAD_PROXY_MAX_BYTES"
+_PAYLOAD_PROXY_DEFAULT_MAX = 512 * 1024 * 1024  # matches the miner-side ffmpeg-sized cap (#801)
+
+
+def _island_ipfs_api() -> str:
+    return os.environ.get("ISLAND_IPFS_API", "http://127.0.0.1:5002")
+
+
+def _payload_proxy_max_bytes() -> int:
+    try:
+        return max(1, int(os.environ.get(_PAYLOAD_PROXY_MAX_ENV, _PAYLOAD_PROXY_DEFAULT_MAX)))
+    except ValueError:
+        return _PAYLOAD_PROXY_DEFAULT_MAX
+
+
+def _ipfs_dag_total_size(cid: str) -> int | None:
+    """Best-effort preflight size via ``dag/stat``; None when unknown.
+
+    Kubo streams NDJSON when the DAG walks several objects — take the maximum
+    TotalSize like the miner's own preflight (#2802).
+    """
+    try:
+        resp = requests.post(f"{_island_ipfs_api()}/api/v0/dag/stat", params={"arg": cid}, timeout=30)
+        if resp.status_code != 200:
+            return None
+        total: int | None = None
+        for line in resp.text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                size = json.loads(line).get("TotalSize")
+                size = int(size) if size is not None else None
+            except (ValueError, TypeError, AttributeError):
+                continue
+            if size is not None:
+                total = size if total is None else max(total, size)
+        return total
+    except requests.RequestException as exc:
+        logger.debug("payload proxy dag/stat failed for %s: %s", cid, exc)
+        return None
+
+
+def _open_payload_cat(payload_ref: str, cap: int) -> requests.Response:
+    """Open the upstream Kubo cat stream, mapping failures to HTTP errors.
+
+    Preflights ``dag/stat`` so an oversized object is refused before any
+    bandwidth is spent; the stream itself stays capped downstream because
+    the stat is best-effort (None when unknown).
+    """
+    total = _ipfs_dag_total_size(payload_ref)
+    if total is not None and total > cap:
+        raise HTTPException(status_code=413, detail=f"payload is {total} bytes, over the {cap} cap")
+    try:
+        upstream = requests.post(
+            f"{_island_ipfs_api()}/api/v0/cat",
+            params={"arg": payload_ref},
+            timeout=(5, 120),
+            stream=True,
+        )
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"island IPFS unreachable: {e}") from None
+    if upstream.status_code == 200:
+        return upstream
+    try:
+        detail = upstream.text[:200]
+    except requests.RequestException:
+        detail = f"HTTP {upstream.status_code}"
+    upstream.close()
+    raise HTTPException(status_code=502, detail=f"island IPFS cat failed: {detail}") from None
+
+
+def _stream_capped(upstream: requests.Response, cap: int):  # noqa: ANN202 - sync generator for StreamingResponse
+    """Yield the upstream body with a running byte count; abort over cap.
+
+    The abort truncates the response mid-stream — the consumer's own bounded
+    read refuses the partial body rather than executing truncated input.
+    Edge case: with an asymmetric config (consumer cap > proxy cap) a
+    mid-stream abort is indistinguishable from a legitimately short payload;
+    both defaults are the same 512 MiB so the case is inert today — keep the
+    two caps aligned when overriding either side.
+    """
+    received = 0
+    try:
+        for chunk in upstream.iter_content(1024 * 1024):
+            received += len(chunk)
+            if received > cap:
+                raise ValueError(f"payload exceeds {cap} bytes")
+            yield chunk
+    finally:
+        upstream.close()
+
+
+@router.get("/tasks/{task_id}/payload")
+@rate_limit(rate=60, per=60)
+def get_task_payload(
+    request: Request,
+    principal: OptionalAgent,
+    task_id: str,
+) -> StreamingResponse:
+    """Stream the task's payload CID from the coordinator island daemon.
+
+    Party-or-admin scoped exactly like the escrow row reads: the payload is
+    the buyer's paid input, so it must not be enumerable by unrelated
+    authenticated principals.
+    """
+    authorize_any_principal(principal, "tasks_payload")
+    if not state.payment_escrow:
+        raise HTTPException(status_code=503, detail="Payment escrow not available")
+    entry = state.payment_escrow.get_escrow_for_task(task_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    authorize_escrow_party(principal, entry.requester, entry.agent, "tasks_payload")
+    payload_ref = entry.metadata.get("payload_ref")
+    if not isinstance(payload_ref, str) or not _PAYLOAD_CID_RE.fullmatch(payload_ref):
+        raise HTTPException(status_code=404, detail="No payload ref recorded for task")
+    cap = _payload_proxy_max_bytes()
+    upstream = _open_payload_cat(payload_ref, cap)
+    return StreamingResponse(_stream_capped(upstream, cap), media_type="application/octet-stream")
 
 
 _CALLER_SIG_MAX_SKEW_SECONDS = 300

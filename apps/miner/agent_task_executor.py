@@ -657,12 +657,63 @@ def _task_max_payload_bytes() -> int:
 def _ipfs_cat(cid: str, timeout: int = 120, max_bytes: int | None = None) -> bytes:
     _require_cid_arg(cid)
     cap = _task_max_payload_bytes() if max_bytes is None else max_bytes
-    size = _ipfs_object_size(cid)
+    # The size preflight shares the read fuse: a CID the swarm cannot serve
+    # hangs both probes, and the fallback path (#2955) must not wait out a
+    # full-length stat before the cat even starts.
+    size = _ipfs_object_size(cid, timeout=min(timeout, 30))
     if size is not None and size > cap:
         raise ValueError(f"IPFS object {cid} is {size} bytes, over the {cap} cap")
     resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/cat", params={"arg": cid}, timeout=timeout, stream=True)
     resp.raise_for_status()
     return _bounded_content(resp, cap)
+
+
+# #2955: the local swarm read is best-effort — a provider whose bitswap path
+# to the buyer is broken watches cat hang to the full timeout and the paid
+# task fails. Give the local daemon a short fuse, then fall back to the
+# coordinator's party-scoped payload proxy, which serves the same bytes from
+# the hub daemon (a public bootstrap member the buyer's daemon reaches).
+_PAYLOAD_LOCAL_TIMEOUT_ENV = "AGENT_TASK_PAYLOAD_LOCAL_TIMEOUT"
+_PAYLOAD_LOCAL_DEFAULT_TIMEOUT = 20
+
+
+def _payload_local_timeout() -> int:
+    try:
+        return max(1, int(os.environ.get(_PAYLOAD_LOCAL_TIMEOUT_ENV, _PAYLOAD_LOCAL_DEFAULT_TIMEOUT)))
+    except ValueError:
+        return _PAYLOAD_LOCAL_DEFAULT_TIMEOUT
+
+
+def _coordinator_payload_cat(task_id: str, timeout: int = 120, max_bytes: int | None = None) -> bytes:
+    """Fetch the task payload through the coordinator's escrow-party proxy (#2955)."""
+    cap = _task_max_payload_bytes() if max_bytes is None else max_bytes
+    resp = requests.get(
+        f"{COORDINATOR_URL}/v1/tasks/{_url_id(task_id)}/payload",
+        headers=_agent_request_headers(AGENT_EXECUTOR_ID),
+        timeout=timeout,
+        stream=True,
+    )
+    resp.raise_for_status()
+    return _bounded_content(resp, cap)
+
+
+def _fetch_task_payload(task_id: str, cid: str) -> bytes:
+    """Local island IPFS first, coordinator proxy fallback (#2955)."""
+    try:
+        return _ipfs_cat(cid, timeout=_payload_local_timeout())
+    except _OPS_ERRORS as local_error:
+        logger.warning(
+            "Task %s local IPFS fetch of %s failed (%s) — trying coordinator payload proxy",
+            task_id,
+            cid,
+            local_error,
+        )
+        try:
+            return _coordinator_payload_cat(task_id)
+        except _OPS_ERRORS as proxy_error:
+            raise RuntimeError(
+                f"payload {cid} unavailable: local IPFS ({local_error}); coordinator proxy ({proxy_error})"
+            ) from proxy_error
 
 
 def _ipfs_add(data: bytes, filename: str = "result.bin") -> str:
@@ -1046,7 +1097,7 @@ def _handle_task_accept(
         return _retry_escrow_release(task_id, buyer, agent_id, provider_wallet, quote, prior, state)
 
     try:
-        payload = b"" if service_type == "ipfs" else _ipfs_cat(req["payload_ref"])
+        payload = b"" if service_type == "ipfs" else _fetch_task_payload(task_id, req["payload_ref"])
         handler_req = {**req, "_offer_model": quote.get("offer_model") or ""}
         result_bytes = handler(handler_req, payload) if handler else b"{}"
         result_hash = hashlib.sha256(result_bytes).hexdigest()

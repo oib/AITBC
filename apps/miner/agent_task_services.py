@@ -102,7 +102,7 @@ def _bounded_content(resp: requests.Response, cap: int) -> bytes:
     return content
 
 
-def _ipfs_object_size(cid: str) -> int | None:
+def _ipfs_object_size(cid: str, timeout: int = 30) -> int | None:
     """Best-effort object size from the daemon; None when unknown.
 
     ``object/stat`` was removed from current Kubo — ``dag/stat`` answers
@@ -110,7 +110,7 @@ def _ipfs_object_size(cid: str) -> int | None:
     """
     _require_cid_arg(cid)
     try:
-        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/dag/stat", params={"arg": cid}, timeout=30)
+        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/dag/stat", params={"arg": cid}, timeout=timeout)
         if resp.status_code == 200:
             total: int | None = None
             for line in resp.text.splitlines():
