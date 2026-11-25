@@ -7,13 +7,18 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import and_, exists, func, or_
+from sqlalchemy import and_, exists, func, not_, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
 
 from fastapi import HTTPException, status
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.market.job_routing import (
+    MARKET_IPFS_ESCROW_RAIL_JOB_ID_FIELD,
+    MARKET_IPFS_ESCROW_RAIL_SOURCE,
+    MARKET_IPFS_ESCROW_RAIL_TYPE,
+)
 from aitbc_shared import JobPayment
 
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
@@ -72,6 +77,22 @@ _MINER_ONLINE_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTB
 # single submitter could otherwise fill the queue with free GPU work. Bound
 # the non-terminal jobs one client may hold at once.
 _MAX_INFLIGHT_JOBS_PER_CLIENT = int(os.getenv("COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT", "50"))
+
+
+def _market_ipfs_escrow_rail_clause():
+    """SQL form of ``aitbc.market.job_routing.is_market_ipfs_escrow_rail``.
+
+    #2970: market IPFS rentals create a coordinator row only to carry escrow
+    #and payment state; the provider's ``ipfs_pinning_sweeper`` owns the paid
+    #hosting lifecycle. Excluding the rail in SQL keeps it out of the bounded
+    #dispatch scan and the per-client inflight cap, not just out of the
+    #per-candidate claim path.
+    """
+    return and_(
+        Job.payload["type"].as_string() == MARKET_IPFS_ESCROW_RAIL_TYPE,
+        Job.payload["source"].as_string() == MARKET_IPFS_ESCROW_RAIL_SOURCE,
+        func.coalesce(Job.payload[MARKET_IPFS_ESCROW_RAIL_JOB_ID_FIELD].as_string(), "") != "",
+    )
 
 
 def _begin_inflight_cap_scope(session: Session) -> None:
@@ -474,7 +495,11 @@ class JobService:
             inflight = self.session.execute(
                 select(func.count())
                 .select_from(Job)
-                .where(col(Job.client_id) == resolved_client_id, col(Job.state).in_(("QUEUED", "RUNNING")))
+                .where(
+                    col(Job.client_id) == resolved_client_id,
+                    col(Job.state).in_(("QUEUED", "RUNNING")),
+                    not_(_market_ipfs_escrow_rail_clause()),
+                )
             ).scalar_one()
             if inflight >= _MAX_INFLIGHT_JOBS_PER_CLIENT:
                 raise HTTPException(
@@ -587,7 +612,11 @@ class JobService:
     def inflight_count(self, client_id: str | None = None) -> int:
         """Non-terminal (QUEUED+RUNNING) jobs held by one client — the same
         set ``create_job``'s inflight cap counts (#2453)."""
-        query = select(func.count()).select_from(Job).where(col(Job.state).in_(("QUEUED", "RUNNING")))
+        query = (
+            select(func.count())
+            .select_from(Job)
+            .where(col(Job.state).in_(("QUEUED", "RUNNING")), not_(_market_ipfs_escrow_rail_clause()))
+        )
         if client_id:
             query = query.where(Job.client_id == self._resolve_client_id(client_id))
         return int(self.session.execute(query).scalar_one())
@@ -834,6 +863,7 @@ class JobService:
                 statement = statement.where(
                     or_(col(Job.payment_id).is_not(None), status_col.in_(tuple(_PAYMENT_DISPATCHABLE_STATES)), unpriced)
                 )
+            statement = statement.where(not_(_market_ipfs_escrow_rail_clause()))
             statement = statement.order_by(
                 funded.desc(),
                 Job.requested_at.asc(),  # type: ignore[attr-defined]

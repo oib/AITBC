@@ -22,6 +22,7 @@ from aitbc.utils.env import subprocess_env
 
 import agent_task_executor
 import ipfs_pinning_sweeper
+from aitbc.market import is_market_ipfs_escrow_rail
 
 # Job-execution phase lives in miner_job_execution (#1860); every moved name is
 # re-exported here so ``production_miner.<name>`` keeps resolving for callers
@@ -1046,6 +1047,12 @@ def _dispatch_job(job: dict, models: list) -> None:
     itself fails, release the slot so the job is not locked out until
     restart."""
     job_id = job.get("job_id")
+    if is_market_ipfs_escrow_rail(job.get("payload")):
+        # A legacy/in-flight rail row may still appear through the reconcile
+        # endpoint. Do not hold a local execution slot for it; the pinning
+        # sweeper owns the market rental lifecycle (#2970).
+        logger.debug("Skipping market IPFS escrow rail job %s in miner dispatch", job_id)
+        return
     if job_id and not _claim_job_slot(job_id):
         logger.debug("Job %s already running locally; skipping duplicate dispatch", job_id)
         return
