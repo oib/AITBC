@@ -23,10 +23,28 @@ from decimal import Decimal
 
 import logging
 from typing import Any, cast
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+
+def _rpc_base_url(rpc_url: str) -> str:
+    """Normalize a configured/discovered RPC URL to the bare service base.
+
+    Chain discovery registers public endpoints that already include the
+    ``/rpc`` mount prefix (e.g. ``https://hub.example/rpc``); appending
+    ``/rpc/<endpoint>`` on top produced ``/rpc/rpc/info`` 404s and every
+    registered chain reported unreachable (#2948). Strip one trailing
+    ``/rpc`` path segment so bare-host and prefix-registered URLs resolve
+    to the same base.
+    """
+    base = rpc_url.rstrip("/")
+    parts = urlsplit(base)
+    if parts.path.endswith("/rpc"):
+        base = urlunsplit((parts.scheme, parts.netloc, parts.path[:-4] or "/", parts.query, parts.fragment)).rstrip("/")
+    return base
 
 
 class BlockchainClient:
@@ -38,7 +56,7 @@ class BlockchainClient:
     """
 
     def __init__(self, rpc_url: str = BLOCKCHAIN_RPC_URL, timeout: float = 10.0) -> None:
-        self._rpc_url = rpc_url.rstrip("/")
+        self._rpc_url = _rpc_base_url(rpc_url)
         self._timeout = timeout
         self._client: httpx.AsyncClient | None = None
 
