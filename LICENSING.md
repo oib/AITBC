@@ -48,4 +48,4 @@ SOFTWARE.
 
 Commercial licenses for the AGPLv3 product core are available from the rights
 holder for users who cannot or do not wish to comply with AGPLv3. Contact:
-[aitbc@bubuit.net](mailto:aitbc@bubuit.net).
+[andreas.fleckl@bubuit.net](mailto:andreas.fleckl@bubuit.net).
