@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -15,7 +16,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import AITBCError
 from aitbc.rate_limiting import rate_limit
 from aitbc.utils.units import units_to_ait
-from ....auth import require_auth
+from ....auth import AdminDep, require_auth
 from ....storage import get_session
 from ....utils.ownership import caller_identities, is_admin
 from ...blockchain.services.blockchain import BlockchainService
@@ -24,8 +25,10 @@ from ..domain.provider_bond import (
     ProviderBondStatus,
     _default_bond_min_amount,
     is_provider_eligible,
+    projected_bond_status,
     reconcile_provider_bond,
-    set_provider_bond_status,
+    stage_bond_projection,
+    suspension_event_id,
 )
 from ...infrastructure.domain.miner import Miner
 from ...payments.provider_binding import miner_wallet_address
@@ -81,6 +84,11 @@ class BondAction(BaseModel):
     reason: str | None = None
 
 
+class BondSuspension(BaseModel):
+    bond_id: str = Field(min_length=1, max_length=255)
+    reason: str = Field(min_length=1, max_length=255)
+
+
 def _provider_accessible(session: Session, user: dict[str, Any], provider_id: str) -> bool:
     """Whether the caller may act on ``provider_id``'s bond (#1881).
 
@@ -106,8 +114,17 @@ def _require_provider_access(session: Session, user: dict[str, Any], provider_id
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not the provider owner")
 
 
-def _reject_liquidated_rebind(session: Session, provider_id: str, bond_id: str) -> None:
-    """#2245: refuse re-binding a provider's liquidated bond_id."""
+def _bond_for_rebind(session: Session, provider_id: str, bond_id: str) -> ProviderBond | None:
+    """#2245/#2966: guard re-binding and return the provider's bond row.
+
+    A liquidated ``bond_id`` identical to the request is terminal — the same
+    on-chain bond cannot reactivate it. Any *live* suspension on the
+    provider's rows blocks rebinding entirely: swapping to a fresh lock
+    would bypass the governance review the suspension is waiting on.
+    Stale suspension meta on a terminal row is inert — ``suspension_event_id``
+    only reports ACTIVE/LOCKED/SHORTFALL rows — so a genuinely new verified
+    lock can still replace a dead bond.
+    """
     prior = session.exec(select(ProviderBond).where(ProviderBond.provider_id == provider_id)).all()
     if any(b.status == ProviderBondStatus.LIQUIDATED.value and b.bond_id == bond_id for b in prior):
         raise HTTPException(
@@ -118,6 +135,12 @@ def _reject_liquidated_rebind(session: Session, provider_id: str, bond_id: str) 
                 "new bond_id or resolve the slash appeal via governance"
             ),
         )
+    if any(suspension_event_id(b) for b in prior):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="bond eligibility is suspended; resolve the appeal before rebinding",
+        )
+    return prior[0] if prior else None
 
 
 def _to_decimal(value: str | float | int | Decimal | None) -> Decimal:
@@ -128,18 +151,115 @@ def _to_decimal(value: str | float | int | Decimal | None) -> Decimal:
     return Decimal(str(value))
 
 
+def _commit_bond_projection(session: Session, bond: ProviderBond, **values: Any) -> ProviderBond:
+    """Commit a staged bond-projection write; 409 + rollback when the row moved.
+
+    ``stage_bond_projection`` guards on the id/bond_id/updated_at snapshot —
+    a suspension, slash or rebind committed while this request was in flight
+    fails the compare-and-swap instead of being overwritten.
+    """
+    if not stage_bond_projection(session, bond, **values):
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="bond changed while the request was in flight; retry",
+        )
+    session.commit()
+    session.refresh(bond)
+    return bond
+
+
+def _persist_verified_binding(
+    session: Session,
+    bond: ProviderBond,
+    *,
+    bond_id: str,
+    wallet: str,
+    amount: Decimal,
+    required_amount: Decimal,
+    entry: dict[str, Any],
+) -> ProviderBond:
+    """Atomically re-project an existing bond row onto a verified chain binding.
+
+    Status follows the existing ACTIVE/PENDING floor rule. Meta keeps every
+    prior audit key; only keys made stale by the new binding are dropped —
+    ``suspension_event_id`` when the bound ``bond_id`` changed or the row was
+    terminal (a fresh verified lock must never inherit a dead suspension
+    flag). The ``chain_verified_at`` reconcile cache is always cleared so
+    the first dispatch after create/rebind re-verifies on-chain rather than
+    trusting a stale stamp; then the fresh authoritative chain fields are
+    written.
+    """
+    now = datetime.now(UTC)
+    bond_status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
+    meta = dict(bond.meta or {})
+    if bond.bond_id != bond_id or bond.status in _TERMINAL_BOND_STATUSES:
+        meta.pop("suspension_event_id", None)
+    meta.pop("chain_verified_at", None)
+    meta.update(
+        {
+            "chain_bond_id": bond_id,
+            "chain_provider": wallet,
+            "chain_amount_units": int(entry.get("amount") or 0),
+            "chain_status": entry.get("status"),
+            "verified_at": now.isoformat(),
+        }
+    )
+    return _commit_bond_projection(
+        session,
+        bond,
+        bond_id=bond_id,
+        status=bond_status.value,
+        amount=amount,
+        required_amount=required_amount,
+        meta=meta,
+    )
+
+
 def _bond_response(bond: ProviderBond) -> BondResponse:
     return BondResponse(
         id=bond.id,
         provider_id=bond.provider_id,
         bond_id=bond.bond_id or None,
-        status=bond.status,
+        status=projected_bond_status(bond),
         amount=str(bond.amount),
         required_amount=str(bond.required_amount),
         meta=bond.meta or {},
         created_at=bond.created_at.isoformat() if bond.created_at else "",
         updated_at=bond.updated_at.isoformat() if bond.updated_at else "",
     )
+
+
+def _verified_active_chain_entry(wallet: str, bond_id: str) -> dict[str, Any]:
+    """Return the provider's on-chain ``active`` bond entry, or raise.
+
+    502 when the chain cannot be consulted, 400 when ``bond_id`` is absent
+    from the provider's listing or is not ``active`` — both are verification
+    failures the caller surfaces unchanged.
+    """
+    try:
+        chain = BlockchainService().list_provider_bonds(wallet)
+    except AITBCError as e:
+        logger.warning("bond %s chain verification failed: %s", bond_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not verify bond against chain state",
+        ) from e
+    entry: dict[str, Any] | None = next(
+        (b for b in chain.get("bonds", []) if str(b.get("bond_id")) == bond_id),
+        None,
+    )
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"bond {bond_id} is not an on-chain bond of this provider",
+        )
+    if entry.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"on-chain bond {bond_id} is {entry.get('status')}, not active",
+        )
+    return entry
 
 
 @router.post("/providers/{provider_id}/bonds", summary="Create or update a provider bond")
@@ -203,46 +323,48 @@ def create_bond(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"bond {bond_id} is already bound to provider {claimed.provider_id}",
         )
-    # #2245: a liquidated bond must not resurrect by re-verifying the same
-    # on-chain binding — the slashed BOND_LOCK is terminal. Recovery is a
-    # genuinely new lock (a different ``bond_id``) or governance resolution
-    # of the slash appeal; re-POSTing the same ``bond_id`` would otherwise
-    # overwrite the liquidation with no new on-chain lock.
-    _reject_liquidated_rebind(session, provider_id, bond_id)
-    try:
-        chain = BlockchainService().list_provider_bonds(wallet)
-    except AITBCError as e:
-        logger.warning("bond %s chain verification failed: %s", bond_id, e)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="could not verify bond against chain state",
-        ) from e
-    entry = next((b for b in chain.get("bonds", []) if str(b.get("bond_id")) == bond_id), None)
-    if entry is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"bond {bond_id} is not an on-chain bond of this provider",
-        )
-    if entry.get("status") != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"on-chain bond {bond_id} is {entry.get('status')}, not active",
-        )
+    # #2245/#2966: a liquidated bond must not resurrect by re-verifying the
+    # same on-chain binding, and a live suspension must not be bypassed by
+    # swapping in a fresh lock — both guards run before the chain read, and
+    # the returned row is the snapshot the persist below is CAS-guarded on.
+    snapshot = _bond_for_rebind(session, provider_id, bond_id)
+    entry = _verified_active_chain_entry(wallet, bond_id)
     amount = units_to_ait(int(entry.get("amount") or 0))
     required_amount = _to_decimal(body.required_amount)
     floor = _default_bond_min_amount()
     if required_amount < floor:
         required_amount = floor
-    bond_status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
     try:
-        bond = set_provider_bond_status(
-            session,
-            provider_id,
-            bond_status,
-            amount=amount,
-            required_amount=required_amount,
-            bond_id=bond_id,
-        )
+        if snapshot is not None:
+            bond = _persist_verified_binding(
+                session,
+                snapshot,
+                bond_id=bond_id,
+                wallet=wallet,
+                amount=amount,
+                required_amount=required_amount,
+                entry=entry,
+            )
+        else:
+            now = datetime.now(UTC)
+            bond_status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
+            bond = ProviderBond(
+                provider_id=provider_id,
+                bond_id=bond_id,
+                status=bond_status.value,
+                amount=amount,
+                required_amount=required_amount,
+                meta={
+                    "chain_bond_id": bond_id,
+                    "chain_provider": wallet,
+                    "chain_amount_units": int(entry.get("amount") or 0),
+                    "chain_status": entry.get("status"),
+                    "verified_at": now.isoformat(),
+                },
+            )
+            session.add(bond)
+            session.commit()
+            session.refresh(bond)
     except IntegrityError as e:
         # #1967: the partial unique index on bond_id is the race-safe backstop
         # for the pre-check above — two concurrent creates for different
@@ -252,17 +374,6 @@ def create_bond(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"bond {bond_id} is already bound to another provider",
         ) from e
-    bond.meta = {
-        **(bond.meta or {}),
-        "chain_bond_id": bond_id,
-        "chain_provider": wallet,
-        "chain_amount_units": int(entry.get("amount") or 0),
-        "chain_status": entry.get("status"),
-        "verified_at": datetime.now(UTC).isoformat(),
-    }
-    session.add(bond)
-    session.commit()
-    session.refresh(bond)
     return _bond_response(bond)
 
 
@@ -324,7 +435,7 @@ def get_eligibility(
     return BondStatusResponse(
         provider_id=provider_id,
         eligible=is_provider_eligible(session, provider_id),
-        status=bond.status,
+        status=projected_bond_status(bond),
         amount=str(bond.amount),
         required_amount=str(bond.required_amount),
         bond_id=bond.bond_id or None,
@@ -367,15 +478,18 @@ def _require_existing_bond(session: Session, provider_id: str, action: str) -> P
     return bond
 
 
-def _reject_terminal_bond_transition(session: Session, provider_id: str, action: str) -> None:
-    bond = session.exec(select(ProviderBond).where(ProviderBond.provider_id == provider_id)).first()
-    if bond is not None and bond.status in _TERMINAL_BOND_STATUSES:
+def _require_lockable_bond(bond: ProviderBond, action: str) -> None:
+    """#2245/#2966: only ACTIVE/LOCKED bonds accept local lock bookkeeping.
+
+    PENDING and SHORTFALL rows sit below the required floor — letting them
+    lock and release back to ACTIVE would launder an underfunded bond past
+    the floor check — and terminal rows must never re-enter the lifecycle
+    without a fresh verified on-chain lock.
+    """
+    if bond.status not in {ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"provider {provider_id} bond is {bond.status}; {action} cannot "
-                "reactivate a terminal bond — create a new on-chain bond first"
-            ),
+            detail=(f"provider {bond.provider_id} bond is {bond.status}; {action} requires an active or locked bond"),
         )
 
 
@@ -389,9 +503,9 @@ def lock_bond(
 ) -> BondResponse:
     """Lock a provider's bond while a high-value job is in flight."""
     _require_provider_access(session, user, provider_id)
-    _require_existing_bond(session, provider_id, "lock")
-    _reject_terminal_bond_transition(session, provider_id, "lock")
-    bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.LOCKED)
+    bond = _require_existing_bond(session, provider_id, "lock")
+    _require_lockable_bond(bond, "lock")
+    bond = _commit_bond_projection(session, bond, status=ProviderBondStatus.LOCKED.value)
     return _bond_response(bond)
 
 
@@ -405,13 +519,68 @@ def release_bond(
 ) -> BondResponse:
     """Release a locked bond back to active status."""
     _require_provider_access(session, user, provider_id)
-    _require_existing_bond(session, provider_id, "release")
-    _reject_terminal_bond_transition(session, provider_id, "release")
-    bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.ACTIVE)
+    bond = _require_existing_bond(session, provider_id, "release")
+    _require_lockable_bond(bond, "release")
+    bond = _commit_bond_projection(session, bond, status=ProviderBondStatus.ACTIVE.value)
     return _bond_response(bond)
 
 
-@router.post("/providers/{provider_id}/bonds/slash", summary="Slash a provider bond")
+@router.post("/providers/{provider_id}/bonds/suspend", summary="Suspend eligibility without moving bond funds")
+@rate_limit(rate=20, per=60)
+def suspend_bond(
+    request: Request,
+    provider_id: str,
+    body: BondSuspension,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> BondResponse:
+    """Suspend a provider's bond eligibility pending governance review (#2966).
+
+    Admin-only and local-only: the suspension is a meta flag
+    (``suspension_event_id`` plus audit fields) overlaid on the stored
+    ACTIVE/LOCKED status — never a ``ProviderBond.status`` — so the automatic
+    slasher still selects the bond and in-flight violations stay punishable.
+    No RPC and no funds move; ``is_provider_eligible`` reports False and the
+    API projects ``status: "suspended"`` until a matching accepted slash
+    appeal lifts the flag. Rebinding cannot bypass a live suspension while
+    the original bond remains active; once it reconciles to a terminal
+    state a genuinely new verified lock may replace it — that never
+    resolves or reactivates the old bond.
+    """
+    bond = _require_existing_bond(session, provider_id, "suspend")
+    if bond.bond_id != body.bond_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="bond_id does not match the provider's current bond",
+        )
+    meta = bond.meta or {}
+    if not meta.get("chain_provider"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="bond has no verified chain provider to suspend",
+        )
+    if bond.status not in {ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"bond is {bond.status}; only active/locked bonds can be suspended",
+        )
+    if suspension_event_id(bond):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="bond eligibility is already suspended",
+        )
+    suspended_meta = {
+        **meta,
+        "suspension_event_id": f"bs_{uuid4().hex}",
+        "suspended_at": datetime.now(UTC).isoformat(),
+        "suspended_by": str(user["sub"]),
+        "suspension_reason": body.reason,
+    }
+    bond = _commit_bond_projection(session, bond, meta=suspended_meta)
+    return _bond_response(bond)
+
+
+@router.post("/providers/{provider_id}/bonds/slash", summary="Manual bond slashing unavailable", deprecated=True)
 @rate_limit(rate=20, per=60)
 def slash_bond(
     request: Request,
@@ -420,17 +589,10 @@ def slash_bond(
     session: Annotated[Session, Depends(get_session)],
     user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
-    """Slash a provider's bond for misbehavior."""
+    """Refuse manual slashes; the admin suspension + appeal workflow owns this now."""
     _require_provider_access(session, user, provider_id)
     _require_existing_bond(session, provider_id, "slash")
-    bond = set_provider_bond_status(
-        session,
-        provider_id,
-        ProviderBondStatus.LIQUIDATED,
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Manual slashing is unavailable; use the admin bond suspension workflow. No bond state or funds changed.",
     )
-    if body.reason:
-        bond.meta = {**(bond.meta or {}), "slash_reason": body.reason, "slashed_by": user.get("sub", "unknown")}
-        session.add(bond)
-        session.commit()
-        session.refresh(bond)
-    return _bond_response(bond)

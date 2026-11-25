@@ -64,6 +64,29 @@ class ProviderBond(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 
 
+def suspension_event_id(bond: ProviderBond) -> str | None:
+    """Return the live suspension event id, or ``None`` when not suspended.
+
+    Suspension is an orthogonal meta flag, not a ``ProviderBond.status`` — the
+    automatic slasher keeps selecting ACTIVE/LOCKED rows and in-flight
+    violations stay punishable while a provider is suspended. Only the three
+    job-eligible statuses can carry a suspension.
+    """
+    if bond.status not in {
+        ProviderBondStatus.ACTIVE.value,
+        ProviderBondStatus.LOCKED.value,
+        ProviderBondStatus.SHORTFALL.value,
+    }:
+        return None
+    event = (bond.meta or {}).get("suspension_event_id")
+    return event if isinstance(event, str) and event else None
+
+
+def projected_bond_status(bond: ProviderBond) -> str:
+    """Status as API consumers should see it — ``suspended`` overlays the row."""
+    return "suspended" if suspension_event_id(bond) else bond.status
+
+
 def _default_bond_min_amount() -> Decimal:
     """Global floor for provider-bond eligibility."""
     return Decimal(os.getenv("COORDINATOR_BOND_MIN_AMOUNT", "1"))
@@ -84,6 +107,8 @@ def is_provider_eligible(
     if bond is None:
         return False
     if bond.status not in {ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}:
+        return False
+    if suspension_event_id(bond):
         return False
     if min_amount is None:
         if bond.required_amount and bond.required_amount > 0:
@@ -197,19 +222,29 @@ def reconcile_provider_bond(session: Session, provider_id: str) -> ProviderBond 
         return None
     entry = next((b for b in chain.get("bonds", []) if str(b.get("bond_id")) == str(bond.bond_id)), None)
     now = datetime.now(UTC)
+    # Reconcile on a detached copy: the staged UPDATE below is compare-and-swap
+    # on the row snapshot, so a suspension or slash committed while the chain
+    # read was in flight must not be overwritten by this stale projection —
+    # and this read must never write meta back over a concurrent suspension.
+    projection = bond.model_copy()
     chain_status: str | None
     if entry is None:
         # Chain-verified absence: no such bond for this wallet on-chain.
-        bond.status = ProviderBondStatus.RELEASED.value
+        projection.status = ProviderBondStatus.RELEASED.value
         chain_status = "absent"
     else:
-        chain_status = _apply_chain_entry(bond, entry)
+        chain_status = _apply_chain_entry(projection, entry)
         if chain_status is None:
             return None
-    bond.meta = {**meta, "chain_status": chain_status, "chain_verified_at": now.isoformat()}
-    bond.updated_at = now
-    session.add(bond)
-    session.flush()
+    if not stage_bond_projection(
+        session,
+        bond,
+        status=projection.status,
+        amount=projection.amount,
+        meta={**meta, "chain_status": chain_status, "chain_verified_at": now.isoformat()},
+    ):
+        session.expire(bond)
+        return None
     session.refresh(bond)
     return bond
 
@@ -280,3 +315,22 @@ def apply_bond_slash_cas(
         return None
     session.commit()
     return session.get(ProviderBond, bond_pk)
+
+
+def stage_bond_projection(session: Session, bond: ProviderBond, **values: Any) -> bool:
+    """Stage a compare-and-swap projection write; the caller owns the commit.
+
+    Guards on the row's primary key, ``bond_id`` and ``updated_at`` snapshot so
+    a concurrent suspension, slash or rebind cannot be overwritten by a stale
+    writer. Returns False when the row no longer matches — callers decide
+    whether that is a retryable conflict or a fail-closed ``None``.
+    """
+    result = session.execute(
+        update(ProviderBond)
+        .where(col(ProviderBond.id) == bond.id)
+        .where(col(ProviderBond.bond_id) == bond.bond_id)
+        .where(col(ProviderBond.updated_at) == bond.updated_at)
+        .values(**values, updated_at=datetime.now(UTC))
+        .execution_options(synchronize_session=False)
+    )
+    return getattr(result, "rowcount", 0) == 1

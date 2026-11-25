@@ -203,19 +203,27 @@ class TestBondLifecycle:
         assert resp.status_code == 200
         assert resp.json()["provider_id"] == "p2"
 
-    def test_lock_release_slash(self, client: TestClient, _chain_bonds) -> None:
+    def test_manual_slash_leaves_active_bond_unchanged(self, client: TestClient, _chain_bonds) -> None:
+        """#2966: the retired manual slash route is deprecated and fails closed —
+        lock/release bookkeeping still works, but slash changes nothing."""
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-6", "5")
-        _create_bond(client, "p3", {"bond_id": "cb-6"})
+        created = _create_bond(client, "p3", {"bond_id": "cb-6"})
+        assert created.status_code == 200, created.text
+        bond_id = created.json()["id"]
         locked = client.post(f"{BASE}/providers/p3/bonds/lock", headers=_headers()).json()
         assert locked["status"] == "locked"
         # amount preserved through transitions
         assert Decimal(locked["amount"]) == Decimal("5")
         released = client.post(f"{BASE}/providers/p3/bonds/release", headers=_headers()).json()
         assert released["status"] == "active"
-        slashed = client.post(f"{BASE}/providers/p3/bonds/slash", json={"reason": "fraud"}, headers=_headers()).json()
-        assert slashed["status"] == "liquidated"
-        assert slashed["meta"]["slash_reason"] == "fraud"
-        assert slashed["meta"]["slashed_by"] == "provider-1"
+        before = client.get(f"{BASE}/bonds/{bond_id}", headers=_headers()).json()
+        resp = client.post(f"{BASE}/providers/p3/bonds/slash", json={"reason": "fraud"}, headers=_headers())
+        assert resp.status_code == 409
+        assert "unavailable" in resp.json()["detail"]
+        after = client.get(f"{BASE}/bonds/{bond_id}", headers=_headers()).json()
+        assert after == before
+        elig = client.get(f"{BASE}/providers/p3/eligibility", headers=_headers()).json()
+        assert elig["eligible"] is True
 
     def test_transitions_without_bond_are_404_not_ghost_rows(self, client: TestClient) -> None:
         """#2359: lock/release/slash on a provider with no bond must not upsert
@@ -353,18 +361,27 @@ class TestLiquidatedBondReactivation:
     states outright.
     """
 
-    def _liquidated(self, client: TestClient, _chain_bonds, provider_id: str = "p1", bond_id: str = "cb-liq") -> None:
-        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, bond_id, "5")
-        assert _create_bond(client, provider_id, {"bond_id": bond_id}).status_code == 200
-        resp = client.post(f"{BASE}/providers/{provider_id}/bonds/slash", json={"reason": "sla"}, headers=_headers())
-        assert resp.json()["status"] == "liquidated"
+    def _liquidated(self, db_session, provider_id: str = "p1", bond_id: str = "cb-liq") -> None:
+        """Persist a terminal bond row directly — the retired slash endpoint
+        no longer liquidates, and a chain ``slashed`` entry cannot be bound
+        through create (it requires ``active``)."""
+        from coordinator_api.contexts.market.domain.provider_bond import ProviderBondStatus, set_provider_bond_status
+
+        set_provider_bond_status(
+            db_session,
+            provider_id,
+            ProviderBondStatus.LIQUIDATED,
+            amount=Decimal("5"),
+            required_amount=Decimal("1"),
+            bond_id=bond_id,
+        )
 
     def test_topup_same_bond_id_status_unchanged(self, client: TestClient, _chain_bonds, db_session) -> None:
         from sqlmodel import select
 
         from coordinator_api.contexts.market.domain.provider_bond import ProviderBond
 
-        self._liquidated(client, _chain_bonds)
+        self._liquidated(db_session)
         resp = _create_bond(client, "p1", {"bond_id": "cb-liq", "required_amount": "0.5"})
         assert resp.status_code == 409
         rows = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "p1")).all()
@@ -377,7 +394,7 @@ class TestLiquidatedBondReactivation:
 
         from coordinator_api.contexts.market.domain.provider_bond import ProviderBond
 
-        self._liquidated(client, _chain_bonds)
+        self._liquidated(db_session)
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-new", "7")
         resp = _create_bond(client, "p1", {"bond_id": "cb-new", "required_amount": "1"})
         assert resp.status_code == 200, resp.text
@@ -386,8 +403,8 @@ class TestLiquidatedBondReactivation:
         assert row.bond_id == "cb-new"
         assert row.status == "active"
 
-    def test_lock_and_release_refuse_liquidated(self, client: TestClient, _chain_bonds) -> None:
-        self._liquidated(client, _chain_bonds)
+    def test_lock_and_release_refuse_liquidated(self, client: TestClient, _chain_bonds, db_session) -> None:
+        self._liquidated(db_session)
         locked = client.post(f"{BASE}/providers/p1/bonds/lock", headers=_headers())
         assert locked.status_code == 409
         released = client.post(f"{BASE}/providers/p1/bonds/release", headers=_headers())
@@ -401,3 +418,174 @@ class TestLiquidatedBondReactivation:
         set_provider_bond_status(db_session, "p2", ProviderBondStatus.RELEASED, bond_id="cb-rel2")
         resp = client.post(f"{BASE}/providers/p2/bonds/release", headers=_headers())
         assert resp.status_code == 409
+
+
+class TestBondSuspensionLifecycle:
+    """#2966: admin suspension -> provider appeal -> admin review -> restore.
+
+    The suspension is a local eligibility flag only — it never moves funds,
+    the automatic slasher still sees the bond, and only a matching accepted
+    appeal lifts it, verified against a fresh chain point-read.
+    """
+
+    def _active_bond(self, client: TestClient, _chain_bonds, bond_id: str = "cb-susp", amount: str = "5") -> dict:
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, bond_id, amount)
+        resp = _create_bond(client, "p1", {"bond_id": bond_id})
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    def _suspend(self, client: TestClient, bond_id: str = "cb-susp", headers: dict | None = None):
+        return client.post(
+            f"{BASE}/providers/p1/bonds/suspend",
+            json={"bond_id": bond_id, "reason": "operator review"},
+            headers=headers or _headers("admin-1", "admin"),
+        )
+
+    def _count_chain_reads(self, monkeypatch) -> dict:
+        """Wrap the stubbed list RPC and get_bond to prove suspend/rebind
+        paths spend zero chain reads and accept spends exactly one."""
+        calls = {"list": 0, "get": []}
+        real_list = BlockchainService.list_provider_bonds
+
+        def counting_list(self, provider_address: str) -> dict:
+            calls["list"] += 1
+            return real_list(self, provider_address)
+
+        def counting_get(self, bond_id: str) -> dict:
+            calls["get"].append(bond_id)
+            return {
+                "success": True,
+                "bond_id": bond_id,
+                "provider": PROVIDER_WALLET,
+                "amount": int(Decimal("3") * UNITS_PER_AIT),
+                "status": "active",
+                "slashed_tx_hash": "0xautoslash",
+            }
+
+        monkeypatch.setattr(BlockchainService, "list_provider_bonds", counting_list)
+        monkeypatch.setattr(BlockchainService, "get_bond", counting_get)
+        return calls
+
+    def test_suspend_blocks_eligibility_rebind_and_bookkeeping(
+        self, client: TestClient, _chain_bonds, db_session, monkeypatch
+    ) -> None:
+        from sqlmodel import select
+
+        from coordinator_api.contexts.market.domain.provider_bond import ProviderBond
+
+        self._active_bond(client, _chain_bonds)
+        # Prime the reconcile TTL: create no longer seeds chain_verified_at,
+        # so the first eligibility read pays one chain re-verify; reads
+        # inside the TTL window then skip the RPC entirely.
+        assert client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()["eligible"] is True
+        calls = self._count_chain_reads(monkeypatch)
+        list_before = calls["list"]
+
+        # Only an admin may suspend — the provider cannot suspend itself.
+        assert self._suspend(client, headers=_headers()).status_code == 403
+
+        suspended = self._suspend(client)
+        assert suspended.status_code == 200, suspended.text
+        body = suspended.json()
+        assert body["status"] == "suspended"
+        event_id = body["meta"]["suspension_event_id"]
+        assert event_id.startswith("bs_")
+        assert body["meta"]["suspension_reason"] == "operator review"
+        assert body["meta"]["suspended_by"] == "admin-1"
+        # Suspending is pure local bookkeeping: no chain reads at all.
+        assert calls["list"] == list_before
+        assert calls["get"] == []
+
+        elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
+        assert elig["eligible"] is False
+        assert elig["status"] == "suspended"
+
+        # Local lock/release bookkeeping keeps working but cannot clear the
+        # suspension — the projected status stays "suspended" throughout.
+        locked = client.post(f"{BASE}/providers/p1/bonds/lock", headers=_headers())
+        assert locked.status_code == 200, locked.text
+        assert locked.json()["status"] == "suspended"
+        row = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "p1")).first()
+        assert row.status == "locked"
+        released = client.post(f"{BASE}/providers/p1/bonds/release", headers=_headers())
+        assert released.status_code == 200, released.text
+        assert released.json()["status"] == "suspended"
+        db_session.expire_all()
+        row = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "p1")).first()
+        assert row.status == "active"
+        assert row.meta["suspension_event_id"] == event_id
+        assert client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()["eligible"] is False
+
+        # Neither the same bond_id nor a fresh verified lock can rebind while
+        # the suspension is live — both refuse before any chain read.
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-new2", "7")
+        for bond_id in ("cb-susp", "cb-new2"):
+            resp = _create_bond(client, "p1", {"bond_id": bond_id})
+            assert resp.status_code == 409, (bond_id, resp.text)
+            assert "suspended" in resp.json()["detail"]
+        assert calls["list"] == list_before
+        assert calls["get"] == []
+
+    def test_appeal_binds_event_and_accept_restores_fresh_balance(
+        self, client: TestClient, _chain_bonds, db_session, monkeypatch
+    ) -> None:
+        from sqlmodel import select
+
+        from coordinator_api.contexts.market.domain.provider_bond import ProviderBond
+
+        self._active_bond(client, _chain_bonds)
+        calls = self._count_chain_reads(monkeypatch)
+        suspended = self._suspend(client)
+        assert suspended.status_code == 200, suspended.text
+        event_id = suspended.json()["meta"]["suspension_event_id"]
+
+        # An appeal naming a different event is refused; an empty one binds
+        # the live suspension server-side.
+        wrong = client.post(
+            "/v1/governance/slash-appeals",
+            json={"bond_id": "cb-susp", "reason": "dispute", "slash_event_id": "bs_bogus"},
+            headers=_headers(),
+        )
+        assert wrong.status_code == 409
+        appeal = client.post(
+            "/v1/governance/slash-appeals",
+            json={"bond_id": "cb-susp", "reason": "dispute"},
+            headers=_headers(),
+        )
+        assert appeal.status_code == 201, appeal.text
+        assert appeal.json()["slash_event_id"] == event_id
+        # One open appeal per suspension event.
+        dup = client.post(
+            "/v1/governance/slash-appeals",
+            json={"bond_id": "cb-susp", "reason": "again"},
+            headers=_headers(),
+        )
+        assert dup.status_code == 409
+
+        # Accept: the chain shows a PARTIAL automatic slash while suspended —
+        # the restore uses the fresh 3-AIT balance, never the stale 5.
+        resolved = client.post(
+            f"/v1/governance/slash-appeals/{appeal.json()['id']}/resolve",
+            json={"decision": "accepted", "notes": "chain verified"},
+            headers=_headers("admin-1", "admin"),
+        )
+        assert resolved.status_code == 200, resolved.text
+        assert resolved.json()["bond_status"] == "active"
+        assert resolved.json()["funds_moved"] is False
+        assert calls["get"] == ["cb-susp"]
+
+        db_session.expire_all()
+        row = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "p1")).first()
+        assert row.status == "active"
+        assert Decimal(str(row.amount)) == Decimal("3")
+        assert "suspension_event_id" not in row.meta
+        assert row.meta["resolved_suspension_event_id"] == event_id
+        assert row.meta["appeal_resolved_by"] == "admin-1"
+
+        elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
+        assert elig["eligible"] is True
+        assert elig["status"] == "active"
+        # Acceptance does not seed the reconcile cache: this first post-accept
+        # read re-verifies the chain, which still reports the pre-slash 5 —
+        # the appeal-time 3 was decision proof, not a frozen projection.
+        assert Decimal(elig["amount"]) == Decimal("5")

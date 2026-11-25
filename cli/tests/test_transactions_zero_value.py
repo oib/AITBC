@@ -61,6 +61,17 @@ def test_agent_session_grant_rejects_nonzero_amount(tmp_path):
     assert _send(tmp_path, "AGENT_SESSION_GRANT", "0.001") == ["AGENT_SESSION_GRANT transactions must have amount=0"]
 
 
+def test_bond_release_accepts_zero_amount(tmp_path):
+    # #2966: BOND_RELEASE is zero-value on-chain (the bond handler enforces
+    # value=0 itself) but is not part of the mirrored _ZERO_VALUE_TX_TYPES
+    # set — the CLI special-cases it so providers can withdraw expired bonds.
+    assert _send(tmp_path, "BOND_RELEASE", "0") == [f"Wallet 'no-such-wallet' not found at {tmp_path / 'no-such-wallet.json'}"]
+
+
+def test_bond_release_rejects_nonzero_amount(tmp_path):
+    assert _send(tmp_path, "BOND_RELEASE", "0.001") == ["BOND_RELEASE transactions must have amount=0"]
+
+
 def test_zero_value_set_matches_node(tmp_path):
     # Keep the CLI mirror in sync with the apply-side source of truth.
     import pytest

@@ -49,7 +49,7 @@ def test_bond_group_help(runner):
 
     result = runner.invoke(bond, ["--help"], obj={"output_format": "table"})
     assert result.exit_code == 0
-    for cmd in ["create", "status", "top-up", "lock", "release", "slash"]:
+    for cmd in ["create", "status", "top-up", "lock", "release", "slash", "suspend", "appeal", "resolve-appeal"]:
         assert cmd in result.output, f"Missing {cmd} in help output"
 
 
@@ -121,6 +121,70 @@ def test_bond_slash_posts_slash(runner, mock_client):
     call = mock_client.post.call_args
     assert call[0][0] == "/v1/market/providers/aitbc-miner-1/bonds/slash"
     assert call.kwargs["json"]["reason"] == "failed high-value job"
+
+
+def test_bond_suspend_posts_suspend(runner, mock_client):
+    """#2966: bond suspend posts bond_id+reason to the admin suspension route."""
+    from aitbc_cli.commands.bond import bond
+
+    result = runner.invoke(
+        bond,
+        ["suspend", "--provider-id", "aitbc-miner-1", "--bond-id", "cb-1", "--reason", "operator review"],
+        obj={"output_format": "table", "api_key": "test-key"},
+    )
+    assert result.exit_code == 0, result.output
+    call = mock_client.post.call_args
+    assert call[0][0] == "/v1/market/providers/aitbc-miner-1/bonds/suspend"
+    assert call.kwargs["json"] == {"bond_id": "cb-1", "reason": "operator review"}
+
+
+def test_bond_suspend_rejects_dot_segments(runner, mock_client):
+    from aitbc_cli.commands.bond import bond
+
+    for bad in (".", ".."):
+        result = runner.invoke(
+            bond,
+            ["suspend", "--provider-id", bad, "--bond-id", "cb-1", "--reason", "review"],
+            obj={"output_format": "table", "api_key": "test-key"},
+        )
+        assert result.exit_code != 0
+    mock_client.post.assert_not_called()
+
+
+def test_bond_resolve_appeal_posts_decision(runner, mock_client):
+    """#2966: bond resolve-appeal posts decision+notes to the governance route."""
+    from aitbc_cli.commands.bond import bond
+
+    result = runner.invoke(
+        bond,
+        [
+            "resolve-appeal",
+            "--appeal-id",
+            "sa_123",
+            "--decision",
+            "accepted",
+            "--notes",
+            "chain verified unburned",
+        ],
+        obj={"output_format": "table", "api_key": "test-key"},
+    )
+    assert result.exit_code == 0, result.output
+    call = mock_client.post.call_args
+    assert call[0][0] == "/v1/governance/slash-appeals/sa_123/resolve"
+    assert call.kwargs["json"] == {"decision": "accepted", "notes": "chain verified unburned"}
+
+
+def test_bond_resolve_appeal_rejects_dot_segments(runner, mock_client):
+    from aitbc_cli.commands.bond import bond
+
+    for bad in (".", ".."):
+        result = runner.invoke(
+            bond,
+            ["resolve-appeal", "--appeal-id", bad, "--decision", "rejected", "--notes", "no"],
+            obj={"output_format": "table", "api_key": "test-key"},
+        )
+        assert result.exit_code != 0
+    mock_client.post.assert_not_called()
 
 
 def test_bond_lock_and_release(runner, mock_client):

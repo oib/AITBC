@@ -13,6 +13,7 @@ import re
 import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from urllib.parse import quote
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import AITBCError, NetworkError
@@ -243,6 +244,16 @@ class BlockchainService:
         BOND_SLASH, so a hit here is chain-verified state, not a claim.
         """
         return self._client().get(f"{RPC}/bond/provider/{provider_address}", headers=self._headers())
+
+    def get_bond(self, bond_id: str) -> dict[str, Any]:
+        """Fetch a single on-chain bond record by id (#2966).
+
+        The point read carries ``slashed_tx_hash`` — the provider listing
+        omits it — which slash-appeal review needs to prove whether a slash
+        ever happened on-chain. ``bond_id`` is URL-quoted; callers must still
+        reject ``"."``/``".."`` before use.
+        """
+        return self._client().get(f"{RPC}/bond/{quote(bond_id, safe='')}", headers=self._headers())
 
 
 def validate_address(address: str) -> bool:

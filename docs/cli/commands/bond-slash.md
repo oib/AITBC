@@ -2,7 +2,7 @@
 
 # `aitbc bond slash`
 
-Slash a provider's bond with an optional reason.
+Request a manual slash (unavailable on current coordinators).
 
 ## Usage
 

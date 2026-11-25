@@ -4998,6 +4998,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/governance/slash-appeals/{appeal_id}/resolve",
+          "upstream": "/v1/governance/slash-appeals/{appeal_id}/resolve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/grants",
           "upstream": "/v1/grants",
           "methods": [
@@ -5518,6 +5525,13 @@
         {
           "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/slash",
           "upstream": "/v1/market/providers/{provider_id}/bonds/slash",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/suspend",
+          "upstream": "/v1/market/providers/{provider_id}/bonds/suspend",
           "methods": [
             "POST"
           ]
