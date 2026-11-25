@@ -19,6 +19,10 @@ This directory contains documentation for Agent agents and their integrations wi
 
 - **[guides/](./guides/)** - Agent agent guides and tutorials
 
+### Repository split
+
+- **[Repo split manifest](./repo-split-manifest.md)** - PRODUCT/OPS/DEV-INFRA per-file classification for the repository split
+
 
 ## Quick Start
 
