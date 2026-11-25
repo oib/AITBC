@@ -22,7 +22,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_list(
     provider: Annotated[str | None, Field(description="Filter by provider address")] = None,
-    status: Annotated[str | None, Field(description="Filter by status (active, inactive)")] = None,
+    status: Annotated[str | None, Field(description="Filter by status (active, inactive, all)")] = None,
     service_type: Annotated[str | None, Field(description="Filter by service type (ollama, whisper, ffmpeg)")] = None,
     sort: Annotated[
         Literal["reputation", "price", "availability", "default"] | None,

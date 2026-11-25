@@ -15,7 +15,7 @@ aitbc market list [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--provider` | text | — | no | Filter by provider address |
-| `--status` | text | — | no | Filter by status (active, inactive) |
+| `--status` | text | — | no | Filter by status (active, inactive, all) |
 | `--service-type` | text | — | no | Filter by service type (ollama, whisper, ffmpeg) |
 | `--sort` | choice | `default` | no | Sort order: reputation (rating desc, then price), price (asc), availability (active first, capacity), default (reputation, price, availability) |
 | `--mine` | flag | `false` | no | Show only offers published by the local wallet/node |

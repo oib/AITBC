@@ -22,7 +22,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import _resolve_market_api_key, get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
-from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, normalize_base_url
+from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, normalize_base_url, server_answered_status
 from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.market.offer_registration import offer_body_hash, registration_message
 
@@ -244,7 +244,7 @@ def _discover_local_gpus() -> list[dict[str, Any]]:
   aitbc market list --provider provider-1""",
 )
 @click.option("--provider", help="Filter by provider address")
-@click.option("--status", help="Filter by status (active, inactive)")
+@click.option("--status", help="Filter by status (active, inactive, all)")
 @click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg)")
 @click.option(
     "--sort",
@@ -269,6 +269,9 @@ def list_offers(
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
         hub_url = _hub_base_url(config)
+        # "all" means no status filter — normalize before it reaches the API
+        # params, _filter_offers and _chain_offer_row alike.
+        status = None if (status or "").lower() == "all" else status
 
         # Resolve the local identity when --mine is used.
         my_address: str | None = None
@@ -1107,12 +1110,22 @@ def _listing_is_identical(
 
 def _find_replaced_offers(
     hub_url, wallet_address, service_type, model_or_variant, gpu, disk_quota_mb, public_endpoint, description, price, unit
-) -> list[str] | None:
-    """Active listings this offer supersedes; None when an identical one exists (skip)."""
+) -> dict[str, Any]:
+    """Replacement probe for an imminent software offer.
+
+    Returns ``{"replaces": [...], "identical": None}`` normally —
+    ``replaces`` lists the active listing ids this offer supersedes.
+    When exactly one matching listing is field-identical to the request it
+    returns ``{"replaces": None, "identical": <listing>}``: the chain
+    listing already exists, but the market-service registry row is written
+    by a separate path, so the caller must verify that row before skipping
+    the publish entirely (#2954). The "already active" message is printed
+    by the caller, which owns the skip/repair decision.
+    """
     try:
         result = AITBCHTTPClient(base_url=hub_url, timeout=10).get("/rpc/market/listings")
         if not (result and isinstance(result, dict)):
-            return []
+            return {"replaces": [], "identical": None}
         listings = result.get("listings", [])
         replaces = [
             lst["listing_id"]
@@ -1123,20 +1136,241 @@ def _find_replaced_offers(
             and lst.get("gpu_uuid") == (gpu["gpu_uuid"] or "N/A")
             and lst.get("listing_id")
         ]
-        # A single identical active offer means republish would be a no-op — skip it.
+        # A single identical active offer means republish would be a no-op —
+        # but only if the market-service registry agrees; return the listing
+        # so offer() can probe /v1/market/offer/{plugin_id} first.
         if len(replaces) == 1:
             listing = next(lst for lst in listings if lst.get("listing_id") == replaces[0])
             if _listing_is_identical(
                 listing, description, service_type, model_or_variant, price, unit, gpu, disk_quota_mb, public_endpoint
             ):
-                info(f"Identical {service_type}/{model_or_variant} offer already active ({listing['listing_id']}); skipping")
-                return None
+                return {"replaces": None, "identical": listing}
         if replaces:
             info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
-        return replaces
+        return {"replaces": replaces, "identical": None}
     except _OFFERS_ERRORS:
         logger.debug("Could not query existing market listings for replacement", exc_info=True)
-        return []
+        return {"replaces": [], "identical": None}
+
+
+def _market_service_client(hub_url: str) -> AITBCHTTPClient:
+    """Client for the hub market service (https edge when the hub is http)."""
+    market_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
+    return AITBCHTTPClient(base_url=market_url, timeout=10, api_key=_resolve_market_api_key(get_config()))
+
+
+def _resolve_chain_offer_id(hub_url, wallet_address, service_type, model_or_variant, gpu_uuid, listing_id) -> str | None:
+    """Recover the seller-chosen ``offer_id`` of the active chain listing.
+
+    ``/rpc/market/listings`` rows carry only the internal ``listing_id``;
+    the transaction hash lives on ``/rpc/transactions/market/match`` items
+    and the ``offer_id`` inside that transaction's payload — a payload that
+    may arrive as a JSON string (#2954).
+    """
+    try:
+        client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+        result = client.get("/rpc/transactions/market/match")
+        matches = result.get("matches", []) if isinstance(result, dict) else []
+        tx_hash = None
+        for match in matches:
+            if not isinstance(match, dict):
+                continue
+            if listing_id and match.get("listing_id") == listing_id and match.get("offer_tx_hash"):
+                tx_hash = match.get("offer_tx_hash")
+                break
+            seller = match.get("seller") or match.get("seller_address")
+            if (
+                seller == wallet_address
+                and match.get("service_type") == service_type
+                and match.get("model") == model_or_variant
+                and match.get("gpu_uuid") == (gpu_uuid or "N/A")
+                and match.get("offer_tx_hash")
+            ):
+                tx_hash = match.get("offer_tx_hash")
+                break
+        if not tx_hash:
+            return None
+        tx = client.get(f"/rpc/transaction/{tx_hash}")
+        payload = tx.get("payload") if isinstance(tx, dict) else None
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        if not isinstance(payload, dict):
+            return None
+        offer_id = payload.get("offer_id")
+        return str(offer_id) if offer_id else None
+    except _OFFERS_ERRORS:
+        logger.debug("Could not resolve chain offer_id for the identical offer", exc_info=True)
+        return None
+
+
+def _register_software_offer(
+    hub_url: str,
+    *,
+    wallet_address: str,
+    private_key: str,
+    provider_node_id: str,
+    chain_id: str,
+    service_type: str,
+    model_or_variant: str,
+    offer_id: str,
+    price: Decimal,
+    unit: str,
+    description: str | None,
+    deployment_type: str,
+    gpu: dict[str, Any],
+    gpu_offer_id: str | None,
+    disk_quota_mb: int | None,
+    public_endpoint: str,
+    local_endpoint: str,
+    ipfs_port: int,
+) -> bool:
+    """Register the offer with the hub market service so agents can discover it.
+
+    P2.5: register with the same market service that ``market list``
+    queries, otherwise the offer is visible only on the local node. Best
+    effort — the on-chain listing already landed, so a failure logs a
+    warning and the next publish cycle retries (#2954). Returns True when
+    the registration POST was accepted.
+    """
+    _health_urls = {
+        "ollama": "http://localhost:11434/api/tags",
+        "whisper": "http://localhost:8110/health",
+        "ffmpeg": "http://localhost:8230/health",
+        "ipfs": f"http://localhost:{ipfs_port}/api/v0/version" if ipfs_port else "",
+        "hermes": "http://localhost:8270/health",
+    }
+    plugin_id = _compute_plugin_id(service_type, model_or_variant)
+    try:
+        plugin_client = _market_service_client(hub_url)
+        issued_at = int(time.time())
+        registration = {
+            "plugin_id": plugin_id,
+            "service_type": service_type,
+            "model": model_or_variant,
+            # not-money: wire format. This is the payload of a GPU_MARKET
+            # transaction; the node hashes it for the tx id and reads "price" back
+            # as a JSON number. Decimal is not JSON-serializable and a string would
+            # change the hash, so this stays float until the protocol changes.
+            "price": float(price),
+            "price_unit": unit,
+            "offer_id": offer_id,
+            "endpoint": local_endpoint,
+            "public_endpoint": public_endpoint,
+            "health_url": _health_urls.get(service_type, ""),
+            "provider_address": wallet_address,
+            "node_id": provider_node_id,
+            "deployment_type": deployment_type,
+            "gpu_name": gpu["gpu_name"],
+            "gpu_model": gpu["gpu_model"],
+            "gpu_device": gpu["gpu_device"],
+            "gpu_uuid": gpu["gpu_uuid"],
+            "gpu_offer_id": gpu_offer_id,
+            "gpu_memory_gb": gpu["gpu_memory_gb"],
+            "disk_quota_mb": disk_quota_mb,
+            "compute_capability": gpu["compute_capability"],
+            "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
+            "status": "active",
+            "chain_id": chain_id,
+            "issued_at": issued_at,
+        }
+        # Provider-signed registration proof over the whole body (offer_hash):
+        # the market service rejects unsigned offers, so a listing can't
+        # squat a plugin_id/provider_address it doesn't own, and a captured
+        # signature can't be resubmitted under a different offer body.
+        registration["signature"] = sign_transaction_data(
+            registration_message("register", plugin_id, wallet_address, chain_id, issued_at, offer_body_hash(registration)),
+            private_key,
+        )
+        plugin_client.post("/v1/market/offer", json=registration)
+        info(f"Software service registered in market (plugin-id: {plugin_id})")
+        return True
+    except _OFFERS_ERRORS as e:
+        logger.warning("Market-service registration for %s/%s failed: %s", service_type, model_or_variant, e)
+        return False
+
+
+def _repair_identical_offer_registration(
+    hub_url: str,
+    *,
+    identical_listing: dict[str, Any] | None,
+    wallet_address: str,
+    private_key: str,
+    provider_node_id: str,
+    chain_id: str,
+    service_type: str,
+    model_or_variant: str,
+    price: Decimal,
+    unit: str,
+    description: str | None,
+    deployment_type: str,
+    gpu: dict[str, Any],
+    gpu_offer_id: str | None,
+    disk_quota_mb: int | None,
+    public_endpoint: str,
+    local_endpoint: str,
+    ipfs_port: int,
+) -> None:
+    """Identical chain listing found — verify the market-service registry row.
+
+    The chain listing and the ``/v1/market/offer`` registry row are written
+    by different paths; an identical listing alone does not prove the row
+    exists. When it is missing, re-register anchored to the *chain*
+    ``offer_id`` — never the freshly generated one, which no transaction
+    carries and whose anchor resolution would fail (#2954).
+    """
+    plugin_id = _compute_plugin_id(service_type, model_or_variant)
+    listing_id = (identical_listing or {}).get("listing_id")
+    try:
+        existing = _market_service_client(hub_url).get(f"/v1/market/offer/{quote(plugin_id, safe='')}")
+    except _OFFERS_ERRORS as e:
+        if server_answered_status(e) == 404:
+            existing = None
+        else:
+            logger.warning(
+                "Market-service registry probe for %s failed: %s; deferring registration to the next publish cycle",
+                plugin_id,
+                e,
+            )
+            return
+    if isinstance(existing, dict) and existing and not existing.get("error"):
+        info(f"Identical {service_type}/{model_or_variant} offer already active ({listing_id or 'on-chain'}); skipping")
+        return
+    chain_offer_id = _resolve_chain_offer_id(
+        hub_url, wallet_address, service_type, model_or_variant, gpu["gpu_uuid"], listing_id
+    )
+    if not chain_offer_id:
+        logger.warning(
+            "Identical %s/%s offer is active on-chain but its offer_id could not be resolved; "
+            "market-service registration deferred to the next publish cycle",
+            service_type,
+            model_or_variant,
+        )
+        return
+    registered = _register_software_offer(
+        hub_url,
+        wallet_address=wallet_address,
+        private_key=private_key,
+        provider_node_id=provider_node_id,
+        chain_id=chain_id,
+        service_type=service_type,
+        model_or_variant=model_or_variant,
+        offer_id=chain_offer_id,
+        price=price,
+        unit=unit,
+        description=description,
+        deployment_type=deployment_type,
+        gpu=gpu,
+        gpu_offer_id=gpu_offer_id,
+        disk_quota_mb=disk_quota_mb,
+        public_endpoint=public_endpoint,
+        local_endpoint=local_endpoint,
+        ipfs_port=ipfs_port,
+    )
+    if registered:
+        info(
+            f"Identical {service_type}/{model_or_variant} offer already active; "
+            f"repaired missing market-service registration (plugin-id: {plugin_id})"
+        )
 
 
 def _mempool_has_pending_offer(hub_url, wallet_address, service_type, model_or_variant, gpu_uuid) -> bool:
@@ -1343,7 +1577,7 @@ def offer(
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
-        replaces = _find_replaced_offers(
+        dedup = _find_replaced_offers(
             hub_url,
             wallet_address,
             service_type,
@@ -1355,7 +1589,32 @@ def offer(
             price,
             unit,
         )
+        replaces = dedup["replaces"]
         if replaces is None:
+            # Identical chain listing — but the market-service registry row is
+            # a separate write; verify it before treating the offer as done
+            # (#2954: this early return is what left offers listed on-chain
+            # yet missing from /v1/market/offer).
+            _repair_identical_offer_registration(
+                hub_url,
+                identical_listing=dedup["identical"],
+                wallet_address=wallet_address,
+                private_key=private_key,
+                provider_node_id=provider_node_id,
+                chain_id=chain_id,
+                service_type=service_type,
+                model_or_variant=model_or_variant,
+                price=price,
+                unit=unit,
+                description=description,
+                deployment_type=deployment_type,
+                gpu=gpu,
+                gpu_offer_id=gpu_offer_id,
+                disk_quota_mb=disk_quota_mb,
+                public_endpoint=public_endpoint,
+                local_endpoint=local_endpoint,
+                ipfs_port=ipfs_port,
+            )
             return
         if _mempool_has_pending_offer(hub_url, wallet_address, service_type, model_or_variant, gpu["gpu_uuid"]):
             return
@@ -1411,69 +1670,26 @@ def offer(
         output(tx_result, ctx.obj.get("output_format", "table"))
 
         # Auto-register in hub market service so agents can discover it.
-        _health_urls = {
-            "ollama": "http://localhost:11434/api/tags",
-            "whisper": "http://localhost:8110/health",
-            "ffmpeg": "http://localhost:8230/health",
-            "ipfs": f"http://localhost:{ipfs_port}/api/v0/version" if ipfs_port else "",
-            "hermes": "http://localhost:8270/health",
-        }
-        try:
-            # P2.5: register the offer with the same market service that `market list`
-            # queries, otherwise the offer is visible only on the local node.
-            market_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
-            plugin_client = AITBCHTTPClient(
-                base_url=market_url,
-                timeout=10,
-                api_key=_resolve_market_api_key(get_config()),
-            )
-            plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
-            issued_at = int(time.time())
-            registration = {
-                "plugin_id": plugin_id,
-                "service_type": service_type,
-                "model": model_or_variant,
-                # not-money: wire format. This is the payload of a GPU_MARKET
-                # transaction; the node hashes it for the tx id and reads "price" back
-                # as a JSON number. Decimal is not JSON-serializable and a string would
-                # change the hash, so this stays float until the protocol changes.
-                "price": float(price),
-                "price_unit": unit,
-                "offer_id": offer_id,
-                "endpoint": local_endpoint,
-                "public_endpoint": public_endpoint,
-                "health_url": _health_urls.get(service_type, ""),
-                "provider_address": wallet_address,
-                "node_id": provider_node_id,
-                "deployment_type": deployment_type,
-                "gpu_name": gpu["gpu_name"],
-                "gpu_model": gpu["gpu_model"],
-                "gpu_device": gpu["gpu_device"],
-                "gpu_uuid": gpu["gpu_uuid"],
-                "gpu_offer_id": gpu_offer_id,
-                "gpu_memory_gb": gpu["gpu_memory_gb"],
-                "disk_quota_mb": disk_quota_mb,
-                "compute_capability": gpu["compute_capability"],
-                "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
-                "status": "active",
-                "chain_id": chain_id,
-                "issued_at": issued_at,
-            }
-            # Provider-signed registration proof over the whole body (offer_hash):
-            # the market service rejects unsigned offers, so a listing can't
-            # squat a plugin_id/provider_address it doesn't own, and a captured
-            # signature can't be resubmitted under a different offer body.
-            registration["signature"] = sign_transaction_data(
-                registration_message(
-                    "register", plugin_id, wallet_address, chain_id, issued_at, offer_body_hash(registration)
-                ),
-                private_key,
-            )
-            plugin_client.post("/v1/market/offer", json=registration)
-            info(f"Software service registered in market (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
-        except _OFFERS_ERRORS:
-            logger.debug("Offer lookup request failed", exc_info=True)
-            pass  # Non-fatal — market service may not be running
+        _register_software_offer(
+            hub_url,
+            wallet_address=wallet_address,
+            private_key=private_key,
+            provider_node_id=provider_node_id,
+            chain_id=chain_id,
+            service_type=service_type,
+            model_or_variant=model_or_variant,
+            offer_id=offer_id,
+            price=price,
+            unit=unit,
+            description=description,
+            deployment_type=deployment_type,
+            gpu=gpu,
+            gpu_offer_id=gpu_offer_id,
+            disk_quota_mb=disk_quota_mb,
+            public_endpoint=public_endpoint,
+            local_endpoint=local_endpoint,
+            ipfs_port=ipfs_port,
+        )
 
     except Exception as e:
         error(f"Error creating software offer: {e}")
@@ -1489,7 +1705,7 @@ def offer(
   aitbc market offer-list --service-type ipfs --output json""",
 )
 @click.option("--service-type", "service_type", help="Filter by service type")
-@click.option("--status", "status", help="Filter by status (active/inactive)")
+@click.option("--status", "status", help="Filter by status (active/inactive/all)")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def offer_list(
@@ -1501,6 +1717,7 @@ def offer_list(
     """List software offers published by this provider."""
     try:
         output_format = resolve_output_format(ctx, output_format)
+        status = None if (status or "").lower() == "all" else status
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         config = get_config()
