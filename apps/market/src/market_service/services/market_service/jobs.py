@@ -32,7 +32,17 @@ logger = get_logger(__name__)
 # ``setdefault`` keep a backdated ``provider_confirmed_at`` and pass the
 # #1976 release-window gate immediately. ``size`` stays caller-writable:
 # it is the declared content size, overwritten by pin-confirm.
-_PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at", "pinned", "pin_tx_hash", "attested_billing"})
+_PAYLOAD_SERVER_KEYS = frozenset(
+    {
+        "provider_confirmed",
+        "provider_confirmed_at",
+        "pinned",
+        "pin_tx_hash",
+        "attested_billing",
+        "delivery_error",
+        "delivery_error_at",
+    }
+)
 
 
 class AccessKeyConflict(ValueError):

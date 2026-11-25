@@ -498,6 +498,63 @@ class _JobsSettlementMixin(_JobsMixin):
             logger.error("Error in confirm_market_job_pin: %s: %s", type(e).__name__, e)
             raise
 
+    async def report_market_job_pin_error(self, job_id: str, cid: str, error: str) -> dict[str, Any]:
+        """Record the provider's delivery-plane failure and escrow recovery state.
+
+        #2968: a persistent pin failure is the provider payee's signed
+        non-delivery evidence. It can only move escrow back to the buyer, so
+        the job fails closed: public ``error`` is set and an escrowed payment
+        becomes refund_pending for the normal market refund sweep.
+        """
+        job = await self.session.get(MarketJob, job_id)
+        if not job:
+            raise ValueError(f"Job not found: {job_id}")
+        if job.state not in {"QUEUED", "RUNNING"}:
+            return self._job_to_dict(job)
+        job_cid = str((job.payload or {}).get("cid") or "")
+        if cid != job_cid:
+            raise ValueError("pin error cid does not match this job")
+        now = datetime.now(UTC).replace(tzinfo=None)
+        payload = dict(job.payload or {})
+        if payload.get("provider_confirmed"):
+            # A late/stale failure report must not contradict the signed
+            # delivery attestation even when it races the confirm write.
+            return self._job_to_dict(job)
+        payload["delivery_error"] = error[:500]
+        payload["delivery_error_at"] = now.isoformat()
+        payment_flipped = False
+        if job.payment_id:
+            payment_flipped = await self._cas_payment_status(
+                job.payment_id, "escrowed", {"status": "refund_pending", "updated_at": now}
+            )
+        claim = await self.session.execute(
+            update(MarketJob)
+            .where(
+                col(MarketJob.id) == job_id,
+                col(MarketJob.state).in_({"QUEUED", "RUNNING"}),
+                # Re-checked by the database when this UPDATE wins the row:
+                # a concurrent provider confirmation that committed after
+                # our stale read above must make this CAS lose rather than
+                # be overwritten by the failure report.
+                col(MarketJob.payload)["provider_confirmed"].as_boolean().is_not(True),
+            )
+            .values(
+                state="FAILED",
+                payload=payload,
+                error=error[:500],
+                payment_status="refund_pending" if payment_flipped else job.payment_status,
+                updated_at=now,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) != 1:
+            await self.session.rollback()
+            job = await self.session.get(MarketJob, job_id)
+            return self._job_to_dict(job) if job else {}
+        await self.session.commit()
+        await self.session.refresh(job)
+        return self._job_to_dict(job)
+
     async def _require_confirmed_settle_tx(self, tx_hash: str, job: MarketJob, expected_type: str) -> dict[str, Any]:
         """Refuse a caller-supplied settle hash that is not THIS job's escrow settlement.
 
