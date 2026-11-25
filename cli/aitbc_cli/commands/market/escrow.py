@@ -141,7 +141,9 @@ def _describe_rpc_failure(base: str, exc: BaseException) -> str:
     return f"{base}: HTTP {status} {detail}{hint}" if status is not None else f"{base}: {exc}"
 
 
-def _post_escrow_rpc(config, path: str, payload: dict[str, Any], timeout: int = 10) -> tuple[dict[str, Any] | None, list[str]]:
+def _post_escrow_rpc(
+    config, path: str, payload: dict[str, Any], timeout: int = 10, retry_seal: bool = False
+) -> tuple[dict[str, Any] | None, list[str]]:
     """POST an escrow RPC to the local node, then the hub fallback.
 
     Returns ``(result, failures)`` — ``failures`` names each endpoint that
@@ -154,24 +156,40 @@ def _post_escrow_rpc(config, path: str, payload: dict[str, Any], timeout: int = 
     candidate (deduped, allowlist-gated by :func:`_settlement_url_allowed`)
     so release/refund reach the settlement-capable RPC instead of stopping
     after local+hub — the same retry ``_escrow_create`` already does.
+
+    ``retry_seal`` is for refund paths immediately after a lock broadcast:
+    a 425 means the ESCROW_LOCK is still in mempool, so the helper waits and
+    reposts within the shared bounded seal budget instead of making the user
+    retry manually.
     """
     failures: list[str] = []
+    seal_wait_left = _SEAL_WAIT_TOTAL if retry_seal else 0.0
     rpc_url = _get_blockchain_rpc_url(config)
     hub_url = _hub_base_url(config)
     bases = list(dict.fromkeys(b for b in (rpc_url, hub_url) if b))
     tried: set[str] = set()
     idx = 0
+    retry_current = False
     while idx < len(bases):
         base = bases[idx]
         idx += 1
-        if base in tried:
+        if base in tried and not retry_current:
             continue
         tried.add(base)
+        retry_current = False
         try:
             result = _get_rpc_client(config, base, timeout=timeout).post(path, json=payload)
             return result, failures
         except _ESCROW_CLI_ERRORS as exc:
             logger.debug("Escrow RPC %s failed on %s", path, base, exc_info=True)
+            if retry_seal and http_response_status(exc) == 425:
+                wait = _seal_wait_seconds(exc, seal_wait_left)
+                if wait > 0:
+                    seal_wait_left -= wait
+                    time.sleep(wait)
+                    idx -= 1
+                    retry_current = True
+                    continue
             failures.append(_describe_rpc_failure(base, exc))
             detail = _http_503_detail(exc)
             if detail:
@@ -776,7 +794,7 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
             output(coordinator_result, ctx.obj.get("output_format", "table"))
             return coordinator_result
         info(f"Coordinator refund unavailable for job {job_id} (no coordinator payment) — falling back to the chain rpc")
-        result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/refund", {"reason": reason})
+        result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/refund", {"reason": reason}, retry_seal=True)
         if result:
             success(f"Escrow refunded for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))

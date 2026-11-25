@@ -1124,7 +1124,9 @@ def cancel(
 
     # Attempt an immediate on-chain refund through the customer blockchain and sync state.
     config = get_config()
-    refund_result, refund_failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/refund", {"reason": reason}, timeout=20)
+    refund_result, refund_failures = _post_escrow_rpc(
+        config, f"/rpc/escrow/{job_id}/refund", {"reason": reason}, timeout=20, retry_seal=True
+    )
     if refund_result is None:
         warning(f"Escrow refund failed locally and on the hub (sweeper will retry): {'; '.join(refund_failures)}")
 

@@ -6,6 +6,8 @@ nonce slot once at nonce+1.
 from types import SimpleNamespace
 from typing import cast
 
+import click
+
 import aitbc_cli.commands.market.escrow as esc_mod
 import aitbc_cli.commands.market.jobs as jobs_mod
 
@@ -105,7 +107,10 @@ def test_refund_escrow_falls_back_with_info_and_error(monkeypatch):
     monkeypatch.setattr(
         esc_mod,
         "_post_escrow_rpc",
-        lambda config, path, payload, timeout=10: (None, ["http://x: HTTP 403 Forbidden (RPC requires an API key)"]),
+        lambda config, path, payload, timeout=10, retry_seal=False: (
+            None,
+            ["http://x: HTTP 403 Forbidden (RPC requires an API key)"],
+        ),
     )
     import click
     import pytest
@@ -265,3 +270,58 @@ def test_get_rpc_client_no_settlement_key_no_header():
         assert "X-Settlement-Key" not in client.headers
     finally:
         client.close()
+
+
+# --- MARKET-ESCROW-STRAND-1 (#2953): refund waits for the lock to seal ------
+
+
+def test_post_escrow_rpc_425_then_seal_retries_same_endpoint(monkeypatch):
+    """A 425 'lock not yet sealed' is transient: wait and repost instead of
+    falling through to a terminal manual-refund error."""
+    sleeps: list[float] = []
+    posts: list[str] = []
+
+    class _Rpc:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            posts.append(self.base_url)
+            if len(posts) == 1:
+                raise _StatusError(425, "escrow lock for job_id=j1 is not yet sealed in a block")
+            return {"success": True, "refund_tx_hash": "0xrefund"}
+
+    monkeypatch.setattr(esc_mod.time, "sleep", sleeps.append)
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _Rpc(base_url))
+    result, failures = esc_mod._post_escrow_rpc(_config(), "/rpc/escrow/j1/refund", {"reason": "job_failed"}, retry_seal=True)
+    assert result == {"success": True, "refund_tx_hash": "0xrefund"}
+    assert failures == []
+    assert posts == ["http://127.0.0.1:8202", "http://127.0.0.1:8202"]
+    assert sleeps == [esc_mod._SEAL_WAIT_DEFAULT]
+
+
+def test_refund_escrow_425_then_seal_succeeds_without_manual_retry(monkeypatch):
+    """End-to-end CLI helper pin: coordinator has no payment, the chain rpc
+    answers 425 once, and the same refund invocation completes after the seal."""
+    posts: list[str] = []
+    monkeypatch.setattr(esc_mod, "get_config", _config)
+    monkeypatch.setattr(esc_mod, "_coordinator_refund", lambda ctx, job_id, reason: None)
+    monkeypatch.setattr(esc_mod.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(esc_mod, "output", lambda *a, **kw: None)
+    monkeypatch.setattr(esc_mod, "success", lambda *a, **kw: None)
+    monkeypatch.setattr(esc_mod, "info", lambda *a, **kw: None)
+
+    class _Rpc:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            posts.append(self.base_url)
+            if len(posts) == 1:
+                raise _StatusError(425, "escrow lock for job_id=j1 is not yet sealed in a block")
+            return {"success": True, "refund_tx_hash": "0xrefund"}
+
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _Rpc(base_url))
+    result = esc_mod.refund_escrow(cast(click.Context, SimpleNamespace(obj={})), "j1", "job_failed")
+    assert result == {"success": True, "refund_tx_hash": "0xrefund"}
+    assert posts == ["http://127.0.0.1:8202", "http://127.0.0.1:8202"]

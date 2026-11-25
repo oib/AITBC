@@ -275,6 +275,29 @@ def _compute_plugin_id(service_type: str, model: str) -> str:
     return f"{service_type}-{model.replace(':', '-')}"
 
 
+def _offer_listed_minimum(offer: dict[str, Any]) -> Decimal | None:
+    """Listed minimum the market service enforces for one paid job."""
+    try:
+        price = Decimal(str(offer.get("price", 0)))
+    except (InvalidOperation, ValueError):
+        return None
+    if not price.is_finite() or price <= 0:
+        return None
+    # The market service floors every unit at one billed unit when no rental
+    # length exists in the job payload. The metered CLI runners have no such
+    # length field, so one unit is their floor too.
+    return price
+
+
+def _lock_amount_respecting_offer_minimum(offer: dict[str, Any], estimated_cost: Decimal) -> Decimal:
+    """Raise a metered estimate to the offer floor before registration/lock."""
+    floor = _offer_listed_minimum(offer)
+    if floor is not None and estimated_cost < floor:
+        info(f"Raising escrow lock to the offer's listed minimum: {floor:.8f} AIT")
+        return floor
+    return estimated_cost
+
+
 def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str) -> str | None:
     """Submit the ``software_job`` proof-of-work record and return its transaction hash.
 
@@ -503,13 +526,14 @@ def _run_ollama(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
-    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "ollama", estimated_cost)
+    escrow_amount = _lock_amount_respecting_offer_minimum(offer, estimated_cost)
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "ollama", escrow_amount)
     contract_id = _escrow_create(
         ctx,
         job_id,
         buyer,
         provider,
-        estimated_cost,
+        escrow_amount,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
@@ -784,13 +808,14 @@ def _run_whisper(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
-    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "whisper", estimated_cost)
+    escrow_amount = _lock_amount_respecting_offer_minimum(offer, estimated_cost)
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "whisper", escrow_amount)
     contract_id = _escrow_create(
         ctx,
         job_id,
         buyer,
         provider,
-        estimated_cost,
+        escrow_amount,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
@@ -909,13 +934,14 @@ def _run_ffmpeg(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
-    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "ffmpeg", estimated_cost)
+    escrow_amount = _lock_amount_respecting_offer_minimum(offer, estimated_cost)
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "ffmpeg", escrow_amount)
     contract_id = _escrow_create(
         ctx,
         job_id,
         buyer,
         provider,
-        estimated_cost,
+        escrow_amount,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
@@ -1120,13 +1146,14 @@ def _run_hermes(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
-    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "hermes", estimated_cost)
+    escrow_amount = _lock_amount_respecting_offer_minimum(offer, estimated_cost)
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "hermes", escrow_amount)
     contract_id = _escrow_create(
         ctx,
         job_id,
         buyer,
         provider,
-        estimated_cost,
+        escrow_amount,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
