@@ -266,7 +266,7 @@ sudo rm -rf /var/log/aitbc
 
 ## Support
 
-- **Documentation**: https://aitbc.bubuit.net/docs/
+- **Documentation**: https://github.com/oib/AITBC/tree/main/docs
 - **GitHub Issues**: https://github.com/oib/AITBC/issues
 - **Community**: https://community.aitbc.dev/
 

@@ -6,7 +6,7 @@ Usage: quick_test.py [BASE_URL]   (or set AITBC_QUICK_TEST_URL)
 Every probe declares the status codes it accepts and a mismatch is a failure, which is
 the whole difference from what this used to do: it printed a green tick for whatever came
 back, returned True either way, and left the process exiting 0. Pointed as it was at
-https://aitbc.bubuit.net/api/v1/health -- a name that does not resolve from a node, and
+a deployment-internal /api/v1/health URL -- a name that did not resolve from a node, and
 a path the coordinator does not serve -- it could only ever have printed a red line, and
 nothing downstream would have noticed if it had.
 """

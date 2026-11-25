@@ -43,7 +43,8 @@ Every payout goes through a ledger row — never send ad-hoc from the payout
 account. Operator actions:
 
 ```bash
-cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
+cd /opt/aitbc && PYTHONPATH=apps/bridge-monitor/src venv/bin/python -m bridge_monitor.admin <command>
+# Fleet operators may use the aitbc-ops scripts/ops/bridge-admin.sh wrapper instead.
 #   status <tx_hash>                inspect a ledger row
 #   list [--status S] [--limit N]   recent rows (incl. FUNDING/FAILED), newest first
 #   manual-payout <to> <amount>     manual payout, ledger-first (uncapped by design)

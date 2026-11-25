@@ -16,7 +16,7 @@ Group=root
 # sqlite .dump rebuild + integrity_check + alembic head, pg_dump header
 # check, svc_*.backup integrity. Read-only against live state; scratch
 # under /var/tmp is removed on exit.
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/ops/backup-verify.py --textfile /var/lib/prometheus/node-exporter/aitbc_backup_verify.prom
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/maintenance/backup-verify.py --textfile /var/lib/prometheus/node-exporter/aitbc_backup_verify.prom
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-backup-verify

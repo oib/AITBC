@@ -131,7 +131,7 @@ mkunit  scripts/monitoring    aitbc-prometheus-watch.service
 mktimer scripts/monitoring    aitbc-chain-isolation-monitor
 mktimer scripts/monitoring    aitbc-memory-monitor
 # Deliberately unmodeled repo unit — the preserve-passthrough case
-mktimer scripts/monitoring    aitbc-native-energy-rate-refresh
+mktimer scripts/monitoring    aitbc-operator-preserve
 # Unmodeled repo timer with NO service — exercises the orphan-timer guard
 cat > "$FAKE_REPO/scripts/monitoring/aitbc-lonely.timer" <<'EOF'
 [Unit]
@@ -175,8 +175,8 @@ echo "== role: follower:customer:nogpu — monitoring units linked, preserve wor
 mkrole follower customer nogpu
 # Pre-linked operator units: one unmodeled (must survive), one modeled but
 # role-excluded (must be dropped), plus foreign/dangling entries.
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.timer" "$SYSTEMD_DIR/"
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.service" "$SYSTEMD_DIR/"
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.timer" "$SYSTEMD_DIR/"
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.service" "$SYSTEMD_DIR/"
 ln -sf "$FAKE_REPO/apps/market/aitbc-market.service" "$SYSTEMD_DIR/aitbc-market.service"
 mkdir -p "$SBX/foreign-units"
 printf '[Unit]\n[Service]\nExecStart=/bin/true\n' > "$SBX/foreign-units/aitbc-foreign.service"
@@ -184,8 +184,8 @@ ln -sf "$SBX/foreign-units/aitbc-foreign.service" "$SYSTEMD_DIR/aitbc-foreign.se
 ln -sf /nonexistent/path/aitbc-stale.service "$SYSTEMD_DIR/aitbc-stale.service"
 printf '[Unit]\n[Service]\nExecStart=/bin/true\n' > "$SYSTEMD_DIR/aitbc-manual.service"
 mkdir -p "$SYSTEMD_DIR/timers.target.wants"
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.timer" \
-       "$SYSTEMD_DIR/timers.target.wants/aitbc-native-energy-rate-refresh.timer"
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.timer" \
+       "$SYSTEMD_DIR/timers.target.wants/aitbc-operator-preserve.timer"
 
 run_link follower
 
@@ -194,8 +194,8 @@ check "follower: escrow-settlements svc linked"    file_there "$SYSTEMD_DIR/aitb
 check "follower: journal-errors linked"            file_there "$SYSTEMD_DIR/aitbc-journal-errors.timer"
 check "follower: prometheus-watch linked"          file_there "$SYSTEMD_DIR/aitbc-prometheus-watch.service"
 check "follower: authority-balances NOT linked"    file_gone  "$SYSTEMD_DIR/aitbc-authority-balances.timer"
-check "unmodeled operator unit preserved"          file_there "$SYSTEMD_DIR/aitbc-native-energy-rate-refresh.timer"
-check "preserved unit keeps .wants entry"          file_there "$SYSTEMD_DIR/timers.target.wants/aitbc-native-energy-rate-refresh.timer"
+check "unmodeled operator unit preserved"          file_there "$SYSTEMD_DIR/aitbc-operator-preserve.timer"
+check "preserved unit keeps .wants entry"          file_there "$SYSTEMD_DIR/timers.target.wants/aitbc-operator-preserve.timer"
 check "role-excluded modeled unit removed"         file_gone  "$SYSTEMD_DIR/aitbc-market.service"
 check "dangling link removed"                      file_gone  "$SYSTEMD_DIR/aitbc-stale.service"
 check "foreign (non-repo) link kept"               file_there "$SYSTEMD_DIR/aitbc-foreign.service"
@@ -232,20 +232,20 @@ mkrole follower customer nogpu
 # unmodeled timer pair survives when complete; a timer without its service
 # file in the repo is preserved on link but dropped by the pair check.
 ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-lonely.timer" "$SYSTEMD_DIR/aitbc-lonely.timer"
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.timer" "$SYSTEMD_DIR/"
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.service" "$SYSTEMD_DIR/"
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.timer" "$SYSTEMD_DIR/"
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.service" "$SYSTEMD_DIR/"
 run_link orphan
-check "complete preserved pair survives"           file_there "$SYSTEMD_DIR/aitbc-native-energy-rate-refresh.timer"
+check "complete preserved pair survives"           file_there "$SYSTEMD_DIR/aitbc-operator-preserve.timer"
 check "orphan timer removed"                       file_gone  "$SYSTEMD_DIR/aitbc-lonely.timer"
 
 # =========================================================================
 echo "== DISABLED_SERVICES wins over preserve =="
 rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
-mkrole follower customer nogpu 'DISABLED_SERVICES="aitbc-native-energy-rate-refresh aitbc-journal-errors"'
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.timer" "$SYSTEMD_DIR/"
-ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-native-energy-rate-refresh.service" "$SYSTEMD_DIR/"
+mkrole follower customer nogpu 'DISABLED_SERVICES="aitbc-operator-preserve aitbc-journal-errors"'
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.timer" "$SYSTEMD_DIR/"
+ln -sf "$FAKE_REPO/scripts/monitoring/aitbc-operator-preserve.service" "$SYSTEMD_DIR/"
 run_link disabled
-check "DISABLED unmodeled unit removed"            file_gone  "$SYSTEMD_DIR/aitbc-native-energy-rate-refresh.timer"
+check "DISABLED unmodeled unit removed"            file_gone  "$SYSTEMD_DIR/aitbc-operator-preserve.timer"
 check "DISABLED modeled unit not relinked"         file_gone  "$SYSTEMD_DIR/aitbc-journal-errors.timer"
 check "DISABLED unit never enabled"                log_hasnt  "enable aitbc-journal-errors.timer"
 
@@ -323,7 +323,7 @@ check "role-listed failed unit not double-counted" bash -c "! grep -q 'aitbc-tra
 echo "== update.sh --gitea resolution — remotes, not a scrub placeholder =="
 GITBOX="$SBX/gitbox"
 git init -q "$GITBOX"
-git -C "$GITBOX" remote add origin "https://gitea.bubuit.net/oib/aitbc.git"
+git -C "$GITBOX" remote add origin "https://gitea.example.net/oib/aitbc.git"
 git -C "$GITBOX" remote add gitea  "https://gitea.example.internal/oib/aitbc.git"
 
 run_parse() { # parse-args… — subshell, echoes resolved GIT_REMOTE or rc
@@ -346,7 +346,7 @@ check "--gitea resolves the gitea remote"          bash -c "grep -q 'GIT_REMOTE=
 # no gitea remote → origin is the canonical URL on operator nodes
 git -C "$GITBOX" remote remove gitea
 run_parse --gitea > "$SBX/parse2.out"
-check "--gitea falls back to origin"               bash -c "grep -q 'GIT_REMOTE=https://gitea.bubuit.net/oib/aitbc.git' '$SBX/parse2.out'"
+check "--gitea falls back to origin"               bash -c "grep -q 'GIT_REMOTE=https://gitea.example.net/oib/aitbc.git' '$SBX/parse2.out'"
 
 # explicit --gitea <url> beats remotes
 run_parse --gitea "https://other.example/r.git" > "$SBX/parse3.out"
@@ -362,15 +362,9 @@ check "--gitea .invalid remote refused"            bash -c "grep -q 'RC=2' '$SBX
 git -C "$GITBOX" remote remove gitea
 
 # =========================================================================
-echo "== island-subscription-check — refuses placeholder-less config =="
-(
-    set +e
-    env -u ISLAND_ID -u COORDINATOR_URL PATH="$STUB_BIN:$PATH" \
-        bash "$REPO_ROOT/scripts/monitoring/island-subscription-check.sh"
-    echo "ISL_RC=$?"
-) > "$SBX/isl.out" 2>&1
-check "unset config exits 3"                       bash -c "grep -q 'ISL_RC=3' '$SBX/isl.out'"
-check "names the env file and both vars"           bash -c "grep -q 'ISLAND_ID and COORDINATOR_URL' '$SBX/isl.out'"
+# The island subscription check is OPS-side after the repo split. Its
+# exit-code contract has a dedicated pytest pin and intentionally is not
+# re-executed from this product-side link-systemd pin.
 
 echo
 if [ "$FAILS" -eq 0 ]; then

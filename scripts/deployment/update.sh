@@ -51,6 +51,7 @@ set -o pipefail
 # run-migrations.sh; this replaces it at the top rather than losing it.
 
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
+AITBC_OPS_ROOT="${AITBC_OPS_ROOT:-/opt/aitbc-ops}"
 VENV_DIR="$AITBC_ROOT/venv"
 NODE_ENV_FILE="${AITBC_NODE_ENV_FILE:-/etc/aitbc/node.env}"
 BLOCKCHAIN_ENV_FILE="${AITBC_BLOCKCHAIN_ENV_FILE:-/etc/aitbc/blockchain.env}"
@@ -866,16 +867,20 @@ ensure_validator_secrets_scope() {
 # Step 4f: Re-render website branding after a pull
 # ----------------------------------------------------------------------------
 # The static site is served straight from the checkout; pulls can revert
-# rendered domain/chain-id tokens. render-website.sh rewrites them from
-# /etc/aitbc/website.env. Opt-in: no website.env -> nothing to do.
+# rendered domain/chain-id tokens. The renderer is fleet-operations tooling
+# after the repo split: when the companion ops checkout exists it rewrites the
+# tokens from website.env; without it a public node skips the optional render
+# cleanly instead of depending on scripts/ops paths that are carved out.
+# Opt-in: no website.env -> nothing to do.
 render_website_files() {
-    [ -f /etc/aitbc/website.env ] || return 0
-    local script="$AITBC_ROOT/scripts/ops/render-website.sh"
+    local website_env="${WEBSITE_ENV_FILE:-$AITBC_ETC_DIR/website.env}"
+    [ -f "$website_env" ] || return 0
+    local script="$AITBC_OPS_ROOT/scripts/ops/render-website.sh"
     if [ ! -f "$script" ]; then
-        warning "website.env present but render-website.sh missing — skipping"
+        warning "website.env present but $script is missing — skipping optional website render (install aitbc-ops for fleet branding)"
         return 0
     fi
-    if bash "$script"; then
+    if AITBC_ROOT="$AITBC_ROOT" WEBSITE_ENV_FILE="$website_env" NODE_ENV_FILE="$NODE_ENV_FILE" BRIDGE_ENV_FILE="$AITBC_ETC_DIR/aitbc-bridge-monitor.env" STATE_FILE="$AITBC_ETC_DIR/.website-rendered.env" bash "$script"; then
         success "Website branding rendered"
     else
         warning "render-website.sh failed — site may show stale branding"
@@ -956,11 +961,13 @@ ensure_gossip_defaults() {
 # ----------------------------------------------------------------------------
 # Step 4g: Sync Prometheus rule files where Prometheus actually runs
 #
-# /etc/prometheus/*.yml are copies of scripts/monitoring/*.yml, not symlinks:
-# deploy-rules.sh validates the repo file with promtool BEFORE anything is
-# deployed, so a malformed rules file on main can never leave Prometheus
-# failing to start after a routine restart. Only hosts serving Prometheus
-# reach this step — update.sh runs fleet-wide.
+# /etc/prometheus/*.yml are copies of the ops repo's scripts/monitoring/*.yml,
+# not symlinks: deploy-rules.sh validates the source file with promtool BEFORE
+# anything is deployed, so malformed rules can never leave Prometheus failing
+# to start after a routine restart. Only hosts serving Prometheus reach this
+# step — update.sh runs fleet-wide. The rule bundle is OPS after the repo
+# split; a product-only node skips it cleanly, while a fleet node with the
+# companion checkout at AITBC_OPS_ROOT keeps the full behavior.
 # ----------------------------------------------------------------------------
 deploy_prometheus_rules() {
     # systemctl cat, not list-unit-files | grep -q: under this script's
@@ -969,9 +976,9 @@ deploy_prometheus_rules() {
     if ! systemctl cat prometheus.service >/dev/null 2>&1; then
         return 0
     fi
-    local deploy_script="$AITBC_ROOT/scripts/monitoring/deploy-rules.sh"
+    local deploy_script="$AITBC_OPS_ROOT/scripts/monitoring/deploy-rules.sh"
     if [ ! -x "$deploy_script" ]; then
-        warning "deploy-rules.sh not executable: $deploy_script — Prometheus rules may be stale"
+        warning "deploy-rules.sh not executable: $deploy_script — skipping optional Prometheus rules sync (install aitbc-ops for fleet monitoring)"
         return 0
     fi
     log "Step 4g: Syncing Prometheus rule files..."

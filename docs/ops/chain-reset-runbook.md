@@ -213,7 +213,7 @@ after height 1 seals.
    known store **before** post-reset height 1 seals — bc-2's executor
    keys are genesis-baked and lost; §2 is the gate this finding feeds.
    Coder B's custody check covers it:
-   `scripts/ops/key-audit.py --find-address <addr>` walks every env /
+   `scripts/maintenance/key-audit.py --find-address <addr>` walks every env /
    keystore / wallet file that holds a key deriving to the address —
    backups included, the key itself never printed.
 4. **Operator-pair env pattern.** The signing and verifying sides of an

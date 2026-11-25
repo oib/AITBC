@@ -14,7 +14,7 @@ procedure only; chain/reset mechanics stay there.
 ## Hard rules
 
 - **No key material in repo, logs, chat, tickets or this file.** Addresses and
-  env-var *names* only. `scripts/ops/key-audit.py` derives addresses from keys
+  env-var *names* only. `scripts/maintenance/key-audit.py` derives addresses from keys
   without printing them — use it for every custody check.
 - Each validator holds **exactly its own key** in `validator-secrets.env`
   (last `EnvironmentFile`, wins): `VALIDATOR_KEYS={"<own addr>":"<key>"}`,

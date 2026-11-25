@@ -6,7 +6,7 @@
 
 ## 1. Nightly restore-verification (`aitbc-backup-verify.*`)
 
-`scripts/ops/backup-verify.py` replayed the BK-1 restore drill as a
+`scripts/maintenance/backup-verify.py` replayed the BK-1 restore drill as a
 script but was never scheduled (R13-00 finding). This change adds:
 
 - `scripts/maintenance/aitbc-backup-verify.service` — oneshot, root,

@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
-_spec = importlib.util.spec_from_file_location("backup_verify", Path(__file__).parents[1] / "scripts/ops/backup-verify.py")
+_spec = importlib.util.spec_from_file_location(
+    "backup_verify", Path(__file__).parents[1] / "scripts/maintenance/backup-verify.py"
+)
 bv = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bv)
 
@@ -162,7 +164,7 @@ def test_user_scratch_dir_survives(tmp_path, good_set):
     subprocess.run(
         [
             sys.executable,
-            str(Path(__file__).parents[1] / "scripts/ops/backup-verify.py"),
+            str(Path(__file__).parents[1] / "scripts/maintenance/backup-verify.py"),
             "--set",
             str(good_set),
             "--scratch",
