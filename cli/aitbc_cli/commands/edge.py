@@ -171,10 +171,20 @@ def _edge_auth_headers() -> dict[str, str]:
     node operations are operator actions, and serve-object access is scoped
     to the token's ``sub`` server-side.
     """
-    try:
-        from ..auth import AuthManager
+    from ..auth import AuthManager, ExpiredAdminToken
 
+    try:
         token = AuthManager().get_admin_token()
+    except ExpiredAdminToken as e:
+        # #2947: an expired stored credential must refuse cleanly with the
+        # re-login hint — letting it escape produced a raw traceback on every
+        # edge command, and swallowing it into ``token = None`` would send the
+        # request unauthenticated for a bare 401. Note this except clause is
+        # level with the _OPS_ERRORS one: CLIError (what abort raises) is in
+        # _OPS_ERRORS, so nesting the abort inside that try would swallow the
+        # refusal back into an unauthenticated request.
+        abort(None, str(e), from_exception=e)
+        token = None  # unreachable — abort always raises
     except _OPS_ERRORS:
         token = None
     return {"Authorization": f"Bearer {token}"} if token else {}
