@@ -27,7 +27,7 @@ breadcrumb: Home > Scenarios > IPFS Storage
 
 ## Scenario Overview
 
-> **Live vs. simulated:** `aitbc ipfs` is **live** when the local Kubo daemon is running. If the daemon is down, the CLI stores/retrieves data through a local filesystem CID shim. Production nodes run `aitbc-island-ipfs` (private swarm, API `127.0.0.1:5002`) — install that service for live behavior. Paid cross-node hosting is a market offer: `aitbc market host` / `aitbc market download` (see `docs/DESIGN_CYCLE.md` P2.9).
+> **Live vs. simulated:** `aitbc ipfs` is **live** when the local Kubo daemon is running. If the daemon is down, the CLI stores/retrieves data through a local filesystem CID shim. Production nodes run `aitbc-island-ipfs` (private swarm, API `127.0.0.1:5002`) — install that service for live behavior. Paid cross-node hosting is a market offer: `aitbc market host` / `aitbc market hosting-status` / `aitbc market download` (see `docs/DESIGN_CYCLE.md` P2.9).
 
 This scenario demonstrates how to store and retrieve content-addressed artifacts with the real `aitbc ipfs` group, then announce a CID for sale with `aitbc oracle`. The live implementation is a **filesystem-backed** IPFS-compatible surface (`/var/lib/aitbc/ipfs`), not a separate IPFS daemon. The `aitbc_agent` SDK wraps the same CLI.
 
@@ -117,9 +117,22 @@ aitbc market host --offer-id-or-plugin-id ipfs-ipfs-host --cid-or-file /tmp/fine
 ```
 
 **Expected output:** `Hosted <cid> for 7 day(s); cost <price×days> AIT;
-market job sw_job_ipfs_…; escrow <contract-id>`. Retrieval afterwards is
-`aitbc market download --rental-id <job-id>` (see Step 3 for the local
-variant).
+market job sw_job_ipfs_…; escrow <contract-id>`.
+
+Escrow creation is not hosting proof. Gate the paid-hosting leg on the
+provider-signed pin attestation before calling it delivered:
+
+```bash
+aitbc market hosting-status --rental-id <job-id> --wait --timeout 150 --output json
+```
+
+**Expected hosting output:** `provider_confirmed: true` with
+`provider_confirmed_at` set. This is the market-authoritative provider
+attestation used for settlement; it is intentionally different from
+retrieval. `aitbc market download --rental-id <job-id>` reads through the
+buyer's local daemon and may return the buyer's original pinned copy, so a
+successful download proves only that the bytes were retrievable — never by
+itself that the provider is hosting them (see Step 3 for the local variant).
 
 ---
 

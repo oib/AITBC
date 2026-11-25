@@ -56,6 +56,7 @@ import aitbc_mcp_cli_tools_generated_market_exchange  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_gpu  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_hermes  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_host  # noqa: F401
+import aitbc_mcp_cli_tools_generated_market_hosting_status  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_job_probe  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_jobs  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_list  # noqa: F401

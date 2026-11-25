@@ -119,6 +119,7 @@ aitbc market host --offer-id-or-plugin-id ipfs-ipfs-host --cid-or-file Qm… --d
 aitbc market download --rental-id <job-id>
 aitbc market download --access-key <key> --access-secret <secret> --output-path /tmp/data.txt
 aitbc market download --cid Qm… --wait
+aitbc market hosting-status --rental-id <job-id> --wait --timeout 150 --output json
 ```
 
 ### Job and order bookkeeping
