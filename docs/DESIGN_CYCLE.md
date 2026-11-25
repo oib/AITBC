@@ -108,7 +108,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Trading | 8104 | `aitbc trade` | Inter-chain offers |
 | Event bridge | 8205 | `aitbc bridge start/stop` | Not the lock/confirm RPC |
 | IPFS surface | local files | `aitbc ipfs` | Filesystem CID store fallback; production runs the **island** Kubo daemon (`aitbc-island-ipfs`, private swarm :4002, API :5002), not the old public `aitbc-ipfs` |
-| IPFS hosting (market) | island :4002/:5002 | `aitbc market host`, `aitbc market download` | First-class offer (`ipfs/ipfs-host`, per-day): buyer escrow → provider miner pins the CID on its island daemon → `provider_confirmed` on the job → unpin on terminal state. Per-customer disk quota enforced provider-side. |
+| IPFS hosting (market) | island :4002/:5002 | `aitbc market host`, `aitbc market hosting-status`, `aitbc market download` | First-class offer (`ipfs/ipfs-host`, per-day): buyer escrow → provider miner pins the CID on its island daemon → `provider_confirmed` on the job → unpin on terminal state. Per-customer disk quota enforced provider-side. |
 | Oracle | local files | `aitbc oracle` | Announces local CIDs |
 
 ### Partial / simulated / parked

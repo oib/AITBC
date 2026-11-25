@@ -301,6 +301,8 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("market", "match"),
     ("market", "list"),
     ("market", "status"),
+    # hosting-status reads the provider pin attestation; --wait only polls.
+    ("market", "hosting-status"),
     ("market", "providers"),
     ("market", "ratings"),
     ("wallet", "rewards"),

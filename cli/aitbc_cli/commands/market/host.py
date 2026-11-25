@@ -945,6 +945,198 @@ def _resolve_download_cid(
     return cid
 
 
+def _optional_market_wallet(ctx: click.Context) -> tuple[str, str | None, str] | None:
+    """Best-effort signable market wallet; access credentials may still auth."""
+    try:
+        return get_market_wallet(ctx, require_private_key=False)
+    except Exception:  # noqa: BLE001 - wallet resolution may abort(); the access-credential path remains usable
+        return None
+
+
+def _job_access_headers(access_key: str | None, access_secret: str | None) -> dict[str, str]:
+    if access_key and access_secret:
+        return {"X-Access-Key": access_key, "X-Access-Secret": access_secret}
+    return {}
+
+
+def _resolve_access_token_job_id(access_key: str, access_secret: str) -> str | None:
+    """Resolve the canonical market job id for a job access token."""
+    try:
+        result = _market_client().get(
+            f"/v1/market/access/{access_key}",
+            headers={"X-Access-Secret": access_secret},
+        )
+    except NetworkError:
+        return None
+    result_obj = cast(object, result)
+    if not isinstance(result_obj, dict):
+        return None
+    job_id = result_obj.get("job_id") or result_obj.get("rental_id")
+    return str(job_id) if job_id else None
+
+
+def _fetch_job_hosting_status(
+    ctx: click.Context,
+    job_id: str,
+    *,
+    access_key: str | None = None,
+    access_secret: str | None = None,
+    wallet: tuple[str, str | None, str] | None = None,
+) -> dict[str, Any] | None:
+    """Read the market-authoritative provider pin attestation for ``job_id``.
+
+    The full job row is already party/credential authorized. Public rows are
+    deliberately insufficient here: they redact ``payload`` and therefore
+    cannot distinguish "unconfirmed" from "unknown".
+    """
+    route = f"/v1/market/jobs/{job_id}"
+    params: dict[str, Any] = {}
+    if wallet and wallet[0] and wallet[1]:
+        params = signed_job_request_fields(ctx, route, wallet=wallet)
+    try:
+        job = _market_client().get(
+            route,
+            params=params or None,
+            headers=_job_access_headers(access_key, access_secret) or None,
+        )
+    except NetworkError:
+        return None
+    if not isinstance(job, dict) or not isinstance(job.get("payload"), dict):
+        return None
+    payload = job["payload"]
+    return {
+        "job_id": str(job.get("job_id") or job_id),
+        "state": job.get("state"),
+        "cid": payload.get("cid"),
+        "provider_confirmed": bool(payload.get("provider_confirmed")),
+        "provider_confirmed_at": payload.get("provider_confirmed_at"),
+    }
+
+
+def _poll_job_hosting_status(
+    ctx: click.Context,
+    job_id: str,
+    *,
+    access_key: str | None,
+    access_secret: str | None,
+    wallet: tuple[str, str | None, str] | None,
+    wait: bool,
+    timeout_seconds: float,
+) -> dict[str, Any] | None:
+    deadline = time.monotonic() + timeout_seconds
+    status: dict[str, Any] | None = None
+    while True:
+        current = _fetch_job_hosting_status(ctx, job_id, access_key=access_key, access_secret=access_secret, wallet=wallet)
+        if current is not None:
+            status = current
+        if status and status.get("provider_confirmed"):
+            break
+        if status and status.get("state") in {"FAILED", "CANCELED", "REFUNDED", "EXPIRED"}:
+            break
+        if not wait:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(2.0, remaining))
+    return status
+
+
+def _download_hosting_status(
+    ctx: click.Context,
+    rental_id: str | None,
+    access_key: str | None,
+    access_secret: str | None,
+    signing: tuple[str, str] | None,
+) -> tuple[str | None, dict[str, Any] | None]:
+    job_id = rental_id
+    if not job_id and access_key and access_secret:
+        job_id = _resolve_access_token_job_id(access_key, access_secret)
+    if not job_id:
+        return None, None
+    return job_id, _fetch_job_hosting_status(
+        ctx,
+        job_id,
+        access_key=access_key,
+        access_secret=access_secret,
+        wallet=(signing[0], signing[1], "") if signing else None,
+    )
+
+
+@market.command(
+    name="hosting-status",
+    epilog="""Examples:
+
+  aitbc market hosting-status --rental-id <job-id> --output json
+
+  aitbc market hosting-status --rental-id <job-id> --wait --timeout 150
+
+``provider_confirmed=true`` is the market-authoritative provider-signed pin
+attestation. Retrieval success is a separate signal and does not prove
+provider hosting.""",
+)
+@click.option("--rental-id", "rental_id", help="Market job ID for a paid rental")
+@click.option("--access-key", "access_key", help="Rental access key")
+@click.option("--access-secret", "access_secret", help="Rental access secret")
+@click.option("--wait", is_flag=True, default=False, help="Wait for the provider pin attestation")
+@click.option(
+    "--timeout",
+    "timeout_seconds",
+    type=float,
+    default=60.0,
+    show_default=True,
+    help="Max seconds to wait for the provider pin attestation when --wait is set",
+)
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def hosting_status(
+    ctx: click.Context,
+    rental_id: str | None,
+    access_key: str | None,
+    access_secret: str | None,
+    wait: bool,
+    timeout_seconds: float,
+    output_format: str,
+):
+    """Report whether the provider has attested hosting for an IPFS rental."""
+    output_format = _resolve_output_format(ctx, output_format)
+    if timeout_seconds <= 0:
+        error("--timeout must be greater than 0 seconds")
+        raise click.Abort()
+    if bool(access_key) != bool(access_secret):
+        error("--access-key and --access-secret must be supplied together")
+        raise click.Abort()
+    wallet = _optional_market_wallet(ctx)
+    if not rental_id:
+        if access_key and access_secret:
+            rental_id = _resolve_access_token_job_id(access_key, access_secret)
+        if not rental_id:
+            error("Provide --rental-id, or --access-key/--access-secret for a resolvable rental token")
+            raise click.Abort()
+
+    status = _poll_job_hosting_status(
+        ctx,
+        rental_id,
+        access_key=access_key,
+        access_secret=access_secret,
+        wallet=wallet,
+        wait=wait,
+        timeout_seconds=timeout_seconds,
+    )
+
+    if status is None:
+        error(
+            f"Could not read authorized hosting status for {rental_id}: "
+            "use the job access credential or a buyer/provider wallet"
+        )
+        raise click.Abort()
+
+    output(status, output_format, title="IPFS Hosting Status")
+    if wait and not status.get("provider_confirmed"):
+        error(f"Provider hosting was not confirmed within {timeout_seconds} seconds for {rental_id}")
+        raise click.Abort()
+
+
 def _cat_ipfs(ipfs_api: str, cid: str, wait: bool, timeout_seconds: float = 60.0) -> bytes | None:
     """Retrieve CID content from the local daemon, optionally polling until it appears.
 
@@ -985,6 +1177,35 @@ def _write_download(data: bytes, output_path: str | None) -> str:
     with tempfile.NamedTemporaryFile(delete=False, mode="wb") as tmp:
         tmp.write(data)
         return tmp.name
+
+
+def _download_output_record(
+    cid: str,
+    file_path: str,
+    size: int,
+    hosting_job_id: str | None,
+    hosting: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if hosting_job_id and hosting is None:
+        warning("Provider hosting attestation is unavailable; retrieval success does not prove provider hosting")
+    elif hosting and not hosting.get("provider_confirmed"):
+        warning("Provider hosting is not confirmed; retrieval success does not prove provider hosting")
+    record: dict[str, Any] = {
+        "cid": cid,
+        "file_path": file_path,
+        "size": size,
+        "retrieval_source": "buyer-local-ipfs",
+        "retrieval_proves_provider_hosting": False,
+    }
+    if hosting_job_id:
+        record.update(
+            {
+                "job_state": hosting.get("state") if hosting else None,
+                "provider_confirmed": hosting.get("provider_confirmed") if hosting else None,
+                "provider_confirmed_at": hosting.get("provider_confirmed_at") if hosting else None,
+            }
+        )
+    return record
 
 
 @market.command(
@@ -1068,7 +1289,10 @@ def download(
 
     file_path = _write_download(data, output_path)
 
-    output({"cid": cid, "file_path": file_path, "size": len(data)}, output_format, title="IPFS Download")
+    hosting_job_id, hosting = _download_hosting_status(ctx, rental_id, access_key, access_secret, signing)
+    record = _download_output_record(cid, file_path, len(data), hosting_job_id, hosting)
+
+    output(record, output_format, title="IPFS Download")
 
 
 @market.command(
