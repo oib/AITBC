@@ -148,7 +148,7 @@ def _run_shop(monkeypatch, ctx_obj: dict[str, Any]) -> tuple[Any, list[str]]:
     (result, paths passed to _safe_post_or_get)."""
     miner_posts: list[str] = []
 
-    def spy_post(client: Any, path: str, body: dict | None = None):
+    def spy_post(client: Any, path: str, params: dict | None = None, section: str | None = None):
         miner_posts.append(path)
         return None
 
@@ -167,7 +167,7 @@ def _run_shop(monkeypatch, ctx_obj: dict[str, Any]) -> tuple[Any, list[str]]:
 
     monkeypatch.setattr(dashboard_mod, "AITBCHTTPClient", _FakeClient)
     monkeypatch.setattr(dashboard_mod, "_safe_post_or_get", spy_post)
-    monkeypatch.setattr(dashboard_mod, "_safe_get", lambda c, p, params=None: {})
+    monkeypatch.setattr(dashboard_mod, "_safe_get", lambda c, p, params=None, section=None: {})
     monkeypatch.setattr(dashboard_mod, "_enrich_jobs_with_escrow", lambda jobs, url: None)
     monkeypatch.setattr(dashboard_mod, "_live_wallet_balance", lambda *a, **kw: {"balance_ait": "0"})
     monkeypatch.setattr(dashboard_mod, "_warn_unauthorized_once", lambda c: None)
