@@ -424,6 +424,46 @@ def check_ollama():
         return (False, [])
 
 
+# #2946: the miner used to probe Ollama once at startup and thread that frozen
+# list through the process lifetime — a reboot/warmup race (Ollama up but model
+# not yet pulled, or Ollama still starting) left it empty forever, failing
+# every inference job with "No models available" until a manual restart.
+# The list is now a TTL cache re-probed at most every MODEL_CACHE_TTL seconds,
+# so a model that appears after startup is picked up without operator action.
+MODEL_CACHE_TTL = float(os.environ.get("MINER_MODEL_CACHE_TTL", "30"))
+_models_cache: list[str] = []
+_models_cache_at: float = 0.0
+
+
+def get_available_models(now: float | None = None) -> list[str]:
+    """TTL-cached Ollama model list.
+
+    Re-probes ``check_ollama`` when the cache is older than MODEL_CACHE_TTL.
+    A failed probe keeps the last known list (possibly empty) but still
+    advances the cache clock, so a down Ollama cannot stall the main loop
+    with a blocking probe on every poll.
+    """
+    global _models_cache, _models_cache_at
+    current = time.time() if now is None else now
+    if current - _models_cache_at < MODEL_CACHE_TTL:
+        return _models_cache
+    available, models = check_ollama()
+    _models_cache_at = current
+    if available:
+        if models != _models_cache:
+            logger.info("Ollama model list refreshed: %s", models)
+        _models_cache = models
+    return list(_models_cache)
+
+
+def _seed_models_cache(models: list[str]) -> None:
+    """Prime the TTL cache with the startup probe so the first loop iteration
+    does not immediately re-probe."""
+    global _models_cache, _models_cache_at
+    _models_cache = list(models)
+    _models_cache_at = time.time()
+
+
 async def wait_for_coordinator():
     """Wait for coordinator to be available"""
     for i in range(MAX_RETRIES):
@@ -886,6 +926,7 @@ async def _initialize() -> tuple[list, int] | None:
         models = []
     else:
         logger.info("Ollama models available: %s", ", ".join(models))
+    _seed_models_cache(models)
     if not await wait_for_coordinator():
         logger.error("Coordinator not available")
         return None
@@ -1080,6 +1121,10 @@ async def main():
     try:
         while True:
             current_time = time.time()
+            # #2946: refresh the Ollama model list from the TTL cache each
+            # iteration instead of threading the frozen startup probe —
+            # models pulled after boot must become servable without a restart.
+            models = get_available_models()
             last_heartbeat, last_pool_hub_heartbeat, last_offer_publish = await _periodic_heartbeats(
                 current_time, last_heartbeat, last_pool_hub_heartbeat, last_offer_publish, models
             )
