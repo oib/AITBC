@@ -17,7 +17,7 @@ import pytest
 
 from aitbc.crypto.crypto import derive_ethereum_address
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "ops" / "key-audit.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "maintenance" / "key-audit.py"
 PK = "0x" + "11" * 32
 OTHER_PK = "0x" + "22" * 32
 ADDR = derive_ethereum_address(PK).lower()

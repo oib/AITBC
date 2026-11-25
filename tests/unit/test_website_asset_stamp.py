@@ -6,7 +6,7 @@ browser cache key includes the query string, so a shared content-hash stamp is
 what actually busts stale assets after a deploy (WEB-FIX-1 W6). This test
 asserts:
 
-1. ``scripts/ops/stamp-website-assets.py --check`` exits 0 — the committed
+1. ``scripts/ci/stamp-website-assets.py --check`` exits 0 — the committed
    pages match what the generator would write (no drift).
 2. Every ``<script src>``/``<img|source src>``/``<link href>`` reference that
    resolves to a file under ``website/`` carries ``?v=<stamp>`` — and all of
@@ -29,7 +29,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 WEBSITE = REPO / "website"
-GENERATOR = REPO / "scripts" / "ops" / "stamp-website-assets.py"
+GENERATOR = REPO / "scripts" / "ci" / "stamp-website-assets.py"
 
 sys.path.insert(0, str(GENERATOR.parent))
 import importlib

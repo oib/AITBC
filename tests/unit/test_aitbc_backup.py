@@ -139,7 +139,7 @@ def env(tmp_path):
     etc_aitbc = tmp_path / "etc-aitbc"
     etc_aitbc.mkdir()
     # The script derives the good-chain glob from CHAIN_ID in BLOCKCHAIN_ENV;
-    # a file without the line now falls back to the ait-hub literal.
+    # a file without the line falls back to the generic ait-hub quickstart id.
     (etc_aitbc / "blockchain.env").write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
     etc_prometheus = tmp_path / "etc-prometheus"
     etc_prometheus.mkdir()
@@ -412,16 +412,17 @@ def test_glob_derives_from_blockchain_env_bc2(env):
     assert f"removing '{_snap_name(40)}'" in _log(env)
 
 
-def test_missing_chain_id_line_falls_back_to_ait_hub(env):
-    """A blockchain.env without a CHAIN_ID line must not kill the script:
-    grep exits 1 and pipefail used to abort the run before the ait-hub
-    fallback could apply."""
+def test_missing_chain_id_line_falls_back_to_generic_ait_hub(env):
+    """A blockchain.env without a CHAIN_ID line must neither kill the script
+    nor fall back to deployment-internal topology: the generic quickstart
+    chain id ait-hub owns the good-chain glob."""
     env_file = env.tmp / "etc-aitbc" / "blockchain.env"
     env_file.write_text("RPC_BIND_PORT=8202\n")  # no CHAIN_ID line
-    _make_snapshot(env.base, _snap_name(40))
-    r = _run(env, BLOCKCHAIN_ENV=str(env_file), BACKUP_KEEP_MIN_GOOD="2")
+    data = _chain_dir(env.tmp, "ait-hub")
+    r = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data), BACKUP_KEEP_MIN_GOOD="2")
     assert r.returncode == 0
-    assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" in _today_artifacts(env)
+    assert "chain_ait-hub_chain.db.gz" in _today_artifacts(env)
+    assert "no good snapshot" not in _log(env)
 
 
 def test_chain_id_env_var_beats_file(env):
@@ -481,7 +482,7 @@ def test_aborted_dump_is_not_ok_and_leaves_no_artifact(env):
     # sqlite3 stub: for the damaged db emit a dump that ends in the abort
     # marker; healthy dbs keep the 50k-line clean dump.
     corrupt_sqlite3 = """#!/bin/sh
-case "$1" in
+case "$*" in
   *damaged*)
     seq 1 200
     echo 'ROLLBACK; -- due to errors'
@@ -498,7 +499,7 @@ esac
     damaged.write_bytes(b"not-a-real-db")
 
     old_good = _make_snapshot(env.base, _snap_name(40))
-    _run(env)
+    _run(env, BACKUP_DB_ATTEMPTS="1")
     log = _log(env)
 
     # No OK line, no artifact for the damaged db.
@@ -536,8 +537,8 @@ esac
 def test_sqlite_leg_failure_also_gives_nonzero_exit(env):
     """#895 follow-through: the error must survive the find|while subshell."""
     fail_sqlite3 = """#!/bin/sh
-case "$2" in
-  *.dump*) exit 1;;
+case "$*" in
+  *".dump"*|*".backup"*) exit 1;;
   *) seq 1 50000;;
 esac
 """
@@ -545,7 +546,7 @@ esac
     (bin_dir / "sqlite3").write_text(fail_sqlite3)
     (bin_dir / "sqlite3").chmod(0o755)
 
-    r = _run(env)
+    r = _run(env, BACKUP_DB_ATTEMPTS="1")
     assert r.returncode != 0
     assert "FAILED" in _log(env)
 

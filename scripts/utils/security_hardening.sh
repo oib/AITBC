@@ -18,6 +18,7 @@ PRODUCTION_ENV="${PRODUCTION_ENV:-/opt/aitbc/apps/coordinator-api/.env.productio
 SECURE_DIR="${SECURE_DIR:-/opt/aitbc/secure}"
 API_KEYS_FILE="$SECURE_DIR/api_keys.txt"
 BLOCKCHAIN_SECRETS_ENV="${BLOCKCHAIN_SECRETS_ENV:-/etc/aitbc/blockchain-secrets.env}"
+AITBC_PUBLIC_ORIGIN="${AITBC_PUBLIC_ORIGIN:-https://aitbc.example.net}"
 # The unit is aitbc-coordinator-api; "aitbc-coordinator" does not exist (V23-98). Its one
 # use is the closing "Restart services: systemctl restart $SERVICE_NAME" instruction, so
 # the last thing this script told an operator to run failed with "Unit not found".
@@ -134,7 +135,7 @@ LOG_LEVEL=INFO
 RATE_LIMIT_ENABLED=true
 RATE_LIMIT_MINER_HEARTBEAT=60
 RATE_LIMIT_CLIENT_SUBMIT=30
-CORS_ORIGINS=["https://aitbc.bubuit.net"]
+CORS_ORIGINS=["$AITBC_PUBLIC_ORIGIN"]
 EOF
     fi
 
@@ -239,8 +240,8 @@ setup_monitoring() {
     # third one (V23-98). What this used to generate checked two unit names that do not
     # exist -- "aitbc-coordinator" and "blockchain-node", where the real units are
     # aitbc-coordinator-api and aitbc-blockchain-node -- so its first check failed and it
-    # exited 1 every five minutes forever. It also probed https://aitbc.bubuit.net, which
-    # is a different host, and wrote itself into the git checkout as an untracked file.
+    # exited 1 every five minutes forever. It also probed the deployment-specific public hub URL
+    # instead of the node-local health endpoint, and wrote itself into the git checkout as an untracked file.
     local health_check="/opt/aitbc/scripts/monitoring/health_check.sh"
 
     if [[ ! -x "$health_check" ]]; then

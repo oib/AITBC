@@ -230,7 +230,7 @@ loginctl enable-linger oib
 
 ## Nightly restore check
 
-`scripts/ops/backup-verify.py` replays the drill automatically against a
+`scripts/maintenance/backup-verify.py` replays the drill automatically against a
 backup generation: every `chain_*.db.gz` is rebuilt via
 `zcat | sqlite3` and `PRAGMA integrity_check`, `postgres_*.sql.gz`
 must carry a pg_dump header (its `OWNER TO` roles are listed), and

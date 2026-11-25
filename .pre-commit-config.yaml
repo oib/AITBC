@@ -239,7 +239,7 @@ repos:
         # a page edit can add a reference missing the ?v= stamp. The stamper
         # and this check are in the pattern so an edit to either exercises
         # the guard on its own commit.
-        files: ^(website/.*\.(css|js|html)|scripts/ops/stamp-website-assets\.py|scripts/ci/check-website-stamp\.sh)$
+        files: ^(website/.*\.(css|js|html)|scripts/ci/stamp-website-assets\.py|scripts/ci/check-website-stamp\.sh)$
         stages: [pre-commit]
 
       - id: openapi-drift

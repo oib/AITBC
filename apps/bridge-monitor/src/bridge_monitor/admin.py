@@ -3,7 +3,13 @@
 
     python -m bridge_monitor.admin <command> [--env-file PATH]
 
-(or `scripts/ops/bridge-admin.sh <command>`, which sets PYTHONPATH itself)
+Product-side invocation sets PYTHONPATH explicitly, for example:
+
+    PYTHONPATH=/opt/aitbc/apps/bridge-monitor/src /opt/aitbc/venv/bin/python -m bridge_monitor.admin <command>
+
+Fleet operators may use the convenience wrapper in the companion aitbc-ops
+checkout (`scripts/ops/bridge-admin.sh`); that wrapper is not part of the
+public product repo.
 
 Commands:
     status <tx_hash>                 show the ledger row

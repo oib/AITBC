@@ -67,7 +67,7 @@ Pre-cut (before the genesis build consumes the values):
    ```
    for h in node0 node1 node2 hub hub1; do
      ssh $h 'cd /opt/aitbc && PYTHONPATH=/opt/aitbc venv/bin/python \
-       scripts/ops/key-audit.py --find-address 0xB0e6CF0D8dF844235A54d6D210D446099ef15a69'
+       scripts/maintenance/key-audit.py --find-address 0xB0e6CF0D8dF844235A54d6D210D446099ef15a69'
    done
    ```
 

@@ -95,9 +95,11 @@ PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/verify-genesis-r
 
 `PASS` means the file is self-consistent. `FAIL` means the hub is serving a
 known-stale placeholder (the allocation set behind the original block 0 is
-unavailable): ask the operator for a **signed snapshot manifest** and bootstrap
-via `scripts/ops/reset-follower-to-snapshot.sh` — a checkpoint DB transplant is the
-working join path until a corrected genesis is published.
+unavailable): ask the operator for a **signed snapshot manifest** and use the
+supported checkpoint-bootstrap procedure for their deployment. Fleet operators
+can use the companion aitbc-ops checkout's `reset-follower-to-snapshot.sh`;
+the public product repo intentionally carries no fleet reset script. A checkpoint
+DB transplant is the working join path until a corrected genesis is published.
 
 **Verify the signed manifest before you bootstrap from it.** A manifest is
 signed by the operator's dedicated manifest-signing key; the trusted address
@@ -113,7 +115,8 @@ venv/bin/python scripts/ops/verify-snapshot-manifest.py manifest.json
 PYTHONPATH=apps/blockchain-node/src venv/bin/python \
   scripts/ops/verify-snapshot-manifest.py manifest.json --db /path/to/chain.db
 #    expected: signature-check OK, content-check OK, OK
-# 4. only then bootstrap via scripts/ops/reset-follower-to-snapshot.sh
+# 4. only then bootstrap through the operator-supported checkpoint procedure
+#    (fleet operators: aitbc-ops scripts/ops/reset-follower-to-snapshot.sh)
 ```
 
 `FAIL` on the signature means the manifest did not come from the trusted

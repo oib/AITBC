@@ -26,9 +26,10 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 # an explicit BACKUP_GOOD_CHAIN_GLOB (e.g. /etc/aitbc/aitbc-backup.env)
 # wins, then CHAIN_ID from the service environment, then the CHAIN_ID line
 # of BLOCKCHAIN_ENV — the same env file the PostgreSQL section already
-# reads. An id that resolves nowhere keeps the historical ait-hub literal,
-# so a host without blockchain.env matches its ait-hub dumps exactly as
-# before. Other islands may still set the glob outright.
+# reads. An id that resolves nowhere falls back to the generic product
+# quickstart chain id ait-hub; operators preserving dumps for a differently
+# named legacy chain should set CHAIN_ID or BACKUP_GOOD_CHAIN_GLOB explicitly.
+# Other islands may still set the glob outright.
 BLOCKCHAIN_ENV="${BLOCKCHAIN_ENV:-/etc/aitbc/blockchain.env}"
 BACKUP_CHAIN_ID="${CHAIN_ID:-}"
 if [ -z "$BACKUP_CHAIN_ID" ] && [ -f "$BLOCKCHAIN_ENV" ]; then
@@ -38,7 +39,7 @@ if [ -z "$BACKUP_CHAIN_ID" ] && [ -f "$BLOCKCHAIN_ENV" ]; then
 fi
 BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
 BACKUP_GOOD_REQUIRE_GZIP_TEST="${BACKUP_GOOD_REQUIRE_GZIP_TEST:-yes}"
-BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_${BACKUP_CHAIN_ID:-ait-hub.aitbc.bubuit.net}_chain.db.gz}"
+BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_${BACKUP_CHAIN_ID:-ait-hub}_chain.db.gz}"
 BACKUP_GOOD_MIN_BYTES="${BACKUP_GOOD_MIN_BYTES:-4096}"
 # BACKUP_PRUNE_DRYRUN=yes: run the full prune decision loop but log
 # "would remove" instead of deleting. First deploy should run this once so the
@@ -564,7 +565,7 @@ fi
 
 # ── Key audit ─────────────────────────────────────────────────────────────────
 log "Running key/address audit..."
-if PYTHONPATH="/opt/aitbc" "$PYTHON" /opt/aitbc/scripts/ops/key-audit.py --report "${BACKUP_DIR}/key-audit.json"; then
+if PYTHONPATH="/opt/aitbc" "$PYTHON" /opt/aitbc/scripts/maintenance/key-audit.py --report "${BACKUP_DIR}/key-audit.json"; then
     if "$PYTHON" -c "import json,sys; sys.exit(0 if json.load(open('${BACKUP_DIR}/key-audit.json')).get('ok') else 1)"; then
         log "Key audit: OK (see ${BACKUP_DIR}/key-audit.json)"
     else
