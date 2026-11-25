@@ -40,7 +40,8 @@ aitbc/
 ├── .gitignore
 ├── .editorconfig
 ├── .secrets.baseline        # detect-secrets baseline
-├── LICENSE                  # MIT License
+├── LICENSE                  # GNU AGPLv3 (product core)
+├── LICENSING.md             # License carve-outs and commercial licensing
 ├── pyproject.toml           # Python project configuration, incl. all pytest settings
 ├── poetry.lock              # Poetry lock file (no uv.lock exists)
 └── README.md
