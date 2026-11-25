@@ -453,6 +453,44 @@ def test_pin_confirm_provider_confirmed_requires_signature(client: TestClient) -
     assert signed.json()["state"] == "RUNNING"
 
 
+def test_signed_provider_confirm_does_not_require_market_api_key(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    """#2973: the autonomous provider sweeper authenticates by wallet
+    attestation, not by holding the user-distributed market API key.
+
+    Production rejected the signed confirm with 401 before the attestation
+    gate ran because the route dependency demanded ``X-Api-Key`` first.
+    """
+    job = _seed_ipfs_job(client_ref=f"ref-pin-no-key-{time.time_ns()}")
+    route = f"/v1/market/jobs/{job['job_id']}/pin-confirm"
+    binding = {"cid": "QmSec4", "size": 2048}
+    body = {
+        "size": 2048,
+        "provider_confirmed": True,
+        **_signed_params(_address(_TEST_PRIVATE_KEY), route, binding=binding),
+    }
+    response = client.post(route, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()["payload"]["provider_confirmed"] is True
+
+
+def test_unsigned_pin_confirm_still_requires_market_api_key(client: TestClient, market_api_keys: dict[str, str]) -> None:
+    """The #2973 signed-provider bypass must not reopen anonymous writes to
+    the informational size/pin_tx_hash surface."""
+    job = _seed_ipfs_job(client_ref=f"ref-pin-unsigned-key-{time.time_ns()}")
+    route = f"/v1/market/jobs/{job['job_id']}/pin-confirm"
+
+    anonymous = client.post(route, json={"size": 2048})
+    assert anonymous.status_code == 401
+
+    unsigned_claim = client.post(route, json={"size": 2048, "provider_confirmed": True})
+    assert unsigned_claim.status_code == 403
+
+    keyed = client.post(route, json={"size": 2048}, headers=market_api_keys)
+    assert keyed.status_code == 200, keyed.text
+    assert keyed.json()["state"] == "QUEUED"
+    assert keyed.json()["payload"].get("provider_confirmed") is not True
+
+
 def test_pin_confirm_size_only_stays_open(client: TestClient) -> None:
     """The buyer's host flow reports size without provider credentials.
 

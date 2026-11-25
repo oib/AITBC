@@ -48,6 +48,7 @@ MUTATING_ROUTES = [
     ("POST", "/v1/market/bids/bid-x/complete", {"tx_hash": "0xdead"}),
     ("POST", "/v1/market/match", {}),
     ("POST", "/v1/market/jobs", {"state": "FAILED"}),
+    ("POST", "/v1/market/jobs/job-x/pin-confirm", {"size": 1}),
     ("POST", "/v1/market/ipfs/rental-token", {"access_key": "k", "access_secret": "s"}),
     ("POST", "/v1/transactions", {}),
 ]
