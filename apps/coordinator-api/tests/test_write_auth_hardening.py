@@ -289,7 +289,12 @@ class TestRefundAuthorization:
             client = AsyncMock()
             client.get.return_value = {"state": "refunded", "refund_tx_hash": "0xstale"}
             client.get_json.return_value = [
-                {"tx_hash": "0xrealrefund", "payload": {"job_id": "job-r4", "action": "escrow_refund"}}
+                {
+                    "tx_hash": "0xrealrefund",
+                    "status": "confirmed",
+                    "block_height": 12345,
+                    "payload": {"job_id": "job-r4", "action": "escrow_refund"},
+                }
             ]
             cls.return_value = client
             result = asyncio.run(PaymentService(db_session).refund_payment("client-1", "job-r4", "pay-r4", "x"))

@@ -142,8 +142,33 @@ def _parse_settled_at(value: object) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
+def _sealed_tx_hash(txs: list[Any], job_id: str) -> str | None:
+    """First *sealed* tx hash for job_id — confirmed status + block height.
+
+    #3016: ``/rpc/transactions`` also returns stored rejected and pending
+    "results"; a matching ``tx_hash`` alone is not proof the envelope took
+    effect. Only ``status="confirmed"`` with a non-null ``block_height``
+    satisfies the funding/settlement predicate — the same bar
+    ``SettlementReconciler._recorded_hash_state`` applies to single-tx
+    reads. Rejected and pending rows are skipped, so a confirmed lock is
+    still found when a newer rejected attempt also appears.
+    """
+    for tx in txs:
+        if not isinstance(tx, dict):
+            continue
+        payload = tx.get("payload") or {}
+        if not isinstance(payload, dict) or payload.get("job_id") != job_id:
+            continue
+        if tx.get("status") != "confirmed" or tx.get("block_height") is None:
+            continue
+        tx_hash = tx.get("tx_hash") or tx.get("transaction_hash")
+        if tx_hash is not None:
+            return str(tx_hash)
+    return None
+
+
 async def _lookup_chain_refund(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
-    """Return the on-chain ESCROW_REFUND tx hash for job_id, if one exists.
+    """Return the sealed on-chain ESCROW_REFUND tx hash for job_id, if one exists.
 
     Raises on transport or non-2xx responses so callers do not mistake
     "could not tell" for "does not exist".
@@ -153,15 +178,12 @@ async def _lookup_chain_refund(blockchain_rpc_url: str, client: AsyncAITBCHTTPCl
         f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
     )
     if isinstance(txs, list):
-        for tx in txs:
-            if (tx.get("payload") or {}).get("job_id") == job_id:
-                tx_hash = tx.get("tx_hash")
-                return str(tx_hash) if tx_hash is not None else None
+        return _sealed_tx_hash(txs, job_id)
     return None
 
 
 async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
-    """Return the on-chain ESCROW_LOCK tx hash for job_id, if one exists.
+    """Return the sealed on-chain ESCROW_LOCK tx hash for job_id, if one exists.
 
     Raises on transport or non-2xx responses so callers do not mistake
     "could not tell" for "does not exist".
@@ -169,10 +191,7 @@ async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClie
     # /rpc/transactions returns a list, so use the union-returning accessor.
     txs = await client.get_json(f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10")
     if isinstance(txs, list):
-        for tx in txs:
-            if (tx.get("payload") or {}).get("job_id") == job_id:
-                tx_hash = tx.get("tx_hash")
-                return str(tx_hash) if tx_hash is not None else None
+        return _sealed_tx_hash(txs, job_id)
     return None
 
 

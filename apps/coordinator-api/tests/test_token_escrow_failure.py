@@ -105,7 +105,7 @@ def _node_404_error() -> NetworkError:
 
 def _chain_lock_txs(*tx_hashes: str, job_id: str) -> list[dict]:
     """Transactions the /rpc/transactions lookup returns for ESCROW_LOCK."""
-    return [{"tx_hash": h, "payload": {"job_id": job_id}} for h in tx_hashes]
+    return [{"tx_hash": h, "status": "confirmed", "block_height": 1000, "payload": {"job_id": job_id}} for h in tx_hashes]
 
 
 def _make_payment(session: Session, job: Job) -> JobPayment:
@@ -503,7 +503,14 @@ def test_recover_adopts_locked_record_via_real_client(monkeypatch, payment_sessi
         if "/rpc/transactions" in request.url.path:
             return httpx.Response(
                 200,
-                json=[{"tx_hash": "0xlock7", "payload": {"job_id": job.id}}],
+                json=[
+                    {
+                        "tx_hash": "0xlock7",
+                        "status": "confirmed",
+                        "block_height": 1000,
+                        "payload": {"job_id": job.id},
+                    }
+                ],
                 request=request,
             )
         return httpx.Response(

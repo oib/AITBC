@@ -86,6 +86,8 @@ class TestPaymentServiceRefund:
         mock_client.get_json.return_value = [
             {
                 "tx_hash": "0xrealrefundtx",
+                "status": "confirmed",
+                "block_height": 12345,
                 "payload": {"job_id": job_id, "action": "escrow_refund"},
             }
         ]
