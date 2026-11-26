@@ -57,9 +57,14 @@ def _coordinator_headers(config_obj, ctx=None) -> dict[str, str]:
     )
 
 
-def _abort_403(command: str, body: str) -> None:
-    """Abort on a 403 with the credential the endpoint actually demands."""
-    abort(None, f"{command} {_ADMIN_REQUIRED_HINT} (HTTP 403 — {body[:200]})")
+def _abort_admin_required(command: str, status_code: int, body: str) -> None:
+    """Abort on a 401/403 with the credential the endpoint actually demands.
+
+    #2985: the middleware's anonymous 401 and the router's role 403 mean the
+    same thing to the caller — no usable admin credential — so both surface
+    the admin-login hint instead of a bare status code.
+    """
+    abort(None, f"{command} {_ADMIN_REQUIRED_HINT} (HTTP {status_code} — {body[:200]})")
 
 
 def _workflow_dry_run(
@@ -83,8 +88,8 @@ def _workflow_dry_run(
         headers=headers,
         timeout=15,
     )
-    if lookup.status_code == 403:
-        _abort_403(f"workflow run {workflow_name}", lookup.text)
+    if lookup.status_code in (401, 403):
+        _abort_admin_required(f"workflow run {workflow_name}", lookup.status_code, lookup.text)
     if lookup.status_code == 404:
         abort(None, f"Unknown workflow: {workflow_name}")
     if lookup.status_code != 200:
@@ -149,8 +154,8 @@ def run(ctx, workflow_name: str, config: str | None, dry_run: bool):
             headers=headers,
         )
 
-        if response.status_code == 403:
-            _abort_403(f"workflow run {workflow_name}", response.text)
+        if response.status_code in (401, 403):
+            _abort_admin_required(f"workflow run {workflow_name}", response.status_code, response.text)
         if response.status_code != 200:
             abort(None, f"Failed to start workflow: {response.text}")
 
@@ -200,8 +205,8 @@ def list(ctx, format: str):
     except Exception as e:  # noqa: BLE001 - surface any transport/config failure to the caller
         abort(None, f"Error listing workflows: {e}")
 
-    if response.status_code == 403:
-        _abort_403("workflow list", response.text)
+    if response.status_code in (401, 403):
+        _abort_admin_required("workflow list", response.status_code, response.text)
     if response.status_code != 200:
         abort(None, f"Failed to list workflows: HTTP {response.status_code} — {response.text[:200]}")
 
@@ -256,8 +261,8 @@ def status(ctx, execution_id: str):
             headers=headers,
         )
 
-        if response.status_code == 403:
-            _abort_403(f"workflow status {execution_id}", response.text)
+        if response.status_code in (401, 403):
+            _abort_admin_required(f"workflow status {execution_id}", response.status_code, response.text)
         if response.status_code != 200:
             abort(None, f"Failed to get execution status: {response.text}")
 
@@ -305,8 +310,8 @@ def stop(ctx, workflow_name: str, execution_id: str):
             params={"execution_id": execution_id},
         )
 
-        if response.status_code == 403:
-            _abort_403(f"workflow stop {execution_id}", response.text)
+        if response.status_code in (401, 403):
+            _abort_admin_required(f"workflow stop {execution_id}", response.status_code, response.text)
         if response.status_code != 200:
             abort(None, f"Failed to cancel workflow: {response.text}")
 
