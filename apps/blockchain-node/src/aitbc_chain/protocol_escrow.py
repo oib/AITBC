@@ -497,7 +497,14 @@ def protocol_auth_identity_pending(session: Any, chain_id: str, identity: str) -
     return False
 
 
-def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload_match: dict[str, Any]) -> bool:
+def protocol_transfer_pending(
+    session: Any,
+    chain_id: str,
+    tx_type: str,
+    payload_match: dict[str, Any],
+    *,
+    tx_match: dict[str, Any] | None = None,
+) -> bool:
     """True when a mempool entry already carries this protocol transfer (#2629).
 
     Generic sibling of ``protocol_auth_identity_pending`` for callers that
@@ -505,10 +512,21 @@ def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload
     deciding whether a ``withdrawn`` row still owes its STAKE_RELEASE.
     ``payload_match`` maps payload keys to values; every pair must match
     (``str()``-compared like ``confirmed_lock_txs``).
+
+    ``tx_match`` optionally narrows on top-level envelope fields (e.g.
+    ``{"to": payee}``) for payload keys that are not globally unique —
+    ``stake_id`` is a per-node sqlite PK, so a bare payload match also hits
+    foreign stakers' transfers under a colliding id (#3000). An envelope
+    field the entry does not carry cannot disprove ownership, so a missing
+    field still counts as a match — failing toward "pending" is the safe
+    direction (a spurious 409 is retryable; a missed own-release match is a
+    double payout).
     """
     import json as _json
 
     if not payload_match or any(not _PAYLOAD_KEY_RE.fullmatch(str(k)) for k in payload_match):
+        return False
+    if tx_match is not None and any(not _PAYLOAD_KEY_RE.fullmatch(str(k)) for k in tx_match):
         return False
     try:
         from sqlmodel import select
@@ -524,6 +542,8 @@ def protocol_transfer_pending(session: Any, chain_id: str, tx_type: str, payload
         except (TypeError, ValueError):
             continue
         if not isinstance(tx, dict) or tx.get("type") != tx_type:
+            continue
+        if tx_match and any(tx.get(k) is not None and str(tx.get(k)) != str(v) for k, v in tx_match.items()):
             continue
         payload = tx.get("payload") or {}
         if all(str(payload.get(k, "")) == str(v) for k, v in payload_match.items()):

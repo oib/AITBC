@@ -36,7 +36,7 @@ from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm.attributes import NEVER_SET
 from sqlmodel import Session, col, select
 
-from ..base_models import Block, BlockStateDelta
+from ..base_models import Block, BlockStateDelta, _to_ait_address
 from ..base_models import Transaction as ChainTransaction
 from ..logger import get_logger
 from ..metadata import chain_metadata
@@ -1235,10 +1235,6 @@ def _orphan_target(
     it anymore. Returns True when a row was marked."""
     from ..protocol_escrow import confirmed_lock_txs
 
-    # Multiple locks can fund one record (agent-stake top-ups) —
-    # only orphan it when no confirmed lock references it anymore.
-    if confirmed_lock_txs(session, chain_id, str(tx_type), payload_key, value):
-        return False
     row = session.exec(
         select(model).where(
             col(model.chain_id) == chain_id,
@@ -1246,6 +1242,27 @@ def _orphan_target(
         )
     ).first()
     if row is None or row.status == "orphaned":
+        return False
+
+    owner: str | None = None
+    if getattr(model, "__tablename__", "") == "stake":
+        # #3000: payload ``stake_id`` is a per-node sqlite PK — the lost tx
+        # may be a *foreign* staker's lock under a colliding id, and a
+        # foreign confirmed lock must not stand in for this row's own.
+        # Orphan-mark only when the lost sender is this row's owner and no
+        # confirmed lock *from that owner* still backs it. An envelope
+        # without a sender cannot disprove ownership, so it keeps the old
+        # unscoped behaviour.
+        owner = _to_ait_address(str(getattr(row, "address", "") or ""))
+        lost_sender = _to_ait_address(str(tx.get("from") or tx.get("sender") or ""))
+        if owner and lost_sender and lost_sender != owner:
+            return False
+    locks = confirmed_lock_txs(session, chain_id, str(tx_type), payload_key, value)
+    if owner:
+        locks = [t for t in locks if _to_ait_address(str(t.sender or "")) == owner]
+    # Multiple locks can fund one record (agent-stake top-ups) —
+    # only orphan it when no confirmed lock references it anymore.
+    if locks:
         return False
     row.status = "orphaned"
     row.updated_at = datetime.now(UTC)
@@ -1425,7 +1442,15 @@ def _revive_confirmed_domain_rows(session_factory: Any, chain_id: str) -> int:
                 ).all()
                 for row in rows:
                     value = str(getattr(row, field))
-                    if confirmed_lock_txs(session, chain_id, lock_type, payload_key, value):
+                    locks = confirmed_lock_txs(session, chain_id, lock_type, payload_key, value)
+                    if model_name == "Stake":
+                        # #3000: ``stake_id`` is a per-node sqlite PK — a
+                        # foreign staker's confirmed lock under a colliding
+                        # id must not revive this row. Scope to locks the
+                        # row's owner actually sent.
+                        owner = _to_ait_address(str(getattr(row, "address", "") or ""))
+                        locks = [t for t in locks if _to_ait_address(str(t.sender or "")) == owner]
+                    if locks:
                         row.status = "active"
                         row.updated_at = datetime.now(UTC)
                         session.add(row)

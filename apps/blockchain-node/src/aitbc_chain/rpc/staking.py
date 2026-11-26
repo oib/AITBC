@@ -194,11 +194,11 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
         # #2629: a stake marked withdrawn before its release queued (the
         # pre-fix order) is retryable while no STAKE_RELEASE for it is
         # sealed or pending — the row flip used to strand it forever.
-        retryable = stake.status == "withdrawn" and _stake_release_state(session, chain_id, stake_id) is None
+        retryable = stake.status == "withdrawn" and _stake_release_state(session, chain_id, stake_id, address) is None
         if not retryable:
             raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
     else:
-        release_state = _stake_release_state(session, chain_id, stake_id)
+        release_state = _stake_release_state(session, chain_id, stake_id, address)
         if release_state is not None:
             # #2629: queue-before-commit means a failed row commit can leave
             # an *active* stake whose release is already sealed or pending —
@@ -219,6 +219,18 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
     # shared, so paying out an unfunded stake would spend another staker's
     # principal.
     lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "stake_id", stake_id)
+    # #3000: ``stake_id`` is a per-node sqlite PK, not a global identifier —
+    # two stakers on different nodes can both hold stake "5", so the
+    # payload-only match above also returns *foreign* locks. Consensus
+    # resolves the release against the claimed hashes and requires every
+    # lock's sender to be the payee (``_load_claimed_locks``), so a foreign
+    # lock in ``lock_tx_hashes`` gets the release rejected at block time —
+    # after this row already flipped ``withdrawn``. Scope the claim set to
+    # locks this stake's owner actually sent; the 403 check above proved
+    # ``_to_ait_address(stake.address) == address``. Top-up locks share the
+    # same sender and stake_id, so they stay claimed.
+    owner_address = _to_ait_address(stake.address)
+    lock_txs = [tx for tx in lock_txs if _to_ait_address(str(tx.sender or "")) == owner_address]
     if not lock_txs:
         raise HTTPException(
             status_code=409,
@@ -237,11 +249,28 @@ def _withdrawable_stake(session: Session, chain_id: str, address: str, stake_id:
     return stake, lock_tx_hashes
 
 
-def _stake_release_state(session: Session, chain_id: str, stake_id: Any) -> str | None:
-    """``"sealed"``/``"pending"``/``None`` for this stake's STAKE_RELEASE (#2629)."""
-    if confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "stake_id", stake_id):
+def _stake_release_state(session: Session, chain_id: str, stake_id: Any, address: str) -> str | None:
+    """``"sealed"``/``"pending"``/``None`` for this stake's STAKE_RELEASE (#2629).
+
+    ``stake_id`` is a per-node sqlite PK (#3000): a foreign staker's release
+    under a colliding id must not count as this stake's — a sealed foreign
+    release would wrongly heal a ``withdrawn`` row (or 409 an active one),
+    and a pending one would block the retry path. Sealed rows are scoped by
+    ``recipient`` (the payee — the sender is always the keyless escrow);
+    pending mempool entries carry the full envelope, so ``to`` scopes them
+    the same way.
+    """
+    owner = _to_ait_address(str(address))
+    releases = confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "stake_id", stake_id)
+    if any(_to_ait_address(str(tx.recipient or "")) == owner for tx in releases):
         return "sealed"
-    if protocol_transfer_pending(session, chain_id, "STAKE_RELEASE", {"stake_id": str(stake_id)}):
+    if protocol_transfer_pending(
+        session,
+        chain_id,
+        "STAKE_RELEASE",
+        {"stake_id": str(stake_id)},
+        tx_match={"to": owner},
+    ):
         return "pending"
     return None
 
