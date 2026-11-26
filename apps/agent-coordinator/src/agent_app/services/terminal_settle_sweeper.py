@@ -46,6 +46,14 @@ unsettled lock means the settle never landed and the row is demoted with
 the record's lock identity backfilled (same contract as ``refund_orphaned``,
 #3006) so the expire sweep can build a real refund submitter.
 
+Every chain answer is applied through an attempt-scoped CAS (#3035): the
+probe runs outside the escrow manager lock, so between probe and write a
+concurrent transition (the reject/expiry reconcile cycling a refund
+LOCKED -> REFUNDED with a replacement tx) can land a *newer* settle
+attempt under the same terminal status. Demotes, probe stamps, and the
+permanent-confirmation marker therefore compare the settle tx hash the
+probe observed — a stale verdict never applies to a newer attempt.
+
 Synchronous throughout — the chain client and the escrow store are both
 sync — so the lifespan loop runs ``run_once`` via ``asyncio.to_thread``
 like the sibling sweeps (#1750).
@@ -77,11 +85,17 @@ META_SETTLE_PROBE_AT = "settle_probe_at"
 META_SETTLE_CONFIRMED_AT = "settle_probe_confirmed_at"
 
 
-def _settle_tx_hash(entry: EscrowEntry) -> str | None:
-    """The settle hash the entry's terminal state submitted, if recorded."""
-    if entry.status == EscrowStatus.RELEASED:
+def _settle_tx_hash(entry: EscrowEntry, status: EscrowStatus | None = None) -> str | None:
+    """The settle hash the entry's terminal state submitted, if recorded.
+
+    ``status`` optionally pins which leg to read — the reconcile snapshot
+    passes the status observed at listing time so a mid-flight mutation of
+    the shared hot-cache object cannot pick the wrong leg (#3035).
+    """
+    leg = status if status is not None else entry.status
+    if leg == EscrowStatus.RELEASED:
         return entry.tx_hash_release
-    if entry.status == EscrowStatus.REFUNDED:
+    if leg == EscrowStatus.REFUNDED:
         return entry.tx_hash_refund
     return None
 
@@ -174,19 +188,46 @@ class TerminalSettleSweeper:
         # store excludes in SQL.
         return not entry.metadata.get(META_SETTLE_CONFIRMED_AT)
 
-    def _stamp_probe(self, entry: EscrowEntry) -> None:
-        """Record the probe time so skipped candidates rotate out of the batch."""
+    def _stamp_probe(
+        self,
+        entry: EscrowEntry,
+        *,
+        expected_status: EscrowStatus,
+        expected_settle_tx_hash: str | None,
+    ) -> None:
+        """Record the probe time so skipped candidates rotate out of the batch.
+
+        The stamp is a CAS on the probed attempt (#3035): it lands only if
+        the row still sits in ``expected_status`` recording
+        ``expected_settle_tx_hash`` — a replacement settle attempt that
+        landed mid-probe must not inherit this probe's bookkeeping.
+        """
         mgr = self._payment_escrow
         if mgr is None or self.dry_run:
             return
         try:
-            entry.metadata[META_SETTLE_PROBE_AT] = time.time()
-            mgr.persist_terminal(entry)
+            mgr.stamp_terminal(
+                entry,
+                {META_SETTLE_PROBE_AT: time.time()},
+                expected_status=expected_status,
+                expected_settle_tx_hash=expected_settle_tx_hash,
+            )
         except Exception:  # noqa: BLE001 - the stamp is best-effort bookkeeping
             logger.debug("Could not stamp settle probe for escrow %s", entry.escrow_id)
 
-    def _mark_confirmed(self, entry: EscrowEntry, counts: dict[str, int]) -> None:
-        """Stamp a resolved-forever marker: sealed settle or nothing owed on-chain."""
+    def _mark_confirmed(
+        self,
+        entry: EscrowEntry,
+        counts: dict[str, int],
+        *,
+        expected_status: EscrowStatus,
+        expected_settle_tx_hash: str | None,
+    ) -> None:
+        """Stamp a resolved-forever marker: sealed settle or nothing owed on-chain.
+
+        Same attempt-scoped CAS as the demote (#3035): a stale "confirmed"
+        verdict must never mark a *newer* settle attempt resolved forever.
+        """
         if self.dry_run:
             logger.info("[DRY-RUN] Would confirm settle for escrow %s (task %s)", entry.escrow_id, entry.task_id)
             counts["confirmed"] += 1
@@ -195,12 +236,21 @@ class TerminalSettleSweeper:
         if mgr is None:
             return
         try:
-            entry.metadata[META_SETTLE_CONFIRMED_AT] = time.time()
-            mgr.persist_terminal(entry)
+            stamped = mgr.stamp_terminal(
+                entry,
+                {META_SETTLE_CONFIRMED_AT: time.time()},
+                expected_status=expected_status,
+                expected_settle_tx_hash=expected_settle_tx_hash,
+            )
         except Exception:  # noqa: BLE001 - the stamp is best-effort bookkeeping
             logger.debug("Could not confirm settle for escrow %s", entry.escrow_id)
             return
-        counts["confirmed"] += 1
+        if stamped:
+            counts["confirmed"] += 1
+        else:
+            # CAS lost — the row moved to a different attempt mid-probe;
+            # the verdict does not apply to it.
+            counts["skipped"] += 1
 
     def _demote(
         self,
@@ -208,12 +258,18 @@ class TerminalSettleSweeper:
         counts: dict[str, int],
         *,
         expected_status: EscrowStatus,
+        expected_settle_tx_hash: str | None,
         reason: str,
         evidence: dict[str, Any],
         tx_hash_lock: str | None = None,
         contract_id: str | None = None,
     ) -> None:
-        """Demote a terminal row to LOCKED — the settle leg never landed."""
+        """Demote a terminal row to LOCKED — the settle leg never landed.
+
+        ``expected_settle_tx_hash`` is the attempt the probe observed
+        (#3035): the CAS applies only while the row still records that
+        settle hash — a replacement attempt landing mid-probe wins.
+        """
         if self.dry_run:
             logger.info(
                 "[DRY-RUN] Would demote escrow %s (task %s) %s -> LOCKED: %s",
@@ -231,6 +287,7 @@ class TerminalSettleSweeper:
             demoted = mgr.demote_unsealed_settle(
                 entry,
                 expected_status=expected_status,
+                expected_settle_tx_hash=expected_settle_tx_hash,
                 reason=reason,
                 evidence=evidence,
                 tx_hash_lock=tx_hash_lock,
@@ -251,7 +308,8 @@ class TerminalSettleSweeper:
             )
         else:
             # CAS lost — a concurrent transition (settle retry, operator
-            # action) already moved the row; it wins.
+            # action) already moved the row, or a replacement settle
+            # attempt landed mid-probe (#3035); it wins.
             counts["skipped"] += 1
 
     def _probe_settle_tx(
@@ -267,16 +325,16 @@ class TerminalSettleSweeper:
             info = client.transaction_probe(tx_hash, chain_id=entry.chain_id)
         except Exception:  # noqa: BLE001 - per-entry containment: a probe failure retries next pass
             counts["failed"] += 1
-            self._stamp_probe(entry)
+            self._stamp_probe(entry, expected_status=expected_status, expected_settle_tx_hash=tx_hash)
             return
         verdict = _classify_probe(info)
         if verdict == "sealed":
-            self._mark_confirmed(entry, counts)
+            self._mark_confirmed(entry, counts, expected_status=expected_status, expected_settle_tx_hash=tx_hash)
             return
         if verdict == "pending":
             # Still in the mempool — it may yet seal. Re-check on cadence.
             counts["skipped"] += 1
-            self._stamp_probe(entry)
+            self._stamp_probe(entry, expected_status=expected_status, expected_settle_tx_hash=tx_hash)
             return
         if verdict in ("absent", "rejected"):
             reason = "settle_tx_absent_from_chain" if verdict == "absent" else "settle_tx_rejected_on_chain"
@@ -284,6 +342,7 @@ class TerminalSettleSweeper:
                 entry,
                 counts,
                 expected_status=expected_status,
+                expected_settle_tx_hash=tx_hash,
                 reason=reason,
                 evidence={
                     "tx_hash": tx_hash,
@@ -296,7 +355,7 @@ class TerminalSettleSweeper:
         # unknown — probe failure or an unclassifiable durable row. Unknown
         # is never death: skip and re-probe on cadence.
         counts["failed"] += 1
-        self._stamp_probe(entry)
+        self._stamp_probe(entry, expected_status=expected_status, expected_settle_tx_hash=tx_hash)
 
     def _probe_chain_record(
         self, entry: EscrowEntry, client: ChainEscrowClient, expected_status: EscrowStatus, counts: dict[str, int]
@@ -316,16 +375,19 @@ class TerminalSettleSweeper:
             counts["failed"] += 1
             logger.warning("Terminal settle sweep could not read chain record for task %s: %s", entry.task_id, e)
             return
+        # The probed attempt identity is "no settle hash recorded" (#3035):
+        # the CAS applies only while the row still records none — a settle
+        # attempt that landed mid-probe must not inherit this verdict.
         if record is None or _record_is_settled(record):
             # No on-chain escrow, or the chain shows it settled either way —
             # the local terminal row is the final truth.
-            self._mark_confirmed(entry, counts)
+            self._mark_confirmed(entry, counts, expected_status=expected_status, expected_settle_tx_hash=None)
             return
         if not escrow_record_is_stranded(record):
             # Mid-flight or unrecognised record shape — not proof of a dead
             # settle. Skip and re-probe on cadence.
             counts["skipped"] += 1
-            self._stamp_probe(entry)
+            self._stamp_probe(entry, expected_status=expected_status, expected_settle_tx_hash=None)
             return
         # Live on-chain lock under a terminal local row: the settle never
         # landed. Backfill the verified lock identity so the demoted LOCKED
@@ -341,12 +403,13 @@ class TerminalSettleSweeper:
                 entry.escrow_id,
                 entry.task_id,
             )
-            self._stamp_probe(entry)
+            self._stamp_probe(entry, expected_status=expected_status, expected_settle_tx_hash=None)
             return
         self._demote(
             entry,
             counts,
             expected_status=expected_status,
+            expected_settle_tx_hash=None,
             reason="terminal_row_but_chain_lock_live",
             evidence={"chain_record": record, "probed_at": time.time()},
             tx_hash_lock=str(lock_tx_hash) if lock_tx_hash else None,
@@ -360,7 +423,7 @@ class TerminalSettleSweeper:
         # mid-flight — the CAS must compare against the status at listing
         # time, not whatever the object reads after the probe.
         expected_status = entry.status
-        tx_hash = _settle_tx_hash(entry)
+        tx_hash = _settle_tx_hash(entry, expected_status)
         if tx_hash:
             self._probe_settle_tx(entry, client, str(tx_hash), expected_status, counts)
         else:

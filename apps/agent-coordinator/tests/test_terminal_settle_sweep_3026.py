@@ -481,7 +481,15 @@ class TestCasAndStore:
     def test_demote_unsealed_settle_rejects_wrong_expected_status(self):
         escrow = PaymentEscrow()
         entry = _released_entry(escrow)
-        assert escrow.demote_unsealed_settle(entry, expected_status=EscrowStatus.REFUNDED, reason="x") is False
+        assert (
+            escrow.demote_unsealed_settle(
+                entry,
+                expected_status=EscrowStatus.REFUNDED,
+                expected_settle_tx_hash=RELEASE_TX,
+                reason="x",
+            )
+            is False
+        )
         assert escrow.get_escrow(entry.escrow_id).status == EscrowStatus.RELEASED
 
     def test_store_only_terminal_row_is_swept_and_demoted(self):

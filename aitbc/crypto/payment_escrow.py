@@ -86,6 +86,25 @@ class EscrowEntry:
 EscrowCallback = Callable[[str, str, str, int], str]
 
 
+def _normalize_tx_hash(value: Any) -> str | None:
+    """Normalize a recorded/provided tx hash for CAS comparison (#3035)."""
+    return str(value) if value else None
+
+
+def _recorded_settle_tx(entry: EscrowEntry) -> str | None:
+    """The settle tx hash ``entry``'s *current* status recorded, normalized.
+
+    This is the settlement-attempt identity the terminal-settle sweeper
+    probes (#3026): RELEASED rows settle via ``tx_hash_release``, REFUNDED
+    via ``tx_hash_refund``; any other status records no settle attempt.
+    """
+    if entry.status == EscrowStatus.RELEASED:
+        return _normalize_tx_hash(entry.tx_hash_release)
+    if entry.status == EscrowStatus.REFUNDED:
+        return _normalize_tx_hash(entry.tx_hash_refund)
+    return None
+
+
 class EscrowStore(Protocol):
     """Durable backend for escrow bookkeeping entries.
 
@@ -530,7 +549,8 @@ class PaymentEscrow:
         Stores may implement the optional ``load_terminal`` hook; its rows
         are merged in as detached copies — the hot-cache entry always wins.
         Detached entries are read-only for callers: mutate them only through
-        :meth:`persist_terminal` or :meth:`demote_unsealed_settle`.
+        :meth:`persist_terminal`, :meth:`stamp_terminal`, or
+        :meth:`demote_unsealed_settle`.
         """
         with self._lock:
             merged = {e.escrow_id: e for e in self._escrows.values() if e.status in statuses}
@@ -556,11 +576,64 @@ class PaymentEscrow:
                 self._escrows[entry.escrow_id] = entry
             self._persist(entry, strict=strict)
 
+    def _current_entry(self, escrow_id: str) -> EscrowEntry | None:
+        """Resolve the live entry for ``escrow_id``: hot cache, else store point lookup.
+
+        Callers must hold ``self._lock``. A store read failure degrades to
+        ``None`` — an unreadable row reads as absent, never as permission
+        to write.
+        """
+        current = self._escrows.get(escrow_id)
+        if current is None and self._store is not None:
+            load = getattr(self._store, "load", None)
+            if load is not None:
+                try:
+                    current = load(escrow_id)
+                except Exception as e:  # noqa: BLE001 - fail-safe: unreadable store row reads as absent
+                    logger.error("Failed to load escrow %s: %s", escrow_id, e)
+                    current = None
+        return current
+
+    def stamp_terminal(
+        self,
+        entry: EscrowEntry,
+        updates: dict[str, Any],
+        *,
+        expected_status: EscrowStatus,
+        expected_settle_tx_hash: str | None,
+    ) -> bool:
+        """Conditionally stamp metadata on a terminal entry — CAS on attempt identity (#3035).
+
+        Probe sweeps hold a *detached* copy of a terminal row while the
+        chain probe runs; by stamp time the live row may have moved on (a
+        rejected settle reconciled to LOCKED and re-driven with a
+        replacement tx under the same terminal status). The stamp must
+        apply only to the attempt it observed: the stored entry must still
+        be in ``expected_status`` AND still record
+        ``expected_settle_tx_hash`` as its settle attempt (``None`` = no
+        settle hash recorded, the chain-record probe path). On a match
+        only ``updates`` merge into the *current* entry's metadata — the
+        caller's possibly-stale copy is never written back wholesale, so a
+        stale ``settle_probe_confirmed_at`` cannot resolve a newer
+        attempt forever. Returns ``False`` when the CAS loses; nothing is
+        persisted and store-only rows stay out of the hot cache (#1515).
+        """
+        with self._lock:
+            current = self._current_entry(entry.escrow_id)
+            if current is None or current.status != expected_status:
+                return False
+            if _recorded_settle_tx(current) != _normalize_tx_hash(expected_settle_tx_hash):
+                return False
+            current.metadata.update(updates)
+            self._persist(current)
+            return True
+
     def demote_unsealed_settle(
         self,
         entry: EscrowEntry,
         *,
         expected_status: EscrowStatus,
+        expected_settle_tx_hash: str | None,
         reason: str,
         evidence: dict[str, Any] | None = None,
         tx_hash_lock: str | None = None,
@@ -574,8 +647,19 @@ class PaymentEscrow:
         on-chain escrow stays locked, invisible to every worklist. The
         caller must have proven the settle hash dead or absent on-chain;
         this performs only the guarded transition: the stored entry must
-        still be in ``expected_status`` — a concurrent transition wins and
-        this returns ``False``.
+        still be in ``expected_status`` AND still record
+        ``expected_settle_tx_hash`` as its settle attempt — a concurrent
+        transition wins and this returns ``False``.
+
+        The attempt check (#3035) is what makes the verdict attempt-scoped:
+        the reject/expiry worker can cycle a row LOCKED -> REFUNDED with a
+        REPLACEMENT settle tx between the caller's chain probe and this
+        demote, landing back on the same terminal status with a different
+        ``tx_hash_*``. A status-only CAS would apply the stale "the settle
+        never landed" verdict to the newer attempt — demoting a row whose
+        fresh settle tx may still seal. ``expected_settle_tx_hash=None``
+        is the chain-record probe path: it matches only a row that still
+        records no settle hash at all.
 
         On success the row is LOCKED again (active bookkeeping, so it
         re-enters the hot cache and ``expire_stale``/settle paths re-drive
@@ -588,16 +672,10 @@ class PaymentEscrow:
         one — only filled when empty.
         """
         with self._lock:
-            current = self._escrows.get(entry.escrow_id)
-            if current is None and self._store is not None:
-                load = getattr(self._store, "load", None)
-                if load is not None:
-                    try:
-                        current = load(entry.escrow_id)
-                    except Exception as e:  # noqa: BLE001 - fail-safe: unreadable store row reads as absent
-                        logger.error("Failed to load escrow %s for settle demote: %s", entry.escrow_id, e)
-                        current = None
+            current = self._current_entry(entry.escrow_id)
             if current is None or current.status != expected_status:
+                return False
+            if _recorded_settle_tx(current) != _normalize_tx_hash(expected_settle_tx_hash):
                 return False
             if tx_hash_lock and not current.tx_hash_lock:
                 current.tx_hash_lock = str(tx_hash_lock)
