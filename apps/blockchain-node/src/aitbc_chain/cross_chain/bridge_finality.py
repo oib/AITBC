@@ -10,7 +10,7 @@ from pathlib import Path
 from collections.abc import Callable, Iterator
 from typing import Any, TypeVar
 
-from sqlalchemy import update
+from sqlalchemy import func, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -517,20 +517,27 @@ class BridgeFinalityMixin(BridgeBase):
 
     def get_oracle_status(self) -> dict[str, Any]:
         """Get bridge oracle/verification status (B7 RPC helper)."""
-        # Count block headers per chain
+        # Aggregate in SQL — hydrating every BridgeBlockHeader row made the
+        # endpoint scale with table size and widened the read window on
+        # SQLite (#2994).
         with self._session_for() as session:
-            all_headers = session.exec(select(BridgeBlockHeader)).all()
-            chain_counts: dict[str, int] = {}
-            for h in all_headers:
-                chain_counts[h.chain_id] = chain_counts.get(h.chain_id, 0) + 1
-            finalized = sum(1 for h in all_headers if h.finality_confirmed)
+            rows = session.exec(
+                select(
+                    BridgeBlockHeader.chain_id,
+                    func.count(),
+                    func.count().filter(col(BridgeBlockHeader.finality_confirmed).is_(True)),
+                ).group_by(BridgeBlockHeader.chain_id)
+            ).all()
+            chain_counts = {chain_id: int(total) for chain_id, total, _fin in rows}
+            block_headers_total = sum(chain_counts.values())
+            finalized = sum(int(fin or 0) for _cid, _total, fin in rows)
 
         return {
             "verification_mode": getattr(settings, "bridge_verification_mode", "in_process"),
             "min_confirmations": getattr(settings, "bridge_min_confirmations", 3),
             "finality_blocks": getattr(settings, "bridge_finality_blocks", 6),
             "large_transfer_threshold": getattr(settings, "bridge_large_transfer_threshold", 10000),
-            "block_headers_total": len(all_headers),
+            "block_headers_total": block_headers_total,
             "block_headers_finalized": finalized,
             "block_headers_per_chain": chain_counts,
             "release_enabled": getattr(settings, "bridge_release_enabled", False),

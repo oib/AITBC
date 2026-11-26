@@ -203,7 +203,10 @@ def _abort_ops(ctx: click.Context, prefix: str, exc: Exception) -> None:
     """Abort with ``prefix: <error>`` plus the server's detail when one exists."""
     detail = _response_error_detail(exc)
     suffix = f" — server: {detail}" if detail else ""
-    abort(ctx, f"{prefix}: {exc}{suffix}", from_exception=exc)
+    # httpx transport errors (ReadTimeout, ConnectError, …) stringify to "" —
+    # name the class so the abort isn't a bare "prefix: " tail (#2994).
+    exc_text = str(exc) or type(exc).__name__
+    abort(ctx, f"{prefix}: {exc_text}{suffix}", from_exception=exc)
 
 
 def _get_bridge_client(rpc_url: str) -> BridgeClient:
