@@ -80,11 +80,47 @@ def _actor(db_session: Session, sub: str) -> dict[str, str]:
 
 
 def _chain_client(escrow: dict, post_returns: list) -> AsyncMock:
-    """Chain stub: GET escrow, GET transactions (refund path), POST pops *post_returns*."""
+    """Chain stub: GET escrow, GET transactions (refund path), POST pops *post_returns*.
+
+    Models the node marking the escrow settled at submit time (#3008): a
+    settled refund/release POST flips the escrow payload the next GET
+    returns, exactly like the node's own refunded_at/released_at write.
+    """
     client = AsyncMock()
-    client.get.return_value = escrow
     client.get_json.return_value = []
-    client.post.side_effect = post_returns
+    effects = list(post_returns)
+
+    async def _get(*args, **kwargs):
+        return escrow
+
+    async def _post(url, *args, **kwargs):
+        if not effects:
+            raise StopAsyncIteration
+        item = effects.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        if isinstance(item, dict):
+            url_s = str(url)
+            if "/refund" in url_s and item.get("success") is True and item.get("refund_tx_hash"):
+                escrow.update(
+                    {
+                        "state": "refunded",
+                        "refunded_at": "2026-11-24T00:00:00+00:00",
+                        "refund_tx_hash": item["refund_tx_hash"],
+                    }
+                )
+            elif "/release" in url_s and item.get("success") is True and item.get("tx_hash"):
+                escrow.update(
+                    {
+                        "state": "released",
+                        "released_at": "2026-11-24T00:00:00+00:00",
+                        "release_tx_hash": item["tx_hash"],
+                    }
+                )
+        return item
+
+    client.get.side_effect = _get
+    client.post = AsyncMock(side_effect=_post)
     return client
 
 

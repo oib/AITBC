@@ -341,23 +341,37 @@ class EscrowRefundRelayService(EscrowRelayService):
                 )
             await run_in_threadpool(self._check_buyer_binding, canonical_client_id, buyer)
 
+        state = escrow.get("state")
+        escrow_refunded = state == "refunded" or bool(escrow.get("refunded_at"))
+        escrow_released = state == "released" or bool(escrow.get("released_at"))
+
         # Dedup: a prior relay row with a tx_hash settles the job — return
         # it without a chain call so a replayed request can never
         # double-refund. A hashless row is not proof of settlement and
-        # falls through to re-drive (#2814).
+        # falls through to re-drive (#2814). The escrow state fetched above
+        # is the arbiter (#3008): the node marks refunded_at at submission
+        # and its sweeper demotes the row when the envelope proves
+        # unsealed, so "escrow not refunded" means the stored hash is dead —
+        # replaying it would tell the buyer they were refunded while the
+        # funds stay locked. Pending and confirmed refunds both read as
+        # refunded on the node record, so live dedup is preserved.
         existing: EscrowRefundRelay | None = await run_in_threadpool(
             lambda: self.session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == job_id)).scalars().first()
         )
-        replay = self._dedup_replay(existing)
+        replay = self._dedup_replay(existing, escrow_refunded=escrow_refunded)
         if replay is not None:
             return replay
+        if existing is not None and existing.tx_hash:
+            # Dead stored attempt: clear the hash so the re-drive below
+            # records the replacement instead of the _finish_refund
+            # concurrent-duplicate branch replaying the dead hash.
+            await run_in_threadpool(self._clear_dead_dedup_hash, existing)
 
-        state = escrow.get("state")
-        if state == "refunded" or escrow.get("refunded_at"):
+        if escrow_refunded:
             # Already refunded on-chain: record (or heal) the outcome and
             # return it — a second refund POST is unnecessary and unsafe.
             return await self._record_settled_refund(client_id, job_id, escrow, existing)
-        if state == "released" or escrow.get("released_at"):
+        if escrow_released:
             logger.warning("Escrow refund refused: escrow already released for job_id=%s", job_id)
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -390,17 +404,40 @@ class EscrowRefundRelayService(EscrowRelayService):
             and bool(chain_response.get("refund_tx_hash"))
         )
 
-    def _dedup_replay(self, existing: EscrowRefundRelay | None) -> dict[str, Any] | None:
+    def _dedup_replay(self, existing: EscrowRefundRelay | None, *, escrow_refunded: bool) -> dict[str, Any] | None:
         """Stored result for a trustworthy dedup row; None means re-drive.
 
-        A row is replayed as-is only when it carries a tx_hash. A hashless
-        row falls through: on a refunded escrow the caller heals it from
-        chain state, on an unrefunded one it is a wedge recorded before
-        tx_hash verification and the refund re-drives (#2814).
+        A row is replayed as-is only when it carries a tx_hash *and* the
+        escrow state still backs it — the node's record reads refunded for
+        both pending and confirmed refunds, so a live attempt always
+        replays (#2814 double-refund guard). When the escrow proves the
+        stored attempt dead (apply-rejected, node record corrected back to
+        locked) the row falls through to re-drive (#3008). A hashless row
+        falls through for the same reason: on a refunded escrow the caller
+        heals it from chain state, on an unrefunded one it is a wedge
+        recorded before tx_hash verification and the refund re-drives.
         """
-        if existing is not None and existing.tx_hash:
+        if existing is not None and existing.tx_hash and escrow_refunded:
             return self._stored_result(existing)
         return None
+
+    def _clear_dead_dedup_hash(self, row: EscrowRefundRelay) -> None:
+        """Drop a stored tx_hash the escrow state proved dead (#3008).
+
+        The row stays (job_id dedup + audit trail); only the dead hash is
+        cleared so ``_finish_refund``'s heal branch records the replacement
+        refund instead of its concurrent-duplicate branch replaying the
+        corpse.
+        """
+        dead = row.tx_hash
+        row.tx_hash = None
+        self.session.add(row)
+        self.session.commit()
+        logger.warning(
+            "Escrow refund relay cleared dead tx_hash %s for job_id=%s; re-driving the refund",
+            dead,
+            row.job_id,
+        )
 
     def _fill_dedup_row(self, row: EscrowRefundRelay, *, tx_hash: Any, contract_id: Any) -> None:
         """Heal a dedup row recorded without a tx_hash once the refund verifies."""

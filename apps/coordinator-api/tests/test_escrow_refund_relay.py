@@ -129,18 +129,43 @@ def _chain_client_mock(
     get_json_side_effect: Exception | None = None,
 ):
     client = AsyncMock()
-    if get_side_effect is not None:
-        client.get.side_effect = get_side_effect
-    else:
-        client.get.return_value = escrow if escrow is not None else _escrow_state()
+    # #3008: the node marks the escrow refunded at refund-submit time, so
+    # the default fixture flips to a refunded escrow after a settled refund
+    # POST — an explicit ``escrow`` stays a fixed fixture.
+    settled = {"done": False, "hash": None}
+
+    async def _get(url, *args, **kwargs):
+        if get_side_effect is not None:
+            raise get_side_effect
+        if isinstance(escrow, dict):
+            return escrow
+        payload = _escrow_state()
+        if settled["done"]:
+            payload.update(
+                {
+                    "state": "refunded",
+                    "refunded_at": "2026-10-27T00:00:00+00:00",
+                    "refund_tx_hash": settled["hash"],
+                }
+            )
+        return payload
+
+    client.get.side_effect = _get
     if get_json_side_effect is not None:
         client.get_json.side_effect = get_json_side_effect
     else:
         client.get_json.return_value = transactions if transactions is not None else []
-    if side_effect is not None:
-        client.post.side_effect = side_effect
-    else:
-        client.post.return_value = refund or {"success": True, "refund_tx_hash": "0xref1", "contract_id": "0xc1"}
+    refund_payload = refund or {"success": True, "refund_tx_hash": "0xref1", "contract_id": "0xc1"}
+
+    async def _post(url, *args, **kwargs):
+        if side_effect is not None:
+            raise side_effect
+        if isinstance(refund_payload, dict) and refund_payload.get("success") is True and refund_payload.get("refund_tx_hash"):
+            settled["done"] = True
+            settled["hash"] = refund_payload["refund_tx_hash"]
+        return refund_payload
+
+    client.post = AsyncMock(side_effect=_post)
     return client
 
 
@@ -531,6 +556,46 @@ class TestEscrowRefundRelay:
         assert resp.status_code == 200, resp.text
         assert resp.json()["refund_tx_hash"] == "0xwinner"
         assert resp.json()["duplicate"] is True
+
+    def test_refund_dead_stored_hash_redrives_replacement(self, client, db_session):
+        """#3008: stored tx_hash + escrow state proving the attempt dead
+        (apply-rejected, node record corrected back to funded) → the relay
+        must re-drive a replacement refund, never replay the corpse."""
+        headers = _actor(db_session, "c-deadhash")
+        _add_job(db_session, client_id="c-deadhash", state="FAILED")
+        db_session.add(EscrowRefundRelay(client_id="c-deadhash", job_id="job_1", tx_hash="0xdead", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(refund={"success": True, "refund_tx_hash": "0xnew", "contract_id": "0xc1"})
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["refund_tx_hash"] == "0xnew"
+        assert resp.json()["duplicate"] is False
+        # The replacement was actually submitted to the chain.
+        assert "/rpc/escrow/job_1/refund" in mock_client.post.call_args.args[0]
+        # And the dedup row now carries the live hash, not the dead one.
+        row = db_session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == "job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xnew"
+
+    def test_refund_stored_hash_replays_while_escrow_refunded(self, client, db_session):
+        """#3008 other direction: stored tx_hash + escrow still refunded
+        (pending or confirmed — the node marks refunded_at at submission)
+        → replay the stored result, no second chain call, no double-refund."""
+        headers = _actor(db_session, "c-livehash")
+        _add_job(db_session, client_id="c-livehash", state="FAILED")
+        db_session.add(EscrowRefundRelay(client_id="c-livehash", job_id="job_1", tx_hash="0xlive", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(
+            escrow=_escrow_state(state="refunded", refunded_at="2026-10-27T00:00:00", refund_tx_hash="0xlive")
+        )
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["refund_tx_hash"] == "0xlive"
+        assert resp.json()["duplicate"] is True
+        mock_client.post.assert_not_called()
+        row = db_session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == "job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xlive"
 
     def test_refund_per_client_hourly_cap(self, client, db_session, monkeypatch):
         """Director ruling: a per-client hourly cap stops a stolen JWT from
