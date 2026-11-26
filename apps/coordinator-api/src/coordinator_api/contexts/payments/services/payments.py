@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 
 from decimal import Decimal
+from typing import Any
 
 from aitbc.network import AsyncAITBCHTTPClient  # noqa: F401  (test patch target)
 from ....config import settings  # noqa: F401  (test patch target)
@@ -47,23 +48,29 @@ _ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
-def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
-    """Return True when a job payment triggers the ZK-proof escrow gate.
+def _zk_required_for_constraints(constraints: dict[str, Any] | None, payment_amount: Decimal | None) -> bool:
+    """Return True when a job's constraints/price trigger the ZK-proof gate.
 
     The gate applies when COORDINATOR_ZK_REQUIRE=true, the job explicitly
     requires a ZK proof, or the payment amount crosses the high-value
     threshold. Whether the requested model actually has a registered circuit
-    is decided later when the receipt is generated/verified; the gate must
-    not silently downgrade a required proof just because the model is missing.
+    is decided by the caller; the gate must not silently downgrade a required
+    proof just because the model is missing.
     """
     if _ZK_THRESHOLD_AIT < 0:
         return False
     if _ZK_REQUIRE_PROOF:
         return True
-    if job and job.constraints and job.constraints.get("zk_proof_required"):
+    if constraints and constraints.get("zk_proof_required"):
         return True
     amount = payment_amount or Decimal("0")
     return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
+
+
+def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
+    """Return True when a job payment triggers the ZK-proof escrow gate."""
+    constraints = job.constraints if job is not None and isinstance(job.constraints, dict) else None
+    return _zk_required_for_constraints(constraints, payment_amount)
 
 
 class PaymentService(PaymentFundingMixin, PaymentReleaseMixin, PaymentRefundMixin):

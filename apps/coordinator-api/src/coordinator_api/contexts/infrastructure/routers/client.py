@@ -21,7 +21,8 @@ from ...market.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailabl
 from ...payments.acceptance import HELD_STATES, PENDING_ACCEPTANCE
 from ...payments.operations import begin_operation, complete_operation, fail_operation, record_rejection
 from ...payments.provider_binding import same_address
-from ...payments.services.payments import PaymentService, _computation_is_correct
+from ...payments.services.payments import PaymentService, _computation_is_correct, _zk_required_for_constraints
+from ...zk_applications.services import model_registry
 from ....custom_types import JobState, job_state_filter_help, parse_job_state_filter
 from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
@@ -187,6 +188,33 @@ def _require_priced_gpu_compute(req: JobCreate) -> None:
         )
 
 
+def _require_zk_circuit_model(req: JobCreate) -> None:
+    """Refuse a ZK-required job whose model has no registered circuit (#2951).
+
+    The miner can only produce a ``receipt_model`` proof for a circuit in
+    ``model_registry``. Before this check such a job was accepted, escrowed,
+    dispatched and executed — and only then failed ``zk_status=unsupported_model``
+    into a refund, leaving the provider unpaid. The registry is known before any
+    escrow moves, so the submission is refused instead. This covers the explicit
+    ``zk_proof_required`` constraint, ``COORDINATOR_ZK_REQUIRE``, and the
+    high-value threshold via ``req.payment_amount``.
+    """
+    constraints = req.constraints.model_dump(mode="json") if req.constraints else {}
+    if not _zk_required_for_constraints(constraints, req.payment_amount):
+        return
+    model_id = model_registry.resolve_model_id_from_parts(req.payload, constraints, None)
+    if model_id and model_registry.get_model(model_id) is not None:
+        return
+    named = f"model {model_id!r}" if model_id else "no model"
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=(
+            f"ZK proof required but the job names {named} with no registered circuit; "
+            "use a circuit-registered model (e.g. linear-1) or drop --zk-proof-required"
+        ),
+    )
+
+
 async def _submit_job_impl(
     req: JobCreate,
     session: Session,
@@ -194,6 +222,7 @@ async def _submit_job_impl(
 ) -> JobView:
     req, quote = await _apply_offer_quote(req)
     _require_priced_gpu_compute(req)
+    _require_zk_circuit_model(req)
 
     service = JobService(session)
     job = await run_in_threadpool(

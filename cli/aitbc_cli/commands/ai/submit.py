@@ -24,6 +24,15 @@ _TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELED", "EXPIRED"}
 # are explicitly transient (408 timeout, 425 too early, 429 rate limited).
 _TRANSIENT_STATUSES = {408, 425, 429}
 
+# Payment states after job completion that can no longer release to the
+# provider, so --wait should surface the outcome instead of polling to timeout.
+_PAYMENT_RELEASE_TERMINAL = {"refunded", "failed", "disputed", "settlement_failed"}
+
+# zk_status values that still permit escrow release (mirrors the coordinator's
+# _computation_is_correct). Anything else means the ZK gate already failed the
+# job and the escrow is heading for a refund, not a release.
+_ZK_CORRECT_STATUSES = {"verified", "not_required"}
+
 
 def _is_transient_error(e: _ai.NetworkError) -> bool:
     """True when the failure is a gateway/network blip worth retrying."""
@@ -96,8 +105,11 @@ def _await_payment_release(
     on behalf of the customer so a --wait invocation runs end-to-end.
     """
     accept_attempted = False
-    accept_key = _ai._new_idempotency_key(f"ai-accept-{job_id}")
     while status.get("payment_status") != "released":
+        payment_status = status.get("payment_status")
+        zk_status = status.get("zk_status")
+        if payment_status in _PAYMENT_RELEASE_TERMINAL or (zk_status and zk_status not in _ZK_CORRECT_STATUSES):
+            break
         if timed_out():
             _ai.abort(
                 ctx,
@@ -105,8 +117,12 @@ def _await_payment_release(
             )
         # #2952: only pending_acceptance can be accepted — "escrowed" here is
         # seal/release latency, and POSTing accept for it only earns a 409.
-        if not accept_attempted and status.get("payment_status") == "pending_acceptance":
-            accept_attempted = _try_auto_accept(http_client, job_id, accept_key)
+        # #2951: bail early when the payment is already terminal or the ZK
+        # gate failed the proof — polling to timeout would just waste time.
+        # Each retry mints a fresh Idempotency-Key: a recorded 409 rejection
+        # must not be replayed under the same key once the window opens.
+        if not accept_attempted and payment_status == "pending_acceptance":
+            accept_attempted = _try_auto_accept(http_client, job_id, _ai._new_idempotency_key(f"ai-accept-{job_id}"))
         time.sleep(min(poll_interval, 2.0))
         try:
             status = http_client.get(f"/v1/jobs/{job_id}")
