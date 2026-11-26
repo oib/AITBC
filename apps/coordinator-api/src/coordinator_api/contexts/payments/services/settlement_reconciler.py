@@ -244,14 +244,33 @@ class SettlementReconciler:
         }
 
     @staticmethod
-    def _mark_audited(session: Any, payment: Any, stamp_key: str = "release_hash_audit_at") -> None:
-        """Stamp the audit time so the next pass skips this row for ~20h."""
+    def _mark_audited(
+        session: Any,
+        payment: Any,
+        stamp_key: str = "release_hash_audit_at",
+        attempt_field: str | None = None,
+        expected_hash: str | None = None,
+    ) -> bool:
+        """Stamp the audit time so the next pass skips this row for ~20h.
+
+        #3038: when ``attempt_field``/``expected_hash`` are given the stamp
+        is attempt-scoped. The chain reads ran against the hash snapshotted
+        before the awaits — another worker may have persisted a *newer*
+        attempt since, and an unscoped stamp would defer that attempt's own
+        audit by ~20h while its ``meta_data`` write races the newer
+        attempt's audit-trail keys. A mismatched row is left untouched.
+        """
+        if attempt_field is not None and expected_hash is not None:
+            session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
+            if getattr(payment, attempt_field, None) != expected_hash:
+                return False
         meta = dict(payment.meta_data or {})
         meta[stamp_key] = datetime.now(UTC).isoformat()
         payment.meta_data = meta
         payment.updated_at = datetime.now(UTC)
         session.add(payment)
         session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        return True
 
     @staticmethod
     def _audit_due(payment: Any, stamp_key: str = "release_hash_audit_at") -> bool:
@@ -267,7 +286,11 @@ class SettlementReconciler:
     @staticmethod
     def _readopt_release_hash(session: Any, payment: Any, recorded: str, new_hash: str, counts: dict[str, int]) -> None:
         session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
-        if payment.status != "released":
+        # #3038: same attempt-CAS as the refund side (#3033) — adopting the
+        # sealed replacement is only valid while the row still carries the
+        # hash this audit actually probed. A newer attempt's hash is never
+        # overwritten by stale evidence.
+        if payment.status != "released" or payment.transaction_hash != recorded:
             return
         meta = dict(payment.meta_data or {})
         meta["release_tx_hash_corrected"] = {
@@ -304,7 +327,7 @@ class SettlementReconciler:
             counts["hash_unreachable"] += 1
         elif state:
             counts["hash_ok"] += 1
-            self._mark_audited(session, payment)
+            self._mark_audited(session, payment, attempt_field="transaction_hash", expected_hash=recorded)
         else:
             await self._audit_missing_hash(client, rpc, session, payment, recorded, counts)
 
@@ -326,7 +349,7 @@ class SettlementReconciler:
             self._readopt_release_hash(session, payment, recorded, sealed.pop(), counts)
         elif not sealed:
             counts["hash_unbacked"] += 1
-            self._mark_audited(session, payment)
+            self._mark_audited(session, payment, attempt_field="transaction_hash", expected_hash=recorded)
             logger.critical(
                 "Payment %s is released but no sealed ESCROW_RELEASE exists for job %s "
                 "(recorded hash %s never sealed) -- manual chain verification required",
@@ -336,7 +359,7 @@ class SettlementReconciler:
             )
         else:
             counts["hash_ambiguous"] += 1
-            self._mark_audited(session, payment)
+            self._mark_audited(session, payment, attempt_field="transaction_hash", expected_hash=recorded)
             logger.error(
                 "Payment %s job %s has multiple sealed ESCROW_RELEASE hashes %s -- leaving recorded %s",
                 payment.id,
@@ -506,7 +529,13 @@ class SettlementReconciler:
             counts["refund_hash_unreachable"] += 1
         elif state:
             counts["refund_hash_ok"] += 1
-            self._mark_audited(session, payment, "refund_hash_audit_at")
+            self._mark_audited(
+                session,
+                payment,
+                "refund_hash_audit_at",
+                attempt_field="refund_transaction_hash",
+                expected_hash=recorded,
+            )
         else:
             await self._audit_missing_refund_hash(client, rpc, session, payment, recorded, counts)
 
@@ -530,7 +559,13 @@ class SettlementReconciler:
             self._requeue_dead_refund(session, payment, recorded, counts)
         else:
             counts["refund_hash_ambiguous"] += 1
-            self._mark_audited(session, payment, "refund_hash_audit_at")
+            self._mark_audited(
+                session,
+                payment,
+                "refund_hash_audit_at",
+                attempt_field="refund_transaction_hash",
+                expected_hash=recorded,
+            )
             logger.error(
                 "Payment %s job %s has multiple sealed ESCROW_REFUND hashes %s -- leaving recorded %s",
                 payment.id,
