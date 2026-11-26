@@ -292,6 +292,13 @@ def _submit_payload(
     return payload
 
 
+def _require_media_input(ctx, job_type: str, input_url: str | None) -> None:
+    """#2988: transcribe/reencode cannot execute without an input URL/path —
+    a paid submit missing it would lock escrow for a job no worker can run."""
+    if job_type in ("transcribe", "reencode") and not input_url:
+        _ai.abort(ctx, f"--input/--url is required for --type {job_type}")
+
+
 def _apply_compliance(ctx, constraints: dict[str, Any], compliance_framework, classification) -> None:
     """Validate and apply the data-classification constraint for a framework."""
     if not compliance_framework:
@@ -622,7 +629,7 @@ def _secure_escrow(
     help="Use deterministic decoding for reproducible verification",
 )
 @click.option("--decode-seed", type=int, default=None, help="Seed for deterministic decoding (auto-assigned if unset)")
-@click.option("--input", "input_url", help="Input URL or path for transcribe/reencode jobs")
+@click.option("--input", "--url", "input_url", help="Input URL or path for transcribe/reencode jobs")
 @click.option("--output-format", default=None, help="Output format for reencode jobs (e.g. mp4, mp3)")
 @click.option("--classification", default=None, help="Data classification label (e.g. public, pii, phi)")
 @click.option(
@@ -679,6 +686,7 @@ def submit(
     config = _ai.get_config()
 
     try:
+        _require_media_input(ctx, job_type or "inference", input_url)
         _reject_confidential(ctx, confidential)
 
         # Get coordinator URL

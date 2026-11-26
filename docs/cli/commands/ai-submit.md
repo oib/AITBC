@@ -35,7 +35,7 @@ aitbc ai submit [OPTIONS]
 | `--min-bond-amount` | float | — | no | Minimum bond amount required for provider eligibility |
 | `--deterministic-decoding`, `--no-deterministic-decoding` | flag | `false` | no | Use deterministic decoding for reproducible verification |
 | `--decode-seed` | integer | — | no | Seed for deterministic decoding (auto-assigned if unset) |
-| `--input` | text | — | no | Input URL or path for transcribe/reencode jobs |
+| `--input`, `--url` | text | — | no | Input URL or path for transcribe/reencode jobs |
 | `--output-format` | text | — | no | Output format for reencode jobs (e.g. mp4, mp3) |
 | `--classification` | text | — | no | Data classification label (e.g. public, pii, phi) |
 | `--compliance-framework` | text | — | no | Compliance framework to enforce |
