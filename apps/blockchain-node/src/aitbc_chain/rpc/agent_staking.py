@@ -181,17 +181,31 @@ def _canonical_guard(
         record = _get_stake(session, chain_id, stake_id)
         if record is not None:
             if record.status == "completed":
-                # Local is ahead of sealed history: the STAKE_RELEASE marker
-                # is emitted but not yet sealed. Answer idempotent — a
+                # Local is ahead of sealed history: either the STAKE_RELEASE
+                # marker is still in the mempool — answer idempotent, a
                 # re-run must neither emit a second release nor resync the
-                # row backwards.
-                return {
-                    "success": True,
-                    "idempotent": True,
-                    "stake_id": stake_id,
-                    "status": "completed",
-                    "source": "local",
-                }
+                # row backwards — or it was rejected/dropped after the row
+                # flipped (#3010). Only a live pending marker earns the
+                # idempotent answer; a dead one resyncs the row to the
+                # sealed unbonding truth so the normal path re-drives the
+                # release instead of stranding the principal.
+                release_owner = owner or record.staker_address
+                if protocol_transfer_pending(
+                    session,
+                    chain_id,
+                    "STAKE_RELEASE",
+                    {"agent_stake_id": str(stake_id)},
+                    tx_match={"to": _to_ait_address(str(release_owner))},
+                ):
+                    return {
+                        "success": True,
+                        "idempotent": True,
+                        "stake_id": stake_id,
+                        "status": "completed",
+                        "source": "local",
+                    }
+                _resync_stake_to_unbonding(session, chain_id, record)
+                return None
             if record.status != status:
                 # #2360: sealed STAKE_UNBOND is authoritative — a local row
                 # left stale (e.g. the store was rebuilt from an older

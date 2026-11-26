@@ -8,6 +8,7 @@ mask a sealed transition. Precedence: RELEASE > UNBOND > local row > LOCK.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -15,6 +16,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, select
 
 from aitbc_chain.base_models import AgentStakeRecord, _to_ait_address
+from aitbc_chain.mempool_common import MempoolEntry
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Transaction
 from fastapi import HTTPException
@@ -161,14 +163,38 @@ def test_guard_unbonding_local_sealed_unbond_allows_complete(engine):
         assert _canonical_guard(session, CHAIN, SID, "complete") is None
 
 
-def test_guard_completed_local_sealed_unbond_idempotent_complete(engine):
-    """#2360 edge: local 'completed' + sealed UNBOND (no sealed RELEASE) means
-    the release marker is emitted but unsealed — answer idempotent so a
-    re-run cannot emit a second STAKE_RELEASE or resync the row backwards."""
+def test_guard_completed_local_sealed_unbond_dead_release_redrives(engine):
+    """#3010: local 'completed' + sealed UNBOND (no sealed RELEASE) with no
+    pending STAKE_RELEASE means the admitted release died — the guard must
+    resync the row to the sealed unbonding truth and let the normal path
+    re-drive, not answer idempotent forever."""
     with Session(engine) as session:
         _row(session, "completed")
         _sealed(session, "STAKE_UNBOND")
-        out = _canonical_guard(session, CHAIN, SID, "complete")
+        assert _canonical_guard(session, CHAIN, SID, "complete") is None
+        record = session.exec(select(AgentStakeRecord).where(AgentStakeRecord.stake_id == SID)).one()
+        assert record.status == "unbonding"
+
+
+def test_guard_completed_local_sealed_unbond_pending_release_idempotent(engine):
+    """#3010: same shape but a live pending STAKE_RELEASE backs the local
+    'completed' — answer idempotent so a re-run cannot emit a second
+    STAKE_RELEASE or resync the row backwards."""
+    with Session(engine) as session:
+        _row(session, "completed")
+        _sealed(session, "STAKE_UNBOND")
+        session.add(
+            MempoolEntry(
+                chain_id=CHAIN,
+                tx_hash="0x" + "5" * 64,
+                content=json.dumps({"type": "STAKE_RELEASE", "to": STAKER, "payload": {"agent_stake_id": SID}}),
+                fee=0,
+                size_bytes=1,
+                received_at=1.0,
+            )
+        )
+        session.commit()
+        out = _canonical_guard(session, CHAIN, SID, "complete", owner=STAKER)
         assert out["status"] == "completed" and out["idempotent"] is True
 
 
