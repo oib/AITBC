@@ -238,6 +238,50 @@ async def sweep_orphaned_task_escrows() -> None:
         await asyncio.sleep(max(_settings.task_payment_orphan_sweep_seconds, 5.0))
 
 
+def _terminal_sweep_once() -> dict[str, int]:
+    """One terminal-settle reconcile pass (#3026), run in a worker thread.
+
+    The chain probes are synchronous httpx — same off-loop rule as
+    ``_escrow_sweep_once`` (#1750).
+    """
+    from .config import settings as _settings
+    from .services.terminal_settle_sweeper import TerminalSettleSweeper
+
+    sweeper = TerminalSettleSweeper(
+        payment_escrow=state.payment_escrow,
+        escrow_rpc=state.escrow_rpc,
+        grace_seconds=_settings.task_payment_terminal_grace_seconds,
+        batch_size=_settings.task_payment_terminal_sweep_batch_size,
+        dry_run=_settings.task_payment_terminal_sweep_dry_run,
+    )
+    return sweeper.run_once()
+
+
+async def sweep_terminal_settles() -> None:
+    """Background task: demote terminal escrows whose settle tx never sealed (#3026).
+
+    Sleeps ``settings.task_payment_terminal_sweep_seconds`` between passes;
+    0 disables. Registered only when task-payment escrow is enabled.
+    """
+    from .config import settings as _settings
+
+    while True:
+        try:
+            counts = await asyncio.to_thread(_terminal_sweep_once)
+            if counts["candidates"]:
+                logger.info(
+                    "Terminal settle sweep: candidates=%s confirmed=%s demoted=%s failed=%s skipped=%s",
+                    counts["candidates"],
+                    counts["confirmed"],
+                    counts["demoted"],
+                    counts["failed"],
+                    counts["skipped"],
+                )
+        except _OPS_ERRORS as e:
+            logger.error("Error sweeping terminal escrows: %s", e)
+        await asyncio.sleep(max(_settings.task_payment_terminal_sweep_seconds, 5.0))
+
+
 async def sweep_stale_assignments() -> None:
     """Background task: fail load-balancer assignments that never reported (#1749).
 
@@ -349,6 +393,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # local row — the expire sweep only sees LOCKED entries.
         if settings.task_payment_orphan_sweep_enabled and settings.task_payment_orphan_sweep_seconds > 0:
             _task_registry.create_task(sweep_orphaned_task_escrows, name="orphaned_escrow_sweeper")
+        # #3026: RELEASED/REFUNDED rows are recorded at mempool admission — a
+        # settle tx evicted before sealing must be demoted back to LOCKED or
+        # the escrowed funds strand outside every worklist.
+        if settings.task_payment_terminal_sweep_enabled and settings.task_payment_terminal_sweep_seconds > 0:
+            _task_registry.create_task(sweep_terminal_settles, name="terminal_settle_sweeper")
     else:
         logger.info("Payment escrow disabled (task_payment_escrow_enabled=False)")
 

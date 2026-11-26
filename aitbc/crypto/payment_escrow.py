@@ -107,6 +107,17 @@ class EscrowStore(Protocol):
         """Optional point lookup by task id (terminal rows included)."""
         ...
 
+    def load_terminal(self, statuses: tuple[str, ...], *, limit: int = 500) -> list[EscrowEntry]:
+        """Optional listing of terminal entries by ``EscrowStatus`` name.
+
+        ``load_all`` deliberately rehydrates only active rows (#1515), so a
+        terminal entry written by a previous process is invisible to
+        ``get_all_escrows``. Implementations should exclude rows the caller
+        has already resolved (e.g. via a metadata marker) so resolved
+        history cannot crowd the batch.
+        """
+        ...
+
 
 class PaymentEscrow:
     """Manages payment escrows for task execution.
@@ -285,6 +296,10 @@ class PaymentEscrow:
                     entry.amount,
                 )
             entry.status = EscrowStatus.REFUNDED
+            # #3026: stamp the refund time — there is no ``refunded_at``
+            # column, and the terminal-settle sweep needs the settle
+            # timestamp to apply its grace horizon.
+            entry.metadata["refunded_at"] = time.time()
             self._persist(entry)
             logger.info("Refunded escrow %s (tx=%s)", escrow_id, entry.tx_hash_refund)
             return entry
@@ -470,9 +485,114 @@ class PaymentEscrow:
                 )
             current.status = EscrowStatus.REFUNDED
             current.metadata["orphan_refund"] = True
+            current.metadata["refunded_at"] = time.time()
             self._persist(current)
             logger.info("Refunded orphaned escrow %s (tx=%s)", current.escrow_id, current.tx_hash_refund)
             return current
+
+    def get_terminal_escrows(
+        self,
+        statuses: tuple[EscrowStatus, ...] = (EscrowStatus.RELEASED, EscrowStatus.REFUNDED),
+    ) -> list[EscrowEntry]:
+        """Return terminal entries in ``statuses`` — hot cache plus store-only rows.
+
+        ``load_all`` rehydrates only active rows (#1515), so a terminal
+        entry written by a previous process never reaches ``_escrows``.
+        Stores may implement the optional ``load_terminal`` hook; its rows
+        are merged in as detached copies — the hot-cache entry always wins.
+        Detached entries are read-only for callers: mutate them only through
+        :meth:`persist_terminal` or :meth:`demote_unsealed_settle`.
+        """
+        with self._lock:
+            merged = {e.escrow_id: e for e in self._escrows.values() if e.status in statuses}
+            load_terminal = getattr(self._store, "load_terminal", None) if self._store is not None else None
+            if load_terminal is not None:
+                try:
+                    for entry in load_terminal(tuple(s.name for s in statuses)):
+                        merged.setdefault(entry.escrow_id, entry)
+                except Exception as e:  # noqa: BLE001 - fail-safe: store read failure degrades to the hot view
+                    logger.error("Failed to load terminal escrows: %s", e)
+            return list(merged.values())
+
+    def persist_terminal(self, entry: EscrowEntry, *, strict: bool = False) -> None:
+        """Persist a (possibly detached) terminal entry WITHOUT pinning it in the hot cache.
+
+        The #1515 split keeps terminal rows out of ``_escrows``; a sweeper
+        stamping probe markers on a store-only row must not re-inflate the
+        cache with history. When the entry IS cached the cache slot is
+        refreshed so later reads agree — pass the freshest copy.
+        """
+        with self._lock:
+            if entry.escrow_id in self._escrows:
+                self._escrows[entry.escrow_id] = entry
+            self._persist(entry, strict=strict)
+
+    def demote_unsealed_settle(
+        self,
+        entry: EscrowEntry,
+        *,
+        expected_status: EscrowStatus,
+        reason: str,
+        evidence: dict[str, Any] | None = None,
+        tx_hash_lock: str | None = None,
+        contract_id: str | None = None,
+    ) -> bool:
+        """CAS-flip a terminal entry back to LOCKED when its settle tx never landed (#3026).
+
+        ``release()``/``refund()`` record RELEASED/REFUNDED at mempool
+        admission; a settle tx evicted before sealing (or apply-rejected —
+        the #2926 reconcile's case) leaves the row terminal while the
+        on-chain escrow stays locked, invisible to every worklist. The
+        caller must have proven the settle hash dead or absent on-chain;
+        this performs only the guarded transition: the stored entry must
+        still be in ``expected_status`` — a concurrent transition wins and
+        this returns ``False``.
+
+        On success the row is LOCKED again (active bookkeeping, so it
+        re-enters the hot cache and ``expire_stale``/settle paths re-drive
+        it), ``released_at`` is cleared for a RELEASED demote (mirroring
+        ``reconcile_rejected_release``), the dead ``tx_hash_*`` is kept for
+        audit, and the demote reason/evidence land in ``metadata``.
+        ``tx_hash_lock``/``contract_id`` optionally backfill the lock
+        identity from a chain point-read (same contract as
+        ``refund_orphaned``, #3006) for terminal rows that never recorded
+        one — only filled when empty.
+        """
+        with self._lock:
+            current = self._escrows.get(entry.escrow_id)
+            if current is None and self._store is not None:
+                load = getattr(self._store, "load", None)
+                if load is not None:
+                    try:
+                        current = load(entry.escrow_id)
+                    except Exception as e:  # noqa: BLE001 - fail-safe: unreadable store row reads as absent
+                        logger.error("Failed to load escrow %s for settle demote: %s", entry.escrow_id, e)
+                        current = None
+            if current is None or current.status != expected_status:
+                return False
+            if tx_hash_lock and not current.tx_hash_lock:
+                current.tx_hash_lock = str(tx_hash_lock)
+            if contract_id and not current.contract_id:
+                current.contract_id = str(contract_id)
+                current.metadata["contract_id"] = str(contract_id)
+            if current.status == EscrowStatus.RELEASED:
+                current.released_at = None
+            current.status = EscrowStatus.LOCKED
+            current.metadata["settle_demoted_reason"] = reason
+            current.metadata["settle_demote_evidence"] = dict(evidence or {})
+            current.metadata["settle_demoted_at"] = time.time()
+            self._persist(current)
+            # LOCKED is active bookkeeping — it belongs in the hot cache so
+            # the expire sweep and settle paths see it without a store read.
+            self._escrows[current.escrow_id] = current
+            logger.info(
+                "Demoted escrow %s (task %s) %s -> LOCKED: %s",
+                current.escrow_id,
+                current.task_id,
+                expected_status,
+                reason,
+            )
+            return True
 
     def _persist(self, entry: EscrowEntry, *, strict: bool = False) -> None:
         """Write ``entry`` through to the configured store (best effort).

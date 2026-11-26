@@ -170,6 +170,30 @@ class Settings(ServiceSettings):
         "on",
     )
 
+    # Terminal-settle reconciler (#3026): RELEASED/REFUNDED rows record the
+    # terminal status at mempool admission; a settle tx evicted before
+    # sealing leaves the row terminal while the on-chain escrow stays
+    # locked. The sweep probes the settle hash past a grace horizon and
+    # demotes proven-dead rows back to LOCKED for the normal settle paths.
+    task_payment_terminal_sweep_enabled: bool = os.getenv("TASK_PAYMENT_TERMINAL_SWEEP_ENABLED", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    # not-money: a duration in seconds; interval between terminal settle probe passes (0 disables)
+    task_payment_terminal_sweep_seconds: float = float(os.getenv("TASK_PAYMENT_TERMINAL_SWEEP_SECONDS", "300"))
+    # not-money: a duration in seconds; minimum settle age before the chain is probed (~chain demote horizon)
+    task_payment_terminal_grace_seconds: float = float(os.getenv("TASK_PAYMENT_TERMINAL_GRACE_SECONDS", "900"))
+    # not-money: max candidates per pass
+    task_payment_terminal_sweep_batch_size: int = int(os.getenv("TASK_PAYMENT_TERMINAL_SWEEP_BATCH_SIZE", "25"))
+    task_payment_terminal_sweep_dry_run: bool = os.getenv("TASK_PAYMENT_TERMINAL_SWEEP_DRY_RUN", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
     # Agent TTL (v0.6.5 — configurable, was hardcoded in agent_discovery.py)
     agent_heartbeat_timeout_seconds: int = 120
     agent_cleanup_interval_seconds: int = 60

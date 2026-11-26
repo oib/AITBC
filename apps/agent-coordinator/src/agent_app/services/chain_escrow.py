@@ -240,6 +240,31 @@ class ChainEscrowClient:
             return None
         return data if isinstance(data, dict) else None
 
+    def transaction_probe(self, tx_hash: str, chain_id: str | None = None) -> dict[str, Any] | None:
+        """Probe ``/rpc/transaction/{tx_hash}`` distinguishing proven-absent from unreadable (#3026).
+
+        Same endpoint as :meth:`transaction_status`, but a 404 is a *proven*
+        absence — the node checked both the sealed ``transaction`` table and
+        its mempool and has no record — returned as
+        ``{"status": "absent", "state": "absent"}``. ``None`` still means the
+        probe itself failed (transport error, non-200/404, non-JSON): unknown
+        is never absent, and callers must not act on it as death.
+        """
+        params = {"chain_id": chain_id} if chain_id else None
+        try:
+            response = self._client.get(f"/rpc/transaction/{tx_hash}", params=params, timeout=5.0)
+        except httpx.HTTPError:
+            return None
+        if response.status_code == 404:
+            return {"tx_hash": tx_hash, "status": "absent", "state": "absent"}
+        if response.status_code != 200:
+            return None
+        try:
+            data = response.json()
+        except ValueError:
+            return None
+        return data if isinstance(data, dict) else None
+
     def node_wallet(self) -> str | None:
         """Return the settlement node's wallet address (escrow custodian).
 

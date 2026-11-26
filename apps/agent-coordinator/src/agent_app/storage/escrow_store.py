@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 
+from sqlalchemy import or_
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.payment_escrow import EscrowEntry, EscrowStatus
 from aitbc.db import get_db_session, init_db
@@ -92,6 +94,32 @@ class TaskEscrowStore:
             entries = [self._to_entry(row) for row in rows]
             active = [e for e in entries if e.status in (EscrowStatus.PENDING, EscrowStatus.LOCKED)]
             return max(active or entries, key=lambda e: e.created_at)
+
+    def load_terminal(self, statuses: tuple[str, ...], *, limit: int = 500) -> list[EscrowEntry]:
+        """Terminal rows for the settle-seal sweep (#3026).
+
+        ``load_all`` rehydrates only active rows (#1515), so the
+        RELEASED/REFUNDED tail a previous process wrote is invisible to the
+        hot cache — exactly the rows whose settle tx may have been dropped
+        from the mempool. Rows already stamped ``settle_probe_confirmed_at``
+        are excluded in SQL: they are resolved forever and would otherwise
+        crowd every batch with history.
+        """
+        with get_db_session() as session:
+            rows = (
+                session.query(TaskEscrow)
+                .filter(TaskEscrow.status.in_(statuses))
+                .filter(
+                    or_(
+                        TaskEscrow.extra_metadata.is_(None),
+                        ~TaskEscrow.extra_metadata.like("%settle_probe_confirmed_at%"),
+                    )
+                )
+                .order_by(TaskEscrow.created_at.desc())
+                .limit(limit)
+                .all()
+            )
+            return [self._to_entry(row) for row in rows]
 
     @staticmethod
     def _to_entry(row: TaskEscrow) -> EscrowEntry:
