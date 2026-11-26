@@ -282,6 +282,9 @@ def protocol_transfer_confirmed(
     tx_type: str,
     payload_key: str,
     payload_value: Any,
+    *,
+    sender: str | None = None,
+    recipient: str | None = None,
 ) -> bool:
     """Return True once the identified lock transaction is in a block.
 
@@ -297,7 +300,30 @@ def protocol_transfer_confirmed(
     Matching is by payload key rather than a stored hash so that no column has
     to be added to tables the migration chain cannot rebuild.
     """
-    return bool(_confirmed_lock_candidates(session, chain_id, tx_type, payload_key, payload_value))
+    candidates = _confirmed_lock_candidates(session, chain_id, tx_type, payload_key, payload_value)
+    return bool(_scope_lock_txs(candidates, sender, recipient))
+
+
+def _scope_lock_txs(txs: list[Any], sender: str | None, recipient: str | None) -> list[Any]:
+    """Narrow confirmed lock candidates to envelope sender/recipient (#3025).
+
+    Payload ids like ``bounty_id``/``agent_stake_id`` are caller-chosen and
+    only unique per node, so a bare payload match also returns *foreign*
+    locks under a colliding id. ``sender``/``recipient`` compare canonically
+    on both sides — same convention as the #3000 stake scoping.
+    """
+    if sender is None and recipient is None:
+        return txs
+    want_sender = _to_ait_address(str(sender)) if sender is not None else None
+    want_recipient = _to_ait_address(str(recipient)) if recipient is not None else None
+    out = []
+    for tx in txs:
+        if want_sender is not None and _to_ait_address(str(tx.sender or "")) != want_sender:
+            continue
+        if want_recipient is not None and _to_ait_address(str(tx.recipient or "")) != want_recipient:
+            continue
+        out.append(tx)
+    return out
 
 
 def confirmed_lock_txs(
@@ -306,14 +332,21 @@ def confirmed_lock_txs(
     tx_type: str,
     payload_key: str,
     payload_value: Any,
+    *,
+    sender: str | None = None,
+    recipient: str | None = None,
 ) -> list[Any]:
     """Confirmed lock transactions tagged with ``payload_key == payload_value``.
 
     Returns the Transaction rows themselves so callers can name them in a
     release's ``lock_tx_hashes`` — the v4 consensus check resolves the release
     against these replicated records rather than node-local domain rows.
+
+    ``sender``/``recipient`` optionally scope the claim set to one envelope
+    party — required when the payload key is not globally unique (#3025).
     """
-    return _confirmed_lock_candidates(session, chain_id, tx_type, payload_key, payload_value)
+    candidates = _confirmed_lock_candidates(session, chain_id, tx_type, payload_key, payload_value)
+    return _scope_lock_txs(candidates, sender, recipient)
 
 
 def confirmed_lock_total(
@@ -322,6 +355,9 @@ def confirmed_lock_total(
     tx_type: str,
     payload_key: str,
     payload_value: Any,
+    *,
+    sender: str | None = None,
+    recipient: str | None = None,
 ) -> int:
     """Total value of the confirmed lock transfers tagged with this key.
 
@@ -329,7 +365,12 @@ def confirmed_lock_total(
     release: the escrow must actually hold the full principal being returned.
     Callers compare this against the record amount before queueing a release.
     """
-    return sum(int(tx.value or 0) for tx in confirmed_lock_txs(session, chain_id, tx_type, payload_key, payload_value))
+    return sum(
+        int(tx.value or 0)
+        for tx in confirmed_lock_txs(
+            session, chain_id, tx_type, payload_key, payload_value, sender=sender, recipient=recipient
+        )
+    )
 
 
 def tx_auth_signature(tx_data: dict[str, Any]) -> str | None:

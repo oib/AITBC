@@ -119,6 +119,7 @@ def _seed_lock_tx(
     height: int = 1,
     tx_type: str = "STAKE_LOCK",
     tx_hash: str | None = None,
+    recipient: str | None = None,
 ) -> None:
     with Session(engine) as session:
         session.add(
@@ -127,7 +128,9 @@ def _seed_lock_tx(
                 tx_hash=tx_hash or "0x" + keccak(json.dumps(payload, sort_keys=True).encode()).hex()[:64],
                 block_height=height,
                 sender=_to_ait_address(USER),
-                recipient=agent_staking.stake_escrow_address(),
+                # #3025: STAKE_RELEASE pays the staker, not the escrow —
+                # recipient-scoped status reads need the real envelope.
+                recipient=_to_ait_address(recipient or agent_staking.stake_escrow_address()),
                 value=value,
                 type=tx_type,
                 payload=payload,
@@ -253,6 +256,7 @@ async def test_complete_sealed_release_heals_row_without_duplicate(engine, armed
         payload={"agent_stake_id": SID},
         tx_type="STAKE_RELEASE",
         tx_hash="0x" + "ef" * 32,
+        recipient=USER,
     )
     queued = armed
     queued.clear()
@@ -279,6 +283,7 @@ async def test_complete_sealed_release_heals_even_before_lock_expiry(engine, arm
         payload={"agent_stake_id": SID},
         tx_type="STAKE_RELEASE",
         tx_hash="0x" + "12" * 32,
+        recipient=USER,
     )
     queued = armed
     queued.clear()

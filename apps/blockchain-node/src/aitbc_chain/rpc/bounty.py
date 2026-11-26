@@ -93,12 +93,21 @@ def _optional_deadline_height(payload: dict[str, Any]) -> int | None:
     return value
 
 
-def _bounty_flow_tx_pending(session: Any, chain_id: str, tx_type: str, bounty_id: str) -> bool:
+def _bounty_flow_tx_pending(
+    session: Any,
+    chain_id: str,
+    tx_type: str,
+    bounty_id: str,
+    tx_match: dict[str, Any] | None = None,
+) -> bool:
     """True when a mempool entry already carries this bounty flow transfer.
 
     Mirrors ``protocol_auth_identity_pending``: the pending copy is what a
     retry must see before re-queueing, so a queued-but-unsealed payout or
-    refund is not emitted twice.
+    refund is not emitted twice. ``tx_match`` narrows on top-level envelope
+    fields (``from``/``to``) for payload keys that are not globally unique
+    (#3025) — an envelope field the entry does not carry cannot disprove
+    ownership, so it still counts as pending (fail-safe toward "exists").
     """
     import json as _json
 
@@ -117,21 +126,41 @@ def _bounty_flow_tx_pending(session: Any, chain_id: str, tx_type: str, bounty_id
             continue
         if not isinstance(tx, dict) or tx.get("type") != tx_type:
             continue
+        if tx_match and any(tx.get(k) is not None and str(tx.get(k)) != str(v) for k, v in tx_match.items()):
+            continue
         if str((tx.get("payload") or {}).get("bounty_id", "")) == str(bounty_id):
             return True
     return False
 
 
-def _bounty_flow_tx_exists(session: Any, chain_id: str, tx_type: str, bounty_id: str) -> bool:
+def _bounty_flow_tx_exists(
+    session: Any,
+    chain_id: str,
+    tx_type: str,
+    bounty_id: str,
+    *,
+    sender: str | None = None,
+    recipient: str | None = None,
+) -> bool:
     """True when a BOUNTY_* transfer for this bounty is sealed or pending.
 
     ``confirmed_lock_txs`` matches any tx type by payload key, so it covers
     BOUNTY_PAYOUT/BOUNTY_REFUND/BOUNTY_LOCK alike; the pending half scans
     the mempool table the same way ``protocol_auth_identity_pending`` does.
+
+    ``bounty_id`` is caller-chosen and only unique per node (#3025), so
+    ``sender``/``recipient`` scope the claim to the envelope party that
+    identifies *this* bounty's flow: locks are sent by the creator, refunds
+    paid to the creator, payouts to the recorded winner.
     """
-    if confirmed_lock_txs(session, chain_id, tx_type, "bounty_id", bounty_id):
+    if confirmed_lock_txs(session, chain_id, tx_type, "bounty_id", bounty_id, sender=sender, recipient=recipient):
         return True
-    return _bounty_flow_tx_pending(session, chain_id, tx_type, bounty_id)
+    tx_match: dict[str, Any] = {}
+    if sender is not None:
+        tx_match["from"] = _to_ait_address(str(sender))
+    if recipient is not None:
+        tx_match["to"] = _to_ait_address(str(recipient))
+    return _bounty_flow_tx_pending(session, chain_id, tx_type, bounty_id, tx_match or None)
 
 
 def _heal_missing_outflow(
@@ -156,10 +185,14 @@ def _heal_missing_outflow(
         tx_type, recipient = "BOUNTY_REFUND", bounty.creator_address
     else:
         return None
-    if not recipient or _bounty_flow_tx_exists(session, chain_id, tx_type, bounty.bounty_id):
+    if not recipient or _bounty_flow_tx_exists(session, chain_id, tx_type, bounty.bounty_id, recipient=recipient):
         return None
-    # No payout/refund exists at all, so the whole confirmed lock is owed.
-    amount = confirmed_lock_total(session, chain_id, "BOUNTY_LOCK", "bounty_id", bounty.bounty_id)
+    # No payout/refund exists at all, so the whole confirmed lock *this
+    # creator* funded is owed — a foreign creator's colliding bounty_id
+    # must not inflate the heal amount (#3025).
+    amount = confirmed_lock_total(
+        session, chain_id, "BOUNTY_LOCK", "bounty_id", bounty.bounty_id, sender=bounty.creator_address
+    )
     if amount <= 0:
         _logger.warning(
             "Bounty %s is %s with no %s queued and no confirmed lock — cannot heal",
@@ -196,7 +229,7 @@ def _heal_missing_lock(
     The idempotent deploy branch calls this so the retry restores the
     escrow leg. Returns the tx hash when one was queued, else ``None``.
     """
-    if _bounty_flow_tx_exists(session, chain_id, "BOUNTY_LOCK", bounty.bounty_id):
+    if _bounty_flow_tx_exists(session, chain_id, "BOUNTY_LOCK", bounty.bounty_id, sender=bounty.creator_address):
         return None
     lock_payload: dict[str, Any] = {"bounty_id": str(bounty.bounty_id)}
     if bounty.deadline_height is not None:
@@ -255,7 +288,9 @@ def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> 
     the lock has been dropped because the creator spent the balance first.
     Paying then would come out of other creators' locked rewards.
     """
-    funded = confirmed_lock_total(session, chain_id, "BOUNTY_LOCK", "bounty_id", bounty.bounty_id)
+    funded = confirmed_lock_total(
+        session, chain_id, "BOUNTY_LOCK", "bounty_id", bounty.bounty_id, sender=bounty.creator_address
+    )
     if funded < bounty.reward_amount:
         raise HTTPException(
             status_code=409,

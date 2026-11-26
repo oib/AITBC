@@ -1221,6 +1221,19 @@ def _domain_lock_targets(tx_type: Any, payload: dict[str, Any]) -> list[tuple[ty
     return targets
 
 
+def _domain_row_owner(tablename: str, row: Any) -> str | None:
+    """Canonical owner address of a lock-funded domain row, or None.
+
+    #3000 scoped ``stake`` only; #3025 extends the same rule to the other
+    # per-node-id namespaces — ``agent_stake_id`` rows are owned by
+    # ``staker_address`` and ``bounty_id`` rows by ``creator_address``.
+    """
+    field = {"stake": "address", "agent_stake": "staker_address", "bounty_contract": "creator_address"}.get(tablename)
+    if field is None:
+        return None
+    return _to_ait_address(str(getattr(row, field, "") or ""))
+
+
 def _orphan_target(
     session: Any,
     chain_id: str,
@@ -1244,19 +1257,16 @@ def _orphan_target(
     if row is None or row.status == "orphaned":
         return False
 
-    owner: str | None = None
-    if getattr(model, "__tablename__", "") == "stake":
-        # #3000: payload ``stake_id`` is a per-node sqlite PK — the lost tx
-        # may be a *foreign* staker's lock under a colliding id, and a
-        # foreign confirmed lock must not stand in for this row's own.
-        # Orphan-mark only when the lost sender is this row's owner and no
-        # confirmed lock *from that owner* still backs it. An envelope
-        # without a sender cannot disprove ownership, so it keeps the old
-        # unscoped behaviour.
-        owner = _to_ait_address(str(getattr(row, "address", "") or ""))
-        lost_sender = _to_ait_address(str(tx.get("from") or tx.get("sender") or ""))
-        if owner and lost_sender and lost_sender != owner:
-            return False
+    owner = _domain_row_owner(model.__tablename__, row)
+    lost_sender = _to_ait_address(str(tx.get("from") or tx.get("sender") or ""))
+    if owner and lost_sender and lost_sender != owner:
+        # #3000/#3025: the payload id is only unique per node — the lost tx
+        # may be a *foreign* owner's lock under a colliding id, and a foreign
+        # confirmed lock must not stand in for this row's own. Orphan-mark
+        # only when the lost sender is this row's owner. An envelope without
+        # a sender cannot disprove ownership, so it keeps the old unscoped
+        # behaviour.
+        return False
     locks = confirmed_lock_txs(session, chain_id, str(tx_type), payload_key, value)
     if owner:
         locks = [t for t in locks if _to_ait_address(str(t.sender or "")) == owner]
@@ -1443,12 +1453,12 @@ def _revive_confirmed_domain_rows(session_factory: Any, chain_id: str) -> int:
                 for row in rows:
                     value = str(getattr(row, field))
                     locks = confirmed_lock_txs(session, chain_id, lock_type, payload_key, value)
-                    if model_name == "Stake":
-                        # #3000: ``stake_id`` is a per-node sqlite PK — a
-                        # foreign staker's confirmed lock under a colliding
-                        # id must not revive this row. Scope to locks the
-                        # row's owner actually sent.
-                        owner = _to_ait_address(str(getattr(row, "address", "") or ""))
+                    # #3000/#3025: payload ids are only unique per node — a
+                    # foreign owner's confirmed lock under a colliding id
+                    # must not revive this row. Scope to locks the row's
+                    # owner actually sent.
+                    owner = _domain_row_owner(model.__tablename__, row)
+                    if owner:
                         locks = [t for t in locks if _to_ait_address(str(t.sender or "")) == owner]
                     if locks:
                         row.status = "active"

@@ -44,11 +44,22 @@ def _account(session: Session, chain_id: str, address: str) -> Account:
     return account
 
 
-def _agent_lock_in_flight(session: Session, chain_id: str, stake_id: str) -> str | None:
-    """``"sealed"``/``"pending"``/``None`` for a STAKE_LOCK on this stake (#2628)."""
-    if confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id):
+def _agent_lock_in_flight(session: Session, chain_id: str, stake_id: str, owner: str) -> str | None:
+    """``"sealed"``/``"pending"``/``None`` for a STAKE_LOCK on this stake (#2628).
+
+    ``agent_stake_id`` is caller-chosen and only unique per node (#3025): a
+    foreign staker's lock under a colliding id must not count as this
+    stake's — scope both halves to locks ``owner`` actually sent.
+    """
+    if confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id, sender=owner):
         return "sealed"
-    if protocol_transfer_pending(session, chain_id, "STAKE_LOCK", {"agent_stake_id": str(stake_id)}):
+    if protocol_transfer_pending(
+        session,
+        chain_id,
+        "STAKE_LOCK",
+        {"agent_stake_id": str(stake_id)},
+        tx_match={"from": _to_ait_address(str(owner))},
+    ):
         return "pending"
     return None
 
@@ -59,22 +70,30 @@ def _get_stake(session: Session, chain_id: str, stake_id: str) -> AgentStakeReco
     ).first()
 
 
-def _canonical_status(session: Session, chain_id: str, stake_id: str) -> tuple[str | None, str]:
+def _canonical_status(session: Session, chain_id: str, stake_id: str, owner: str | None = None) -> tuple[str | None, str]:
     """Status derived from sealed history first, the local row second (#719).
 
     Sealed protocol transfers outrank the node-local ``agent_stake`` row —
     a stale row cannot mask a sealed STAKE_UNBOND/STAKE_RELEASE marker,
     and a host with no row at all answers from sealed txs instead of
     404-blind. Precedence: RELEASE > UNBOND > local row > LOCK.
+
+    ``agent_stake_id`` is only unique per node (#3025): when ``owner`` (the
+    staker address) is known, STAKE_LOCK claims scope by ``sender`` and
+    STAKE_RELEASE by ``recipient`` — a foreign staker's colliding markers
+    cannot fake this stake's status. STAKE_UNBOND is an escrow→escrow
+    self-marker carrying no owner field, so it stays unscoped (its only
+    effect is the unbonding transition, which unbond/complete still gate on
+    staker_address + maturity).
     """
-    if confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "agent_stake_id", stake_id):
+    if confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "agent_stake_id", stake_id, recipient=owner):
         return "completed", "chain"
     if confirmed_lock_txs(session, chain_id, "STAKE_UNBOND", "agent_stake_id", stake_id):
         return "unbonding", "chain"
     record = _get_stake(session, chain_id, stake_id)
     if record is not None:
         return record.status, "local"
-    if confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id):
+    if confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id, sender=owner):
         return "active", "chain"
     return None, "none"
 
@@ -89,6 +108,9 @@ def _resync_stake_to_unbonding(session: Session, chain_id: str, record: AgentSta
     committed immediately so the repair survives a later refusal in the same
     request.
     """
+    # STAKE_UNBOND is an escrow→escrow self-marker with no owner field on
+    # the envelope or payload — a foreign staker's colliding marker cannot
+    # be scoped out here (#3025 residual; see _canonical_status docstring).
     unbond_txs = confirmed_lock_txs(session, chain_id, "STAKE_UNBOND", "agent_stake_id", record.stake_id)
     unbonding_at = min((tx.created_at for tx in unbond_txs if tx.created_at is not None), default=None)
     now = datetime.now(UTC)
@@ -131,15 +153,18 @@ def _heal_row_to_canonical(session: Session, chain_id: str, record: AgentStakeRe
         _resync_stake_to_completed(session, chain_id, record)
 
 
-def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any] | None:
+def _canonical_guard(
+    session: Session, chain_id: str, stake_id: str, action: str, owner: str | None = None
+) -> dict[str, Any] | None:
     """#748: a stale local row must not mutate under a newer sealed status.
 
     Called on the existing-row path: when sealed markers say the stake
     already transitioned, answer idempotent (the request effectively
     landed) or refuse 409 — never let a stale row emit a doomed marker.
     Returns None to proceed when the local row agrees with history.
+    ``owner`` scopes the sealed-marker reads to this staker (#3025).
     """
-    status, source = _canonical_status(session, chain_id, stake_id)
+    status, source = _canonical_status(session, chain_id, stake_id, owner=owner)
     if source != "chain":
         return None
     expected = {"unbond": "unbonding", "complete": "completed"}.get(action)
@@ -183,12 +208,14 @@ def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str
     return None
 
 
-def _no_local_record(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any]:
+def _no_local_record(session: Session, chain_id: str, stake_id: str, action: str, owner: str | None = None) -> dict[str, Any]:
     """Missing-record answer for unbond/complete (#719): answer from sealed
     history instead of 404-blind. Idempotent when the sealed status already
     matches or passes the requested transition; 409 when the transition can
-    only run on the host that served the lock."""
-    status, source = _canonical_status(session, chain_id, stake_id)
+    only run on the host that served the lock. ``owner`` scopes the sealed
+    reads to the requesting staker so a foreign colliding stake's markers
+    cannot answer for it (#3025)."""
+    status, source = _canonical_status(session, chain_id, stake_id, owner=owner)
     if status is None:
         raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
     idempotent_for = {"unbond": {"unbonding", "completed"}, "complete": {"completed"}}[action]
@@ -269,7 +296,7 @@ def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]
                 "status": existing.status,
                 "locked_until": existing.locked_until.isoformat(),
             }
-        lock_state = _agent_lock_in_flight(session, chain_id, str(stake_id))
+        lock_state = _agent_lock_in_flight(session, chain_id, str(stake_id), staker)
         if lock_state is not None:
             # #2628: a lock already queued or sealed for this stake_id means
             # a previous attempt died after queueing — rebuild the row
@@ -368,7 +395,7 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
             raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
-        guarded = _canonical_guard(session, chain_id, stake_id, "add")
+        guarded = _canonical_guard(session, chain_id, stake_id, "add", owner=record.staker_address)
         if guarded is not None:
             return guarded
         early = _check_topup_request_id(session, chain_id, record, stake_id, request_id, additional)
@@ -527,7 +554,10 @@ def _reconcile_agent_topup(
     between queue and commit — apply it now, no second queue), or sits
     among other unresolved top-ups (409 — never guess).
     """
-    lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id)
+    # #3025: agent_stake_id is only unique per node — count and match only
+    # locks this stake's staker actually sent; a foreign staker's top-up
+    # lock under a colliding id must not reconcile this record.
+    lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id, sender=record.staker_address)
     accounted = sum(int(tx.value or 0) for tx in lock_txs)
 
     def _topup_lock_matches(tx: Any) -> bool:
@@ -550,7 +580,13 @@ def _reconcile_agent_topup(
         "additional_amount": additional,
         "request_id": request_id or "",
     }
-    match_pending = protocol_transfer_pending(session, chain_id, "STAKE_LOCK", match)
+    match_pending = protocol_transfer_pending(
+        session,
+        chain_id,
+        "STAKE_LOCK",
+        match,
+        tx_match={"from": _to_ait_address(str(record.staker_address))},
+    )
     if match_pending:
         applied_state = accounted + additional
     elif match_sealed:
@@ -598,6 +634,9 @@ def _queue_unbond_marker_and_flip(
     attempt died after queueing — flip the row without emitting a second
     marker. Returns ``(tx_hash, marker_pending)``.
     """
+    # Same unscoped-UNBOND residual as _resync_stake_to_unbonding: the
+    # marker's envelope is escrow→escrow, so a foreign pending marker under
+    # a colliding agent_stake_id still counts (#3025).
     marker_pending = protocol_transfer_pending(session, chain_id, "STAKE_UNBOND", {"agent_stake_id": str(stake_id)})
     tx_hash = None
     if not marker_pending:
@@ -635,10 +674,10 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         if not record:
             # Not 404-blind (#719): sealed history may know this stake even
             # though the local record lives on another host.
-            return _no_local_record(session, chain_id, stake_id, "unbond")
+            return _no_local_record(session, chain_id, stake_id, "unbond", owner=user)
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
-        guarded = _canonical_guard(session, chain_id, stake_id, "unbond")
+        guarded = _canonical_guard(session, chain_id, stake_id, "unbond", owner=record.staker_address)
         if guarded is not None:
             return guarded
         if record.status == "unbonding":
@@ -698,7 +737,7 @@ def _complete_stake_prechecks(
     """
     if record.staker_address != user:
         raise HTTPException(status_code=403, detail="user_address does not match the locked account")
-    guarded = _canonical_guard(session, chain_id, stake_id, "complete")
+    guarded = _canonical_guard(session, chain_id, stake_id, "complete", owner=record.staker_address)
     if guarded is not None:
         return guarded, []
     if record.status == "completed":
@@ -712,8 +751,13 @@ def _complete_stake_prechecks(
     if now < locked_until:
         raise HTTPException(status_code=400, detail="Lock period not expired")
     # The escrow is shared across all stakers, so the full principal must
-    # be provably in it before any of it is released back.
-    lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id)
+    # be provably in it before any of it is released back. #3025:
+    # agent_stake_id collides across nodes — claim only locks this staker
+    # sent, or a foreign lock lands in lock_tx_hashes and consensus rejects
+    # the release (every claimed lock's sender must be the payee).
+    lock_txs = confirmed_lock_txs(
+        session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id, sender=record.staker_address
+    )
     funded = sum(int(tx.value or 0) for tx in lock_txs)
     if funded < record.amount:
         raise HTTPException(
@@ -767,7 +811,7 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
             raise_for_unarmed("Agent staking (complete)")
         record = _get_stake(session, chain_id, stake_id)
         if not record:
-            return _no_local_record(session, chain_id, stake_id, "complete")
+            return _no_local_record(session, chain_id, stake_id, "complete", owner=user)
         early, lock_txs = _complete_stake_prechecks(session, chain_id, record, user, stake_id)
         if early is not None:
             return early
@@ -782,7 +826,13 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
                 "resolved": {"to": user, "amount": amount},
             }
         require_signed_transfer_values(payload, to=user, amount=amount)
-        if protocol_transfer_pending(session, chain_id, "STAKE_RELEASE", {"agent_stake_id": str(stake_id)}):
+        if protocol_transfer_pending(
+            session,
+            chain_id,
+            "STAKE_RELEASE",
+            {"agent_stake_id": str(stake_id)},
+            tx_match={"to": user},
+        ):
             # #2628: a previous attempt queued the release but died before
             # the row flipped — the payout is already on its way, so answer
             # success without queueing a duplicate. The row stays
