@@ -20,7 +20,25 @@ The following parts of the repository remain licensed under the MIT License:
   is public, and permissive licensing preserves composability for contracts
   and integrations.
 - `docs/` — documentation, unless a document states otherwise.
-- `website/` — public website assets, unless a file states otherwise.
+- `website/` — public website assets, unless a file states otherwise. The
+  brand assets in the Trademark section below are excluded from this
+  carve-out.
+
+## Trademarks — brand assets are not licensed
+
+The AITBC name, the AITBC logo (including `website/AITBC.svg` and any files
+derived from it), and other brand assets are trademarks of the rights holder.
+They are **not** covered by the AGPLv3 license, the MIT carve-outs above, or
+any commercial code license. Copyright in the logo artwork is reserved to the
+rights holder; no permission is granted to copy, modify, or redistribute the
+logo itself.
+
+You may use the AITBC name to refer to unmodified AITBC software and to state
+compatibility truthfully (nominative use). You may not use the AITBC name or
+logo as part of your own product name or branding, to imply endorsement or
+certification by the rights holder, or in any way that suggests your product
+or service is AITBC. Obtaining a commercial license for the product core does
+not grant any right to use the AITBC trademarks.
 
 ### MIT License text for carve-outs
 
