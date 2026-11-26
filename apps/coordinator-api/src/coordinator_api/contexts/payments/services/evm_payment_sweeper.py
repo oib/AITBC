@@ -23,7 +23,6 @@ import asyncio
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import HTTPException
@@ -31,14 +30,12 @@ from sqlmodel import Session, col, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.market.energy_pricing import EnergyPricingError, EnergyQuote
 from aitbc_shared import JobPayment
 
-from ....schemas import JobPaymentCreate
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
 from .payments import PaymentService
-from .payments_helpers import _OPS_ERRORS
+from .payments_helpers import _OPS_ERRORS, _evm_tx_hash, _rebuild_evm_quote, _rebuild_payment_data
 
 logger = get_logger(__name__)
 
@@ -65,49 +62,6 @@ def _to_utc(dt: datetime | None) -> datetime | None:
     return dt.astimezone(UTC)
 
 
-def _evm_tx_hash(payment: JobPayment) -> str | None:
-    """The buyer-submitted EVM tx hash recorded at creation, if any."""
-    meta = payment.meta_data or {}
-    raw = meta.get("evm_tx_hash")
-    return str(raw) if raw else None
-
-
-def _rebuild_payment_data(payment: JobPayment, job: Job) -> JobPaymentCreate | None:
-    """Reconstruct the create-time request fields receipt verification reads.
-
-    ``_verify_evm_receipt`` only consults ``evm_tx_hash`` and
-    ``evm_agreement_id``; ``evm_escrow_id`` rides along for parity with the
-    recorded metadata. Returns None when the stored amount cannot satisfy
-    the request schema (defensive — creation already validated it).
-    """
-    meta = payment.meta_data or {}
-    try:
-        return JobPaymentCreate(
-            job_id=payment.job_id or job.id,
-            amount=Decimal(str(payment.amount)),
-            currency=payment.currency or "AITBC",
-            payment_method=payment.payment_method or "evm",
-            evm_tx_hash=_evm_tx_hash(payment),
-            evm_agreement_id=meta.get("evm_agreement_id"),
-            evm_escrow_id=meta.get("evm_escrow_id"),
-        )
-    except (ValueError, InvalidOperation, TypeError) as e:
-        logger.warning("Cannot rebuild payment data for EVM payment %s: %s", payment.id, e)
-        return None
-
-
-def _rebuild_quote(job: Job) -> EnergyQuote | None:
-    """Reconstruct the signed energy quote from the job's stored snapshot."""
-    snapshot = job.energy_quote_snapshot
-    if not snapshot:
-        return None
-    try:
-        return EnergyQuote.from_dict(snapshot)
-    except (TypeError, ValueError, EnergyPricingError, KeyError) as e:
-        logger.warning("Cannot rebuild energy quote for job %s: %s", job.id, e)
-        return None
-
-
 class EvmPaymentVerifySweeper:
     """Re-drive receipt verification for pending EVM protected payments."""
 
@@ -131,10 +85,17 @@ class EvmPaymentVerifySweeper:
         self._session_factory = session_factory or (lambda: Session(get_engine()))
 
     def _find_candidates(self, session: Any) -> list[tuple[Job, JobPayment]]:
-        """Pending EVM payments old enough to re-check, with their job row."""
+        """Pending EVM payments old enough to re-check, with their job row.
+
+        #3014: the join on ``Job.payment_id`` hid the interrupted-attach
+        row — the pending payment commits before ``job.payment_id`` is
+        written, so a crash in between leaves a funded-but-unlinked row no
+        sweep could see. The payment's own ``job_id`` is the binding;
+        ``job.payment_id`` arbitration still applies (a job already linked
+        to a *different* payment is not this row's to recover).
+        """
         stmt = (
-            select(JobPayment, Job)
-            .join(Job, col(Job.payment_id) == JobPayment.id)
+            select(JobPayment)
             .where(col(JobPayment.status) == "pending")
             .where(col(JobPayment.payment_method) == "evm")
             .where(col(JobPayment.escrowed_at).is_(None))
@@ -143,12 +104,17 @@ class EvmPaymentVerifySweeper:
         out: list[tuple[Job, JobPayment]] = []
         offset = 0
         while True:
-            page = list(session.execute(stmt.order_by(JobPayment.id).offset(offset).limit(self.batch_size)).all())
-            for payment, job in page:
+            page = list(session.execute(stmt.order_by(JobPayment.id).offset(offset).limit(self.batch_size)).scalars().all())
+            for payment in page:
                 if _evm_tx_hash(payment) is None:
                     continue
                 created = _to_utc(payment.created_at)
                 if created is not None and created >= cutoff:
+                    continue
+                job = session.get(Job, payment.job_id) if payment.job_id else None
+                if job is None:
+                    continue
+                if job.payment_id is not None and job.payment_id != payment.id:
                     continue
                 out.append((job, payment))
             if len(page) < self.batch_size:
@@ -175,7 +141,7 @@ class EvmPaymentVerifySweeper:
 
     async def _reverify(self, session: Any, job: Job, payment: JobPayment) -> str:
         """Re-run receipt verification for one payment; return the counts key."""
-        quote = _rebuild_quote(job)
+        quote = _rebuild_evm_quote(payment, job)
         payment_data = _rebuild_payment_data(payment, job)
         if quote is None or payment_data is None:
             counts_key = "skipped"
@@ -198,12 +164,22 @@ class EvmPaymentVerifySweeper:
         return counts_key
 
     def _sync_job(self, session: Any, job: Job, payment: JobPayment) -> None:
-        """Persist the payment outcome and keep job.payment_status in step."""
+        """Persist the payment outcome and keep job.payment_status in step.
+
+        #3014: also *attach* — the interrupted row never got
+        ``job.payment_id``; without it the dispatch gate and every
+        job-scoped lookup stay blind even after the payment confirms.
+        A job already bound to a *different* payment keeps its binding —
+        a late verify does not override single-payment arbitration.
+        """
         now = datetime.now(UTC)
         payment.updated_at = now
         session.add(payment)
-        if job.payment_status != payment.status:
-            job.payment_status = payment.status
+        session.refresh(job)
+        if job.payment_id in (None, payment.id):
+            job.payment_id = payment.id
+            if job.payment_status != payment.status:
+                job.payment_status = payment.status
             session.add(job)
         session.commit()
 

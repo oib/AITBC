@@ -34,6 +34,7 @@ from .payments_helpers import (
 )
 
 from .payments_core import _payment_order_key
+from .payments_helpers import _evm_tx_hash, _rebuild_evm_quote, _rebuild_payment_data
 from .payments_escrow import PaymentEscrowMixin
 
 logger = get_logger(__name__)
@@ -273,7 +274,7 @@ class PaymentFundingMixin(PaymentEscrowMixin):
                 existing.id,
                 existing.status,
             )
-            return existing
+            return await self._resume_pending_evm_payment(job, existing, payment_data)
         # #2371: the signed lock binds this payment to a market job — it must
         # be the market job the coordinator job itself declared, or the alias
         # claim would authorize a token this job never asked for.
@@ -295,6 +296,13 @@ class PaymentFundingMixin(PaymentEscrowMixin):
                 expires_at=datetime.now(UTC) + timedelta(seconds=payment_data.escrow_timeout_seconds),
                 meta_data=meta if meta else None,
             )
+            # #3014: stage the EVM receipt binding *before* the pending-row
+            # commit. The commit below is the crash boundary — a row that
+            # commits without evm_tx_hash/quote binding is an orphan no
+            # sweep or retry can resume (the buyer already funded the
+            # on-chain agreement).
+            if payment_data.payment_method == "evm" and quote is not None:
+                self._stage_evm_payment_binding(payment, payment_data, quote)
             self.session.add(payment)
             # #2401: commit the pending row before the escrow network
             # window. _route_escrow holds the sqlite write lock across
@@ -330,6 +338,124 @@ class PaymentFundingMixin(PaymentEscrowMixin):
             logger.error("Failed to create payment: %s", e)
             raise
 
+    def _evm_resume_target(
+        self,
+        job: Job,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+    ) -> tuple[EnergyQuote, JobPaymentCreate] | None:
+        """Pick the quote + request fields a pending EVM row resumes with.
+
+        #3014: rows committed before pre-commit staging lack the ``evm_*``
+        meta — the buyer's retry resubmits the SAME receipt hash (no new
+        spend), which is adopted once so the row becomes
+        self-describing. A hash already stored on the row always wins:
+        single-payment arbitration binds the original receipt, and a
+        retry carrying a different ``evm_tx_hash`` does not rebind it.
+        Returns None for non-EVM, non-pending, or hashless rows with no
+        incoming hash — arbitration is untouched.
+        """
+        if payment.status != "pending" or payment.payment_method != "evm":
+            return None
+        quote = _rebuild_evm_quote(payment, job)
+        if quote is None:
+            return None
+        stored_data = _rebuild_payment_data(payment, job)
+        incoming_evm = payment_data.payment_method == "evm" and bool(payment_data.evm_tx_hash)
+        if stored_data is not None and stored_data.evm_tx_hash is None and incoming_evm:
+            effective = payment_data
+        elif stored_data is not None:
+            effective = stored_data
+        else:
+            return None
+        if effective.evm_tx_hash is None:
+            return None
+        return quote, effective
+
+    def _apply_resumed_evm_outcome(self, job: Job, payment: JobPayment, payment_data: JobPaymentCreate) -> None:
+        """Persist the resumed verification outcome onto the job row."""
+        if payment.status == "confirmed":
+            self._sync_job_payment(job, payment, payment_data)
+        elif payment.status == "failed":
+            job.payment_status = "failed"
+        if payment.status != "pending":
+            self.session.add(job)
+
+    async def _resume_pending_evm_payment(
+        self,
+        job: Job,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+    ) -> JobPayment:
+        """#3014: resume verification for a pending EVM row found by arbitration.
+
+        The interrupted-attach shape: the pending payment committed but
+        ``job.payment_id`` / ``energy_quote_snapshot`` were never written.
+        Re-verify the receipt and, on confirm, finish the job attach the
+        first attempt missed. See ``_evm_resume_target`` for which receipt
+        binds.
+        """
+        target = self._evm_resume_target(job, payment, payment_data)
+        if target is None:
+            return payment
+        quote, effective = target
+        if _evm_tx_hash(payment) is None:
+            self._stage_evm_payment_binding(payment, effective, quote)
+        verify_exc: HTTPException | None = None
+        try:
+            await run_in_threadpool(self._verify_evm_receipt, payment, effective, quote)
+        except HTTPException as exc:
+            # _fail_evm_payment already set status='failed' before raising.
+            verify_exc = exc
+        except _OPS_ERRORS as e:
+            logger.warning("EVM payment resume re-verify raised for %s: %s", payment.id, e)
+            return payment
+        self._apply_resumed_evm_outcome(job, payment, effective)
+        await run_in_threadpool(self.session.commit)
+        await run_in_threadpool(self.session.refresh, payment)
+        if verify_exc is not None:
+            raise verify_exc
+        return payment
+
+    def _stage_evm_payment_binding(
+        self,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+        quote: EnergyQuote,
+    ) -> None:
+        """Validate the EVM binding inputs and record them on the payment.
+
+        #3014: runs before the pending-row commit so the committed row is
+        self-describing — receipt hash, chain, contract and agreement ids
+        must not depend on surviving the later ``_route_escrow`` window.
+        """
+        if not payment_data.evm_tx_hash:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="EVM protected payment requires evm_tx_hash",
+            )
+        if quote.settlement_route != SettlementRoute.EVM:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Energy quote settlement route is not evm",
+            )
+        # The agreement/escrow ids are optional but, when supplied, are
+        # recorded for later release/refund coordination. Copy the dict —
+        # meta_data is a plain JSON column, so in-place mutation of the
+        # loaded dict is not tracked and the re-assignment below must be a
+        # new object to reach the UPDATE.
+        meta = dict(payment.meta_data or {})
+        meta["evm_tx_hash"] = payment_data.evm_tx_hash
+        meta["evm_chain_id"] = quote.evm_chain_id
+        meta["evm_contract"] = quote.evm_contract
+        if payment_data.evm_agreement_id is not None:
+            meta["evm_agreement_id"] = payment_data.evm_agreement_id
+        if payment_data.evm_escrow_id is not None:
+            meta["evm_escrow_id"] = payment_data.evm_escrow_id
+        meta["energy_settlement_route"] = quote.settlement_route.value
+        meta["energy_is_protected"] = True
+        payment.meta_data = meta
+
     async def _verify_evm_protected_payment(
         self,
         payment: JobPayment,
@@ -349,30 +475,7 @@ class PaymentFundingMixin(PaymentEscrowMixin):
         until the receipt confirms success, at which point it is marked
         ``confirmed``.
         """
-        if not payment_data.evm_tx_hash:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="EVM protected payment requires evm_tx_hash",
-            )
-        if quote.settlement_route != SettlementRoute.EVM:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Energy quote settlement route is not evm",
-            )
-        # The agreement/escrow ids are optional but, when supplied, are
-        # recorded for later release/refund coordination.
-        meta = payment.meta_data or {}
-        meta["evm_tx_hash"] = payment_data.evm_tx_hash
-        meta["evm_chain_id"] = quote.evm_chain_id
-        meta["evm_contract"] = quote.evm_contract
-        if payment_data.evm_agreement_id is not None:
-            meta["evm_agreement_id"] = payment_data.evm_agreement_id
-        if payment_data.evm_escrow_id is not None:
-            meta["evm_escrow_id"] = payment_data.evm_escrow_id
-        meta["energy_settlement_route"] = quote.settlement_route.value
-        meta["energy_is_protected"] = True
-        payment.meta_data = meta
-
+        self._stage_evm_payment_binding(payment, payment_data, quote)
         await run_in_threadpool(self._verify_evm_receipt, payment, payment_data, quote)
 
     def _verify_evm_receipt(

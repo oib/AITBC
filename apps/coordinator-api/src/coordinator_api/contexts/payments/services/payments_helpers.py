@@ -6,7 +6,7 @@ import httpx
 
 from aitbc_shared import JobPayment
 from datetime import UTC, datetime
-from decimal import InvalidOperation
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -390,3 +390,65 @@ def _bind_evm_agreement_or_fail(
             payment,
             (f"EVM receipt agreementId {observed_agreement} does not match claimed evm_agreement_id {claimed_agreement}"),
         )
+
+
+def _evm_tx_hash(payment: JobPayment) -> str | None:
+    """The buyer-submitted EVM tx hash recorded at creation, if any."""
+    meta = payment.meta_data or {}
+    raw = meta.get("evm_tx_hash")
+    return str(raw) if raw else None
+
+
+def _rebuild_payment_data(payment: JobPayment, job: Job) -> JobPaymentCreate | None:
+    """Reconstruct the create-time request fields receipt verification reads.
+
+    ``_verify_evm_receipt`` only consults ``evm_tx_hash`` and
+    ``evm_agreement_id``; ``evm_escrow_id`` rides along for parity with the
+    recorded metadata. ``energy_quote``/``protected`` are carried so a
+    resumed attach can restore the job's protected binding via
+    ``_sync_job_payment``. Returns None when the stored amount cannot
+    satisfy the request schema (defensive — creation already validated it).
+    """
+    meta = payment.meta_data or {}
+    try:
+        return JobPaymentCreate(
+            job_id=payment.job_id or job.id,
+            amount=Decimal(str(payment.amount)),
+            currency=payment.currency or "AITBC",
+            payment_method=payment.payment_method or "evm",
+            protected=bool(meta.get("energy_is_protected")),
+            energy_quote=meta.get("energy_quote"),
+            evm_tx_hash=_evm_tx_hash(payment),
+            evm_agreement_id=meta.get("evm_agreement_id"),
+            evm_escrow_id=meta.get("evm_escrow_id"),
+        )
+    except (ValueError, InvalidOperation, TypeError) as e:
+        logger.warning("Cannot rebuild payment data for EVM payment %s: %s", payment.id, e)
+        return None
+
+
+def _rebuild_evm_quote(payment: JobPayment, job: Job) -> EnergyQuote | None:
+    """Reconstruct the signed energy quote for receipt re-verification.
+
+    #3014: prefer ``payment.meta_data['energy_quote']`` — it is committed
+    with the pending row *before* the job attach, so it survives the exact
+    interruption this recovery covers (``job.energy_quote_snapshot`` and
+    ``job.payment_id`` are only written in the later commit). Fall back to
+    the job's denormalized snapshot for rows created before the meta field
+    was relied on.
+    """
+    meta = payment.meta_data or {}
+    raw = meta.get("energy_quote")
+    if isinstance(raw, dict) and raw:
+        try:
+            return EnergyQuote.from_dict(raw)
+        except (TypeError, ValueError, EnergyPricingError, KeyError) as e:
+            logger.warning("Cannot rebuild energy quote from payment %s meta: %s", payment.id, e)
+    snapshot = job.energy_quote_snapshot if job is not None else None
+    if not snapshot:
+        return None
+    try:
+        return EnergyQuote.from_dict(snapshot)
+    except (TypeError, ValueError, EnergyPricingError, KeyError) as e:
+        logger.warning("Cannot rebuild energy quote for job %s: %s", job.id if job is not None else "?", e)
+        return None
