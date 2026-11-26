@@ -19,10 +19,16 @@
 #   7. Restart all aitbc services
 #   8. Run health check
 #   9. Print summary + manual follow-up reminders
+#  10. Fast-forward the aitbc-ops companion checkout when present
+#      (best-effort: every failure warns and continues — the product update
+#      is never held hostage by ops-repo state)
 #
 # Usage:
 #   sudo /opt/aitbc/scripts/deployment/update.sh
-#   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull     # skip git pull
+#   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull     # skip product git pull
+#                                                            # (the aitbc-ops checkout is
+#                                                            #  still refreshed — it is a
+#                                                            #  different repo)
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-restart  # skip service restart
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-migrate  # skip DB migrations
 #   sudo /opt/aitbc/scripts/deployment/update.sh --skip-backup # skip pre-update backup
@@ -183,7 +189,7 @@ parse_args() {
                 fi
                 ;;
             -h|--help)
-                sed -n '3,25p' "$0"
+                sed -n '3,31p' "$0"
                 exit 0
                 ;;
             *)
@@ -1130,6 +1136,66 @@ verify_proposer() {
 }
 
 # ----------------------------------------------------------------------------
+# Step 7b: Fast-forward the aitbc-ops companion checkout
+#
+# The ops checkout ($AITBC_OPS_ROOT, default /opt/aitbc-ops) is a separate
+# private repo created by the repo split. update.sh already *invokes* helpers
+# from it (render-website.sh, deploy-rules.sh) but until now never refreshed
+# it, so fleet ops checkouts silently drifted behind origin/main and the next
+# fleet-corpus change would never deploy. Ops units are symlinks into the
+# checkout, so new content goes live on the next timer run — no
+# daemon-reload or service restart is needed here.
+#
+# This step is strictly best-effort: dev hosts have no checkout (clean skip),
+# and ANY git failure — fetch error, dirty tree refusing ff, missing upstream,
+# diverged history — warns and continues. The product update must never be
+# held hostage by ops-repo state. It runs even under --no-pull: that flag
+# skips the product pull only, and this is a different repo.
+# ----------------------------------------------------------------------------
+update_ops_checkout() {
+    if ! git -C "$AITBC_OPS_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        log "No git checkout at $AITBC_OPS_ROOT — skipping aitbc-ops refresh"
+        return 0
+    fi
+
+    log "Step 7b: Refreshing aitbc-ops checkout at $AITBC_OPS_ROOT..."
+
+    # Resolve the upstream first so the fetch targets the right remote; fleet
+    # clones track origin/main, and @{u} covers a differently-configured one.
+    local upstream
+    upstream=$(git -C "$AITBC_OPS_ROOT" rev-parse --abbrev-ref '@{u}' 2>/dev/null || true)
+    [ -n "$upstream" ] || upstream="origin/main"
+    local ops_remote="origin"
+    case "$upstream" in
+        */*) ops_remote="${upstream%%/*}" ;;
+    esac
+
+    if ! git -C "$AITBC_OPS_ROOT" fetch "$ops_remote" >/dev/null 2>&1; then
+        warning "git fetch $ops_remote failed in $AITBC_OPS_ROOT — ops checkout left unchanged"
+        return 0
+    fi
+
+    local behind
+    behind=$(git -C "$AITBC_OPS_ROOT" rev-list --count "HEAD..$upstream" 2>/dev/null || true)
+    case "$behind" in
+        ''|*[!0-9]*)
+            warning "could not compare HEAD with $upstream in $AITBC_OPS_ROOT — ops checkout left unchanged"
+            return 0
+            ;;
+    esac
+    if [ "$behind" -eq 0 ]; then
+        log "aitbc-ops checkout already up to date ($upstream)"
+        return 0
+    fi
+
+    if git -C "$AITBC_OPS_ROOT" merge --ff-only "$upstream" >/dev/null 2>&1; then
+        success "aitbc-ops checkout fast-forwarded $behind commit(s) to $upstream"
+    else
+        warning "git merge --ff-only $upstream failed in $AITBC_OPS_ROOT (dirty tree or diverged history) — resolve manually"
+    fi
+}
+
+# ----------------------------------------------------------------------------
 # Step 8: Summary + manual follow-up reminders
 # ----------------------------------------------------------------------------
 print_summary() {
@@ -1214,6 +1280,9 @@ main() {
     if [ "$DO_PULL" = "true" ]; then
         do_git_pull || exit 1
         if [ "${NO_CHANGES:-false}" = "true" ] && [ "$DO_RESTART" = "false" ] && [ "$DO_MIGRATE" = "false" ]; then
+            # The ops checkout is a different repo — refresh it even on the
+            # product no-op fast path (best-effort, never fatal).
+            update_ops_checkout
             success "No changes, --no-restart and --no-migrate set — nothing to do"
             exit 0
         fi
@@ -1253,6 +1322,10 @@ main() {
     else
         log "Skipping service restart and health check (--no-restart)"
     fi
+
+    # Ops-checkout refresh runs last: it is best-effort and independent of the
+    # product update outcome ordering above (and of --no-pull — different repo).
+    update_ops_checkout
 
     print_summary
     success "Update finished"
