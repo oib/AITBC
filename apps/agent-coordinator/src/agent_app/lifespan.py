@@ -310,6 +310,17 @@ async def _start_workflow_orchestrator(redis_url: str) -> None:
     await state.workflow_orchestrator.start()
 
 
+def _wire_distributor_escrow_tombstones() -> None:
+    """#3027: escrow init runs after the distributor is built — wire it now so
+    each created assignment tombstones the task's escrow rows. The orphan
+    sweeper's distributed-check must survive the balancer evicting the
+    assignment record; without this the tombstone only lands on the
+    sweeper's first observation, leaving an eviction-before-probe gap.
+    """
+    if state.task_distributor is not None:
+        state.task_distributor.payment_escrow = state.payment_escrow
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting AITBC Agent Coordinator...")
@@ -401,13 +412,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         logger.info("Payment escrow disabled (task_payment_escrow_enabled=False)")
 
-    # #3027: escrow init runs after the distributor is built — wire it now so
-    # each created assignment tombstones the task's escrow rows. The orphan
-    # sweeper's distributed-check must survive the balancer evicting the
-    # assignment record; without this the tombstone only lands on the
-    # sweeper's first observation, leaving an eviction-before-probe gap.
-    if state.task_distributor is not None:
-        state.task_distributor.payment_escrow = state.payment_escrow
+    _wire_distributor_escrow_tombstones()
 
     # #1749: assignment reaper runs regardless of escrow config — unpaid
     # tasks have no escrow sweeper to fail them.

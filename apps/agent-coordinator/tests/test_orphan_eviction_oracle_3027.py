@@ -414,4 +414,6 @@ class TestLifespanWiring:
 
     def test_lifespan_wires_distributor_payment_escrow(self):
         src = inspect.getsource(lifespan_mod.lifespan)
-        assert "task_distributor.payment_escrow" in src
+        helper = inspect.getsource(lifespan_mod._wire_distributor_escrow_tombstones)
+        assert "_wire_distributor_escrow_tombstones" in src
+        assert "task_distributor.payment_escrow" in helper
