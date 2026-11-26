@@ -405,9 +405,16 @@ class SettlementReconciler:
         ``escrowed_at`` or a ``job.payment_id`` attachment, so the ordinary
         and ZK queues cannot see it after requeue; the stranded-escrow
         sweeper re-picks exactly those rows by ``job_id`` (#3031).
+
+        #3033: the chain reads ran against the hash snapshotted before the
+        awaits — another worker may have persisted a *newer* refund attempt
+        (and re-marked the row refunded) in the meantime. The CAS below
+        requires the recorded hash to still be the one this audit probed;
+        a mismatched attempt is left completely untouched, along with its
+        job/escrow bookkeeping.
         """
         session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
-        if payment.status != "refunded":
+        if payment.status != "refunded" or payment.refund_transaction_hash != recorded:
             return
         now = datetime.now(UTC)
         meta = dict(payment.meta_data or {})
@@ -447,7 +454,11 @@ class SettlementReconciler:
     @staticmethod
     def _readopt_refund_hash(session: Any, payment: Any, recorded: str, new_hash: str, counts: dict[str, int]) -> None:
         session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
-        if payment.status != "refunded":
+        # #3033: same attempt-CAS as the requeue — adopting the sealed
+        # replacement is only valid while the row still carries the hash
+        # this audit actually probed. A newer attempt's hash is never
+        # overwritten by stale evidence.
+        if payment.status != "refunded" or payment.refund_transaction_hash != recorded:
             return
         meta = dict(payment.meta_data or {})
         meta["refund_tx_hash_corrected"] = {
