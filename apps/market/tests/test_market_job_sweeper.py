@@ -1734,3 +1734,339 @@ async def test_sweeper_refunds_completed_job_adjudicated_for_buyer(sweeper) -> N
     job = await service.get_market_job(created["job_id"])
     assert job["state"] == "REFUNDED"
     assert job["payment_status"] == "refunded"
+
+
+class _ScopedSettleTransport:
+    """MockTransport handler answering only requests naming ``holder['job_id']``.
+
+    The suite shares one session DB, so earlier tests leave deferred rows
+    that later sweeps also pick up — this answers their traffic with benign
+    404s/empty results while ``state`` counts only this test's job. Items
+    may be callables or Exceptions (raised, for transport-failure pins)."""
+
+    def __init__(self, holder: dict, post_item, verify_item, tx_item, locks_item) -> None:
+        self._holder = holder
+        self._post_item = post_item
+        self._verify_item = verify_item
+        self._tx_item = tx_item
+        self._locks_item = locks_item
+        self.state = {"posts": 0, "gets": 0}
+
+    def _mine(self, request: httpx.Request) -> bool:
+        job_id = self._holder.get("job_id")
+        return bool(job_id) and job_id in str(request.url)
+
+    @staticmethod
+    def _answer(item, request: httpx.Request) -> httpx.Response:
+        if isinstance(item, Exception):
+            raise item
+        return item(request)
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "POST":
+            return self._post(request)
+        if path.startswith("/rpc/transactions"):
+            return self._answer(self._locks_item, request)
+        if path.startswith("/rpc/transaction/"):
+            return self._answer(self._tx_item, request)
+        return self._verify(request)
+
+    def _post(self, request: httpx.Request) -> httpx.Response:
+        if not self._mine(request):
+            return httpx.Response(404, json={"detail": "none"}, request=request)
+        self.state["posts"] += 1
+        return self._answer(self._post_item, request)
+
+    def _verify(self, request: httpx.Request) -> httpx.Response:
+        if self._mine(request):
+            self.state["gets"] += 1
+        return self._answer(self._verify_item, request)
+
+
+def _install_transport(monkeypatch: pytest.MonkeyPatch, handler) -> None:
+    """Point httpx.AsyncClient at a MockTransport for the test's duration."""
+    transport = httpx.MockTransport(handler)
+    real_async_client = httpx.AsyncClient
+
+    def client_factory(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+
+
+@pytest.mark.unit
+class TestDeterministicSettleRefusal:
+    """#3030 MARKET-SETTLE-DEFER-FOREVER-1: a deterministic settle refusal
+    (HTTP 400/409/422 — the node evaluated the escrow and refused on state
+    or terms, e.g. 'has already been released') cannot become true by
+    waiting. The sweep runs the same confirming read the deferral bound
+    ends with, immediately: absent -> terminal, settled verdict -> adopt,
+    live escrow or failed read -> the bounded deferral continues.
+
+    The suite shares one session DB, so earlier tests leave deferred rows
+    that later sweeps also pick up — the mock transport below answers only
+    requests naming this test's job_id and 404s everything else, and the
+    counters are scoped the same way."""
+
+    @staticmethod
+    def _post400_already_released(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={"detail": "Escrow for job_id=job has already been released"},
+            request=request,
+        )
+
+    @staticmethod
+    def _post409_already_refunded(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            409,
+            json={"detail": "Escrow for job_id=job has already been refunded"},
+            request=request,
+        )
+
+    @staticmethod
+    def _post403(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"detail": "Forbidden"}, request=request)
+
+    @staticmethod
+    def _verify_released(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"state": "released", "release_tx_hash": "0xreleased-elsewhere", "refund_tx_hash": None},
+            request=request,
+        )
+
+    @staticmethod
+    def _verify_refunded(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"state": "refunded", "refund_tx_hash": "0xreturned-elsewhere", "release_tx_hash": None},
+            request=request,
+        )
+
+    @staticmethod
+    def _verify_404(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": "No escrow found"}, request=request)
+
+    @staticmethod
+    def _verify_locked(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"state": "locked", "release_tx_hash": None, "refund_tx_hash": None},
+            request=request,
+        )
+
+    @staticmethod
+    def _sealed_tx(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "tx_hash": request.url.path.rsplit("/", 1)[-1],
+                "block_height": 34100,
+                "status": "sealed",
+            },
+            request=request,
+        )
+
+    @staticmethod
+    def _sealed_lock_tx(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "tx_hash": "0xlock_sealed",
+                    "block_height": 33900,
+                    "payload": {"job_id": request.url.params.get("job_id", ""), "action": "escrow_lock"},
+                }
+            ],
+            request=request,
+        )
+
+    def _scoped_transport(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        holder: dict,
+        post_item,
+        verify_item,
+    ) -> dict:
+        """Install a job-scoped MockTransport; returns its counters."""
+        transport = _ScopedSettleTransport(holder, post_item, verify_item, self._sealed_tx, self._sealed_lock_tx)
+        _install_transport(monkeypatch, transport)
+        return transport.state
+
+    async def _deferred_job(self, service, job_suffix: str, *, refund: bool):
+        data: dict = {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "77" * 20,
+            "provider_address": "0x" + "88" * 20,
+            "escrow_contract_id": f"escrow-{job_suffix}",
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+        }
+        if not refund:
+            data["expires_at"] = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+        created = await service.create_market_job(data)
+        await _apply_lifecycle(
+            created["job_id"],
+            state="CANCELED" if refund else "COMPLETED",
+            escrow_contract_id=f"escrow-{job_suffix}",
+            updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None) if refund else None,
+        )
+        return created["job_id"]
+
+    @pytest.mark.asyncio
+    async def test_refund_400_with_released_escrow_adopts_verdict_once(self, sweeper, monkeypatch) -> None:
+        """The live specimen: refund-intended sweep, node 400s 'already
+        released', GET shows a released escrow with a sealed hash — adopt
+        the verdict on this sweep, not after the whole deferral bound."""
+        service, sw, _rpc = sweeper
+        holder: dict = {}
+        state = self._scoped_transport(monkeypatch, holder, self._post400_already_released, self._verify_released)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        job_id = await self._deferred_job(service, "detrel", refund=True)
+        holder["job_id"] = job_id
+
+        counts = await sw.sweep_once()
+        assert state["posts"] == 1
+        assert state["gets"] == 1
+        assert counts["refunded"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["state"] == "RELEASED"
+        assert job["payment_status"] == "released"
+        assert job["tx_hash"] == "0xreleased-elsewhere"
+        payment = await _payment_of(job_id)
+        assert payment.status == "released"
+        assert "settle_deferral_first_at" not in (payment.meta_data or {})
+
+        # Idempotent: the terminal row is no longer selectable, so a second
+        # sweep issues no further settle POST for it.
+        await sw.sweep_once()
+        assert state["posts"] == 1
+
+    @pytest.mark.asyncio
+    async def test_release_409_with_refunded_escrow_adopts_verdict(self, sweeper, monkeypatch) -> None:
+        """Release-intended sweep, node 409s 'already refunded' — the
+        escrow's own verdict wins, same as the past-bound adoption."""
+        service, sw, _rpc = sweeper
+        holder: dict = {}
+        state = self._scoped_transport(monkeypatch, holder, self._post409_already_refunded, self._verify_refunded)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        job_id = await self._deferred_job(service, "det409", refund=False)
+        holder["job_id"] = job_id
+
+        await sw.sweep_once()
+        assert state["posts"] == 1
+
+        job = await service.get_market_job(job_id)
+        assert job["state"] == "REFUNDED"
+        assert job["payment_status"] == "refunded"
+        assert job["refund_tx_hash"] == "0xreturned-elsewhere"
+        payment = await _payment_of(job_id)
+        assert payment.status == "refunded"
+
+    @pytest.mark.asyncio
+    async def test_deterministic_400_with_absent_escrow_goes_terminal(self, sweeper, monkeypatch) -> None:
+        """Provably-absent escrow: POST refused deterministically AND the
+        confirming GET 404s — terminal settlement_failed on this sweep,
+        no deferral-bound wait."""
+        service, sw, _rpc = sweeper
+        holder: dict = {}
+        state = self._scoped_transport(monkeypatch, holder, self._post400_already_released, self._verify_404)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        job_id = await self._deferred_job(service, "detabs", refund=True)
+        holder["job_id"] = job_id
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+        assert state["posts"] == 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "settlement_failed"
+        assert "refused deterministically" in (job.get("error") or "")
+        payment = await _payment_of(job_id)
+        assert payment.status == "settlement_failed"
+        assert "settle_deferral_first_at" not in (payment.meta_data or {})
+
+        # Idempotent: terminal rows leave the sweep selects — a resweep
+        # issues no further POST for this job.
+        await sw.sweep_once()
+        assert state["posts"] == 1
+        payment = await _payment_of(job_id)
+        assert payment.status == "settlement_failed"
+
+    @pytest.mark.asyncio
+    async def test_deterministic_400_with_live_escrow_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """A locked escrow with a sealed ESCROW_LOCK is real money the node
+        refused for another reason — keep deferring (operator territory),
+        exactly like the past-bound path."""
+        service, sw, _rpc = sweeper
+        holder: dict = {}
+        state = self._scoped_transport(monkeypatch, holder, self._post400_already_released, self._verify_locked)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        job_id = await self._deferred_job(service, "detlock", refund=True)
+        holder["job_id"] = job_id
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+        assert state["posts"] == 1
+        assert state["gets"] == 1  # the confirming escrow read (plus the lock probe, uncountered)
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.status == "escrowed"
+        assert payment.meta_data["settle_deferral_first_at"]
+
+    @pytest.mark.asyncio
+    async def test_deterministic_400_with_failed_read_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """A failed confirming read is 'unknown', never 'absent' — the
+        bounded deferral continues."""
+        service, sw, _rpc = sweeper
+        holder: dict = {}
+
+        def verify_down(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("node gone", request=request)
+
+        self._scoped_transport(monkeypatch, holder, self._post400_already_released, verify_down)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        job_id = await self._deferred_job(service, "detdown", refund=True)
+        holder["job_id"] = job_id
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"]
+
+    @pytest.mark.asyncio
+    async def test_other_4xx_stays_on_the_transient_deferral(self, sweeper, monkeypatch) -> None:
+        """403 (auth/config) is not an escrow-state refusal — it must NOT
+        trigger the confirming read; it shares the plain bounded deferral
+        like 5xx/timeouts/425."""
+        service, sw, _rpc = sweeper
+        holder: dict = {}
+        state = self._scoped_transport(monkeypatch, holder, self._post403, self._verify_locked)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        job_id = await self._deferred_job(service, "det403", refund=True)
+        holder["job_id"] = job_id
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+        assert state["posts"] == 1
+        assert state["gets"] == 0  # no confirming read for non-state refusals
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"]

@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import httpx
 from sqlalchemy import func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
@@ -44,6 +45,16 @@ logger = get_logger(__name__)
 # either instant-terminal or forever-silent.
 DEFAULT_SETTLE_DEFERRAL_MAX_SECONDS = 6 * 3600
 META_SETTLE_DEFERRAL_FIRST_AT = "settle_deferral_first_at"
+
+# HTTP statuses the escrow settle routes return for a *deterministic*
+# refusal — the node understood the request and said no on escrow state or
+# terms (already released/refunded, a non-settleable final state, a
+# protected-asset/scale mismatch, a v2-era lock, malformed amount). Unlike
+# 425 'lock not sealed', 5xx, timeouts and transport errors these answers
+# cannot become true by waiting, so the sweep confirms with one escrow
+# read immediately instead of burning the whole deferral bound retrying a
+# fixed answer (#3030). Other 4xx (auth, busy) stay on the transient path.
+_DETERMINISTIC_SETTLE_REFUSAL_STATUSES = frozenset({400, 409, 422})
 
 
 def _settleable_job_clause():
@@ -636,10 +647,18 @@ class MarketJobSweeper:
                 result = await self._rpc_client.release_escrow(escrow_key, {"amount": str(billed)})
             else:
                 result = await self._rpc_client.release_escrow(escrow_key)
+        except httpx.HTTPStatusError as e:
+            # #3030: a deterministic refusal cannot become true by waiting —
+            # confirm the escrow's real state now instead of deferring a
+            # fixed answer for the whole bound. Everything else raised
+            # (425 'lock not sealed', 5xx, transport, other 4xx) is a
+            # 'not yet' and shares the bounded deferral.
+            if e.response is not None and e.response.status_code in _DETERMINISTIC_SETTLE_REFUSAL_STATUSES:
+                return await self._settlement_deterministic_refusal(
+                    session, job, payment, escrow_key, "released", self._settle_refusal_detail(e)
+                )
+            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "released")
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
-            # Any raised answer (425 'lock not sealed', 5xx, transport) is a
-            # 'not yet' too -- it shares the bounded deferral instead of
-            # retrying forever and silently.
             return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "released")
         if result and result.get("success"):
             # #2442: a hashless success stores NULL, never "" — empty
@@ -714,6 +733,14 @@ class MarketJobSweeper:
         escrow_key = resolve_escrow_key(job)
         try:
             result = await self._rpc_client.refund_escrow(escrow_key)
+        except httpx.HTTPStatusError as e:
+            # #3030: same deterministic-refusal handling as release — a
+            # fixed 'no' gets one confirming read now, not a bound of retries.
+            if e.response is not None and e.response.status_code in _DETERMINISTIC_SETTLE_REFUSAL_STATUSES:
+                return await self._settlement_deterministic_refusal(
+                    session, job, payment, escrow_key, "refunded", self._settle_refusal_detail(e)
+                )
+            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "refunded")
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
             return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "refunded")
         if result and result.get("success"):
@@ -826,6 +853,108 @@ class MarketJobSweeper:
 
         # Past the bound: one read decides -- never terminal on a guess.
         return await self._settlement_past_bound(session, job, payment, meta, outcome, contract_id, intended, now, elapsed)
+
+    @staticmethod
+    def _settle_refusal_detail(error: httpx.HTTPStatusError) -> str:
+        """Log detail for a deterministic settle refusal: the status plus the
+        node's ``detail`` body when it parses (#3030)."""
+        status = error.response.status_code if error.response is not None else "?"
+        detail = None
+        if error.response is not None:
+            try:
+                body = error.response.json()
+            except ValueError:
+                body = None
+            if isinstance(body, dict):
+                detail = body.get("detail")
+        return f"HTTP {status}: {detail}" if detail else f"HTTP {status}"
+
+    async def _settlement_deterministic_refusal(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        contract_id: str,
+        intended: str,
+        outcome: str,
+    ) -> bool:
+        """#3030: a deterministic settle refusal gets the confirming read now.
+
+        A 400/409/422 means the node evaluated the escrow and refused on
+        state or terms — retrying it every sweep cannot change the answer,
+        it only defers terminal reconciliation by the whole
+        ``settle_max_seconds`` bound (MARKET-SETTLE-DEFER-FOREVER-1). Run the
+        same read the bound ends with, immediately: absent -> terminal
+        ``settlement_failed``; a released/refunded escrow whose tx hash is
+        sealed -> adopt that verdict (reality wins, same as past-bound);
+        a live escrow or a failed read -> the bounded deferral continues.
+        The deferral marker is still stamped so the bound bookkeeping —
+        and the past-bound path if the answer later turns transient — keeps
+        its elapsed clock.
+        """
+        now = datetime.now(UTC)
+        meta = dict(payment.meta_data or {})
+        first_at = self._deferral_first_at(meta)
+        if first_at is None:
+            meta[META_SETTLE_DEFERRAL_FIRST_AT] = now.isoformat()
+            payment.meta_data = meta
+            payment.updated_at = now
+            session.add(payment)
+        elapsed = (now - first_at).total_seconds() if first_at is not None else 0.0
+        logger.warning(
+            "Escrow settlement for job %s payment %s refused deterministically (%s); confirming escrow state",
+            job.id,
+            payment.id,
+            outcome,
+        )
+        escrow: dict[str, Any] | None = None
+        read_error: Exception | None = None
+        try:
+            escrow = await self._rpc_client.verify_escrow(contract_id)
+        except Exception as e:  # noqa: BLE001 - read error captured, deferral bookkeeping continues
+            read_error = e
+        detail = f"settlement refused deterministically ({outcome})"
+        if read_error is None and escrow is None:
+            return await self._mark_settlement_failed(
+                session,
+                job,
+                payment,
+                meta,
+                now,
+                elapsed,
+                f"{detail}; escrow confirmed absent",
+                "and the escrow is confirmed absent -- marking settlement_failed",
+            )
+        state = escrow.get("state") if escrow is not None else None
+        if read_error is None and escrow is not None and state in {"released", "refunded"}:
+            return await self._settlement_verdict(session, job, payment, meta, escrow, state, intended, now, elapsed)
+        if read_error is None and escrow is not None:
+            # Same rule as the past-bound path: a locked-looking escrow past
+            # any refusal streak is phantom only when chain truth shows no
+            # sealed ESCROW_LOCK — a sealed lock keeps deferring for an
+            # operator, a failed lookup is 'unknown', never 'absent'.
+            phantom = await self._phantom_lock_check(job, contract_id)
+            if phantom is True:
+                return await self._mark_settlement_failed(
+                    session,
+                    job,
+                    payment,
+                    meta,
+                    now,
+                    elapsed,
+                    f"{detail}; escrow row present but no sealed ESCROW_LOCK on chain — phantom escrow",
+                    "and no sealed ESCROW_LOCK exists on chain -- marking settlement_failed",
+                )
+        logger.error(
+            "Escrow settlement for job %s payment %s refused deterministically (%s); escrow %s -- still deferring",
+            job.id,
+            payment.id,
+            outcome,
+            f"read failed ({read_error}); cannot confirm"
+            if read_error is not None
+            else f"still present (state={escrow.get('state') if escrow else 'unreadable'})",
+        )
+        return False
 
     @staticmethod
     def _deferral_first_at(meta: dict[str, Any]) -> datetime | None:
