@@ -107,6 +107,7 @@ def test_the_real_spec_table_matches_the_tasks_main_starts():
         "zk_refund_sweeper",
         "acceptance_window_sweeper",
         "stuck_escrow_sweeper",
+        "stranded_escrow_refund_sweeper",
         "bond_slash_sweeper",
         "stale_miner_reaper",
         "stale_job_reaper",

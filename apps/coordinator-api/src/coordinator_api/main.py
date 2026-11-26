@@ -227,6 +227,8 @@ async def _start_sweepers(task_manager) -> None:
     # StaleMinerReaper (G5): stale-heartbeat miners go OFFLINE.
     # StaleJobReaper (G3/G5): expire orphaned QUEUED/RUNNING jobs so held
     # escrow can be refunded and re-matching stops.
+    # StrandedEscrowRefundSweeper (#2996): refund failed payments whose
+    # escrow lock sealed after the create response was lost.
     """
     from aitbc.operation_reconciler import OperationReconciler
 
@@ -250,7 +252,12 @@ async def _start_sweepers(task_manager) -> None:
         EvmPaymentVerifySweeper,
         evm_payment_sweeper_enabled,
     )
-    from .contexts.payments.services.stuck_escrow_sweeper import StuckEscrowSweeper, stuck_escrow_sweeper_enabled
+    from .contexts.payments.services.stuck_escrow_sweeper import (
+        StuckEscrowSweeper,
+        StrandedEscrowRefundSweeper,
+        stranded_escrow_refund_sweeper_enabled,
+        stuck_escrow_sweeper_enabled,
+    )
     from .contexts.payments.services.zk_refund_sweeper import ZkRefundSweeper, zk_refund_sweeper_enabled
 
     await _maybe_start_sweeper(
@@ -337,6 +344,19 @@ async def _start_sweepers(task_manager) -> None:
         "EVM payment verify sweeper started",
         "EVM payment verify sweeper disabled (COORDINATOR_EVM_PAYMENT_SWEEP_ENABLED=false)",
         stagger_index=8,
+    )
+    # StrandedEscrowRefundSweeper (#2996): a failed payment whose escrow lock
+    # sealed after the create response was lost leaves buyer funds locked on
+    # a terminally-failed row — refund_payment refuses it by design, so this
+    # pass reconciles failed token payments against the chain record.
+    await _maybe_start_sweeper(
+        task_manager,
+        "stranded_escrow_refund_sweeper",
+        stranded_escrow_refund_sweeper_enabled,
+        StrandedEscrowRefundSweeper,
+        "Stranded escrow refund sweeper enabled",
+        "Stranded escrow refund sweeper disabled (set COORDINATOR_STRANDED_ESCROW_SWEEP_ENABLED=true to enable)",
+        stagger_index=9,
     )
 
 

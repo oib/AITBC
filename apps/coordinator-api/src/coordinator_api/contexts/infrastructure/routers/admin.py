@@ -553,7 +553,12 @@ def _sweeper_specs() -> list[tuple[str, Any, Any, str]]:
     from ...payments.services.acceptance_sweeper import AcceptanceSweeper
     from ...payments.services.acceptance_sweeper import sweeper_enabled as acceptance_enabled
     from ...payments.services.settlement_reconciler import SettlementReconciler, reconciler_enabled
-    from ...payments.services.stuck_escrow_sweeper import StuckEscrowSweeper, stuck_escrow_sweeper_enabled
+    from ...payments.services.stuck_escrow_sweeper import (
+        StuckEscrowSweeper,
+        StrandedEscrowRefundSweeper,
+        stranded_escrow_refund_sweeper_enabled,
+        stuck_escrow_sweeper_enabled,
+    )
     from ...payments.services.zk_refund_sweeper import ZkRefundSweeper, zk_refund_sweeper_enabled
 
     return [
@@ -580,6 +585,12 @@ def _sweeper_specs() -> list[tuple[str, Any, Any, str]]:
             stuck_escrow_sweeper_enabled,
             StuckEscrowSweeper,
             "Refund escrow stuck in canceled, failed, expired or unresolved-disputed states",
+        ),
+        (
+            "stranded_escrow_refund_sweeper",
+            stranded_escrow_refund_sweeper_enabled,
+            StrandedEscrowRefundSweeper,
+            "Refund failed payments whose escrow lock sealed after the payment failure",
         ),
         (
             "bond_slash_sweeper",
