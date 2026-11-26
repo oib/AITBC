@@ -189,6 +189,8 @@ class OrphanedTaskEscrowSweeper:
         Best-effort like ``_stamp_probe``: the in-memory metadata mutation
         already holds for this process even if the store write fails.
         """
+        if self.dry_run:
+            return
         mgr = self._payment_escrow
         if mgr is None:
             return
@@ -199,7 +201,17 @@ class OrphanedTaskEscrowSweeper:
             logger.debug("Could not stamp distributed tombstone for escrow %s", entry.escrow_id)
 
     def _stamp_probe(self, entry: EscrowEntry) -> None:
-        """Record the probe time so skipped candidates rotate out of the batch."""
+        """Record the probe attempt so still-eligible candidates rotate out
+        of the batch (#3012).
+
+        Stamped on EVERY outcome that leaves the entry eligible — settled/
+        missing records, failed reads, deferred and failed refunds, CAS-loss
+        skips — so a full batch of persistent entry-specific failures cannot
+        starve later recoverable escrows, and retries stay bounded to one
+        probe per grace cadence. ``dry_run`` persists nothing.
+        """
+        if self.dry_run:
+            return
         mgr = self._payment_escrow
         if mgr is None:
             return
@@ -229,6 +241,9 @@ class OrphanedTaskEscrowSweeper:
             record = client.get_escrow_record(entry.task_id)
         except EscrowRPCError as e:
             counts["failed"] += 1
+            # #3012: stamp the attempt — an unstamped failure stays at the
+            # head of every oldest-first batch and starves later entries.
+            self._stamp_probe(entry)
             logger.warning("Orphan escrow sweep could not read chain record for task %s: %s", entry.task_id, e)
             return
         if not escrow_record_is_stranded(record):
@@ -264,6 +279,8 @@ class OrphanedTaskEscrowSweeper:
             )
         else:
             counts["skipped"] += 1
+            # CAS loss leaves the row eligible — stamp so it rotates (#3012).
+            self._stamp_probe(entry)
 
     def _refund_candidate(
         self, entry: EscrowEntry, record: dict[str, Any] | None, client: ChainEscrowClient, counts: dict[str, int]
@@ -292,10 +309,15 @@ class OrphanedTaskEscrowSweeper:
             )
         except ValueError:
             # A concurrent transition (resubmit lock, settle path) won —
-            # the CAS inside refund_orphaned already re-checked.
+            # the CAS inside refund_orphaned already re-checked. The row is
+            # still eligible; stamp so it rotates instead of pinning the head.
             counts["skipped"] += 1
+            self._stamp_probe(entry)
             return
         except EscrowRPCError as e:
+            # #3012: deferred/failed refunds stay eligible — stamp the
+            # attempt so they re-probe on the grace cadence, not every pass.
+            self._stamp_probe(entry)
             if e.status_code == _LOCK_NOT_CONFIRMED_STATUS:
                 counts["deferred"] += 1
             else:
