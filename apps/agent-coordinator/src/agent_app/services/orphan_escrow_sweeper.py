@@ -16,16 +16,23 @@ This pass is the agent-coordinator sibling of the coordinator-api
 (``GET /rpc/escrow/{task_id}``) is the truth, the local row only selects
 candidates. For each PENDING/REJECTED entry older than the grace period:
 
-* chain record shows a live lock **and the task was distributed** (a
-  load-balancer assignment exists) → *adopt*: flip the row to LOCKED with
-  the chain's lock hash/contract id so the normal release/refund/expire
-  paths settle it. This is the persist-failure heal — the task is live and
-  refunding would steal a payable escrow.
-* chain record shows a live lock **and no assignment exists** → the submit
-  died before distribution, nobody can claim the escrow → *refund* it
-  on-chain and mark the row REFUNDED. The chain refund is idempotent per
-  job id and ``refund_orphaned`` re-checks the status under the manager
-  lock, so concurrent workers/races cannot double-act.
+* chain record shows a live lock **and the task was distributed** — a live
+  load-balancer assignment *or* the entry's ``was_distributed_at``
+  tombstone (#3027: the balancer evicts terminal assignments past
+  ``_max_assignments``, so the escrow row's own durable metadata is the
+  distributed-signal that survives eviction and restarts) → *adopt*: flip
+  the row to LOCKED with the chain's lock hash/contract id so the normal
+  release/refund/expire paths settle it. This is the persist-failure heal —
+  the task is live and refunding would steal a payable escrow.
+* chain record shows a live lock **and no assignment and no tombstone** →
+  the submit died before distribution, nobody can claim the escrow →
+  *refund* it on-chain and mark the row REFUNDED. The chain refund is
+  idempotent per job id and ``refund_orphaned`` re-checks the status under
+  the manager lock, so concurrent workers/races cannot double-act.
+  (Pre-#3027 rows carry no tombstone: an assignment evicted before the
+  first probe is indistinguishable from "never distributed" and still
+  takes this path — the tombstone can only protect rows stamped while the
+  evidence existed.)
 * no record / settled record / record still mid-flight → skip and stamp
   ``metadata["orphan_probe_at"]`` so bookkeeping-only PENDING rows
   (payment without a lock payload — PENDING by design) rotate out of the
@@ -44,7 +51,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.crypto.payment_escrow import EscrowEntry, EscrowStatus
+from aitbc.crypto.payment_escrow import META_WAS_DISTRIBUTED_AT, EscrowEntry, EscrowStatus
 
 from .chain_escrow import ChainEscrowClient, EscrowRPCError, make_refund_submitter
 
@@ -143,14 +150,26 @@ class OrphanedTaskEscrowSweeper:
         self.batch_size = batch_size
         self.dry_run = dry_run
 
-    def _task_was_distributed(self, task_id: str) -> bool:
-        """True when a load-balancer assignment exists for ``task_id``.
+    def _task_was_distributed(self, task_id: str, entry: EscrowEntry) -> bool:
+        """True when the task's escrow is known to have been distributed (#3027).
 
-        An assignment is only created by ``task_distributor.submit_task`` —
-        after ``_create_task_escrow`` returned LOCKED. Its presence means the
-        escrow belongs to live (or settled) work and must be adopted, never
-        refunded; its absence means the submit died before distribution.
+        Signals, strongest first:
+
+        * the entry's own ``was_distributed_at`` tombstone — stamped when
+          the load balancer creates the assignment and re-stamped here on
+          first observation; it lives in the escrow store, so it survives
+          both the balancer's bounded assignment map (terminal records are
+          evicted past ``_max_assignments``) and restarts;
+        * a live load-balancer assignment — also stamps the tombstone so a
+          later eviction cannot un-say it;
+        * an unreadable balancer — treated as distributed, never refund
+          blind (existing safe direction).
+
+        With no tombstone and no assignment the submit died before
+        distribution.
         """
+        if entry.metadata.get(META_WAS_DISTRIBUTED_AT):
+            return True
         lb = self._load_balancer
         if lb is None:
             return False
@@ -159,7 +178,25 @@ class OrphanedTaskEscrowSweeper:
         except Exception:  # noqa: BLE001 - an unreadable balancer must not refund; treat as distributed
             logger.warning("Orphan sweep could not read assignment for task %s", task_id)
             return True
-        return assignment is not None
+        if assignment is None:
+            return False
+        self._stamp_distributed(entry)
+        return True
+
+    def _stamp_distributed(self, entry: EscrowEntry) -> None:
+        """Tombstone ``entry`` as distributed so the verdict outlives eviction.
+
+        Best-effort like ``_stamp_probe``: the in-memory metadata mutation
+        already holds for this process even if the store write fails.
+        """
+        mgr = self._payment_escrow
+        if mgr is None:
+            return
+        try:
+            entry.metadata[META_WAS_DISTRIBUTED_AT] = time.time()
+            mgr.persist_entry(entry)
+        except Exception:  # noqa: BLE001 - the stamp is best-effort bookkeeping
+            logger.debug("Could not stamp distributed tombstone for escrow %s", entry.escrow_id)
 
     def _stamp_probe(self, entry: EscrowEntry) -> None:
         """Record the probe time so skipped candidates rotate out of the batch."""
@@ -198,7 +235,7 @@ class OrphanedTaskEscrowSweeper:
             counts["skipped"] += 1
             self._stamp_probe(entry)
             return
-        if self._task_was_distributed(entry.task_id):
+        if self._task_was_distributed(entry.task_id, entry):
             self._adopt_candidate(entry, record, counts)
         else:
             self._refund_candidate(entry, record, client, counts)

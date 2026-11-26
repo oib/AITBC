@@ -50,6 +50,14 @@ class EscrowStatus(StrEnum):
 # moment it locks or is never swept.
 _MAX_TIMEOUT_SECONDS = 2_592_000.0
 
+# #3027: metadata key tombstoning "work was distributed for this task".
+# The agent-coordinator stamps it when a load-balancer assignment is created
+# (and the orphan sweeper re-stamps it on first observation); the orphan
+# sweeper's distributed-check must survive the balancer's bounded
+# ``task_assignments`` map, which evicts terminal records — the escrow row's
+# own durable metadata is the signal that outlives that eviction.
+META_WAS_DISTRIBUTED_AT = "was_distributed_at"
+
 
 @dataclass
 class EscrowEntry:
@@ -380,6 +388,27 @@ class PaymentEscrow:
                         self._escrows[persisted.escrow_id] = persisted
                         return persisted
             return None
+
+    def mark_distributed(self, task_id: str) -> int:
+        """Stamp every cached entry for ``task_id`` as distributed (#3027).
+
+        Called when the load balancer creates an assignment for the task:
+        every escrow row carrying that ``task_id`` — including terminal
+        predecessors a same-task resubmission left behind — records that
+        work was handed out, so the orphan sweeper's distributed-check no
+        longer depends solely on the evictable assignment map. Idempotent
+        per entry; ``_persist`` is best-effort so a store failure never
+        raises. Returns the number of newly stamped entries.
+        """
+        stamped = 0
+        with self._lock:
+            for entry in self._escrows.values():
+                if entry.task_id != task_id or entry.metadata.get(META_WAS_DISTRIBUTED_AT):
+                    continue
+                entry.metadata[META_WAS_DISTRIBUTED_AT] = time.time()
+                self._persist(entry)
+                stamped += 1
+        return stamped
 
     def get_all_escrows(self) -> list[EscrowEntry]:
         """Return all escrow entries."""

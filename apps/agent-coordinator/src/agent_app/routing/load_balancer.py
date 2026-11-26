@@ -644,8 +644,14 @@ class LoadBalancer:
 class TaskDistributor:
     """Task distributor with advanced load balancing"""
 
-    def __init__(self, load_balancer: LoadBalancer) -> None:
+    def __init__(self, load_balancer: LoadBalancer, payment_escrow: Any = None) -> None:
         self.load_balancer = load_balancer
+        # #3027: optional PaymentEscrow — when wired, each created assignment
+        # tombstones the task's escrow rows (``was_distributed_at``) so the
+        # orphan-escrow sweeper's distributed-check survives the balancer's
+        # bounded assignment map evicting the record. The lifespan sets this
+        # after construction: escrow init runs later than the distributor.
+        self.payment_escrow = payment_escrow
         self.task_queue: asyncio.Queue[Any] = asyncio.Queue()
         self.priority_queues: dict[TaskPriority, asyncio.Queue[Any]] = {
             TaskPriority.URGENT: asyncio.Queue(),
@@ -729,6 +735,11 @@ class TaskDistributor:
                 # assign_task writes the correlated task_id back into
                 # task_data; fall back to a fresh id for safety.
                 assignment_task_id = str(task_info["task_data"].get("task_id") or uuid.uuid4())
+                # #3027: the assignment record now exists — tombstone the
+                # task's escrow rows immediately so a later terminal-map
+                # eviction cannot make a distributed escrow read as an
+                # undistributed orphan to the sweeper.
+                self._mark_escrows_distributed(assignment_task_id)
                 task_message = create_task_message(
                     sender_id="task_distributor",
                     receiver_id=agent_id,
@@ -761,6 +772,20 @@ class TaskDistributor:
                 if total_distributed > 0
                 else distribution_time
             )
+
+    def _mark_escrows_distributed(self, task_id: str) -> None:
+        """Best-effort distributed tombstone on the task's escrow rows (#3027).
+
+        A bookkeeping failure must never break distribution — the sweeper
+        still re-stamps on first balancer observation as a fallback.
+        """
+        mgr = self.payment_escrow
+        if mgr is None:
+            return
+        try:
+            mgr.mark_distributed(task_id)
+        except Exception:  # noqa: BLE001 - tombstone is best-effort bookkeeping
+            logger.debug("Could not tombstone distributed escrows for task %s", task_id)
 
     async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage) -> bool:
         """Send task to agent via HTTP"""
