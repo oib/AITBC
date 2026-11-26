@@ -333,9 +333,9 @@ Remaining:
 
 - [Bridge Security Audit](../archive/releases/AUDIT.md) — Bug #3, #4 findings and fixes
 - [Release Status](../releases/STATUS.md) — All releases, config defaults, audit summary
-- [v0.9.0 Change Log](../releases/v0.9/v0.9.0_change.log) — Atomic settlement release
-- [v0.7.2 Change Log](../releases/v0.7/v0.7.2_change.log) — Bridge verification (Merkle proofs)
-- [v0.7.1 Change Log](../releases/v0.7/v0.7.1_change.log) — Bridge security (multi-sig)
+- [v0.9.0 Change Log](../releases/2026/README.md#v090) — Atomic settlement release
+- [v0.7.2 Change Log](../releases/2026/README.md#v072) — Bridge verification (Merkle proofs)
+- [v0.7.1 Change Log](../releases/2026/README.md#v071) — Bridge security (multi-sig)
 - [General Threat Model](../security/threat-model.md) — Platform-wide threats
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` — Bridge implementation
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py` — legacy escrow reads and retired settlement behavior

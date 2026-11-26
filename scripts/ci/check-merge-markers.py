@@ -2,7 +2,7 @@
 """Fail when a file contains committed merge-conflict markers.
 
 The repository already runs pre-commit's `check-merge-conflict`, which has been passing on
-every commit while `docs/releases/v0.23/release.log` carried a full conflict block —
+every commit while `docs/releases/2026/versions/v0.23/release.log` carried a full conflict block —
 `<<<<<<< HEAD`, `=======`, `>>>>>>> f9d378797` — in the middle of the second-pass totals.
 
 The reason is in the hook's source:

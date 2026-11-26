@@ -1,0 +1,1117 @@
+# Consensus — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of consensus changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.29.0
+
+### Consensus domain separation (#1298) — landed inert below activation height
+
+- `5a2844d0d` — S0: domain-separated signing primitives +
+  `consensus_domain_separation_height` (inert).
+- `7e3d6d1f7` — S1: domain-gated sign/verify at proposal + attestation
+  sites (inert below activation).
+- `57bfbaccd` — S2: evidence-store `signature_domain` + attestation-lock
+  journal.
+- `ca16b6836` — S3: acceptance-key domain components + dual-accept window.
+- `3da65ad7a` + `e3775f8b5` — T1–T22 domain-separation matrix; T13/T18w
+  dual-accept legs un-skipped.
+- `9e63ba4ba` — T15: shared attestation-lock lapse constant, height-gated.
+- `2dc1ad9e0` — T7a/T14: unconditional round authentication post-H.
+- `cc3ec1f62` — persist domain-keyed signed attestations by record height.
+- `f68e537a4`, `da738422b`, `473c4f18f`, `962d0d293`, `c97b91f83`,
+  `3a57d04a0`, `f714cc5ec` — same-hash retry horizon inside the
+  attestation-lock window: positive-horizon pin, startup/fleet surfacing,
+  default OFF, parent+tx-snapshot binding, drift counter.
+- `e3357ce61` + `6eb516a90` — #1301 integration: the abandon statement is
+  signed under its own consensus domain at the separation height; L2
+  proposer-signed abandon releases the voter journal (default OFF).
+- `59433185b`, `b084ad8f0` — activation runbook + post-impl matrix status.
+
+
+### State-transition versions v21–v24 (all inert/armed per-height; none
+auto-activate)
+
+- `99d35f76a` — v21: on-chain agent spend sessions (AGENT-SPEND-B-1).
+- `49c846e37` + `75441ffdd` + `236bc4ee5`/`acb647ed5` — v23: escrow
+  obligation bound for release/refund/sweep (#1230/#1232), governed fee
+  allowance so the designed `ESCROW_FEE_SWEEP` leg is sweepable, and
+  authoritative sender-state refresh at v23+.
+- `610183955`, `8f69e869f`, `4e915fc99`, `97174cfd0`, `422ef0054`,
+  `2e93ffdf9`, `8c0a47ee2`, `f7a162464`, `e7b86c270`, `49d1a12d9`,
+  `e30ea5145` — v24 (#1314): inert primitives (parity session, R1
+  invalidation, R2 flush), authoritative reads at the V1–V7 sites,
+  admission-mirror parity via `block_version`, sealed-tx visibility for
+  same-block applies, golden-corpus registration; MC1–MC7
+  composition-mutant legs vs the v23 refresh. **Landed dormant — arming
+  is an ops decision, not implied by merge.**
+- `6909058de` + `ed0c2d3e7` — consensus-visible `VALIDATOR_DEACTIVATE`
+  (#1198/#1263).
+- `6c601ef68`, `5b341f262`, `4e5cf17cb`, `3dace1ba0`, `15267ab28` —
+  attestation/vote-journal hardening: durable vote journal +
+  fetch-before-unlock + seal re-publish (#1268 Ph-1), three-way
+  `locate_voted_block` verdict with contention hold (#1280), UC
+  justification barrier (#1281), round-keyed attestation lock behind flag
+  (#1242, sandbox).
+
+
+### Mempool reservations (#1300, P2-v2.4)
+
+- `9bb7c3327` — reservation core: `peek_reserve` lifecycle, lock-key
+  hardening, sealed-admission gate, evictor rules.
+- `c3d8aed31` — sealed reconcile sweep + flag-gated `peek_reserve`
+  proposer path with release map.
+- `4dd8dbf3f` — fork-revert releases dead-attempt reservations on requeue.
+- `f9b1c9881`, `47305e7c9`, `0c713d716`, `42d449b6f` — integration + PG
+  parity pins (lock-timeout surfaces `MempoolAdmissionTimeout`).
+  **Flag-gated; default path unchanged.**
+
+
+## v0.28.0
+
+### Consensus guards and DB-open safety (FORK-*, NO-CREATE-DB-OPEN-1, GPU-ADMISSION-1)
+
+- `4aa936bc0` — `fix(consensus): disable v2-v8 parallel import` (FORK-GUARD-1) — `_PARALLEL_V2V8_ENABLED=False`; the divergent path is off on production (Refs #441).
+- `80a379df1` — `test(consensus): pin v2-v8 parallel-import divergence on zero-value fresh recipients` (FORK-PARALLEL-V2V8-1) — 18 passed / 6 xfail; `--runxfail` shows the real v2/v5/v8 divergence (Refs #432).
+- `ed67a0578` — `feat(db): get_engine/session_scope refuse missing chain.db + 503 handler`; `13a8d9115` — chain.db opens: `mode=ro` for reads, `mode=rw` for writes, never create; `9d1be9f37` — `test(scripts): no-create open-mode pins for escrow-repair + verify-db-schema` (NO-CREATE-DB-OPEN-1, the 0-byte chain.db class; Refs #408).
+- `e74cb8ded` — `feat(consensus): GPU_ALLOCATE v16 admission gate — allocation_id + existing gpu_id` (GPU-ADMISSION-1; landed dormant, activated under GPU-ADMISSION-ACTIVATE-1 #406; Refs #384).
+- `5df64a2a3` + `d25295eb4` + `8d1f06175` — `docs(design)`: service-layer per-node tables diverge by design; v15 armed/active status corrections (FORK-OOB-WRITERS-1; Refs #382).
+
+
+## v0.26.0
+
+### consensus: v15 de-commits edge_node_registration
+
+- `df6e49ec3` — `feat(consensus): v15 de-commits edge_node_registration from the side-root set`. **Ships dormant, active on v15 activation** — no behaviour change at current heights.
+
+
+### FORK-GUARD-1
+
+- The v2–v8 parallel-import path is disabled (option A): its prefetch
+  pre-created zero-value recipients the proposer never creates, so
+  GPU_MARKET→0x0 and MESSAGE→fresh blocks were rejected on state-root
+  mismatch. The serial path reproduces `pure_state_transition` exactly;
+  the 6 strict xfails in `test_importer_parallel_v2v8_parity.py` now
+  pass. v9+ is unchanged.
+
+
+
+## v0.25.12
+
+### Escrow: `fund_contract` no longer marks a contract FUNDED on a hash it never read (ESC-FUND-1). `escrow/create` passed the mempool-acceptance hash straight through; a lock evicted before sealing left a FUNDED contract whose settlement gates then 425'd forever on a hash that never lands. `escrow_routes._verify_funding_lock` now re-loads the lock — sealed `transactions` row first, hub `/mempool` otherwise — and requires the contract's job_id, buyer, amount and escrow destination; absence is retryable (425), a field mismatch or a different sealed hash is a conflict (409), and on refusal the just-created contract is dropped so the retry starts clean. `fund_contract` cross-checks the verified tx's hash and stores it on the contract.
+
+
+### Escrow: sealed-lock funding verify reads the sealed row's real keys (ESC-FUND-1 fix). `b0fed2982`'s `_assert_lock_matches_contract` read `from`/`to`/`amount` — the submitted-body shape — but a sealed `transactions` row carries `sender`/`recipient`/`value`, so a lock sealing between submit and verify got a false 409 and a dropped contract. `_canonical_lock_fields` now normalizes both shapes before the field check; the mempool branch is unchanged. The `_sealed()` test fixture is rebuilt in the real row shape (keys from a live read).
+
+
+## v0.25.10
+
+### Consensus: v11 pin at 35400, v12 authority-parameter value checks and pin at 37500
+- `d6fc3aba19` — `state_transition_v11_height` hardcoded to **35400**: env-pinned on all ten node/RPC processes since 2026-10-04, activated fleet-wide **2026-10-05** (all five hosts agreed the transition block's hash). The bake changed nothing in a running process — it covers a process started without the line; `STATE_TRANSITION_V11_HEIGHT` still overrides.
+- `49636b264f` — **v12 authority-parameter value checks**: from `state_transition_v12_height`, a `GOVERNANCE_EXECUTE` `parameter_change` to any of the five authority parameters (`governance_executors`, `bond_slash_authority`, `bridge_release_authority`, `escrow_settlement_authority`, `escrow_fee_recipient`) is value-checked — non-empty, canonical `0x`+40-hex addresses, no zero address, no duplicates, single element for the single-address parameters, and at least one `governance_executors` member holding the 360000-unit executor minimum. Below the height every value stays lenient so sealed history replays unchanged; mempool admission mirrors the check through the same helper so the door refuses exactly what apply refuses. Baked-in decisions: A5 floor = `DEFAULT_TX_FEE_UNITS`, chain-side proof-of-possession out (tool-side in the ops entry below).
+- `0657f60ef6` — `state_transition_v12_height` hardcoded to **37500**: the env value was set on all five hosts and block 37499 stamped version 11 / block 37500 stamped 12, so the height is consensus; env `STATE_TRANSITION_V12_HEIGHT` still overrides and `None` still disables.
+- **Activation**: v11 at block 35400 on 2026-10-05; v12 at block 37500 on **2026-10-07 01:19 CEST** (env-activated ahead of the bake).
+- **fleet-config-check note**: `STATE_TRANSITION_V12_HEIGHT` is now baked at 37500 — an absent env line still shows as `<unset>` drift by text comparison only; the check cannot verify remotely that a host runs the baked build.
+
+
+## v0.25.9
+
+### Governance-vote casing follow-up: canonicalize at write + per-host NOCASE index (2026-09-29)
+
+Follow-up to the dedupe above. The twins existed because
+``cast_governance_vote`` lowercased ``voter_address`` before storing while
+aux upserts arrived checksummed — two write spellings for one identity.
+
+- ``rpc/staking.py``: every request-supplied address the staking/governance
+  routes store now goes through ``_request_address`` (0x-prefix if missing,
+  then EIP-55 via ``_to_ait_address``): ``voter_address`` in
+  ``cast_governance_vote``, ``proposer_address`` in
+  ``create_governance_proposal``, ``agent_address`` in
+  ``register_agent_identity``, ``verified_by`` in ``verify_agent_identity``
+  (verbatim before — now ``_to_ait_address`` passthrough/canonical), and the
+  ``stake.address`` insert in ``stake_tokens``. Reads that meet pre-fix
+  lowercase rows compare case-insensitively (``get_staking_info``,
+  the vote-power sum, the ``stake.address`` ownership check in
+  ``unstake_tokens``, and the already-voted check — which would otherwise
+  miss a legacy lowercase row and hand the insert to the new index as a
+  500 instead of the intended 400).
+- Signed-message contract preserved: ``sign_data["address"]`` in
+  ``stake_tokens``/``unstake_tokens`` keeps the *lowercase* spelling because
+  the wallet CLI signs ``hex_address.lower()`` while submitting the
+  checksummed form — canonicalizing inside the signed message would break
+  every existing client signature. Storage, the queued transfer's
+  ``signer``, and responses carry the canonical form instead.
+- User-visible impact that existed: ``GET /governance/proposal/{id}``
+  answered ``total_votes=len(votes)`` — 10 on node2 vs 5 on the rest of the
+  fleet for the same proposal while the twins were live. Resolved by the
+  dedupe; prevented from recurring by the write canonicalization + index.
+
+Schema-migration note (per-host, applied 2026-09-29): SQLModel does not
+backfill indexes onto existing databases, so the case-insensitive
+uniqueness belt was applied by hand on all five fleet hosts after the
+dup-scan returned 0 rows everywhere:
+
+    SELECT chain_id, proposal_id, voter_address COLLATE NOCASE, COUNT(*)
+      FROM governance_vote GROUP BY 1,2,3 HAVING COUNT(*)>1;   -- 0 on all 5
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_governance_vote_voter_nocase
+      ON governance_vote(chain_id, proposal_id, voter_address COLLATE NOCASE);
+
+Any new host/chain DB needs the same statement — it is not in the model
+``__table_args__`` (sqlite ``COLLATE NOCASE`` in an index is dialect-bound)
+and ``create_all`` will not emit it.
+
+Tests: ``test_governance_vote_canonicalization.py`` — canonical storage at
+the vote route, either-spelling stake power lookup, legacy-lowercase
+revote blocked with 400, twin insert rejected by the NOCASE index, the
+dup-scan returning clean, and the lowercase signed-message contract pinned
+both ways (lowercase verifies and stores canonical; canonical-signed is
+rejected — the pre-existing CLI contract).
+
+
+### Bridge validator set — decision: the 4 consensus validators, height-scoped (2026-09-29)
+
+Operator decision on the bridge confirm validator set (builds on the
+2026-09-29 feasibility note above, which established that collected
+attestations already sign exactly the header domain the bridge verifies):
+
+- The ``bridge_validators`` table is retired for confirm purposes. The
+  validator set becomes the 4 consensus validators, stored as a
+  height-scoped chain parameter — the same mechanism as
+  ``bridge_release_authority`` (``chain_parameter_history`` via
+  ``_chain_parameter_value``), so every node resolves the identical set
+  at a given block height.
+- Threshold is 3-of-4, matching block production (proposer +
+  ``min_attestations=2``): a block is final exactly when the bridge's
+  release quorum is met, so the confirm threshold becomes reachable —
+  ``bridge_multisig_threshold=2`` is unreachable today because stored
+  headers carry only the proposer signature.
+- The proof is the block header plus its stored attestations verified
+  against that set. Attestations sign the header domain including
+  ``bridge_state_root`` and the proof binds the block hash — feasible
+  per the earlier note; a dedicated domain tag remains the cleaner
+  long-term cut if consensus and bridge verification diverge.
+- The ETH contract validator list and threshold are updated in the same
+  change as the key split.
+
+Until that lands, new locks stay paused (see the BRIDGE_LOCKS_PAUSED
+entry): locking value behind an unreachable release path would only park
+funds.
+
+
+### docs(governance): votes are advisory (V-7)
+
+- Governance votes submitted over RPC are advisory tallies — a vote row is written only on the node that received the RPC, never propagated or applied. `docs/governance/01-ARCHITECTURE.md` now says so; feature-status pages claiming on-chain vote submission are stale (`8b96dc8`).
+
+
+### docs(staleness): May sweep — skills directives, env-config consensus section (2026-09-30)
+
+Skill files agents load as instructions now match practice: the
+troubleshooting skill no longer prescribes `DELETE FROM block WHERE
+height=0` (stale-genesis bootstrap is unsafe; restore from
+checkpoint/backup instead), the software-setup skill's `--no-verify`
+advice is removed (AGENTS.md forbids it — CI runs the same checks), and
+the multi-node skill's `git add .` / `push origin main` became named
+files + `push origin HEAD:main`. `ENVIRONMENT_CONFIGURATION.md` gains a
+consensus section: `ENABLE_BLOCK_PRODUCTION`,
+`MULTI_VALIDATOR_MIN_ATTESTATIONS`, and the `STATE_TRANSITION_V2..V9`
+height table with the hardcoded-vs-env-gated rule. `genesis_generation.md`
+warns that fleet genesis files are stale and bootstrap is unsafe.
+Broken/missing refs fixed in `e2e-test-execution.md`,
+`testing-procedures.md`, `infrastructure/README.md`, and
+`app-shell-classification.md`.
+
+
+### docs(staleness): skills pass 2 — validator-quorum recovery, force-sync, genesis --force (2026-09-30)
+
+Second destructive-command sweep of `skills/`: the recovery recipe that
+stopped two validators at once (quorum loss) and restored a possibly-broken
+backup onto `rm -rf`'d data is now one-node-at-a-time with a named
+known-good backup plus height/hash parity check; the `checkout --force +
+clean -fd` conflict recipe is `git status` first + `git pull --ff-only`;
+`genesis sync-from-hub --force` sites in both node skills now warn that
+`--force` overwrites `genesis.json` and is unsafe on a node with existing
+chain data. `.gitignore` gains bare `venv` (the slash pattern missed the
+symlink that `git add -A` swept into f788114's predecessor). AGENTS.md
+now states the post-tag rule explicitly: freeze the tagged log, create
+the next version's log if absent.
+
+
+### docs(governance): glossary verified, fictional CODEOWNERS replaced (2026-09-30)
+
+GLOSSARY entries now match code: `AgentType` lists the real enum values;
+the H-section's stray "Agent" entry is `Hermes` (the market shop runtime);
+made-up agent types (architect/genesis/wallet/follower-agent) and the
+fictional "Stage 1-11 curriculum" are corrected to `training_setup`'s
+schema-driven stage runner. `docs/blockchain/governance/CODEOWNERS` is now
+a pointer — the file that actually routes review is `.github/CODEOWNERS`
+(`* @oib`); the team roster it claimed never existed.
+
+
+### ops(bridge): declared key bindings deployed for the hardened validator registrar
+
+- All five `bridge-validator-keys.env` files now declare `BRIDGE_ADMIN_ADDRESS` + `BRIDGE_VALIDATOR_ADDRESS_1`/`_2` (identical values), satisfying the `8a5cb0a47c` binding: `register_bridge_validators.py --dry-run` passes on hub (admin `0x02B8`, validators `{0x02B8, 0x628b}`) and fails closed elsewhere (node2 resolves `PROPOSER_KEY` to its own `0x4364`, refused). Registration is hub-pinned until K-1 re-keys the slots.
+- Recorded for the bridge lane: the live `bridge_validators` table is cruft (active set `{0x02b8, 0x7dc101a8…}` — an unknown sixth key — `0x628b` never registered, hub1 empty, Sep-15 rows carry malformed double-`0x` pubkeys). Superseded by BR-2's chain-param design; do not trust the table meanwhile.
+
+
+### feat(ops): replay-chain --checkpoint — seed state at a checkpoint DB, verify, replay C+1..end (V-5)
+
+- `scripts/ops/replay-chain.py` gains `--checkpoint DB`: a state-bearing chain.db whose tip C seeds the replay target wholesale (the equivalent of a node that stopped at C resuming sync). Three proofs gate the first import — lineage (checkpoint head hash == snapshot block C, and C+1 names it parent), state-bearing (the checkpoint's account table recomputes to block C's recorded state_root, same input set as `compute_state_root_full`), and a post-`init_db` re-seed root check (catches ensure_bond_accounts-style seeding mutations). `--genesis` is unused in checkpoint mode.
+- `--to-height` now actually bounds the run: the stub RPC caps the head/range it serves at the requested height instead of importing to the real tip and failing the expected-count check.
+- `--compare-state-with DB` adds the V-5 ladder's layer 2: after a clean replay to the next checkpoint's tip, every non-history table is compared wholesale — covering aux consensus state (escrow, chain_parameter, bridge rows, contracts) that the account-only state root never sees. Volatile locally-stamped columns (`created_at`/`updated_at`) and the replay-generated undo journal are excluded; the compare DB's tip must equal the replay end.
+- `tests/unit/test_replay_chain.py`: 29 cases — arg parsing, stub capping, checkpoint head reading, all proof failure modes (tip≥end, lineage/fork mismatch, missing root, empty accounts, root mismatch), copy placement, and wholesale-compare semantics incl. aux-table divergence and volatile-column exclusion.
+- `docs/ops/v5-replay-inventory.md`: recipe updated to the implemented flags (`--checkpoint` + `--snapshot`; the planned `--from-height` did not get implemented — the checkpoint file's own tip is the start height and cannot disagree with its state).
+
+
+### feat(db): opt-in keeper connection (DB_KEEPER_CONNECTION) — stops the close-time WAL checkpoint stalls
+
+- Why: on 2026-10-01 node2's v9 attestation check hit `database is locked` at height 30415 and declined to attest (fail-closed), and its propose loop logged repeated `Failed to propose block: database is locked`. A `/proc/locks` sampler on node2 (10:03-10:28Z) found 32 holds of 2 s or more, all by node2's own RPC and node processes and none by an outside process; the 10:07:32Z failure sat inside an 11.5 s EXCLUSIVE hold by the RPC process.
+- Mechanism: every session opens its own connection (NullPool), so whenever none is open the closing one is the last, and SQLite checkpoints and deletes the WAL under an EXCLUSIVE lock while it syncs the disk. node2's WAL is deleted and recreated several times per 30 s. node0/node1/node2 are containers on one machine with chain.db on btrfs over spinning disks: a 4 KB write plus fsync takes a median of ~220 ms with outliers over 1.7 s, against 2 ms on hub and hub1 (ext4). A connection opened during the exclusive hold waits Python's default 5 s (the 60 s busy timeout is set only after the first pragma) and fails.
+- Change: `settings.db_keeper_connection` (env `DB_KEEPER_CONNECTION`, default off). When on, `init_db` opens one idle connection per chain and `shutdown_db` closes it, so no session is ever the last one: the WAL stays on disk, is only checkpointed passively, and the exclusive lock is never taken. Failing to open it only logs a warning. Scratch check: with the last connection closed the WAL is deleted; with an idle keeper open it persists.
+- Operational note: while it is on, `chain.db` alone is not the whole database; copy it with `sqlite3 .backup` or with the node stopped, never a bare `cp`, and open only `.backup` copies with `immutable=1` (replay-chain already requires a copy).
+- Tests: `apps/blockchain-node/tests/test_db_keeper.py` (7 cases; the four behaviour tests fail with the `init_db` hook removed). Rollout is per host by env flag, node0 first; the bounded attestation retry from `a5b72f4605` covers holds up to ~10 s and is a partial mitigation next to this.
+
+
+### fix(rpc): refuse authority-gated types from the wrong sender at mempool admission (V-8)
+
+- Found 1 Oct during the K-1 executor rotation: a GOVERNANCE_EXECUTE from the retired executor `0x02B8…` was admitted to the mempool and only dropped when hub proposed it (`Failed to apply transaction … is not an authorized executor`, 14:21:54 CEST). Nothing was written, but each such transaction costs a mempool slot and a proposer cycle, and any funded account can send one. `_validate_transaction_admission` is the one door for REST, gossip ingest and the p2p transport, and it checked chain, sender, balance and nonce, not who may send a type.
+- New `state/admission_authority.py::sender_authority_error` mirrors the two sender gates of `validate_transaction` (GOVERNANCE_EXECUTE against `governance_executors`; ESCROW_RELEASE and ESCROW_REFUND against `escrow_settlement_authority`): the same parameter lookups, version rules (fail-closed from v5, lenient below) and messages, evaluated for the version and height of the next block. The admission function calls it last, so every earlier rejection keeps its message. `validate_transaction` and the apply path are untouched.
+- Not covered: BOND_SLASH, whose authority check lives in the apply function and not in `validate_transaction`.
+- Behaviour to know: a transaction from a newly added executor or settlement authority is refused at admission until the parameter-changing transaction has sealed, where apply could have accepted it later in the same block. The K-1 rotation already waited for each seal.
+- Tests: `tests/test_admission_authority.py`, 57 cases. With only the hook removed the five refusal cases fail; a 45-case matrix (five block versions, three types, three parameter states, signed transactions) compares the helper with `validate_transaction` and fails on any disagreement in outcome or message. The whole `apps/blockchain-node/tests` suite run the way CI does gives the same 6 failures on the parent and on the patch (4 in `test_fleet_digest_spec.py`, 1 in `test_v8_stamped_version.py`, 1 in `security/test_state_transition.py`, all present before) and 57 more passes. Not deployed.
+
+
+### Consensus: v10 GPU lifecycle gates + attestation observability (2026-10-01)
+
+- `GPU_DEREGISTER` lets a GPU's registrant deactivate it (`5a0e833492`),
+  gated at the pinned v10 height 32100 (`02bca02b49`, default recorded in
+  the operator docs at `9ed3611280`). `GPU_RETIRED_IDS` refuses
+  `GPU_REGISTER`/`GPU_ALLOCATE` for retired ids at admission (`1abd2f14fb`)
+  and for blocks from v10 (`c06b1876f8`); `GPU_ALLOCATE` of a deactivated
+  GPU is refused at admission (`0eecf6dd59`). `gpu-registry-sweep` repairs
+  databases that replayed the retired-GPU rows (`b154bcb06a`).
+- Attestation path: each validator now counts once toward quorum
+  (`97849fcf59`), a post-quorum linger lets slow attestations land
+  (`17bcce06cc`), and both publish and arrival are logged
+  (`5613a1442d`, `337b763bd5`). Missed-proposer-round warnings fire only at
+  round >= 2 — round 1 is the documented empty-heartbeat landing spot
+  (`87c9909370`).
+- `consensus_state.save_state()` never committed: the insert was rolled
+  back on every call while returning True. It now commits and also saves
+  on every validator-set mutation (`0feb7ddfc3`).
+- Perf/correctness: scalar tip query in the v9 attestation check
+  (`be15bb5d3`), one retry on a locked database (`a5b72f4605`), and
+  unbounded `Block` entity loads replaced by scalar/count queries
+  (`c075daff9f`).
+
+
+## v0.25.8
+
+### 2026-09-28 — fork-recovery drills: delta-journal undo verified against real data (fix in this batch)
+
+The non-empty-undo path (SYNC_FORK_UNDO_ENABLED, default on) had never
+executed against real production data — only unit and differential tests.
+Two drills closed that gap:
+
+**Drill A (copy of node2 chain.db):** reverted a 146-block real segment
+(26724..26869, all journal_status=complete) — ancestor state root and the
+gpu_registration side-table digest both verified, all block/tx/journal
+rows removed. All 5 orphaned txs re-admitted through full admission into
+the mempool (signed envelopes, nonces/balances valid post-revert).
+Fabricated lost-tx lifecycle verified end-to-end: unsigned orphan ->
+admission reject -> sync_fork_orphaned_tx_lost_total +1 ->
+sync_fork_domain_rows_orphaned_total +1 -> stake row orphaned -> insert
+confirmed lock -> _revive_confirmed_domain_rows restored it to active.
+
+**Drill B (live node0):** sent canary TRANSFER 0xcf2282 (confirmed
+26881), stopped the node, reverted [26881..26882] on the live chain.db
+via revert_losing_segment (ancestor root verified), requeued the orphan
+through real admission, restarted. node0 bulk-pulled the identical
+winning branch (0xefca65aacc0feebd), canary re-confirmed at 26881,
+fleet reconverged hash-identical at 26886 with zero fork/divergence
+errors. Post-import reconcile classified the orphan on-chain -> not
+lost.
+
+Findings along the way:
+
+- MEMPOOL_BACKEND drift fixed: node0's blockchain.env had 'memory'
+  (fleet: 'database', explicit on hub/hub1/node2, default on node1).
+  Normalized to database — node + rpc restarted, running env verified,
+  node reconverged. node0 never proposes so the pool is intake-only
+  either way, but now matches the fleet and persists across restarts.
+  Backup: /etc/aitbc/blockchain.env.bak-20260928-mempool-backend.
+- CLI canary note: 'aitbc transactions send --type GPU_REGISTER' fails
+  apply with 'must have value=0' since the CLI requires --amount>0;
+  the earlier gpu canary used the raw signed-RPC path.
+- bridge_block_header digest-cap concern resolved: written only by the
+  bridge finalizer (own session), can never enter a block journal, so
+  the 100k digest cap is unreachable for it. Code comment added at
+  _DIGEST_EXCLUDE; behavior kept fail-closed if ever journaled.
+- Pre-existing stale mempool row 0xde13acc on node0's postgres mempool
+  (legacy format, no tx_hash in content) — predates the drill, left as
+  found.
+
+
+### 2026-09-28 — consensus replay hardening (signature gate + historical fixture)
+
+- `compute_state_delta` signature verification is now gated to `block_version >= 7`. The v2-v6 parallel era rewrote same-sender nonces before delta computation, so a signature carried in from that era would have been checked against the rewritten nonce — failing a block that applied fine historically. `a3ef90501`
+- New `test_historical_replay.py` fixture replays one block per era (v5 same-sender pair through the parallel path, v5 bridge credit, v7 GPU_REGISTER, v8 stamp) via the real import path with frozen state roots. Run against the ungated code it reproduced the exact predicted failure (Invalid signature on the rewritten tx2, state-root mismatch, block rejected).
+- New `scripts/ops/replay-chain.py`: replays a chain-db snapshot through `ChainSync.bulk_import_from` over a stub HTTP source (`/rpc/head`, `/rpc/blocks-range`), reporting the first divergent height. Multi-validator attestation/schedule gates are disabled for historical replay (validator set rotated since); proposer-signature and state-root checks stay on. Full hub-snapshot replay currently blocks on reconstructing the exact height-0 account set behind root `0x448a...` — a data-provenance gap, not a code failure.
+- Fork undo now drops `account_balance:{chain}:{addr}` / `account_details:{chain}:{addr}` Redis keys for every account the journal touched, committed post-revert in the resolver path — RPC can no longer serve losing-branch balances for the cache TTL. `c18bcc5f5`
+
+### Finding — genesis bootstrap is stale fleet-wide
+
+Every live `genesis.json` describes an older genesis (`0x40ea48f9...`), not the
+running chain (`0xd95e600b...`), and `/rpc/genesis_allocations` returns
+"metadata not found" because block 0 embeds no allocations. A fresh node
+cannot bootstrap from genesis today — all current nodes were joined via DB
+snapshots. The exact height-0 allocation set producing recorded root
+`0x448a...` was overwritten during the Sep-9 reset run; reconstructing it is
+the remaining prerequisite for full-history hub replay.
+
+
+## v0.25.6
+
+### Consensus & chain hardening
+
+- **Chain ID normalization** (`4f56210af`): `/rpc/consensus/status`, `/rpc/consensus/validators`, and `/rpc/consensus/slashing-history` now default `chain_id` from `settings.chain_id` instead of the hard-coded short `ait-hub`.
+- **Island peer count** (`4f56210af`): `list_islands` and `get_island` now count active lease-tracker subscribers as peers, fixing the `peer_count: 0` mismatch.
+- **Watchdog and proposer phase reporting** (`7ccdabf9b`): the active proposer phase is included in watchdog ERROR output and metrics for easier diagnosis of hung proposers.
+- **New blocks default to v2** (`d119e8ca9`), and v3 per-escrow activation, beneficiary, and authority checks are wired (`f1b0d465a`).
+- **Multi-validator consensus validated end-to-end**: the 3-validator PoA/PBFT path is active and producing blocks with attestations across the fleet. Operational validator key and environment configuration happened outside the repo; the source support was completed and verified in this cycle.
+
+
+### Faucet → genesis funding
+
+- **Devnet faucet removed** (`4345b881b`, `c7b728ce2`): `FAUCET` transaction type purged from consensus and state; genesis funding promoted as the canonical source of initial coins.
+- Scenario and system-flow docs updated for genesis funding (`9b1ebf62b`).
+
+
+## v0.25.5
+
+### Consensus & sync fixes
+
+- `_propose_block` refactored into a seven-phase pipeline (`24b6c88660` +
+  `6f27f25e8a` + `b9c855f5c7` + `69ef77460c`): early gates → resolve head →
+  collect txs → assemble block → consensus gates → broadcast. CC drops from
+  ~88 to ~7, under the C901 threshold.
+- Proposer watchdog (`227bb9e105`): `_propose_block_with_watchdog` logs error
+  + `poa_proposer_stalled_iterations_total` after `max(60s, 4×interval)`.
+- Per-phase tracing (`87e11d7118`): each phase logs start and duration.
+- Proposer round timeout aligned to heartbeat (`e8e9a91b04`).
+- `_process_txs_parallel` write-phase rollback (`a7dd35c85a`).
+- `fetch_blocks_range` exception logging improved (`7839be1bbc`): error
+  details in log message, not just `extra` dict.
+- `_parallel_bulk_import` documented as disabled-by-design (`7839be1bbc`).
+- `AITBC_HOSTNAME` env intermediate before `socket.gethostname()` fallback
+  (`7839be1bbc`).
+- `get_block` includes `block_metadata` for multi-validator signature
+  validation (`a2d22d4597`).
+- `get_state_delta` returns empty diff when state roots match (`a2d22d4597`).
+- SyncManager gossip disabled when proposer id or key missing (`5ea965e1d8`,
+  `ba1f10499`).
+- Non-block messages filtered in SyncManager gossip consumer (`856c5bfc22`).
+- Duplicate Account inserts avoided in delta sync (`2926376d0b`).
+
+
+## v0.25.3
+
+### 2026-08-31 — T5 / G6 multi-validator PoA fault-tolerance validation
+
+Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `<hub-node>`, `<node1>`, and `<node2>`:
+
+- Preserved proposer / validator-1: `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76`.
+- Generated three new validators on `<hub-node>`:
+  - `0x241D3e44d42b6d4c270d0231780913f14386d90C`
+  - `0x65568673B3cf7D614Edd97a94b3Ff757246dAe22`
+  - `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`
+- Live configuration: `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`, `max_empty_block_interval=60`; followers `<node1>`/`<node2>` use `AUTO_SYNC_THRESHOLD=0` to force bulk pull for any gap.
+- Round-robin proposer rotation verified for blocks 1392–1399 with four distinct proposers.
+- One-validator-down simulation: removed `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`; chain continued with the remaining three validators (heights 1393–1395); restored and resumed four-validator round-robin.
+- Operational findings: `aitbc-blockchain-rpc` can hang in `deactivating (stop-sigterm)`, a stale `aitbc_chain.main` process remained from 2026-08-27, and `AUTO_SYNC_THRESHOLD=0` is required to force SyncManager bulk pull for small gaps.
+
+PBFT / true BFT across independent validator hosts remains open.
+
+
+### 2026-08-31 — Multi-validator PoA stale state_root guard (TBD)
+
+- `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
+  - `_propose_block` now verifies that the local account state root matches the parent block's `state_root` before draining the mempool or building a new block.
+  - If the local state lags behind the parent (e.g. a validator is selected to propose before it has applied the previous block's state transition), the proposer re-applies the parent's recorded transactions to fast-forward local state.
+  - If the state still does not match, the proposal is abandoned and the block is not signed/broadcast, preventing a multi-validator proposer from building on a stale `state_root`.
+  - This addresses the divergence at block 1486, where a proposer produced an empty block whose header carried the pre-1485 `state_root`.
+
+
+### 2026-08-31 — Gossip transaction handler hardening (5f54f8cc4)
+
+- `apps/blockchain-node/src/aitbc_chain/main.py`: `process_txs` now ignores non-transaction messages on the websocket-gossip `transactions` topics.
+- It unwraps P2P-style `{"type": "new_transaction", "tx": {...}}` envelopes.
+- It skips `ping`/`pong` control messages and any payload missing `transaction.from`.
+- Invalid gossip messages are logged at `debug` instead of `error`, removing the repeated `transaction.from is required` log spam.
+- Deployed on `<hub-node>`, `<node1>`, `<node2>`, `<replica-node>`.
+
+
+## v0.24.15
+
+### Consensus recovery — 2026-08-25
+
+- **Stall state:** `<hub-node>` `/rpc/height` = 14547; `<node1>` `/rpc/height` = 14548; both heads 7.5+ hours old. `<hub-node>` logs showed `Selected proposer ... is not a local key, skipping proposal at height 14548` and periodic sync pulling from itself.
+- **Root cause:**
+  1. `<hub-node>` `default_peer_rpc_url` was `http://hub.example.net` (self-reference), so it could never learn `<node1>`'s head over HTTP.
+  2. `<node1>` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
+  3. The `<incus-host>` Incus host reverse proxy for `<node1-fqdn>`/`node1.example.net` was not enabled in sites-enabled.
+- **Actions:**
+  1. Updated `/etc/nginx/sites-enabled/aitbc-loadbalancer` on `<node1>` to use `127.0.0.1:8202` and `<node1-ip>:8202`, and removed stale backup files from `sites-enabled`.
+  2. User enabled `/etc/nginx/sites-available/node1.example.net.conf` on the `<incus-host>` Incus host and reloaded nginx; `node1.example.net` now resolves and terminates TLS with a valid Lets Encrypt certificate.
+  3. Set `<hub-node>` `default_peer_rpc_url=https://node1.example.net` in `/etc/aitbc/blockchain.env`.
+  4. Temporarily set `MULTI_VALIDATOR_MIN_ATTESTATIONS=0` on both nodes, restarted both `aitbc-blockchain-node` services, and restored `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` after the first converged blocks.
+- **Verification:**
+  - `<hub-node>` pulled block 14548 from `<node1>` over HTTPS; both heads converged at height 14550 with identical hashes.
+  - The chain now advances every ~60s with `MultiValidatorPoA` round-robin selection; blocks 14563+ carry `block_metadata` with a valid cross-validator attestation signature (e.g. 14563 from `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` attested by `0x78046b9677c724FdF0af59c58439d67B210AD71b`; 14564 from `0x78046b9677c724FdF0af59c58439d67B210AD71b` attested by `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F`).
+  - `<hub-node>` and `<node1>` report the same head height and hash.
+  - Extended independent verification (heights 14592–14612, 15 consecutive blocks) ran `verify_block_signature()` live on all three nodes; every proposer and attestation signature validated, with attestations exclusively from the non-proposing validator.
+- **Residual:**
+  - `PBFTConsensus` is still not wired into production block production. A two-validator, `min-attestations=1` topology is not BFT and can stall if one validator is unreachable.
+  - `<node2>` remains a passive follower, not a validator.
+  - `<node1>` `BRIDGE_RELEASE_ENABLED=false` remains; the five pending bridge transfers are still pending and no `aitbc bridge confirm` was executed.
+
+
+## v0.24.14
+
+### G6 / G8 — validator key rotation process and CLI surface gate removal (2026-08-25)
+
+### G6
+
+- Added `docs/operations/validator-key-rotation.md` defining a live-key-free
+  validator and recovery key rotation runbook.
+- Added `docs/operations/validator-key-rotation.env.example` as the git-tracked
+  template; real values are loaded from host-local `/etc/aitbc` or an external
+  secrets manager at runtime.
+- The runbook explicitly forbids committing private keys to git and cross-references
+  `docs/operations/SECRET_ROTATION.md` and `docs/operations/SECRET_ROTATION_LOG.md`.
+- The larger `PBFTConsensus` wiring and genuine BFT/fault tolerance remain open.
+
+### G8
+
+- Removed `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py`.
+- `cli/aitbc_cli/core/main.py` no longer uses a validated-command allowlist and no
+  longer accepts `--show-deprecated`.
+- `marketplace` and `operations` are no longer hidden from `aitbc --help`; their
+  short help notes the preferred replacement group.
+- Updated `cli/tests/test_cli_surface.py`, `test_cli_basic.py`, and
+  `test_cli_comprehensive.py` to match the unified surface.
+- **Residual (honest):** removing the gate does not consolidate the overlapping
+  groups. `market`, `marketplace`, and `operations marketplace` still hit different
+  backends; `governance` and `operations governance` are likewise unconsolidated.
+  G8 is closed for the visibility gate; the command consolidation underneath is
+  still open.
+
+### Bridge status
+
+- `BRIDGE_RELEASE_ENABLED=true` is live on `<hub-node>` and `<node2>`. `aitbc bridge
+  security-status` reports `release_enabled: true`, `multisig_enabled: true`,
+  `require_merkle_proof: true`, and `trusted_custodian: false`. A controlled
+  confirm/release validation run is pending operator-provided confirmer credentials.
+
+
+### Bridge release enabled; consensus recovered; confirmations remain pending (2026-08-25)
+
+- `BRIDGE_RELEASE_ENABLED=true` is live on `<hub-node>` and `<node2>`; the
+  `aitbc-coordinator-api` service on hub was restarted after the env edit, and
+  `/proc/<pid>/environ` confirms the flag is loaded.
+- `aitbc bridge security-status` reports `release_enabled: true`,
+  `multisig_enabled: true`, `require_merkle_proof: true`,
+  `trusted_custodian: false`.
+- The two-validator chain **recovered** after fixing `<hub-node>`'s sync source to
+  `https://node1.example.net` and exposing `<node1>` through the `<incus-host>` reverse
+  proxy. All three live nodes now advance every ~60s with matching heads (e.g.
+  height 14588) and each produced block carries valid cross-validator
+  `block_metadata`.
+- `<node1>` still has `BRIDGE_RELEASE_ENABLED=false`. Five bridge transfers
+  remain pending. `confirm_transfer` credits the recipient synchronously without
+  verifying the `BRIDGE_RELEASE` transaction is sealed in a produced block, so no
+  `aitbc bridge confirm` is run without explicit authorization after consensus is
+  verified robust and transaction-sealing prerequisites are proven.
+
+## v0.24.13
+
+### Multi-key consensus live validation and single-proposer restoration (2026-08-24)
+
+- Activated `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` on `<hub-node>` with a two-key
+  `VALIDATOR_SET` and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`.
+- Validated round-robin proposer rotation from block 13282 through 13378.
+- Verified every produced block carried the second validator signature and one
+  attestation while multi-key was active.
+- Decision: restored single PoA proposer by setting `MULTI_VALIDATOR_CONSENSUS_ENABLED=false`
+  on `<hub-node>` and restarting `aitbc-blockchain-node`.
+- Rationale: the two validator keys live on the same hub node, so multi-key rotation
+  does not provide BFT or decentralization; it adds operational surface without a
+  production benefit until a second independent validator node is deployed or PBFT
+  consensus is wired into the live path.
+- The `VALIDATOR_SET` and second key remain in `/etc/aitbc/blockchain.env` for easy
+  re-enable.
+- Chain continues to produce blocks under single proposer `ait1fe2d63...`.
+
+## v0.24.12
+
+### Multi-key consensus live validation and single-proposer restoration (2026-08-24)
+
+- Activated  on  with a two-key
+   and .
+- Validated round-robin proposer rotation from block 13282 through 13378.
+- Verified every produced block carried the second validator signature and one
+  attestation while multi-key was active.
+- Decision: restored single PoA proposer by setting
+  on  and restarting .
+- Rationale: the two validator keys live on the same hub node, so multi-key rotation
+  does not provide BFT or decentralization; it adds operational surface without a
+  production benefit until a second independent validator node is deployed or PBFT
+  consensus is wired into the live path.
+- The  and second key remain in  for easy
+  re-enable.
+- Chain continues to produce blocks under single proposer .
+
+## v0.24.8
+
+### Fixed off-chain governance execution timelock
+
+- `apps/governance/src/governance_service/services/governance_service.py`: when `enable_onchain_submission` is false, query the chain RPC for the current block height at proposal creation and record `voting_ends_block`. Also record the height at close time if it is still missing.
+- `/etc/aitbc/aitbc-governance.env`: the temporary `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false` bypass has been removed.
+
+
+## v0.24.5
+
+### P1.7 — Governance `propose → vote → close → execute` lifecycle
+
+- Added `close_proposal` to `GovernanceService`, which tallies votes and
+  transitions an active proposal to `succeeded` (quorum + approval met) or
+  `defeated` (voting ended without meeting thresholds).
+- Added `POST /v1/governance/proposals/{proposal_id}/close` to the governance
+  service.
+- Added `aitbc governance close <proposal-id>` to the CLI.
+- Updated `aitbc governance` commands to pull `governance_service_url` from
+  CLI config instead of only the hardcoded localhost default.
+- Added `tests/cli/test_governance_group.py` for the `close` command.
+- Updated scenario 17 to document the full `propose → vote → close → execute`
+  flow.
+
+Live validation: `aitbc governance status` works. `propose`/`close`/`execute`
+fail against the running <node2> governance service because the governance DB
+has `invalid page in block 4 of relation base/16399/2610` corruption. The code
+path is implemented and unit-tested; the live cycle is blocked by the DB.
+
+
+### P1.7 update — governance DB recovered and lifecycle live-validated
+
+- Dropped and recreated the corrupt `aitbc_governance` PostgreSQL database on <node2>.
+- Ran `alembic upgrade head` to rebuild the schema.
+- Fixed `governance_service.py` for PostgreSQL use:
+  - parse ISO datetime strings from the CLI
+  - auto-create governance profiles for proposer/voter
+  - normalise vote numbers to `Decimal`
+  - set proposal status to `active` on creation
+- Live-validated the full `propose → vote → close → execute` cycle:
+  ```bash
+  aitbc governance propose --title 'Gas2' --description 'Gas2' --proposer-id <node2> --voting-days 1
+  aitbc governance vote --proposal-id prop_b9f8d532 --voter-id <node2> --vote for --voting-power 1000000
+  aitbc governance close prop_b9f8d532
+  aitbc governance execute prop_b9f8d532
+  ```
+- For the live <node2> test environment, `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false`
+  was added to `/etc/aitbc/aitbc-governance.env` because on-chain submission is
+  disabled there and no block height is recorded. In a production deployment with
+  `enable_onchain_submission=true`, the timelock should remain enabled.
+
+
+## v0.24.3
+
+### P0 Phase 8 — Non-genesis settlement key for ESCROW_RELEASE (2026-08-21)
+
+- `ESCROW_RELEASE` transactions are no longer signed exclusively by `GENESIS_WALLET_PRIVATE_KEY`.
+- New environment variables: `ESCROW_RELEASE_PRIVATE_KEY` and `ESCROW_RELEASE_ADDRESS`.
+- The settlement address is derived from the release key or taken from `ESCROW_RELEASE_ADDRESS`; it becomes the `from` address of the on-chain release transaction.
+- Fallback to `GENESIS_WALLET_PRIVATE_KEY` is preserved for existing deployments.
+- Added unit tests in `apps/blockchain-node/tests/test_escrow_routes.py`.
+
+
+## v0.24.1
+
+### Shop-chain fork recovery and live scenario follow-ups
+
+Replay of Scenario 34 on 2026-08-20 found the shop node (`<node2>`) forked from the hub at height 6815 (local proposer `0x19e7e376…` vs hub genesis). Bulk sync then logged `Unhandled import case` on every next-height import because the parent was not the shop tip.
+
+- `import_block` now reports that case as `diverged=True` (`Divergent chain: next block parent … is not our head …`) instead of falling through.
+- Shop was reset with `scripts/ops/reset-follower-to-genesis.sh` (DB backups left on disk) and pull-synced back to hub height.
+- `aitbc market offer` as root can load `aitbc`-owned `island_credentials.json` (mode 0600). Importing the CLI as a non-root service user no longer crashes on unreadable `/etc/aitbc/blockchain-secrets.env`.
+- Scenario 34 JWT generation uses `aitbc.auth.create_access_token`; exchange examples use `/api/orders/orderbook` and `POST /api/orders` with `X-Api-Key`.
+
+
+## v0.23.34
+
+### V23-56 — the genesis wallet and the block proposer are two different addresses
+
+**Confirmed.** `cli/aitbc_cli/commands/market/exchange.py`, `cli/aitbc_cli/config.py`,
+`docs/getting-started/free-ait.md`, `docs/getting-started/node/blockchain-setup.md`.
+
+Flagged after V23-52 as "`GENESIS_WALLET_ADDRESS` now points at `ait1fe2d63fe…` while
+`ait1db5247d0…` is still hardcoded in the CLI — a faucet request would go to the wrong
+address." That framing was backwards, and checking the chain says so in one query:
+
+    ait1db5247d0…   balance 3,599,933,198,340   nonce 37
+    ait1fe2d63fe…   {"detail":"Account not found"}
+
+`ait1db5247d0…` is the **genesis allocation** — the funded treasury AIT transfers are sent
+*from*. `ait1fe2d63fe…` is the **proposer identity** blocks are signed *as*; it holds nothing
+and has never had an account. They were never meant to be the same value, and V23-52's fix
+was correct: it repointed the *signing* identity. The hardcoded address in the CLI was right
+all along.
+
+The real defect is that nothing anywhere recorded that these are different roles, so the two
+kept being substituted for each other:
+
+- `exchange.py:118` hardcoded the treasury mid-function while reading the wallet, chain id and
+  RPC URL from config. It happened to hold the correct value, so it worked — and silently
+  disagreed with `GENESIS_WALLET_ADDRESS`, which `bridge-monitor` (`main.py:38`, paired with
+  `GENESIS_WALLET_PRIVATE_KEY`) and blockchain-node escrow (`escrow_routes.py:26`) both read
+  for the same purpose. Now read from `CLIConfig.genesis_wallet_address`, which resolves that
+  env var, so all three agree.
+- The two "address format" examples in `free-ait.md` were **live funded accounts** — the
+  treasury, and someone's wallet holding 5,047,200 at nonce 50. A getting-started page is
+  exactly where an example gets copy-pasted as a destination. Replaced with well-formed but
+  non-real addresses (both still validate and canonicalise to the same body, so they still
+  demonstrate what the section claims).
+- `blockchain-setup.md` gained a table stating the distinction outright, because the failure
+  is silent: pointing `GENESIS_WALLET_ADDRESS` at the proposer yields transfers from an
+  account that does not exist while block production stays perfectly healthy.
+
+**`PROPOSER_ID` is not inert on a follower**, which is the opposite of what was about to be
+written into that doc. `main.py:246` filters gossip with it, skipping any block whose
+`proposer` equals the node's own as self-proposed, so copying another node's `PROPOSER_ID`
+makes a follower silently discard that node's blocks and recover only via bulk RPC sync.
+
+An earlier draft of this entry claimed that had happened here, on the grounds that
+`/etc/aitbc/blockchain.env` line 7 reads `PROPOSER_ID=ait1db5247d0…` — the address the hub
+proposed as until V23-52. Asking the running node instead of the file says otherwise, and
+turns up something worse. `/health` reports:
+
+    "proposer_id": "ait17add2a952e8349c5aed65ac503569c37"
+
+**The same env file sets this setting twice, under two spellings, with two different values** —
+line 7 `PROPOSER_ID`, line 24 `proposer_id`. Both reach the process (confirmed in
+`/proc/<pid>/environ`), and `CLIConfig`-style `case_sensitive=False` settings resolve the
+lowercase one, so line 24 wins and line 7 is dead text that reads like configuration. No
+gossip was being discarded; the claim above was wrong.
+
+What does bite is the value that wins. `ait17add2a95…` carries **32** hex characters, not 40.
+`validate_address` accepts it — it does not check the body length — but `canonical_address`
+only strips the prefix at exactly 40 hex, so it passes through unchanged and can never
+compare equal to the `0x` address recovery returns. A node configured this way logs
+`Failed to load proposer key from keystore` on every start (visible in this follower's journal
+at 10:26:44 and 10:28:46), and any block it did produce would fail verification on every peer
+for the V23-54 reason, one layer deeper. Harmless here only because this node is a follower
+with block production disabled.
+
+Not fixed in this release: it is deployment configuration on an operator's machine, not repo
+content. Recorded so the next person to read that file knows line 7 is inert.
+
+Guarded by `tests/cli/test_genesis_wallet_is_configured.py`: the env var overrides the
+default, and no module under `cli/` outside `config.py` may contain a quoted `ait1`/`aitbc1`
++ 40-hex literal. Verified the guard fails on the pre-fix line and passes after it.
+
+**Still needs an operator (hub-side).** `/etc/aitbc/blockchain.env` on the hub sets
+`GENESIS_WALLET_ADDRESS=ait1fe2d63fe…`. `bridge-monitor` already reads that and would attempt
+transfers from an account with no balance, and after this change the CLI reads it too. It
+should be `ait1db5247d03ca2e40f3995a583b2c097ab703efd4d`. `PROPOSER_ID` on the hub stays
+`ait1fe2d63fe…` — that one is correct.
+
+
+### V23-60 — RPC genesis bootstrap could never reach an HTTPS hub
+
+Found in the operator's `journalctl` output while confirming V23-59 had worked:
+
+```
+Trying to fetch genesis block from http://https://hub.example.net
+Failed to fetch genesis block from http://https://hub.example.net: [Errno -2] Name or service not known
+RPC bootstrap for genesis block failed for all peers
+```
+
+The peer URL normalisation tested only for `http://` before prepending `http://`:
+
+```python
+if peer_url.startswith("http://"):
+    peer_url = peer_url.replace("http://", "")
+peer_url = f"http://{peer_url}"
+```
+
+An `https://` URL fails that test, so nothing is stripped and a second scheme is bolted on.
+The result is a hostname that cannot resolve. Duplicated verbatim in
+`_load_genesis_block_from_rpc` and `_load_genesis_allocations_from_rpc`.
+
+**Why it went unnoticed:** the failure is indistinguishable from the hub being down. The peer
+loop catches the exception, logs a DNS error, and falls through to the local `genesis.json` —
+so on any node that has that file, bootstrap "works" and the log line reads as a network
+blip. A node relying on RPC bootstrap, which is the whole point of the path, has nothing to
+fall back on. Every TLS-fronted hub is affected, which is every hub reachable by name.
+
+**Fixed:** one `_with_scheme()` helper used at both sites, preserving an existing scheme.
+This is not a new convention — `aitbc/sync/source_resolver.py:51` and `sync_bulk.py:133`
+already test for both schemes. `poa.py` was the only place in the repo that got it wrong,
+which is why the fix is local rather than a new shared utility.
+
+**Tests:** 5 added to `test_follower_genesis_bootstrap.py`, including an end-to-end one
+asserting on the URL actually handed to the HTTP client — the defect lived in the caller's
+inlined copy, so a helper-only test would have passed against the broken code.
+
+**Not a defect, checked while here:** the paired log lines `Created 0 accounts from genesis
+allocations` / `Initialized 1 accounts from genesis.json` are both accurate — the first counts
+newly inserted rows and skips accounts that already exist, the second counts allocations
+processed. Confirmed against the running node: the treasury account holds 3,600,000,000,000,
+matching the hub.
+
+**Verified:** 749 passed / 17 skipped (blockchain-node, +5 new), ruff clean. V23-59 confirmed
+working in production — this follower built block 0 as `0x7a444401f721fd10…`, the hub's exact
+hash, and resumed syncing.
+
+---
+
+
+### V23-63 — the hub's genesis key was correct; the comparison was wrong
+
+The hub could not sign anything. Every execute returned 500, and the journal said:
+
+    GENESIS_ADDRESS (ait1fe2d63fe87db282083b9159e5857cac788af9e03) does not match the
+    secp256k1 address derived from GENESIS_PRIVATE_KEY (0xFe2d63FE87Db282083b9159e5857Cac788af9E03)
+
+Read the two strings rather than the sentence between them. `fe2d63fe87db282083b9159e5857cac788af9e03`
+against `Fe2d63FE87Db282083b9159e5857Cac788af9E03` — the same forty hex characters, differing only
+in the prefix and the checksum casing. It is one address written two ways, and it is the treasury
+account holding 3.6e12. The key was right the whole time.
+
+`transaction_service.py:113` compared them with `.lower()`, which normalises the casing and not
+the prefix, so `ait1fe2d…` never equals `0xfe2d…` however correct the key is. `canonical_address`
+was written for precisely this under V23-54, when the same mistake was stalling the block-proposer
+check; `TransactionService` never picked it up. This closes the second instance.
+
+This also revises V23-57. That finding read the same symptom as a missing or wrong treasury key on
+the hub. It is neither — the key is present and correct, and no key needs to be supplied.
+
+**Which spelling goes on the wire is a separate bug in the same lines.** The node verifies `from`
+against the recovered signer canonically (`rpc/utils.verify_transaction_signature` → `canonical_address`),
+so either spelling would verify. But its account lookups do not canonicalise anything — all three
+of them, in `rpc/accounts.py`, `sync_state.py` and `consensus/poa.py`, match `Account.address` as an
+exact string. The account is stored under whatever `GENESIS_ADDRESS` says, so signing as the derived
+`0x` form asked for the nonce of an address the chain has no row for, and would have transferred
+from an account that does not exist. `from` and the nonce lookup now use the configured spelling.
+`get_balance` already did, which is why the balance check passed and the failure surfaced at signing.
+
+Seven tests. Four fail against the old code, including the `ait1` case that is the hub's actual
+configuration. Root 2840, blockchain-node 471, both green — this is a shared crypto library, so
+the whole tree is the regression surface.
+
+Not fixed here: the three exact-match account lookups are a latent version of the same defect, and
+any account written in one spelling and queried in another will silently read as absent. That wants
+a single normalisation point on the node's account access rather than three call-site patches.
+
+---
+
+
+## v0.23.16
+
+### V23-30 — production callers skip the validator and feed it epoch-derived heights · CONFIRMED → RESOLVED
+
+`apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:250-260`:
+
+```python
+source_current_height = int(time.time() // source_block_time)
+source_timelock = calculate_source_timelock(...)
+dest_timelock   = calculate_dest_timelock(...)
+```
+
+Two independent problems compound V23-29.
+
+First, `source_current_height` is not a block height. It is the Unix epoch divided by the
+block time — roughly 357 million for a 5-second chain, and it advances with wall-clock time
+whether or not the chain produces blocks. No chain in this system is at that height.
+
+Second, neither production caller validates. `validate_timelocks` exists, is exported from
+`aitbc.settlement`, and would reject these values — but:
+
+```
+grep -n validate_timelocks \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py \
+  apps/coordinator-api/.../cross_chain/bridge_client_adapter.py
+# no matches in either
+```
+
+The values go straight into `CrossChainEscrowRecord`. End to end:
+
+```
+source_current_height from time.time(): 357257894
+source_timelock: 357258624
+dest_timelock:   595431020
+```
+
+`dest_timelock` is **larger** than `source_timelock` — the module's stated invariant,
+inverted, in the default path.
+
+> **Fix**: three things, in order. Read the real height from each chain's RPC instead of
+> the clock. Call `validate_timelocks` before persisting the escrow and refuse to create it
+> on any error. Then fix V23-29, because the validator will otherwise reject every swap.
+> The escrow record should also store both current heights, so a dispute can be
+> reconstructed.
+
+**RESOLVED** — `da806630c` (PR #101). `CrossChainSettlementService` gained
+`_get_chain_height(chain_id)`, which reads the highest `Block` row for that chain and raises
+if the chain has produced none. Both heights now come from there, and `validate_timelocks`
+is called before the escrow is persisted, raising `ValueError` on any error.
+
+#### The audit missed half of this, and the miss is the interesting part
+
+The finding named the *producer*. There was a second site: the same
+`int(time.time() // block_time)` expression appeared twice in
+`apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py`, in the code that compares
+a swap's timelock against the current height to decide whether it has **expired**.
+
+That is why this survived to be found by reading rather than by failing. The producer and
+the checker were consistently wrong *together* — both worked in epoch-derived units, so a
+swap created at "height" 357258624 and checked against "height" 357257894 looked perfectly
+healthy. The system was internally coherent and externally meaningless.
+
+It surfaced only when the producer was fixed in isolation: two settlement tests immediately
+failed with `ValueError: Swap timelock expired`, because a real height of 10,000 sits far
+below an epoch-derived timelock. A partial fix was *louder* than the bug.
+
+Both checker sites now read the real chain head and refuse when it is unknown. The direction
+matters: treating "height unknown" as "not expired" would admit a claim after the refund
+window has opened, and the reverse would strand funds. Refusing does neither.
+
+#### Two things left unfixed, named rather than buried
+
+- `bridge_client_adapter` (coordinator-api) still uses a base height of **0**. No wallet
+  adapter reachable from there exposes a chain head. Its timelocks remain offsets from zero
+  — internally consistent, so the ordering invariant holds — but it is a placeholder. It is
+  now named `base_height` rather than `current_block_height`, commented as a known gap, and
+  validated, so that substituting a real height into one leg and not the other is caught
+  instead of silently inverting the ordering.
+- `_simulate_block` in `settlement.py` still derives a height from `time.time()` for proof
+  anchoring. It is honestly named, is not a timelock comparison, and was left alone rather
+  than widen the fix.
+
+The audit's suggestion that the escrow record store both current heights for dispute
+reconstruction was **not** implemented. It remains a good idea and is not tracked elsewhere.
+
+
+## v0.23
+
+### Critical — governance timelock fails open · RESOLVED
+
+### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED → RESOLVED
+
+`apps/governance/src/governance_service/services/governance_service.py:406`.
+
+```python
+if proposal.block_height is not None:
+    blocks_since_proposal = current_height - proposal.block_height
+    ...
+    if blocks_since_proposal < effective_timelock:
+        raise ValueError("Timelock not expired: ...")
+```
+
+When `block_height` is `None` the entire timelock check is skipped and execution proceeds.
+It is not a rare state:
+
+- `block_height: int | None = Field(default=None)` —
+  `apps/governance/src/governance_service/domain/governance.py:91,139`.
+- It is assigned only at line 154, `proposal.block_height = result.get("block_height")`,
+  inside `if settings.enable_onchain_submission and settings.proposer_private_key`.
+- That block is wrapped in `except Exception` whose comment reads *"Log but don't block
+  proposal creation — on-chain submission is best-effort"* (line 155-159).
+
+So an RPC hiccup during proposal creation produces a proposal that later executes with **no
+timelock at all**, and the only trace is a warning line at creation time. A best-effort
+operation is silently load-bearing for a safety control.
+
+The comment at line 404 also concedes the timelock is measured from *proposal creation*
+rather than *voting end* — *"In a full implementation, voting_ends_block would be stored
+explicitly"*. The timelock therefore overlaps the voting period instead of following it; if
+`timelock_blocks` is shorter than the voting window, it is already zero even on the happy
+path.
+
+Repro:
+
+```
+sed -n '396,416p' apps/governance/src/governance_service/services/governance_service.py
+sed -n '146,160p' apps/governance/src/governance_service/services/governance_service.py
+grep -n "block_height" apps/governance/src/governance_service/domain/governance.py
+```
+
+> **Fix**: invert the condition — a proposal with no `block_height` must be **refused**
+> execution, not exempted. `if proposal.block_height is None: raise ValueError("cannot
+> verify timelock: proposal has no recorded block height")`. Separately, store
+> `voting_ends_block` at creation and measure the timelock from it, so the safety window is
+> the one the parameter name promises.
+
+**RESOLVED** — the check moved into `_enforce_execution_timelock`, which refuses execution
+on every path that cannot *prove* the delay elapsed: no recorded `block_height`, no recorded
+`voting_ends_block`, or an unreachable chain. `voting_ends_block` is now a column, recorded
+at creation, and the timelock runs from it.
+
+#### The finding was one level too shallow
+
+The audit named the `if proposal.block_height is not None:` guard. The whole check sat
+inside a larger one:
+
+```python
+if settings.enable_onchain_submission and settings.proposer_private_key:
+    ...
+    if proposal.block_height is not None:
+        ...  # the timelock
+```
+
+`enable_onchain_submission` **defaults to False**. So the shipped configuration did not need
+an RPC hiccup to skip the timelock — it never ran one. Every proposal executed immediately,
+and `_apply_parameter_change` then pushed the approved parameter to the target service. The
+finding described the rare path into a fail-open; the common path was already there.
+
+This is the second time in this audit that a defect turned out to have a copy or an
+enclosing case that the pass did not name — see the V23-30 note. Reading found the
+instance; only changing the code found the class.
+
+The enforcement is now unconditional, with an explicit escape hatch:
+`require_execution_timelock` (default **True**). Setting it False logs a WARNING naming the
+proposal on every bypass. A development deployment with no chain needs that switch; the
+alternative — inferring "no chain configured" and silently skipping — is how this finding
+came to exist.
+
+#### Two adjacent problems fixed with it
+
+- **Execution overwrote its own evidence.** `proposal.block_height = block_height` at
+  execution time replaced the creation height with the execution height. That is the exact
+  value `_enforce_execution_timelock` measures from, so after a proposal executed there was
+  no way to check retrospectively whether the delay had been honoured. The execution height
+  now goes to `proposal_metadata["execution_block_height"]` and the creation height stays.
+- **The timelock overlapped the voting period**, as the audit noted. It now runs from
+  `voting_ends_block`. A test pins the difference: at a height where the delay has elapsed
+  measured from creation but not from the end of voting, execution is refused.
+
+#### Operational consequence, stated plainly
+
+Proposals already in the database have no `voting_ends_block`, and any whose on-chain
+submission failed have no `block_height`. **Those proposals can no longer be executed** and
+must be re-submitted. Migration `003` deliberately does not backfill: deriving a
+voting-end block from current settings would manufacture exactly the evidence this check
+exists to demand. An operator who needs to execute a pre-existing proposal has to set
+`require_execution_timelock=False` — consciously, and with a warning in the log — which is
+the point.
+
+Sixteen tests cover this in `apps/governance/tests/test_v023_execution_timelock.py`. Before
+this change the governance suite had **no test that executed a proposal at all**; the two
+tests named `test_execute_proposal` assert only that the endpoint returns one of
+`[200, 404, 500]`. That is why a safety control could be absent by default without anything
+going red.
+
+---
+
+
+### High — money in consensus code, and the line where Decimal must stop
+
+### V23-36 — blockchain-node's 24 violations, and the two that must not be fixed · CONFIRMED → RESOLVED
+
+The remaining large share of the V23-33 backlog. **24 → 0 in blockchain-node; the repo
+baseline is now 24, none of it in an app that settles money on chain.**
+
+This app answers the question differently from coordinator-api, and the difference is the
+finding. Four of the 24 sit on a **signature and hash boundary**:
+
+```python
+# rpc/ai_services.py -- AIJobRequest.payment, AIJobResponse.payment
+# rpc/marketplace.py -- MarketplaceListing.price, MarketplaceCreateRequest.price
+tx_data["payload"]["payment"] = request.payment
+verify_transaction_signature(tx_data, request.signature, request.wallet_address)
+tx_hash = mempool.add(tx_data, chain_id=chain_id)
+```
+
+`verify_transaction_signature` builds the signed message as
+`json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":"))`, keccak-hashes it, and
+recovers the signer. So the wire type of `payment` is fixed by every signature already
+issued. Converting it would fail twice over, and both were checked rather than assumed:
+
+```
+float payload  : ...,"payment":0.5,"prompt":"hi"},"to":"ai_service","type":"AI_JOB"}
+Decimal payload: TypeError - Object of type Decimal is not JSON serializable
+```
+
+`Decimal` is not JSON-serializable at all, and even with an encoder `"0.5" != 0.5` changes
+the hash — every existing client signature would be rejected and transaction hashes would
+diverge. **That is a hard fork, not a lint fix.** All four keep `float` and carry a
+`# not-money:` marker saying so at the declaration. Recorded here because *"money is
+`float` inside a signed transaction payload"* is a genuine design defect worth its own
+decision — it means signature validity depends on float→str round-tripping — but it is a
+protocol change, and this log is not where protocol changes get made.
+
+**The reverse mistake was also present.** `SlashingEvent.slash_amount` is not an amount: it
+holds `0.05`–`0.5` from `slash_rates`, and `apply_slashing` multiplies it by
+`validator.stake` to get the amount. Converting it would have been wrong. It keeps `float`
+with a marker, and the name is kept because it is a persisted key in
+`ConsensusState.slashing_events`. **`calculate_total_slashed` is wrong regardless**: it sums
+those fractions and returns them as "total amount slashed". It cannot be fixed without
+recording the stake at each event, which `SlashingEvent` does not carry — so it is recorded
+here, not patched. It has no callers.
+
+**What was genuinely broken.** `economics/staking.py` computed epoch rewards entirely in
+float and then wrapped the result:
+
+```python
+position.rewards += Decimal(str(reward_amount * share))   # before
+```
+
+`Decimal(str(x))` preserves a float's binary error exactly rather than removing it, so
+`rewards` was a `Decimal` field holding float-derived values — the appearance of exactness
+without any of it. The calculation itself is now `Decimal` end to end, and `withdraw()`
+returns `Decimal` instead of narrowing `position.amount + position.rewards` on the way out.
+
+**Where money leaves the node, the fix is `str`, not `Decimal`.** `escrow_routes.py` already
+established this: money in RPC responses is serialised with `str(value)`. Statistics dicts
+across `escrow.py`, `gas.py`, `rewards.py`, `staking.py` and `attacks.py` were rendering
+exact sums with `float(...)`, which discards the exactness the `Decimal` was for; and
+returning a bare `Decimal` does not help, because FastAPI's `jsonable_encoder` turns it
+straight back into a float. Dimensionless neighbours — `price_volatility`, `spike_ratio` —
+stay `float`.
+
+Two persisted columns move `Float → Numeric(20, 8)` in `d4e8b91c0a37`:
+`gpu_registration.price_per_hour` and `gpu_allocation.total_cost`. Neither passes through
+the mempool. Verified against a temp database: both `NUMERIC(20, 8)` after upgrade, seeded
+row intact, `0.12345678` read back as an exactly equal `Decimal`. `persistent_spending_tracker`
+(six `Column(Float)` money columns behind the agent spending limits) is converted too; it has
+its own `create_all` database, no callers and no file on disk.
+
+### V23-37 — the migration runner could only be pointed at the real chain database · CONFIRMED → RESOLVED
+
+Found by running into it. `apps/blockchain-node/migrations/env.py` hardcoded
+
+```python
+config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.db_path}")
+```
+
+with no environment override, unlike `apps/coordinator-api/alembic/env.py`, which has
+honoured `DATABASE_URL` / `SQLITE_URL` since it was written, with the comment *"so CI and
+local tests can target a temp DB"*.
+
+The consequence is worse than inconvenience: the obvious way to test a migration — export
+`DATABASE_URL`, run `alembic upgrade` — **silently ignores the variable** and writes to
+`settings.db_path` instead. There is no error and no warning; the run reports success
+against a database the caller did not name. `env.py` now takes the same override.
+
+The deployed node was never at risk: it runs against a per-island path
+(`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`, 93,275 blocks) which has **no
+`alembic_version` table** — its schema comes from `SQLModel.metadata.create_all` plus the
+column-adder in `database.py`, not from alembic at all. The default `settings.db_path`
+(`/var/lib/aitbc/data/chain.db`) is a separate, empty, unused file: 0 blocks, 0
+transactions, 0 accounts. That is a second thing worth knowing — **the chain's real database
+is not under migration control**, so the four revisions in `migrations/versions/` describe a
+schema no deployed node has ever applied them to.
+
+---

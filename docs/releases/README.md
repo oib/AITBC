@@ -19,7 +19,7 @@
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **📚 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
 - **📖 About Documentation** - Standards and compliance context
-- **✅ [Completed Projects](archive/README.md)** - Completion tracking and summaries
+- **✅ [Completed Projects](2026/README.md)** - Completion tracking and summaries
 
 ---
 
@@ -48,88 +48,88 @@ Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
 
-- **[v0.29.0](v0.29/v0.29.0_change.log)** - Post-v0.28 window (staging draft): consensus domain separation (#1298), state transitions v21–v24 (#1314), mempool reservations (#1300), agent-spend policy, contract + app audit-bug waves (#1380–#1512)
-- **[v0.28.0](v0.28/v0.28.0_change.log)** - Post-reset tasks: island gauges, CLI error/exit sweeps, failover + backup runbooks, PG-capable services, fork guards (staged, tag pending)
-- **[v0.27.0](v0.27/v0.27.0_change.log)** - RAM optimization wave: systemd memory caps, coordinator startup footprint, journal-errors streaming, watchdog/OOM visibility (staged, tag pending)
-- **[v0.26.0](v0.26/v0.26.0_change.log)** - Post-reset window: RPC `chain_id` 400s, governance sealed-proposal reader, reset-window gate tooling (staged, tag pending)
-- **[v0.25.13](v0.25/v0.25.13_change.log)** - MCP routing/groups hardening, post-tag follow-ups (staged, tag pending)
-- **[v0.25.12](v0.25/v0.25.12_change.log)** - Post-v0.25.11 consolidation: chain-stall alert, MCP groups, CLI exit codes, failover/backup drills, escrow relays ✅ tagged 2026-10-21
-- **[v0.25.11](v0.25/v0.25.11_change.log)** - On-chain messaging, bridge ledger/ops hardening, KR-2…KR-6 key rotations, v13/v14 shared activation ✅
-- **[v0.25.10](v0.25/v0.25.10_change.log)** - Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling ✅
-- **[v0.25.9](v0.25/v0.25.9_change.log)** - Bridge payout monitor, governance service-local reclassification, v9 shadow window ✅
-- **[v0.25.8](v0.25/v0.25.8_change.log)** - Post-v0.25.2-tag consolidation: coordinator hardening, faucet budgets, consensus freshness & fork choice, fleet ops ✅
-- **[v0.25.7](v0.25/v0.25.7_change.log)** - First-class IPFS marketplace support ✅
-- **[v0.25.6](v0.25/v0.25.6_change.log)** - Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path ✅
-- **[v0.25.5](v0.25/v0.25.5_change.log)** - Audit reconciliation: register fully closed, fleet hardening, dead-code removal ✅
-- **[v0.25.4](v0.25/v0.25.4_change.log)** - Bridge, escrow/consensus hardening, GPU electricity-cost floor ✅
-- **[v0.25.3](v0.25/v0.25.3_change.log)** - Escrow and settlement hardening ✅
-- **[v0.25.2](v0.25/v0.25.2_change.log)** - CLI, docs, and test surface cleanup ✅
-- **[v0.25.1](v0.25/v0.25.1_change.log)** - Open follow-ups and design notes after v0.25.0 ✅
-- **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion ✅
-- **[v0.24.0](v0.24/v0.24.0_change.log)** - Hub node development special (split into v0.24.1–v0.24.18 by topic)
-- **[v0.23.0](v0.23/v0.23.0_change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
-- **[v0.10.18](v0.10/v0.10.18_change.log)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) ✅ complete
-- **[v0.10.17](v0.10/v0.10.17_change.log)** - Security & Auth Hardening (auth bypass, hardcoded defaults, feature flag defaults, pool-hub reward signing, wiring bug) ✅ complete
-- **[v0.10.16](v0.10/v0.10.16_change.log)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) ✅ complete
-- **[v0.10.15](v0.10/v0.10.15_change.log)** - Monolithic Router/Module Decomposition & Settlement Config Wiring ✅ complete
-- **[v0.10.14](v0.10/v0.10.14_change.log)** - Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) ✅ complete
-- **[v0.10.13](v0.10/v0.10.13_change.log)** - Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
-- **[v0.10.12](v0.10/v0.10.12_change.log)** - Quality Hardening (mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
-- **[v0.10.11](v0.10/v0.10.11_change.log)** - Bug Fixes & Code Quality Continuation (stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
-- **[v0.10.10](v0.10/v0.10.10_change.log)** - Code Quality & Testing Roadmap (mypy coverage, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
-- **[v0.10.9](v0.10/v0.10.9_change.log)** - Dead Code Elimination & Status Drift Cleanup
-- **[v0.9.0](v0.9/v0.9.0_change.log)** - Atomic Cross-Chain Settlement
-- **[v0.8.2](v0.8/v0.8.2_change.log)** - Advanced Offer Sync (subscription, real-time, search index)
-- **[v0.8.1](v0.8/v0.8.1_change.log)** - Cross-Chain Offer Sync (polling-based)
-- **[v0.8.0](v0.8/v0.8.0_change.log)** - Inter-Chain Trading Basics
-- **[v0.7.5](v0.7/v0.7.5_change.log)** - Consensus Activation (MultiValidatorPoA + PBFT)
-- **[v0.7.4](v0.7/v0.7.4_change.log)** - Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge)
-- **[v0.7.3](v0.7/v0.7.3_change.log)** - Governance
-- **[v0.7.2](v0.7/v0.7.2_change.log)** - Bridge Verification (In-Process Crypto)
-- **[v0.7.1](v0.7/v0.7.1_change.log)** - Bridge Security
-- **[v0.7.0](v0.7/v0.7.0_change.log)** - Bridge Basics
-- **[v0.6.7](v0.6/v0.6.7_change.log)** - Pool Hub & Mining
-- **[v0.6.6](v0.6/v0.6.6_change.log)** - Compute Marketplace
-- **[v0.6.5](v0.6/v0.6.5_change.log)** - Agent Coordination Service ✅
-- **[v0.6.4](v0.6/v0.6.4_change.log)** - Multi-Chain Per Island
-- **[v0.6.3](v0.6/v0.6.3_change.log)** - Multi-Island Node Support
-- **[v0.6.2](v0.6/v0.6.2_change.log)** - Sync & Gossip Optimization
-- **[v0.6.1](v0.6/v0.6.1_change.log)** - Parallel Processing ✅
-- **[v0.6.0](v0.6/v0.6.0_change.log)** - Database & Network Optimization ✅
-- **[v0.5.19](v0.5/v0.5.19_change.log)** - Tech Debt Cleanup ✅
-- **[v0.5.18](v0.5/v0.5.18_change.log)** - Test Suite Repair ✅
-- **[v0.5.17](v0.5/v0.5.17_change.log)** - Test Infrastructure ✅
-- **[v0.5.16](v0.5/v0.5.16_change.log)** - Security Hardening & Multi-Chain Preparation ✅
-- **[v0.5.15](v0.5/v0.5.15_change.log)** - Flat-to-Context Migration + Test Suite Repair
-- **[v0.5.14](v0.5/v0.5.14_change.log)** - Cross-Context Dependency Elimination
-- **[v0.5.13](v0.5/v0.5.13_change.log)** - Coordinator-API Bounded Context
-- **[v0.5.12](v0.5/v0.5.12_change.log)** - Duplication Elimination & Large-File Decomposition
-- **[v0.5.11](v0.5/v0.5.11_change.log)** - (See change.log for details)
-- **[v0.5.10](v0.5/v0.5.10_change.log)** - (See change.log for details)
-- **[v0.5.9](v0.5/v0.5.9_change.log)** - (See change.log for details)
-- **[v0.5.8](v0.5/v0.5.8_change.log)** - (See change.log for details)
-- **[v0.5.7](v0.5/v0.5.7_change.log)** - (See change.log for details)
-- **[v0.5.6](v0.5/v0.5.6_change.log)** - (See change.log for details)
-- **[v0.5.5](v0.5/v0.5.5_change.log)** - (See change.log for details)
-- **[v0.5.4](v0.5/v0.5.4_change.log)** - (See change.log for details)
-- **[v0.5.3](v0.5/v0.5.3_change.log)** - (See change.log for details)
-- **[v0.5.2](v0.5/v0.5.2_change.log)** - (See change.log for details)
-- **[v0.5.1](v0.5/v0.5.1_change.log)** - (See change.log for details)
-- **[v0.5.0](v0.5/v0.5.0_change.log)** - Production Infrastructure
-- **[v1.0.0](v1.0/v1.0.0_change.log)** - Production Readiness
+- **[v0.29.0](2026/README.md#v0290)** - Post-v0.28 window (staging draft): consensus domain separation (#1298), state transitions v21–v24 (#1314), mempool reservations (#1300), agent-spend policy, contract + app audit-bug waves (#1380–#1512)
+- **[v0.28.0](2026/README.md#v0280)** - Post-reset tasks: island gauges, CLI error/exit sweeps, failover + backup runbooks, PG-capable services, fork guards (staged, tag pending)
+- **[v0.27.0](2026/README.md#v0270)** - RAM optimization wave: systemd memory caps, coordinator startup footprint, journal-errors streaming, watchdog/OOM visibility (staged, tag pending)
+- **[v0.26.0](2026/README.md#v0260)** - Post-reset window: RPC `chain_id` 400s, governance sealed-proposal reader, reset-window gate tooling (staged, tag pending)
+- **[v0.25.13](2026/README.md#v02513)** - MCP routing/groups hardening, post-tag follow-ups (staged, tag pending)
+- **[v0.25.12](2026/README.md#v02512)** - Post-v0.25.11 consolidation: chain-stall alert, MCP groups, CLI exit codes, failover/backup drills, escrow relays ✅ tagged 2026-10-21
+- **[v0.25.11](2026/README.md#v02511)** - On-chain messaging, bridge ledger/ops hardening, KR-2…KR-6 key rotations, v13/v14 shared activation ✅
+- **[v0.25.10](2026/README.md#v02510)** - Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling ✅
+- **[v0.25.9](2026/README.md#v0259)** - Bridge payout monitor, governance service-local reclassification, v9 shadow window ✅
+- **[v0.25.8](2026/README.md#v0258)** - Post-v0.25.2-tag consolidation: coordinator hardening, faucet budgets, consensus freshness & fork choice, fleet ops ✅
+- **[v0.25.7](2026/README.md#v0257)** - First-class IPFS marketplace support ✅
+- **[v0.25.6](2026/README.md#v0256)** - Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path ✅
+- **[v0.25.5](2026/README.md#v0255)** - Audit reconciliation: register fully closed, fleet hardening, dead-code removal ✅
+- **[v0.25.4](2026/README.md#v0254)** - Bridge, escrow/consensus hardening, GPU electricity-cost floor ✅
+- **[v0.25.3](2026/README.md#v0253)** - Escrow and settlement hardening ✅
+- **[v0.25.2](2026/README.md#v0252)** - CLI, docs, and test surface cleanup ✅
+- **[v0.25.1](2026/README.md#v0251)** - Open follow-ups and design notes after v0.25.0 ✅
+- **[v0.25.0](2026/README.md#v0250)** - On-chain liquidity, sync consolidation and MCP expansion ✅
+- **[v0.24.0](2026/versions/v0.24/v0.24.0_change.log)** - Hub node development special (split into v0.24.1–v0.24.18 by topic)
+- **[v0.23.0](2026/versions/v0.23/v0.23.0_change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
+- **[v0.10.18](2026/README.md#v01018)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) ✅ complete
+- **[v0.10.17](2026/README.md#v01017)** - Security & Auth Hardening (auth bypass, hardcoded defaults, feature flag defaults, pool-hub reward signing, wiring bug) ✅ complete
+- **[v0.10.16](2026/README.md#v01016)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) ✅ complete
+- **[v0.10.15](2026/README.md#v01015)** - Monolithic Router/Module Decomposition & Settlement Config Wiring ✅ complete
+- **[v0.10.14](2026/README.md#v01014)** - Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) ✅ complete
+- **[v0.10.13](2026/README.md#v01013)** - Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
+- **[v0.10.12](2026/README.md#v01012)** - Quality Hardening (mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
+- **[v0.10.11](2026/README.md#v01011)** - Bug Fixes & Code Quality Continuation (stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
+- **[v0.10.10](2026/README.md#v01010)** - Code Quality & Testing Roadmap (mypy coverage, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
+- **[v0.10.9](2026/README.md#v0109)** - Dead Code Elimination & Status Drift Cleanup
+- **[v0.9.0](2026/README.md#v090)** - Atomic Cross-Chain Settlement
+- **[v0.8.2](2026/README.md#v082)** - Advanced Offer Sync (subscription, real-time, search index)
+- **[v0.8.1](2026/README.md#v081)** - Cross-Chain Offer Sync (polling-based)
+- **[v0.8.0](2026/README.md#v080)** - Inter-Chain Trading Basics
+- **[v0.7.5](2026/README.md#v075)** - Consensus Activation (MultiValidatorPoA + PBFT)
+- **[v0.7.4](2026/README.md#v074)** - Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge)
+- **[v0.7.3](2026/README.md#v073)** - Governance
+- **[v0.7.2](2026/README.md#v072)** - Bridge Verification (In-Process Crypto)
+- **[v0.7.1](2026/README.md#v071)** - Bridge Security
+- **[v0.7.0](2026/README.md#v070)** - Bridge Basics
+- **[v0.6.7](2026/README.md#v067)** - Pool Hub & Mining
+- **[v0.6.6](2026/README.md#v066)** - Compute Marketplace
+- **[v0.6.5](2026/README.md#v065)** - Agent Coordination Service ✅
+- **[v0.6.4](2026/README.md#v064)** - Multi-Chain Per Island
+- **[v0.6.3](2026/README.md#v063)** - Multi-Island Node Support
+- **[v0.6.2](2026/README.md#v062)** - Sync & Gossip Optimization
+- **[v0.6.1](2026/README.md#v061)** - Parallel Processing ✅
+- **[v0.6.0](2026/README.md#v060)** - Database & Network Optimization ✅
+- **[v0.5.19](2026/README.md#v0519)** - Tech Debt Cleanup ✅
+- **[v0.5.18](2026/README.md#v0518)** - Test Suite Repair ✅
+- **[v0.5.17](2026/README.md#v0517)** - Test Infrastructure ✅
+- **[v0.5.16](2026/README.md#v0516)** - Security Hardening & Multi-Chain Preparation ✅
+- **[v0.5.15](2026/README.md#v0515)** - Flat-to-Context Migration + Test Suite Repair
+- **[v0.5.14](2026/README.md#v0514)** - Cross-Context Dependency Elimination
+- **[v0.5.13](2026/README.md#v0513)** - Coordinator-API Bounded Context
+- **[v0.5.12](2026/README.md#v0512)** - Duplication Elimination & Large-File Decomposition
+- **[v0.5.11](2026/README.md#v0511)** - (See change.log for details)
+- **[v0.5.10](2026/README.md#v0510)** - (See change.log for details)
+- **[v0.5.9](2026/README.md#v059)** - (See change.log for details)
+- **[v0.5.8](2026/README.md#v058)** - (See change.log for details)
+- **[v0.5.7](2026/README.md#v057)** - (See change.log for details)
+- **[v0.5.6](2026/README.md#v056)** - (See change.log for details)
+- **[v0.5.5](2026/README.md#v055)** - (See change.log for details)
+- **[v0.5.4](2026/README.md#v054)** - (See change.log for details)
+- **[v0.5.3](2026/README.md#v053)** - (See change.log for details)
+- **[v0.5.2](2026/README.md#v052)** - (See change.log for details)
+- **[v0.5.1](2026/README.md#v051)** - (See change.log for details)
+- **[v0.5.0](2026/README.md#v050)** - Production Infrastructure
+- **[v1.0.0](2026/README.md#v100)** - Production Readiness
 
 ### Legacy Releases (v0.4.x and earlier)
 >
-> **Note**: Legacy release files (v0.0.x through v0.4.x) have been archived to the `archive/` subdirectory. These releases use the old single-file format and are preserved for historical reference.
+> **Note**: Legacy release files (v0.0.x through v0.4.x) now live under `2026/versions/`. These releases use the old single-file format and are preserved for historical reference.
 
-- **[View Archived Releases](archive/)** - All v0.0.x through v0.4.x releases (archived 2026-06-30)
-- **[v0.4.27](v0.4/v0.4.27_change.log)** - (See change.log for details)
-- **[v0.4.26](v0.4/v0.4.26_change.log)** - (See change.log for details)
-- **[v0.4.25](v0.4/v0.4.25_change.log)** - (See change.log for details)
-- **[v0.4.16](v0.4/v0.4.16_changelog.md)** - (See changelog for details)
-- **[v0.4.7](v0.4/v0.4.7_changelog.md)** - May 14, 2026 - **Multi-Model Ollama, Hardware+Software Bundles, GPU Marketplace Deprecated** ✅
-- **[v0.4.6](v0.4/v0.4.6_changelog.md)** - April 17, 2026
-- **[v0.4.4](v0.4/v0.4.4_changelog.md)** - March 14, 2026
+- **[View Archived Releases](2026/versions/)** - All v0.0.x through v0.4.x releases (archived 2026-06-30)
+- **[v0.4.27](2026/README.md#v0427)** - (See change.log for details)
+- **[v0.4.26](2026/README.md#v0426)** - (See change.log for details)
+- **[v0.4.25](2026/README.md#v0425)** - (See change.log for details)
+- **[v0.4.16](2026/versions/v0.4/v0.4.16_changelog.md)** - (See changelog for details)
+- **[v0.4.7](2026/versions/v0.4/v0.4.7_changelog.md)** - May 14, 2026 - **Multi-Model Ollama, Hardware+Software Bundles, GPU Marketplace Deprecated** ✅
+- **[v0.4.6](2026/versions/v0.4/v0.4.6_changelog.md)** - April 17, 2026
+- **[v0.4.4](2026/versions/v0.4/v0.4.4_changelog.md)** - March 14, 2026
 
 ---
 

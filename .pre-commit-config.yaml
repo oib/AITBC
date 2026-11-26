@@ -31,7 +31,11 @@ repos:
         # are already excluded from whitespace normalisation above. Size-gating
         # them would block shipping new ZK circuit artifacts, so they are
         # exempted from this check.
-        exclude: \.wasm$
+        # docs/releases/2026/*_release.log are consolidated running logs —
+        # general_release.log alone aggregates ~170 versions of preambles and
+        # meta sections (~2 MB of markdown). They are documentation, not
+        # binary assets; the size gate exists for binaries.
+        exclude: \.wasm$|^docs/releases/2026/\w+_release\.log$
       - id: check-json
       - id: debug-statements
         exclude: cli/templates/.*|tests/cli/.*

@@ -31,7 +31,7 @@ EVM via vault evolution or a small 7702 adapter if a concrete EVM path requires
 it. Retire the fiction that Python Guardian modules are consensus-enforced.
 
 **Explicitly deferred:** EIP-4337 factory, paymaster, and “OpenClaw AA wallet”
-from `docs/releases/v0.13/v0.13.0_autonomous_economics_plan.md` unless the
+from `docs/releases/2026/versions/v0.13/v0.13.0_autonomous_economics_plan.md` unless the
 operator adds a **subsidized EVM gas** requirement.
 
 ## Success criteria (AITBC-shaped)

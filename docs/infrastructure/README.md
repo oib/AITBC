@@ -65,7 +65,7 @@ and proxies to the per-service ports.
 ### Core Infrastructure Files
 
 - [Runtime Directories Guide](RUNTIME_DIRECTORIES.md) - Standard directory structure
-- [Security Hardening Guide](../releases/v0.4/v0.4.23_SECURITY_HARDENING.md) - Security best practices
+- [Security Hardening Guide](../releases/2026/versions/v0.4/v0.4.23_SECURITY_HARDENING.md) - Security best practices
 
 ### Analysis Documents
 

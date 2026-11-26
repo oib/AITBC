@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase 4 success-criteria gate checker for v0.11.0.
 
-Reads a YAML gate definition (default: docs/releases/v0.11/v0.11.0_phase4_gates.yml)
+Reads a YAML gate definition (default: docs/releases/2026/versions/v0.11/v0.11.0_phase4_gates.yml)
 and exits with status 0 only when every gate is marked ``status: passed`` and,
 where numeric, ``current >= threshold``. Otherwise exits 1 and prints a report.
 

@@ -1,0 +1,292 @@
+# Website — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of website changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.25.12
+
+### EXPL-STATS-1 — explorer-api network-stats: 503 on failed read + anchored_offers rename
+
+`GET /api/analytics/network-stats` no longer answers 200 with a
+zero-filled body when the chain database is missing or unreadable — both
+failure paths raise HTTP 503 ("chain database unavailable" / "network
+stats unavailable") so a failed read can never look like an empty chain.
+The success body adds `anchored_offers` (distinct offer keys ever
+anchored across GPU_MARKET/GPU_MARKETPLACE/GPU_REGISTER) and keeps
+`active_offers` as a deprecated alias with the same value; removal waits
+on the website reading the new name (WEB-ANCHORED-1) and docs. Tests
+cover the dual-name shape and all three failure cases.
+
+
+### Website: strict styles, CSP diagnostics and stamped-asset caching
+
+- Move website inline style blocks and attributes into external stylesheets
+  and classes. Native hidden state preserves panel visibility; trusted
+  CSSOM assignments retain dynamic transaction colors and depth widths.
+- Add a bounded same-origin CSP report collector to the Explorer service.
+  It validates legacy and Reporting API envelopes and logs sanitized
+  diagnostics through the existing logger, excluding URL queries,
+  fragments, userinfo, referrers and script samples.
+- Prepare nginx rules for strict style-src self and report-uri /csp-report,
+  with a 16 KiB body limit and per-client reporting rate limit. Preserve
+  the existing HSTS policy and security-header inheritance.
+- Cache static JS/CSS carrying the shared 16-hex version stamp for one
+  year with immutable. Keep other assets at one hour and HTML no-cache.
+  The reference now includes the HTML revalidation rule already live.
+- Activation requires the reviewed hub fast-forward, Explorer restart
+  and nginx configuration rollout; this entry does not assert deployment.
+
+
+## v0.25.11
+
+### Website: one canonical main menu on every page (WEB-1)
+
+Each `website/*.html` used to hand-write its own `header-nav` block and
+omit the link to itself, so the menu's items and order differed page to
+page (Exchange missing on explorer sub-pages, Bridges only on exchange,
+dashboards carrying a different set entirely).
+
+- Canonical menu, identical markup on every page that has one:
+  Home, Exchange, Explorer, Marketplace, Bridges, Alerts. The page's own
+  item stays in place and is marked `class="is-current"
+  aria-current="page"` — membership and order never change between pages.
+- `customer-dashboard.html` / `shop-dashboard.html` keep the same
+  6-item main menu and gain a secondary `dashboard-nav` row
+  (Customer Dashboard ↔ Shop Dashboard, own page marked current).
+- `follower-api-key-announcement.html` intentionally stays menu-less.
+- `website/style.css`: `is-current` is a color-only state (border/text
+  `var(--primary)`) — no padding, weight, or width change, so items never
+  reflow. `flex-wrap: wrap` keeps the row tidy at phone width.
+- `scripts/ops/sync-website-menu.py` stamps the menu between
+  `<!-- aitbc-menu:start/end -->` markers (dashboards have their own
+  `aitbc-dashboard-menu` pair), is idempotent, and has a `--check` mode
+  that fails on drift. To change the menu, edit the `MENU` list in the
+  script and re-run it.
+- Guard test `tests/unit/test_website_menu_consistency.py` parses every
+  page: same items in the same order, exactly one `aria-current="page"`
+  pointing at the page's own path (dashboards: in the secondary row;
+  pages outside the menu carry none), the allowlist is the only
+  menu-less page, and `--check` must be clean.
+
+
+### Website: page hygiene — landmarks, head metadata, deferred scripts (WEB-2)
+
+- Every page now has a real landmark structure: the main menu is
+  `<nav class="header-nav" aria-label="Main">` (inner markup unchanged
+  from WEB-1), the dashboards' secondary row is
+  `<nav class="dashboard-nav" aria-label="Dashboards">`, and each page's
+  primary content sits in `<main id="main" tabindex="-1">`.
+- A "Skip to content" link is the first focusable element in <body> on
+  every page — including the menu-less announcement page — hidden with
+  the clip technique (never display:none) and shown top-left with nav
+  tokens + outline on focus. Stamped by the same generator between
+  `aitbc-skip` markers.
+- Head hygiene: `bridges.html` gains a correct viewport meta (its
+  existing tag was a malformed `name="viewport=..."` attribute that
+  never applied); titles normalize to "<Page name> — AITBC" everywhere
+  except index (kept descriptive per operator); meta descriptions added
+  to block, tx, search, and the follower announcement; `<link
+  rel="canonical">` on the ten sitemap pages; `noindex` on the dynamic
+  block/tx/search pages.
+- Every `<script src>` tag is now `defer`red — all site scripts only
+  touch the DOM from DOMContentLoaded handlers, so nothing blocks first
+  paint and execution order is preserved. No page needed an exception.
+- `tests/unit/test_website_menu_consistency.py` gains a hygiene suite:
+  viewport/charset/lang, exactly one main and one main nav, skip link
+  first, description and title pattern, canonical exactly on sitemap
+  pages, noindex exactly on the dynamic pages.
+
+
+
+### Website: dashboard init under deferred scripts (WEB-2b)
+
+WEB-2's `defer` on `dashboard.js` broke both dashboard pages: their inline
+scripts passed the bare `loadCustomerDashboard` / `loadShopDashboard`
+identifier to `addEventListener`, evaluated at parse time before the
+deferred file executes — a ReferenceError, so neither dashboard loaded.
+WEB-2's own claim ("site scripts only touch the DOM from DOMContentLoaded
+handlers") missed the inline listeners.
+
+- `caa30f841` — both pages now wrap the init call in an arrow callback so
+  the name resolves when the event fires (the smaller fix vs. moving init
+  into `dashboard.js`; the inline script stays the sole init trigger, so
+  still exactly one load). Audit of every page's inline `<script>`: only
+  these two pages hit; block/tx/search inline blocks are self-contained
+  with no external scripts, index's inline block is JSON-LD, the rest
+  have no inline JS.
+- `caa30f841` — new `tests/unit/test_website_deferred_scripts.py` fails
+  any page whose inline script references a name declared top-level in a
+  deferred script (or the `lucide`/`Chart` vendor globals) outside a
+  callback or function body. Verified: fails with both violations on
+  `7e59f6c13`, passes on the fix. Page-load emulation on node2 (`vm`
+  contexts replaying parse→defer→DOMContentLoaded order): fixed pages
+  init exactly once with no console errors; `7e59f6c13` pages throw
+  ReferenceError and never init.
+
+
+
+### Website: status strip + site footer (WEB-3)
+
+Every menu page now carries a compact status strip under the header
+(static markup, `role="status"`, populated by deferred `status.js`) and
+every page including the menu-less announcement page carries an identical
+static footer (GitHub mirror, llms.txt, Coordinator API, Explorer API).
+
+- `67850ac59` — new `website/status.js` (no CDN, no vendor): exactly two
+  same-origin requests per cycle (`/explorer-api/api/chain/head` +
+  `/explorer-api/api/alerts`), jittered >=30s polling, paused while the
+  tab is hidden, capped error backoff that stops after repeated failures
+  until reload. Head timestamp parsed as UTC (endpoint returns naive
+  timestamps); negative age clamped to zero; >60s negative clock skew
+  shows height without age; `STALE_AFTER_MS = 300000` switches the label
+  `live`/`stale`. Alerts show muted "alerts unknown" when
+  `prometheus_ok` is false, `watcher.present` is false, or
+  `watcher.stale` is true; the firing count links to `/alerts.html`.
+  Fetch failure renders "network status unavailable" — never throws,
+  never blocks rendering.
+- `67850ac59` — generator `sync-website-menu.py` extended with
+  `aitbc-status` / `aitbc-footer` marker regions; still idempotent and
+  `--check`-verified. Status strip is stamped as a sibling before
+  `<main>` on the 12 menu pages; footer after the container on all 13.
+- `67850ac59` — no build line: no public endpoint reports a commit
+  (`/explorer-api/health`'s `version: "2.0.0"` is a static app version,
+  deliberately not shown). `docs/ops/website-version-json.md` proposes a
+  gitignored `website/version.json` written by an operator-installed
+  post-merge hook — proposal only, hook install is its own gated task.
+- `67850ac59` — `tests/unit/test_website_menu_consistency.py` extended:
+  one status strip with `role="status"` on menu pages, `status.js`
+  deferred exactly once, identical footer link set on every page, no CDN
+  scripts/styles, `status.js` calls only same-origin paths that exist
+  under the repo nginx map's location prefixes.
+
+### Website: API path contract test (WEB-4)
+
+New `tests/unit/test_website_api_contract.py` fails loudly when a website
+script calls a path that the hub nginx reference config does not expose,
+that a location denies (404), or that the proxied app does not implement.
+
+- `3a7337022` — extractor scans website/*.js + inline <script> blocks:
+  fetch/EventSource/WebSocket/XHR plus request helpers (apiGet/apiPost/
+  apiPostOrGet/fetchJson/getJSON), resolving constants through
+  config.js (EXPLORER_API_URL, explorerBase, svc.url object props).
+- `3a7337022` — nginx model implements real matching order (exact,
+  longest ^~, first regex, longest prefix) over
+  examples/nginx/nginx-aitbc.conf.example; AITBC_NGINX_CONF env var
+  overrides the config path for live-config drift checks.
+- `3a7337022` — app side discovers FastAPI decorators + include_router
+  prefixes for coordinator/explorer/rpc/wallet/market/pool-hub/agent-
+  coordinator/api-gateway, and parses the exchange's hand-dispatched
+  path==/startswith/endswith table. Unmappable upstreams are
+  unchecked-app and fail unless allowlisted (allowlist file beside the
+  test; stale entries fail too).
+- Result on the real tree: 47 path patterns extracted, all ok —
+  zero not-exposed / denied / not-implemented / unchecked findings.
+  Live-vs-reference location diff (read-only nginx -T): the reference
+  is a subset of live; live extras are monitoring/internal (awstats,
+  /prom-write, /v1/metrics, plain /agent/).
+
+
+### test(website): WEB-6 — accessibility + phone-width pass
+
+- Layout/phone: .table-wrap scroll regions (focusable, named) around all
+  wide data tables; .endpoint gains overflow-x:auto; 44px minimum tap
+  targets for .btn-primary, .copy-btn, .toggle-switch and form controls.
+- Focus/keyboard: global :focus-visible outline (--primary, 5.37:1);
+  .form-row controls keep a real outline instead of outline:none;
+  .toggle-switch input stays keyboard-focusable (clip, not display:none)
+  with a focus ring on the slider; click-only cards/rows gain role=link +
+  tabindex + Enter activation; deposit/hex copy boxes are role=button with
+  Enter/Space handlers.
+- Names/labels: aria-label on the previously-unlabeled selects and
+  placeholder-only inputs; marketplace toggle labelled; decorative svg
+  aria-hidden; ob-banner moved inside <main>; every <table> gets an
+  aria-label and every <th> a scope; kv row labels become th[scope=row];
+  truncated hashes expose the full value via aria-label/visually-hidden;
+  copy actions announce via a polite live region; live feeds announce
+  changes (throttled, summary only).
+- Contrast/motion (tonal only, same hues): --text-muted #71717a->#83838c
+  (4.09/3.86/3.67 -> 5.26/4.96/4.72 on bg/surface/code), --secondary
+  #8b5cf6->#a27cf8 (4.40 -> 6.01 on surface); form-control and
+  toggle-slider borders move --border -> --text-muted (>=4.7:1);
+  .status-sep uses muted; new prefers-reduced-motion block.
+- Guard: tests/unit/test_website_a11y.py covers labels, names, headings,
+  table semantics, scroll containment, click-handler operability,
+  outline rules and reduced-motion (67 violations on the pre-change
+  tree, 0 after). Commits: `116a20352`, `c4e06bdb1`, `158b65eed`,
+  `1f21a9f4d`, `12cb5c7a5`.
+
+
+### fix(website): WEB-7 — search page by-address query delimiter (2026-10-15)
+
+- search.html called `/api/blocks/by-address/<addr>&limit=50` — missing
+  `?` glued `limit=50` into the address path segment; the explorer
+  LIKE-matched nothing, so the address-search blocks section was
+  silently always empty. Fixed to `?limit=50`. Live read-only proof:
+  buggy URL returns 0 blocks, fixed URL returns the real set.
+- Guard: test_website_api_contract.py gains
+  test_no_query_delimiter_missing_in_path — any `&` in an extracted
+  path pattern fails (red on the buggy tree, green after). No
+  assertion weakened; allowlist stays empty.
+
+
+## v0.25.9
+
+### docs(readme/join): welcome-page README; join docs name the real island
+
+- README is now a welcome page — role diagram, key features, doc pointers — with setup/join/job commands delegated to the docs that carry them (`40ab626`, `737906`).
+- The public island is named: join-facing docs carry `hub.aitbc.bubuit.net`, chain `ait-hub.aitbc.bubuit.net`, island `ait-hub.aitbc.bubuit.net-island`, and `http://` (no TLS listener is live — peer keys over `/rpc/join` are cleartext until then). Generic `hub.example.net` uses in API docs and scenarios are unchanged (`020a98`).
+
+
+### docs(index): hub-page coverage + orphan-docs pre-commit check (2026-09-30)
+
+New `docs/README.md` links every documentation file that had no inbound
+link and was worth finding — the ops runbooks, the security set, the
+top-level reference pages, the development/reference indexes, and the
+component READMEs that sat beside their code. `scripts/docs/
+check_orphan_docs.py` now runs in pre-commit: a `.md` file with zero
+inbound links fails the commit unless it is in an expected group
+(release notes, archive, skills, CI templates, src-adjacent READMEs) or
+listed in `scripts/docs/orphan-docs-baseline.txt` — a ratchet baseline
+that only shrinks.
+
+
+### Website — block content breakdown (explorer + latest blocks)
+
+Latest Blocks cards (blocks.html) gain a "Content" row showing the block’s
+transaction composition — a thin stacked bar plus colored type chips using
+the same per-type palette as the Activity Timeline daily stats
+(`TX_TYPE_COLORS` mirrors `analytics.py`). The explorer.html Live Feed
+shows the same chips on BLOCK rows. `renderBlockCard` moved to a shared
+global in explorer.js — which also fixes a latent ReferenceError when an
+address search on explorer.html returned block results (the function was
+only defined inside blocks.js scope). Both data sources (`/api/blocks/latest`,
+`/api/blocks/non-empty`) already return per-tx `type`; no API change.
+
+
+## v0.4.2
+
+### 🎨 Landing Page Changes
+
+### Dynamic Content
+
+- Node ID and chain ID loaded from `/rpc/network-info`
+- Contact email loaded dynamically with mailto link
+- All values update on page load via JavaScript
+
+### UI Improvements
+
+- Agent API badge positioned in top-right corner
+- All endpoint boxes are clickable links
+- Descriptions moved outside endpoint boxes for clarity
+- Removed duplicate endpoint references
+- Improved "What is AITBC?" section with detailed explanations
+
+### Code Organization
+
+- CSS extracted to `/opt/aitbc/website/style.css`
+- HTML file now imports external stylesheet
+- Improved maintainability

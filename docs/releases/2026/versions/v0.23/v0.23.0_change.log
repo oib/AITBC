@@ -1,0 +1,47 @@
+# v0.23.0 — Design & Correctness Audit (overview)
+
+**Scope**: all subdirectories, focused on defects and design gaps rather than style.
+**Baseline**: `main` at `d6b6b9dda` (v0.22 remediation merged, PR #91).
+**Date**: 2026-08-09.
+
+---
+
+
+---
+
+This release is split into the following v0.23.x sub-releases by topic:
+
+- [v0.23.1](../../README.md) — How to read this
+- [v0.23.2](../../README.md) — Critical — signature verification rejects standard signatures
+- [v0.23.3](../../README.md) — High — things that are named for what they do not do
+- [v0.23.4](../../README.md) — High — structural hazards
+- [v0.23.5](../../README.md) — Medium — concurrency
+- [v0.23.6](../../README.md) — Medium — configuration and honesty
+- [v0.23.7](../../README.md) — Low — process
+- [v0.23.8](../../README.md) — Critical — a service that reports work it did not do · RESOLVED
+- [v0.23.9](../../README.md) — Critical — governance timelock fails open · RESOLVED
+- [v0.23.10](../../README.md) — High — supply chain
+- [v0.23.11](../../README.md) — High — a deploy script that defaults to destroying the local checkout
+- [v0.23.12](../../README.md) — Medium — shell safety is inconsistent across 266 scripts
+- [v0.23.13](../../README.md) — Critical — proving keys with no phase-2 contribution are the ones loaded · RESOLVED
+- [v0.23.14](../../README.md) — High — the contract toolchain's declared dependency tree
+- [v0.23.15](../../README.md) — Two things that are right
+- [v0.23.16](../../README.md) — Critical — the HTLC timelock calculation cannot be correct · RESOLVED
+- [v0.23.17](../../README.md) — Medium — what the feature flags say about the system
+- [v0.23.18](../../README.md) — What the fourth pass changes about the shape of this audit
+- [v0.23.19](../../README.md) — What this audit did not cover
+- [v0.23.20](../../README.md) — Method
+- [v0.23.21](../../README.md) — Medium — the guard for the money invariant checked thirteen files by hand · RESOLVED
+- [v0.23.22](../../README.md) — High — the largest float-money backlog, and the type checker that was not checking
+- [v0.23.23](../../README.md) — High — money in consensus code, and the line where Decimal must stop
+- [v0.23.24](../../README.md) — Medium — the client side of the same protocol
+- [v0.23.25](../../README.md) — Medium — one CLI, two units for the same quantity
+- [v0.23.26](../../README.md) — High — a client that had never been checked against its server
+- [v0.23.27](../../README.md) — Medium — the second CLI, and what was actually in it
+- [v0.23.28](../../README.md) — Medium — the compliance module nothing tested and nothing calls
+- [v0.23.29](../../README.md) — Medium — the open decision V23-36 left behind
+- [v0.23.30](../../README.md) — High — the type-checker backlog was hiding runtime crashes
+- [v0.23.31](../../README.md) — Medium — two services with no way to change their schema
+- [v0.23.32](../../README.md) — Medium — a penalty the chain levied and never wrote down
+- [v0.23.33](../../README.md) — High — the migration that reported success against the wrong database
+- [v0.23.34](../../README.md) — High — the deployment scripts, and five services in a restart loop

@@ -1,117 +1,75 @@
 # Release Documentation Maintenance
 
-**Last Updated**: August 27, 2026
-**Version**: 1.1
+**Last Updated**: November 26, 2026
+**Version**: 2.0
 **Maintainers**: Documentation Team
 
 ## Purpose
 
-This document provides guidelines for maintaining the AITBC release documentation structure, including how to update the release index when new releases are added, and the policy for handling legacy documentation.
+This document provides guidelines for maintaining the AITBC release documentation
+structure, including how to add new release notes and supporting artifacts under
+the topic-organized layout introduced by DOCS-RELEASES-TOPIC-REORG-1 (#2974).
 
-## Documentation Structure Evolution
-
-### Old Format (v0.0.x - v0.4.x)
-
-**Structure**: Single `RELEASE_vX.Y.Z.md` files in the `/opt/aitbc/docs/releases/` root directory
-
-**Example**: `RELEASE_v0.4.7.md`, `RELEASE_v0.4.22.md`
-
-**Status**: Archived to `archive/` subdirectory (2026-06-30)
-
-### New Format (v0.5.x+)
-
-**Structure**: Versioned directories with structured files
-
-**Directory Structure**:
+## Current Structure
 
 ```
 docs/releases/
-  vX.Y/
-    vX.Y.Z_change.log      - Main release notes
-    vX.Y.Z_AGENTS.md       - Agent task assignments (optional)
-    vX.Y.Z_suggestions.md  - Investigation findings (optional)
+  README.md              - release history index (version -> 2026 index anchors)
+  STATUS.md              - release status tracker
+  MAINTENANCE.md         - this file
+  RELEASE_PREP.md        - upcoming-release preparation notes
+  2026/
+    README.md            - topic index + per-version -> topic-files index
+    MANIFEST.csv         - reorg accounting (old path -> new path, hashes)
+    <topic>_release.log  - running per-topic history, versions as sections
+    versions/<vX.Y>/     - supporting artifacts, byte-identical per version dir
 ```
 
-**Example**: `v0.6/v0.6.0_change.log`, `v0.6/v0.6.0_AGENTS.md`
+The 14 topic files (`consensus`, `bridge`, `market`, `escrow`, `agent`,
+`wallet`, `cli`, `deploy_ops`, `security`, `website`, `testing`,
+`performance`, `docs_meta`, `general`) each hold every release's sections
+for that subsystem as `## vX.Y.Z` groups, newest first. Version-level
+material (overviews, verification summaries, breaking changes, migration
+guides) lives in `general_release.log`.
+
+Historical note: the pre-#2974 tree was version-organized (`vX.Y/`
+directories of `*_change.log` + supporting files). It is preserved in git
+history; `MANIFEST.csv` accounts for every file. The old `archive/`
+subdirectory (v0.0.x–v0.4.x single-file releases) folded into
+`2026/versions/`.
 
 ## Adding New Releases
 
-### Step 1: Create Release Directory
+### Step 1: Write the release notes into topic files
 
-When a new release is planned, create a versioned directory:
+For each subsystem section in the release's notes, append it under a
+`## vX.Y.Z` heading in the matching `2026/<topic>_release.log`, placed in
+version-descending order. Version-level sections (Overview, Verification,
+Breaking Changes, Migration Guide, Dependencies) go to
+`general_release.log`. Keep the existing heading style: `## vX.Y.Z` for the
+version group, `### <section name>` for each section.
 
-```bash
-mkdir -p /opt/aitbc/docs/releases/vX.Y
-```
+### Step 2: Add supporting artifacts
 
-### Step 2: Create Standard Files
+Per-version supporting documents (`AGENTS.md` task logs, `suggestions.md`,
+plans, audits, unsectioned notes) go **byte-identical** to
+`docs/releases/2026/versions/vX.Y/` — one directory per minor version, same
+convention as the retired `vX.Y/` dirs. Relative links between files in the
+same version dir keep working.
 
-Create the standard files for the new release:
+### Step 3: Update indexes
 
-- `change.log` - Main release notes (required)
-- `AGENTS.md` - Agent task assignments (required)
-- `suggestions.md` - Investigation findings (optional)
+1. `docs/releases/2026/README.md` — add the version to the Version index
+   with links to each topic file that gained a `## vX.Y.Z` section.
+2. `docs/releases/README.md` — add the version to Release History, linking
+   to `2026/README.md#v<x.y.z>`.
+3. `docs/MASTER_INDEX.md` — regenerate with
+   `python3 scripts/docs/gen_master_index.py` (do not hand-edit).
 
-### Step 3: Update Release Index
+### Step 4: Update root AGENTS.md
 
-Update `/opt/aitbc/docs/releases/README.md` to include the new release:
-
-1. Add the release to the appropriate section (Current Releases or Legacy Releases)
-2. Use the correct link format:
-   - For v0.5.x+: `[vX.Y.Z](v0.X/v0.X.Y_change.log)`
-   - For v0.4.x and earlier: `vX.Y.Z` (if not archived)
-3. Include a brief description of the release
-4. Update the "Last Updated" date and version number
-
-### Step 4: Update Root AGENTS.md
-
-If the release is the current in-flight release, update `/opt/aitbc/AGENTS.md`:
-
-1. Add the release to the "Completed Releases" or "Planned Releases" section
-2. Update the release sequence diagram if needed
-3. Add any scope correction notes
-
-## Legacy Documentation Policy
-
-### Archiving Criteria
-
-Documentation should be archived when:
-
-1. **Format Change**: When the documentation format changes significantly (e.g., single-file to directory structure)
-2. **Deprecation**: When features are deprecated and no longer supported
-3. **Age**: When documentation is more than 6 months old and superseded by newer versions
-
-### Archiving Process
-
-1. Create an `archive/` subdirectory if it doesn't exist
-2. Move legacy files to the archive with appropriate subdirectories:
-
-   ```bash
-   mkdir -p /opt/aitbc/docs/releases/archive/v0.4.x
-   mv /opt/aitbc/docs/releases/v0.4/v0.4.*_change.log /opt/aitbc/docs/releases/archive/v0.4.x/
-   ```
-
-3. Update the release index to reference the archived location
-4. Add a note explaining why the files were archived
-
-### Archive Structure
-
-```
-docs/releases/
-  archive/
-    v0.3.x/
-      RELEASE_v0.3.7.md
-      RELEASE_v0.3.8.md
-      ...
-    v0.4.x/
-      RELEASE_v0.4.0.md
-      RELEASE_v0.4.1.md
-      ...
-  vX.Y/
-    vX.Y.Z_change.log
-    vX.Y.Z_AGENTS.md
-    ...
-```
+If the release is the current in-flight release, update `/opt/aitbc/AGENTS.md`
+release sections as before.
 
 ## Deprecation Notices
 
@@ -122,24 +80,18 @@ When features are deprecated:
 3. Explain what replaced the deprecated feature
 4. Provide migration guidance if applicable
 
-**Example Notice**:
-
-```markdown
-> **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only marketplace with bidding was deprecated in v0.4.7.
-> The current marketplace focuses on hardware+software bundles with fixed pricing.
-```
-
 ## Documentation Standards
 
 ### File Naming
 
-- Use lowercase with hyphens for file names: `change.log`, `AGENTS.md`
-- Use semantic minor-version directories with full patch-version file names: `v0.6/v0.6.0_change.log`
-- Use descriptive names for extra topic files: `v0.6.5_SERVICE_REPUTATION.md`, `v0.4.7_MULTI_GPU_SUPPORT.md`
+- Topic logs: `2026/<topic>_release.log` (snake_case, `_release.log` suffix)
+- Supporting artifacts: `2026/versions/vX.Y/<original-filename>`
+- Use descriptive names for extra topic files
 
 ### Markdown Formatting
 
-- Use consistent heading levels (H1 for titles, H2 for sections)
+- Topic logs are `.log` files but follow markdown conventions
+- Use consistent heading levels: `## vX.Y.Z` version groups, `###` sections
 - Include metadata at the top of files:
 
   ```markdown
@@ -154,7 +106,9 @@ When features are deprecated:
 ### Link References
 
 - Use relative paths for internal links
-- Use absolute URLs for external references
+- Links between `versions/` files keep the old `vX.Y/` relative shape
+- Links to split release logs should target `2026/README.md#v<x.y.z>`
+  (the per-version index) rather than a single topic file
 - Test links after adding them
 
 ## Version References in Documentation
@@ -170,34 +124,33 @@ When referencing specific versions in documentation:
 
 When adding a new release:
 
-- [ ] Create release directory
-- [ ] Create standard files (change.log, AGENTS.md)
-- [ ] Update release index (README.md)
+- [ ] Append sections to the matching `2026/<topic>_release.log` files
+- [ ] Add version-level sections to `general_release.log`
+- [ ] Place supporting artifacts under `2026/versions/vX.Y/`
+- [ ] Update `2026/README.md` version index
+- [ ] Update `docs/releases/README.md` release history
+- [ ] Regenerate `docs/MASTER_INDEX.md`
 - [ ] Update root AGENTS.md if applicable
 - [ ] Check for deprecated features to document
 - [ ] Update cross-references in other documentation
 - [ ] Test all links
-- [ ] Update this maintenance document if process changes
 
 ## Common Issues
 
+### Issue: Dangling links after the reorg
+
+**Symptom**: Links to `docs/releases/vX.Y/...` return 404
+
+**Solution**: The old tree only exists in git history. Point links at
+`docs/releases/2026/README.md#v<x.y.z>` (version index) for split logs, or
+`docs/releases/2026/versions/vX.Y/<file>` for moved artifacts. The reorg's
+`MANIFEST.csv` maps every old path to its new location.
+
 ### Issue: Release Index Out of Date
 
-**Symptom**: New releases not listed in `/opt/aitbc/docs/releases/README.md`
+**Symptom**: New releases not listed in the indexes
 
 **Solution**: Follow Step 3 in "Adding New Releases" above
-
-### Issue: Broken Links After Archiving
-
-**Symptom**: Links to archived files return 404
-
-**Solution**: Update all references to point to the new archive location
-
-### Issue: Inconsistent File Formats
-
-**Symptom**: Some releases use old format, some use new format
-
-**Solution**: Archive old format releases, ensure new releases use current format
 
 ## Contact
 
@@ -205,5 +158,5 @@ For questions about release documentation maintenance, contact the documentation
 
 ---
 
-*Last Updated: June 30, 2026*
-*Version: 1.0*
+*Last Updated: November 26, 2026*
+*Version: 2.0*

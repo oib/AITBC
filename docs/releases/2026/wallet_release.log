@@ -1,0 +1,421 @@
+# Wallet — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of wallet changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.25.12
+
+### ETH-20b — `aitbc wallet eth-balance`: typed read-only Sepolia balance/nonce command + generated MCP tool
+
+- New command `aitbc wallet eth-balance` prints the sealed-state (`latest` block tag) `eth_getBalance` and `eth_getTransactionCount` for one address: `--address` (EIP-55 validated, mixed-case checksum failures refuse; zero address and self-reads are fine — those gates were send-safety only) or `--wallet <name|path>` (plaintext `address` field only — no decryption, no password resolution, no key access). Exactly one selector is required. The endpoint resolves `--eth-rpc-url` > `ETH_RPC_URL` env > CLI config and the endpoint's own `eth_chainId` must answer 11155111. Output: `{address, balance_wei, balance_eth, nonce, rpc}` with the masked display URL (provider keys in the path never reach error text).
+- Shared helpers: `_send_wallet`/`_wallet_address_only`/`_check_rpc_chain` from `eth_send.py` and `_resolve_wallet_path` from `bridge.py` moved into `commands/wallet/eth_common.py` (public names) — no private cross-module imports; `eth-send` and `bridge` behaviour unchanged.
+- User-Agent: verified live from node2 that the compiled-in publicnode endpoint accepts httpx's default `python-httpx` agent (HTTP 200, valid `eth_chainId`) — no explicit UA needed in `rpc_call` (unlike the urllib path ETH-20 fixed).
+- MCP: `aitbc_wallet_eth_balance` generated into `aitbc_mcp_cli_tools_generated_wallet.py`, classified read-only (`read_only_hint=True`, `_aitbc_cli_read_tool`, no dry_run/confirm) via a new `FORCE_READ_ONLY_PATHS` entry in the generator.
+- Tests: new `cli/tests/test_wallet_eth_balance.py` (15 cases: happy paths, address/checksum/selector refusals, unresolved RPC, RPC error, wallet-file read never touching `private_key`, non-Sepolia refusal, masked-URL error text); `test_wallet_eth_send.py` fixture extended for the helper move. `cli/README.md` and `cli/CLI_USAGE_GUIDE.md` list the new subcommand.
+
+
+
+## v0.25.11
+
+### CLI-5 follow-up: wallet inspect refuses container-valued fields
+
+- `wallet inspect` printed whatever value a public-allowlisted field held — in keystore formats where `encrypted` carries the whole crypto object, `--field encrypted` would dump the ciphertext. `--field` now refuses dict/list values and the full view prints `<redacted: structured value>` in their place — scalars only. `cli/tests/test_wallet_inspect.py` gains a keystore fixture with object-valued `encrypted` plus a list-valued public field.
+
+
+### CLI-6b: wallet-name resolution for send/sign paths — service dir, searched-dir errors, used-path note
+
+- `350599ba6` — Send/sign commands resolved wallet names only under `AITBC_WALLET_DIR`; a wallet living only in the service dir (`/var/lib/aitbc/wallets`, e.g. node2 `sepolia`) reported "not found" while `wallet list` could still show it via the daemon keystore. `find_wallet_file_report()` now drives one shared order — explicit `--wallet-path`, `AITBC_WALLET_DIR`, then the service dir when readable (real-access check only, no uid==0 branch, no chmod/chown anywhere) — across `transactions send`/`batch`, `exchange order fund` (incl. `--print`), `wallet send`/`earn`/`spend`/`request`/`stats`/`address`/`switch`, wallet staking + `wallet bridge` paths, `load_wallet_for_payment` (market/exchange), `ipfs`/`messaging`/`operations`/`auth`/`bridge` signing sites. **This changes which file a bare name resolves to: a name that previously "was not found" can now resolve to a service-dir wallet, and send/sign paths print `Using wallet file: <path>` (path only) when they do** — an explicit `--wallet-path` never prints. Not-found errors name every searched dir, mark each unreadable/missing, and say when the name exists only in the daemon keystore (with the `--wallet-path` pointer). Per the task's ASK answers: destructive/export commands stay narrow (`wallet delete`/`restore`/`import`/`backup` resolve the configured dir only — `delete`/`backup` errors now name the searched dir), `--use-daemon` help states reads-only, and `mining` keeps its extra legacy `/var/lib/aitbc/keystore` after the shared dirs. 20 cases in `tests/cli/test_wallet_paths.py` over two real fixture dirs — no real `/var/lib/aitbc` or `/etc/aitbc` touched.
+
+
+### CLI-6c: wallet-write commands narrowed back off the service dir; stale tests repaired
+
+- `463cc5e8f` — CLI-6b's shared `ctx.obj["wallet_path"]` let `wallet export` and the `earn`/`spend`/`liquidity-stake`/`liquidity-unstake` bookkeeping commands resolve a bare name into `/var/lib/aitbc/wallets` and then **write** the service-managed file (export a copy, resave bookkeeping) — a class the CLI-6 ASK reserved for the configured dir. The ctx keys are now split: `wallet_path` is the configured-dir file (explicit `--wallet-path` still wins everywhere) and only load/sign/read commands read `wallet_sign_path`, the shared-search result. Narrowed commands error with `wallet_write_restricted_message` — the full searched-dir list plus the service-dir hit named as restricted with a `--wallet-path` pointer — and `_load_wallet`'s legacy plaintext re-encrypt now warns instead of rewriting a service-dir file in place. Pinned by a structural test that fails if any command calling `_resave_wallet`/`_save_wallet` (or `export`) reads `wallet_sign_path`, plus per-command tests asserting a service-dir-only wallet is "not found" with dirs named and the file byte-identical.
+- Same commit — test repairs for the CLI-6b fallout (13 failures found on node2): module-attr `wallet_dir` patches move to the `AITBC_WALLET_DIR` env seam (the real resolution input), not-found assertions take the new "not found at \<path\>" text, and hand-built `ctx.obj` dicts gain `wallet_sign_path` to mirror the group callback.
+
+
+
+### CLI: `aitbc wallet eth-send` — generic Sepolia ETH transfer (CLI-8)
+
+- `aitbc wallet eth-send --to <addr> --amount-eth <dec> --chain-id 11155111` — the first wallet command that sends plain EVM ETH to an explicit recipient (until now every `eth_sendRawTransaction` site had a fixed target: bridge deposit, exchange prepay, float payout). Default is a dry run printing from/to/wei/chain-id/nonce/gas/fee/balance while reading only the wallet's plaintext address — no password, no decrypt, no sign, no broadcast. `--confirm` resolves the wallet password through the standard sources, signs once and broadcasts once; `--wait` polls the receipt. Refusals: every chain id but 11155111 (flag and RPC both checked), zero address, self-send, bad EIP-55 checksum on mixed-case input, zero/negative amount, >18 decimals, amount over `--max-eth` (default 0.1), insufficient balance, `--wait` without `--confirm`.
+- Shared helpers factored out of `exchange/prepay.py` into `cli/aitbc_cli/utils/evm_rpc.py` (`rpc_call`, `rpc_try`, `broadcast_raw`, `resolve_rpc_url`, `hex_to_int`) and `commands/wallet/__init__.py` (`_load_signing_key`); prepay keeps its module-level names as delegates so behaviour and the test patch surface are unchanged.
+- MCP: `aitbc_wallet_eth_send` regenerated in the safeguarded set — `dry_run`/`confirm` gate plus the CLI's own `--confirm` reaching the tool as `confirm_opt` (a real send needs both true).
+- Tests: `cli/tests/test_wallet_eth_send.py`, 23 tests — ephemeral in-process key, fake RPC tables, no network, no real wallet.
+
+
+### CLI-8b: `wallet eth-send --max-gas-gwei` — gas-price ceiling (follow-up to CLI-8)
+
+- `be79b6fb6` — `--confirm` refuses to sign when the RPC's `eth_gasPrice` exceeds `--max-gas-gwei` (default 50 gwei, the "acceptable" bound in `contracts/scripts/check-gas-price.js`): the refusal runs before the wallet key is decrypted, names both prices, and tells the operator to raise the flag to send into a spike. The dry run still prints, now with `gas_price_gwei`, `gas_ceiling_gwei` and an `over_gas_ceiling` marker. Ceiling must be positive with ≤9 decimals (sub-wei refused). `aitbc_wallet_eth_send` regenerated with `max_gas_gwei`.
+- Tests: `cli/tests/test_wallet_eth_send.py` `TestGasCeiling` (+7) — over-ceiling refusal before key load, raised-ceiling send with the quoted price in the signed blob, boundary equality allowed, dry-run marker, nonpositive and sub-wei ceilings refused.
+
+### WALLET-CUSTODY-1
+- docs(topology): read-only fleet wallet inventory — 18 files across 5 hosts; plaintext defaults on node0/1/2 and the hub sell-escrow key documented; operator decision: accept plaintext
+
+
+### CLI-3b: `order fund --fee` → DEFAULT_TX_FEE_AIT + `wallet send` confirmation semantics (2026-10-15)
+
+`exchange order fund --fee` defaulted to `Decimal("0.001")` — below the
+chain standard — and now takes `DEFAULT_TX_FEE_AIT`
+(`aitbc.utils.units`) like every other fee path; an explicit `--fee`
+still wins. `wallet send` no longer reads a returned mempool hash as a
+landed transfer (the 15 Oct unsealed tx was indistinguishable from
+success): it prints "submitted, not confirmed" — the same wording lands
+in the shared `_send_transaction_impl` used by `transactions send`,
+`order fund` and `batch` — and its JSON output carries a `status` field
+(`submitted`/`confirmed`). A new `--wait` flag polls `wait_for_tx` for
+the seal: a confirmed send reports the block height, while a send still
+unsealed after 120s exits nonzero naming the hash and the status
+command, since a retry reuses the nonce.
+
+Commits: `bfaa13b44` (order fund fee default → DEFAULT_TX_FEE_AIT +
+tests), `8159a73a4` (wallet send submitted-not-confirmed + --wait +
+shared message).
+
+
+### WAL-2: wallet create/restore under the WAL-1 secret standard (2026-10-15)
+
+`wallet create` was the last place a human had to type a wallet secret
+twice on a TTY — a headless agent could only create unencrypted
+(`--no-encrypt`) wallets or pre-seed the keyring. A separate
+`resolve_new_wallet_password()` in `utils/wallet_secret.py` reuses the
+WAL-1 sources, precedence and password-file checks (0600, ownership,
+size), but creation semantics differ from signing: every
+non-interactive source is self-confirming and returned once, only the
+TTY fallback runs the two-prompt confirm loop — and only that path
+writes the keyring, so a file/stdin/env password is never copied into
+another store. Empty values that signing tolerates (`--password ""`,
+empty env var) are refused for a new wallet. `--no-encrypt` is
+unchanged (skips resolution entirely) and now explicitly refuses a
+combined `--password*` flag instead of silently ignoring it.
+
+`wallet restore` previously copied the backup JSON verbatim and
+resolved no password at all (the WAL-2 design note's claim that it
+called `_get_wallet_password` was stale — corrected in the note). It
+now gains `--password-file`/`--password-stdin` — deliberately no
+`--password` argv option: a plaintext backup is then re-encrypted under
+the resolved password after the blob is proven to round-trip to the
+backup's stored `address`, written atomically at mode 0600 with no
+plaintext intermediate. A password flag on an already-encrypted backup
+aborts before any write ("`--password*` applies only to plaintext
+backups"); with no flags both encryption states remain verbatim copies.
+
+Audit note: `genesis init --password` still forwards the secret onto
+the `unified_genesis.py` subprocess argv (deliberately left in WAL-1),
+`genesis reset --password` exposes it on the CLI's own argv (lands in
+env files, not subprocess argv), and `_get_wallet_password`'s private
+getpass survives in `wallet/staking.py`'s re-encrypt fallbacks (dead in
+practice — encrypted wallets always arrive with a resolved password).
+
+Tests: `cli/tests/test_wal2_create_restore_password.py` — 31 cases over
+file/stdin/env/keyring/TTY sources, per-source precedence and leak
+checks, create's flag matrix, and all four restore branches; the
+existing wallet + wallet_secret suites, ruff, mypy ratchet,
+check-cli-docs, check-mcp-cli-drift and check-c901-ratchet all pass.
+
+Commits: `5f6178d52` (resolver + create/restore + tests + MCP regen).
+
+
+## v0.25.10
+
+### Ops tooling: executor-signed parameter-change tool with fee-balance and custody-proof gates
+- `9c2748a92b` — `scripts/ops/governance_parameter_change.py`: the five authority parameters change only through a `GOVERNANCE_EXECUTE` signed by an on-chain executor key held off-fleet; the node-side execute route signs with the node key and cannot speak for it. The tool builds the sealed-shape envelope and either **plans** (keyless — prints the signing digest for audit) or **signs + submits** (`--key-file`, `--confirm` required) to `/rpc/transaction`, then waits for the seal and reads the parameter back. Refuses non-0x and zero-address targets, no-op changes, unknown parameters, and keys outside the on-chain executor set; key material never reaches argv or output.
+- `c837a1391c` — fee-balance gate (sign-submit refuses an executor whose balance cannot cover fee + 5x headroom; covers the proof key on rotation) and an **apply-path rehearsal**: the envelope runs through the real state transition on an in-memory chain — execute applies and reads back, the old authority is refused at activation height, and a self-excluding executor list seals fine on-chain (lock-out refusal is the tool's job, not consensus).
+- `47c60ef016` — `--proof-key-file` is repeatable and derives one address per file; sign-submit **refuses a `governance_executors` change unless every added member is proven by custody** (an unproven entry could be a key nobody holds) and a dropped signer with no proven survivor. Every unique proven member is fee-checked. Plan stays advisory (`added — proof REQUIRED` warnings); the rehearsal covers a two-executor rotation.
+- `2e5e8e2a87` — plan collects out-of-list proof derivations as warnings instead of hard-failing (read-only command must not exit on malformed input); sign-submit keeps the hard refusal.
+- **Live use**: governance executor rotation executed via this tool — `GOVERNANCE_EXECUTE` sealed at block **37259** setting the two-member executor list (2026-10-07, ahead of the v12 checks' activation at 37500 — the same semantic shape the v12 helper later encodes).
+
+
+## v0.25.9
+
+### ops: wallet daemons are loopback-only; dead hub /w/ route gone (2026-09-29)
+
+- The hub /w/ edge route no longer exists (verified: /w/v1/wallets 404s). Wallet daemons sign on request and must never be reachable off-host.
+- node0's stale wallet_daemon_url (pointing at the dead route) removed; all hosts resolve to the local daemon on 127.0.0.1:8108.
+- fleet-config-check.sh gained two sections: wallet-daemon-URL loopback assertion (FAILs non-loopback), and running-commit-vs-latest-tag report (flags hosts missing the deploy tag). Commit 339d48199b.
+
+
+## v0.25.6
+
+### CLI & wallet
+
+- **`aitbc genesis reset`** command added (`c8c2afb12`) for operational chain reset, including service stop, env/data backup, optional new genesis wallet, and restart.
+- **Coin requests** command for follower init coins (`1a2007959`).
+- **Market offer commands** use `https` and canonical `chain_id` (`3451e00ee`).
+- **Balance display** shows AIT by default with `balance_units` (`145f585ed`).
+- **Auto-import encrypted dict private keys** in wallet (`24d787863`).
+- **Dispute command group** added (`9bbb48779`).
+- **CLI admin client** strips `/v1` from base URL and drops `NODE_ENV` gate (`e3518c253`); `monitor sweepers` authenticates as admin (`cd91676a0`); `BLOCKCHAIN_RPC_URL` trailing `/rpc` is normalized (`07aadd301`).
+- **Legacy 8011 defaults** replaced with coordinator API port `8203` (`a7165e308`).
+
+
+## v0.24.9
+
+### Operator user and CLI wallet hardening
+
+- Created `/home/aitbc` as the `aitbc` operator home on `<node2>` and `<hub-node>`.
+- Migrated CLI wallets from `/root/.aitbc/wallets` to `/home/aitbc/.aitbc/wallets`.
+- Set wallet directory `0700` and wallet files `0600`.
+- Updated `aitbc` user home to `/home/aitbc` (with a service restart on both nodes).
+- Removed `/root/.aitbc/wallets` and left a note pointing operators to run `sudo -u aitbc aitbc <command>`.
+- Documented the operator user / wallet locations in `AGENTS.md`.
+
+- `cli/aitbc_cli/commands/wallet/basic.py`: `aitbc wallet balance <name>` now falls back to a local file wallet when the wallet daemon returns 404, so file-only wallets (e.g. `customer-wallet`, `shop-wallet`) can be queried.
+
+
+- P2.4: automatic reinvestment from released escrow.
+  - `aitbc ai submit --auto-reinvest-pct <pct>` creates an auto-stake order.
+  - On escrow release the blockchain node stakes `pct%` of the payment for the provider.
+  - Job status shows `reinvest_status: staked` and `reinvest_stake_id`.
+  - Scenario docs: `docs/scenarios/40_auto_reinvestment.md`.
+- Added `HUB_COORDINATOR_URL=http://hub.example.net/c/v1` to `/etc/aitbc/blockchain.env` on `<node2>` and `<hub-node>` so the `aitbc` operator user resolves the coordinator URL correctly without relying on a per-user `.aitbc.yaml`.
+- Validated `sudo -u aitbc aitbc ai submit --payment 1.0 --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F --model llama3.2:3b --prompt "What is 2+2?" --wait` on `<hub-node>`: job completed, payment released, escrow tx `0x867529e7b692e222bb3406ec4b6ed51b86e8411da99654be14d962b38a913c74`.
+
+- `aitbc-miner.service`: set `HOME=/var/lib/aitbc` so `ProtectHome=yes` does not break Whisper temp paths after the operator home move.
+- `aitbc-pool-hub.service`: set `HOME=/var/lib/aitbc` and `PGSSLMODE=disable` so the hub pool-hub starts cleanly with the new `aitbc` home.
+- Shop miner now registers and heartbeats with the hub pool-hub (`HUB_POOL_HUB_URL=http://hub.example.net/pool-hub`); `aitbc pool-hub status` on both nodes reports `miners_online: 1`.
+- Disabled `aitbc-pool-hub.service` on `<node2>` (shop/follower) and pointed the shop miner at the hub pool-hub.
+
+
+- P2.5: Whisper, FFmpeg, and Ollama default shop offers.
+  - `aitbc-miner` publishes default `whisper/base`, `ffmpeg/h264-transcode`, and
+    `ollama/llama3.2:3b` software offers on startup and every 5 minutes by running
+    the canonical `aitbc market offer` command.
+  - `aitbc market offer` now works from shop nodes: it picks a wallet with a
+    non-zero on-chain balance, falls back to the hub island (`ait-hub`), and
+    registers the offer with the hub marketplace service.
+  - Software-only marketplace listings no longer require a prior on-chain bond
+    (hardware GPU bundles still do when `MARKET_BOND_MIN_AMOUNT` is set).
+  - `aitbc market list` shows the default offers from the shop.
+  - `aitbc market transcribe`, `aitbc market process`, and `aitbc market run`
+    execute Whisper, FFmpeg, and Ollama jobs against the shop's public endpoints
+    and release escrow on completion.
+  - `apps/ffmpeg/main.py` maps consumer codec names (h264/hevc) to the correct
+    FFmpeg encoders (`h264_nvenc`, etc.) and fixes bitrate/bufsize formatting.
+  - `cli/aitbc_cli/commands/market/jobs.py` coerces `Decimal` costs to `float`
+    before JSON and uses the offer's public endpoint for Ollama inference.
+  - `examples/nginx/nginx-aitbc.conf.example` and `scripts/setup/install-nginx-node.sh`
+    include `ffmpeg` and `whisper` upstream/location blocks on the correct ports.
+  - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md` and
+    `docs/scenarios/50_default_shop_offers.md`.
+- Validated end-to-end ZK receipt verification: submitted `aitbc ai submit --wallet default --payment 1.0 --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F --model llama3.2:3b --prompt "What is the capital of France?" --zk-proof-required --wait`; the completed receipt shows `zk_status: verified` and `aitbc zk verify --proof-id f714b502099b4813931d8594b9b57650` returns `verified: true, computation_correct: true, privacy_preserved: true`.
+
+
+- P2.6: real IPFS daemon behind `aitbc ipfs`.
+  - `aitbc ipfs upload|download|pin|list` now use the local Kubo HTTP API
+    (`http://127.0.0.1:5001` by default, overridable with `IPFS_API_URL`).
+  - Falls back to the filesystem stub when the daemon is not reachable.
+  - Cross-node `aitbc ipfs download` validated over the public IPFS swarm
+    from `<node2>` to `<hub-node>` and back.
+  - `tests/cli/test_ipfs.py` updated to exercise the daemon-aware code path.
+  - Scenario docs: `docs/scenarios/42_ipfs_daemon.md`.
+
+- P2.7: compliance, plugins, and white-label expansion.
+  - `aitbc brand` and `aitbc brand list` show active brand settings and available
+    plugins.
+  - `aitbc plugin list` and `aitbc plugin load` discover and load Python brand
+    plugins from a configured directory.
+  - `aitbc plugin create` now writes a `.py` file with `brand`, `roles`, and
+    `identity_method` that `PluginManager` can load immediately, plus an optional
+    manifest for documentation.
+  - `aitbc compliance check` and `aitbc compliance classify` expose the policy
+    engine without requiring a job submission.
+  - `aitbc ai submit --compliance-framework <fw> --classification <label>`
+    validates the label against the selected framework before submitting and
+    attaches `data_classification` to the job constraints.
+  - `whitelabel_demo.py` sample brand plugin under `plugins/`.
+  - Lazily evaluated `get_active_brand()` in `wallet/staking.py` to avoid startup
+    crashes when `AITBC_ACTIVE_PLUGIN` is set.
+  - Scenario docs: `docs/scenarios/43_compliance_plugins_white_label.md`.
+- Wired coordinator reputation into dispatch: `JobService` now loads `AgentReputation.trust_score` (0-1000, normalized to 0-1) when choosing the best miner, and `miner.py` records successful/failed job completions into the reputation service.
+- `aitbc market list` now enriches offers with the canonical coordinator `trust_score` when the provider is a known agent, and the default sort prefers live trust score over marketplace avg_rating.
+
+- Implemented P1.1: job completion records update `AgentReputation`; dispatch prefers `trust_score`; `aitbc market list` fetches and sorts by live reputation.
+
+
+- Scenario 37: ZK high-value jobs.
+  - Added `docs/scenarios/37_zk_high_value_jobs.md` documenting the P2.1 ZK
+    receipt proof flow.
+  - Live-validated on hub: payment 15 AIT inference job `324860acec664b5eac8fad85cc2cd873`
+    completed with `zk_status`: `verified` and `zk_proof_id` set.
+  - Linked from `docs/scenarios/README.md`.
+- Registered `aitbc zk` CLI command (it existed but was not loaded in `core/main.py`).
+- Validated scenario 37: `aitbc ai submit --payment 15 --zk-proof-required` produces a verified `zk_proof` in the receipt, releases escrow, and `aitbc zk verify --job-id` confirms `verified: true`.
+
+- Registered missing CLI commands `aitbc auth` and `aitbc dashboard` in `core/main.py`.
+
+- Fixed `aitbc auth login` URL normalization: strip trailing `/v1` from configured `coordinator_api_url` to avoid `/v1/v1/auth/nonce`.
+
+- Updated scenario 34 (`docs/scenarios/34_hub_customer_node_e2e.md`) to v1.5, covering `aitbc auth login`, `aitbc dashboard`, `aitbc zk verify`, `aitbc reputation`, and trust-aware `aitbc market list`.
+
+- `DatabaseConfig` now supports `DATABASE_URL`/`DATABASE_ADAPTER` for PostgreSQL without switching live SQLite deployments that only set `DATABASE_URL`.
+- Removed the `AgentReputation.agent_id` foreign key to `ai_agent_workflows.id` so reputation profiles can be created for miners and other non-workflow agents.
+
+- Hardened cross-chain bridge: reject same-chain locks, enforce `bridge_max_lock_amount`, and add a configurable `bridge_refund_delay_seconds` to prevent instant refunds.
+* 838616dae fix(escrow,cli): load escrow contracts from DB and add aitbc ai refund command
+* a9edec4df fix(payments): make PaymentService.refund_payment idempotent and preserve refund_tx_hash
+* 3510a2313 fix(escrow): expose refund_tx_hash and refunded_at in /escrow/{job_id}
+* b0ed7463d fix(escrow): await async get_or_load_contract in _find_contract_id
+* 9d0b03ce6 fix(escrow): treat Escrow.amount as AIT, not compute-seconds
+* 5e5f2fda9 feat(cli,blockchain): market escrow refund tries coordinator, blockchain route is idempotent
+* 43c61d67f fix(cli): import Any in market escrow module
+* 91049b566 fix(cli): quote default hub hostname in market escrow refund
+* 381cf5b17 fix(escrow): deterministic contract_id for loaded escrows
+* df6dd0274 test(escrow,payments): regression tests for refund path
+- MultiValidatorPoA wired into live aitbc-blockchain-node: proposers rotate round-robin, blocks carry proposer signature plus validator attestations in block_metadata, and sync validates attestation threshold.
+- fix(sync): persist block_metadata when importing blocks so followers retain attestations.
+* 55359ceba feat(agent-coordinator): REST message send tries WebSocket first
+* 3c72e13e0 feat(agent-coordinator): make POST /messages/subscribe real
+* 0225bc91c feat(agent-coordinator): wire protocol send/broadcast to ConnectionManager
+
+* 0a35f4ae3 feat(governance): execute governance proposals on-chain with GOVERNANCE_EXECUTE tx and chain_parameter table
+* b3d692d61 fix(governance): use mempool-computed transaction hash for execution
+* e0b0bee2d fix(sync): include block_metadata in blocks-range so followers can validate multi-validator attestations
+- Governance proposals can now be executed on-chain: `aitbc operations governance execute` submits a signed `GOVERNANCE_EXECUTE` transaction to the mempool, and the next block applies the `execution_payload` (currently `parameter_change`) to the on-chain `chain_parameter` table.
+- Added `ChainParameter` model and `genesis_private_key`/`genesis_address` settings.
+- CLI `aitbc operations governance proposal` now accepts `--params` for the execution payload.
+- Documented island credential ownership (`aitbc:aitbc`, mode 0600) in `docs/ops/aitbc-cli-live-setup.md`.
+* 1de9b1d2c fix(cli/sdk): align messaging routes with deployed endpoints
+
+* eb1b607ab feat(coordinator-auth): wallet-based /v1/auth/nonce and /v1/login for CLI auth
+* 3a6f2df21 fix(cli): include payment_id in ai refund request body
+- `aitbc auth login --wallet <name>` now works end-to-end: it signs a coordinator-issued nonce and stores a client JWT for authenticated CLI commands.
+- Added coordinator `/v1/auth/nonce` and `/v1/login` endpoints that verify wallet signatures and issue `client` JWTs.
+- `aitbc ai refund --job-id <id>` now sends the required `payment_id` in the refund body and successfully refunds failed jobs.
+* 93a20cf91 feat(agent-coordinator): add key exchange endpoints and public-key registry
+* a0a8acbc7 feat(agent-coordinator): add delivery guarantees, idempotency, and SQLite fallback
+* ad2583e6d fix(agent-coordinator): correct relative import for WebSocket connection manager
+
+* 4830d69cc feat(tee): enforce signed quote path and auto-refund on TEE attestation failure
+* fb4988f3b fix(tee): use session.get/fresh job and flush to persist TEE failure
+* c9246c9e6 test(tee): add signed quote serialization and tampering tests
+- `aitbc tee attest` and `aitbc tee verify` now use self-contained Ed25519-signed quotes with base64 JSON serialization.
+- `TEEAttestationService` verifies the embedded signature and measurement before marking a quote as verified.
+- TEE attestation failures during job completion now trigger an automatic escrow refund instead of leaving the job stuck.
+* 981634d3e feat(cli,scenarios): add agent-msg scenario, tests, and CLI polish
+* c0cd93187 fix(tee): use explicit SQL update to persist TEE failure state
+- TEE attestation failures now correctly update job.state to FAILED, set the error message, and refund the escrowed payment.
+* 47585f03a fix(cli,agent-coordinator): peers and messaging route order
+* 05d0c7e91 docs(scenarios): align agent-msg receive output with live validation
+* 86286b420 feat(tee): auto-generate TEE quote for high-value and explicit TEE jobs
+- High-value jobs (payment >= COORDINATOR_TEE_HIGH_VALUE_THRESHOLD, default 10 AIT) now trigger automatic TEE quote generation and verification before escrow release.
+- Explicit --tee-attestation-required jobs also have their TEE quote auto-generated and verified if the miner does not provide one.
+- Mirrors the existing P2.1 ZK high-value gating.
+* 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
+- Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by `aitbc tee attest`.
+- The quote is placed at the top level of the `/v1/miners/{job_id}/result` payload so the coordinators can verify it before escrow release.
+* 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
+- Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by aitbc tee attest.
+- The quote is placed at the top level of the /v1/miners/{job_id}/result payload so the coordinator TEE attestation service can verify it before escrow release.
+
+- feat(cli,coordinator-api): TEE attestation CLI (register, status) and confidential job flags
+  - Add `aitbc tee register` and `aitbc tee status` wired to /v1/tee/enclaves.
+  - Add `--confidential` and `--enclave-measurement` to `aitbc ai submit`.
+  - Extend `Constraints` with `confidential` and `required_enclave_measurement`.
+  - Add CLI unit tests in `cli/tests/test_tee.py` and `cli/tests/test_ai_tee_submit.py`.
+
+* 30f32e93b feat(miner,coordinator): respect confidential/required_enclave_measurement in TEE gate
+- _tee_required_for now treats confidential jobs and jobs with required_enclave_measurement as TEE-gated.
+- The coordinator checks the quote measurement against required_enclave_measurement and the enclave_id against tee_enclave_id.
+- production_miner.py falls back to required_enclave_measurement to generate the quote when tee_enclave_id is not set.
+
+- docs(scenarios): add scenario 46 for confidential TEE jobs and update README
+  - New scenario documents aitbc tee register/status, aitbc tee attest, and
+    aitbc ai submit --confidential --enclave-measurement end-to-end.
+  - Live validation on <hub-node>/<node2> produced a released escrow with
+    tee_status: verified and confidential: true in the job constraints.
+  - Append validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- feat(cli): add aitbc zk command group for circuits, health, and verify
+  - New `aitbc zk circuits` lists available ZK circuits from /v1/zk/info.
+  - New `aitbc zk health` checks ZK service status.
+  - New `aitbc zk verify` re-verifies a job receipt proof or a user-supplied proof.
+  - Add CLI unit tests in cli/tests/test_zk.py.
+
+- docs(scenarios): add scenario 47 for ZK high-value jobs and live validation
+  - New scenario documents aitbc zk health/circuits/verify and
+    aitbc ai submit --zk-proof-required end-to-end.
+  - Live validation on <hub-node>/<node2> produced released escrow with
+    zk_status: verified and a Groth16 zk_proof in the receipt.
+  - Append validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- ops(hub): enable ZK verification in aitbc-coordinator-api
+  - Add Environment=COORDINATOR_ENABLE_ZK_VERIFICATION=true override and
+    restart the service.
+
+- feat(coordinator,cli): performance bond eligibility and high-value job matching
+  - New /v1/marketplace/providers/{id}/bonds endpoints (create, status, lock,
+    release, slash, eligibility, get-by-id).
+  - Add bond_required/min_bond_amount to job Constraints.
+  - Add --bond-required and --min-bond-amount to aitbc ai submit.
+  - Rewrite aitbc bond CLI with create, status, top-up, lock, release, slash.
+  - JobService gates high-value/forced jobs to miners with active/locked bonds.
+
+- docs(scenarios): add scenario 48 for performance-bond high-value jobs
+  - New scenario documents aitbc bond create/status and aitbc ai submit
+    --bond-required end-to-end.
+  - Append live validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- fix(auth): add performance-bond routes to coordinator security matrix.
+- fix(coordinator): add missing os import in jobs.py.
+
+- feat(coordinator,blockchain): trigger auto-reinvest on escrow release
+  - aitbc ai submit --auto-reinvest-pct wires the percentage through job
+    constraints, payment meta_data, and the escrow release call.
+  - _auto_stake uses canonical provider addresses to create an on-chain Stake.
+  - The receipt now exposes reinvest_status, reinvest_stake_id and
+    reinvest_amount.
+
+- docs(scenarios): add scenario 49 for auto-reinvest from released escrow
+  - Documents the end-to-end flow, expected receipt fields, and on-chain stake
+    verification query.
+
+## v0.23.25
+
+### `wallet stats` and `wallet info` displayed balances 3600x small
+
+`format_ait()` takes compute-seconds. The local wallet file holds AIT — `earn` and `spend`
+wrap their writes in `ait_to_seconds()`, so that much was already established in the same
+file. Four sites did not:
+
+```
+wallet file holds 100 AIT
+  format_ait(100)                  ->   0.0278 AIT
+  format_ait(ait_to_seconds(100))  ->   100 AIT
+```
+
+`wallet balance` and `wallet history` were **not** touched: those values come from the
+service already denominated in seconds, and wrapping them would have introduced the same
+bug in the opposite direction. The distinction is which side of the boundary the number
+arrived from, not which function is being called.
+
+
+## v0.23.2
+
+### V23-01 — `rpc/utils.py` rejects transactions signed by any standard wallet · CONFIRMED → RESOLVED
+
+`apps/blockchain-node/src/aitbc_chain/rpc/utils.py:45` (`verify_transaction_signature`) and
+`:75` (`verify_request_signature`). These sit on the node's RPC request path; the second is
+documented as covering "bridge, staking, etc."
+
+```
+cd apps/blockchain-node && PYTHONPATH=src:../.. ../../venv/bin/python -c "
+import json
+from eth_account import Account
+from eth_utils import keccak
+from aitbc_chain.rpc.utils import verify_request_signature
+a = Account.from_key('0x'+'42'*32)
+m = {'action':'bridge','amount':'100'}
+d = keccak(json.dumps(m, sort_keys=True, separators=(',',':')).encode())
+s = a.unsafe_sign_hash(d).signature
+print('v =', s[64], '->', verify_request_signature(a.address, '0x'+s.hex(), m))"
+```
+
+Prints `v = 28 -> False`, with `Request signature verification failed: Value 28 is not less
+than or equal to 1` on the log.
+
+> **Fix**: normalise before constructing the signature — `v = sig_bytes[64]; v -= 27 if v >=
+> 27 else 0`, reject anything not then in `(0, 1)`. That is the shape already committed in
+> `poa.py`. But see V23-05: fixing this per-file is how you get nine copies.
