@@ -93,6 +93,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/market/providers/*/bonds/lock": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/providers/*/bonds/release": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/providers/*/bonds/slash": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/market/providers/*/bonds/suspend": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/bonds/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/offers": AuthLevel.NONE,
     # Admin routes
