@@ -54,6 +54,16 @@ class PendingBondSlash(SQLModel, table=True):
         # The sweeper's hot query: due rows in window order.
         Index("ix_pending_bond_slash_status_window", "status", "window_ends_at"),
         Index("ix_pending_bond_slash_bond", "bond_id"),
+        # #2995: at most one OPEN row per (job, condition) — the sweeper
+        # re-detects the same stale job every pass; terminal rows never block.
+        Index(
+            "uq_pending_bond_slash_open_job_condition",
+            "job_id",
+            "condition",
+            unique=True,
+            sqlite_where=text("status IN ('pending', 'executing')"),
+            postgresql_where=text("status IN ('pending', 'executing')"),
+        ),
         {"extend_existing": True},
     )
 

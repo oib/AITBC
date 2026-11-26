@@ -25,6 +25,7 @@ from aitbc.network import AITBCHTTPClient
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
 from sqlalchemy import update as sa_update
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from ....config import settings
@@ -123,6 +124,12 @@ _AUTO_SLASH_SUSPENDED_BY = "bond-slash-window"
 _STALE_EXECUTING_SECONDS = 600
 _MAX_PENDING_ATTEMPTS = 3
 _PENDING_EXECUTE_BATCH = 50
+# #2995: statuses that count as "open" for the per-(job, condition) dedup —
+# mirrors the partial unique index uq_pending_bond_slash_open_job_condition.
+_OPEN_PENDING_STATUSES = (
+    PendingBondSlashStatus.PENDING.value,
+    PendingBondSlashStatus.EXECUTING.value,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -351,6 +358,16 @@ class BondSlashingService:
             bond_pk=bond_pk,
         )
 
+    def _open_pending_for(self, job_id: str, condition: SlashingCondition) -> PendingBondSlash | None:
+        """#2995: the open (pending/executing) row for this job+condition, if any."""
+        return self.session.exec(
+            select(PendingBondSlash).where(
+                col(PendingBondSlash.job_id) == job_id,
+                col(PendingBondSlash.condition) == condition.value,
+                col(PendingBondSlash.status).in_(_OPEN_PENDING_STATUSES),
+            )
+        ).first()
+
     async def _enqueue_pending_slash(
         self,
         job: Job,
@@ -369,7 +386,20 @@ class BondSlashingService:
         row and compound violations add independent pending rows. An existing
         suspension (operator or an earlier pending row) is never clobbered —
         the new row just records the live ``suspension_event_id``.
+
+        #2995: at most one OPEN row per (job, condition). The sweeper
+        re-detects the same stale job every pass; without the dedup each
+        pass queued another slash for the same violation and every open row
+        would submit its own BOND_SLASH at window expiry.
         """
+        open_row = self._open_pending_for(job.id, condition)
+        if open_row is not None:
+            return {
+                "slashed": False,
+                "reason": "slash already pending appeal window",
+                "pending_id": open_row.id,
+                "window_ends_at": open_row.window_ends_at.isoformat(),
+            }
         prepared = await self._prepare_slash(job, bond, condition)
         if isinstance(prepared, dict):
             return prepared
@@ -407,7 +437,24 @@ class BondSlashingService:
             if not stage_bond_projection(self.session, bond, meta=suspended_meta):
                 self.session.rollback()  # noqa: unawaited-async — sync Session (sqlmodel)
                 return {"slashed": False, "reason": "bond changed during slash-window enqueue"}
-        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        try:
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        except IntegrityError:
+            # #2995: lost the dedup race — the partial unique index rejected
+            # the second open row for this (job, condition). Roll back the
+            # staged suspension write with it and report the winner.
+            self.session.rollback()  # noqa: unawaited-async — sync Session (sqlmodel)
+            winner = self._open_pending_for(job.id, condition)
+            logger.info(
+                "Bond slash enqueue for job %s lost dedup race; open row is %s",
+                job.id,
+                winner.id if winner else "<unknown>",
+            )
+            return {
+                "slashed": False,
+                "reason": "slash already pending appeal window",
+                "pending_id": winner.id if winner else "",
+            }
         logger.info(
             "Bond slash for job %s queued as %s (%s, %.0fs window)",
             job.id,

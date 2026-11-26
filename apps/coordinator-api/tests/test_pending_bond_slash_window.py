@@ -707,3 +707,123 @@ async def test_accepted_appeal_after_window_does_not_cancel_pending(db_session, 
     # The accepted appeal still lifts the suspension per the existing #2966
     # rule — eligibility returns even though the slash will still execute.
     assert suspension_event_id(bond) is None
+
+
+# ---------------------------------------------------------------------------
+# #2995: one open pending row per (job, condition)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_repeat_detection_same_job_condition_enqueues_once(db_session, slash_env):
+    """#2995 live-leg defect: the sweeper re-detects the same stale job every
+    pass; each pass must NOT queue another row for the same violation."""
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")
+
+    service = BondSlashingService(db_session)
+    with patch(f"{SLASH_MODULE}.AITBCHTTPClient") as mock_client:
+        first = await service.slash(job, SlashingCondition.DOWNTIME, "silent 1")
+        second = await service.slash(job, SlashingCondition.DOWNTIME, "silent 2")
+        third = await service.slash(job, SlashingCondition.DOWNTIME, "silent 3")
+
+    mock_client.assert_not_called()
+    rows = _pending_rows(db_session)
+    assert len(rows) == 1  # WIRING PIN: without the dedup this is 3
+    assert first["reason"] == "slash pending appeal window"
+    assert second["reason"] == "slash already pending appeal window"
+    assert third["reason"] == "slash already pending appeal window"
+    assert second["pending_id"] == rows[0].id
+    assert third["pending_id"] == rows[0].id
+
+
+@pytest.mark.asyncio
+async def test_dedup_is_per_condition(db_session, slash_env):
+    """Same job + different condition is a distinct violation — still enqueues."""
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")
+
+    service = BondSlashingService(db_session)
+    await service.slash(job, SlashingCondition.DOWNTIME, "silent")
+    result = await service.slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["reason"] == "slash pending appeal window"
+    assert {r.condition for r in _pending_rows(db_session)} == {"downtime", "bad_result"}
+
+
+@pytest.mark.asyncio
+async def test_dedup_is_per_job(db_session, slash_env):
+    """A second stale job on the same bond is a compound violation — enqueues."""
+    miner = _miner(db_session)
+    job1 = _bonded_job(db_session)
+    job2 = _bonded_job(db_session)
+    for job in (job1, job2):
+        job.assigned_miner_id = miner.id
+        db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")
+
+    service = BondSlashingService(db_session)
+    await service.slash(job1, SlashingCondition.DOWNTIME, "silent 1")
+    result = await service.slash(job2, SlashingCondition.DOWNTIME, "silent 2")
+
+    assert result["reason"] == "slash pending appeal window"
+    rows = _pending_rows(db_session)
+    assert len(rows) == 2
+    assert {r.job_id for r in rows} == {job1.id, job2.id}
+
+
+@pytest.mark.asyncio
+async def test_dedup_allows_reenqueue_after_terminal(db_session, slash_env):
+    """Cancelled/executed/failed rows are terminal — a later detection of the
+    same job enqueues a fresh row (parity with pre-window retry behaviour)."""
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")
+
+    service = BondSlashingService(db_session)
+    await service.slash(job, SlashingCondition.DOWNTIME, "silent 1")
+    first = _pending_rows(db_session)[0]
+    first.status = PendingBondSlashStatus.CANCELLED.value
+    db_session.add(first)
+    db_session.commit()
+
+    result = await service.slash(job, SlashingCondition.DOWNTIME, "silent 2")
+    assert result["reason"] == "slash pending appeal window"
+    rows = _pending_rows(db_session)
+    assert len(rows) == 2
+    assert sum(1 for r in rows if r.status == PendingBondSlashStatus.PENDING.value) == 1
+
+
+@pytest.mark.asyncio
+async def test_dedup_blocks_while_executing(db_session, slash_env):
+    """An executing row (submit in flight) also blocks re-enqueue."""
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")
+
+    service = BondSlashingService(db_session)
+    await service.slash(job, SlashingCondition.DOWNTIME, "silent")
+    row = _pending_rows(db_session)[0]
+    row.status = PendingBondSlashStatus.EXECUTING.value
+    row.claimed_at = _utcnow()
+    db_session.add(row)
+    db_session.commit()
+
+    result = await service.slash(job, SlashingCondition.DOWNTIME, "silent again")
+    assert result["reason"] == "slash already pending appeal window"
+    assert len(_pending_rows(db_session)) == 1
