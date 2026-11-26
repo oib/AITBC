@@ -14,7 +14,7 @@ aitbc agent verify-identity [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | The Agent id. |
+| `--agent-id` | text | — | yes | Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id |
 | `--verifier-address` | text | — | yes | The Verifier address. |
 | `--wallet` | text | — | no | Wallet signing the verification (must control --verifier-address; default: $AITBC_DEFAULT_WALLET) — required: the node rejects unsigned verifies |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |

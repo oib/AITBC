@@ -916,7 +916,12 @@ try:
 
   aitbc agent register-identity --agent-id hub-agent --agent-address 0xC10... --display-name Hub"""
     )
-    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+    @click.option(
+        "--agent-id",
+        "agent_id",
+        required=True,
+        help="Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id",
+    )
     @click.option("--agent-address", "agent_address", required=True, help="The Agent address.")
     @click.option("--display-name", help="Agent display name")
     @click.option("--agent-type", default="general", help="Agent type (general, provider, consumer)")
@@ -986,7 +991,12 @@ try:
 
   aitbc agent get-identity --agent-id hub-agent --output json"""
     )
-    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+    @click.option(
+        "--agent-id",
+        "agent_id",
+        required=True,
+        help="Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id",
+    )
     @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def get_identity(ctx, agent_id, format):
@@ -1025,7 +1035,12 @@ try:
 
   aitbc agent verify-identity --agent-id provider-1 --verifier-address 0xC10... --output json"""
     )
-    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+    @click.option(
+        "--agent-id",
+        "agent_id",
+        required=True,
+        help="Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id",
+    )
     @click.option("--verifier-address", "verifier_address", required=True, help="The Verifier address.")
     @click.option(
         "--wallet",

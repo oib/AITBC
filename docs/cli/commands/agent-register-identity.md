@@ -14,7 +14,7 @@ aitbc agent register-identity [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | The Agent id. |
+| `--agent-id` | text | — | yes | Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id |
 | `--agent-address` | text | — | yes | The Agent address. |
 | `--display-name` | text | — | no | Agent display name |
 | `--agent-type` | text | `general` | no | Agent type (general, provider, consumer) |

@@ -14,7 +14,7 @@ aitbc agent get-identity [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | The Agent id. |
+| `--agent-id` | text | — | yes | Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

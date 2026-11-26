@@ -218,6 +218,8 @@ aitbc agent register-identity --agent-id agent_a1b2c3d4 --agent-address 0x1a2b3c
 
 ### Step 6: Get and verify on-chain identity
 
+> **`agent_id` vs `identity_id`**: `register-identity` returns both — `agent_id` is the string id you passed (e.g. `agent_a1b2c3d4`), while `identity_id` is the numeric on-chain row id. `get-identity` and `verify-identity` look up by **`agent_id` string only**; passing the numeric `identity_id` returns RPC 404 `Agent identity not found`.
+
 ```bash
 # Fetch the on-chain identity record
 aitbc agent get-identity --agent-id agent_a1b2c3d4 --format table

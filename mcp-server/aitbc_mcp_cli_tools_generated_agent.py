@@ -444,7 +444,7 @@ def aitbc_agent_discover_agents(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_get_identity(
-    agent_id: Annotated[str, Field(description="The Agent id.")],
+    agent_id: Annotated[str, Field(description="Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id")],
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -628,7 +628,7 @@ def aitbc_agent_register(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_register_identity(
-    agent_id: Annotated[str, Field(description="The Agent id.")],
+    agent_id: Annotated[str, Field(description="Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id")],
     agent_address: Annotated[str, Field(description="The Agent address.")],
     display_name: Annotated[str | None, Field(description="Agent display name")] = None,
     agent_type: Annotated[str | None, Field(description="Agent type (general, provider, consumer)")] = None,
@@ -803,7 +803,7 @@ def aitbc_agent_subscribe(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_verify_identity(
-    agent_id: Annotated[str, Field(description="The Agent id.")],
+    agent_id: Annotated[str, Field(description="Agent id string (e.g. agent_a1b2c3d4) — not the numeric identity_id")],
     verifier_address: Annotated[str, Field(description="The Verifier address.")],
     wallet_name: Annotated[
         str | None,
