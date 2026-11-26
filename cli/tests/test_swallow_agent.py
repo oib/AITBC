@@ -64,7 +64,7 @@ def _invoke_request_coins(runner, frames, fmt="table", argv_extra=None):
     argv = ["request-coins", "--wallet", "w1", "--sender", "follower"] + (argv_extra or [])
     with (
         patch("aitbc_cli.commands.agent._resolve_wallet_address", return_value="0x" + "ab" * 20),
-        patch("aitbc_cli.commands.agent._ws_auth_token", return_value=None),
+        patch("aitbc_cli.commands.agent._ws_auth_token", return_value="stored.jwt.token"),
         patch(
             "aitbc_cli.commands.agent.get_config",
             return_value=MagicMock(agent_coordinator_url="http://coord.local", api_key=None),

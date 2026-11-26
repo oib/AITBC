@@ -27,7 +27,7 @@ from ..utils.agent_signing import (
     signed_read_headers,
     signed_request_headers,
 )
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger, looks_like_jwt
 from ..utils.wallet_paths import (
     env_wallet_dir_override_active,
     find_wallet_file,
@@ -104,23 +104,65 @@ async def _consume_connection_frame(ctx, ws, timeout: int, ws_endpoint: str) -> 
         return False
 
 
-def _ws_session_token() -> str | None:
+_WS_STREAM_AUTH_HINT = (
+    "the WebSocket stream requires a JWT — pass --wallet bound to the sender agent "
+    "(mints an agent JWT via the coordinator login), an --api-key JWT, or store "
+    "`aitbc auth login` / `aitbc auth login --credential-name admin` first"
+)
+
+
+def _jwt_usable_for_stream(token: str, agent_id: str) -> bool:
+    """Whether ``token`` can bind to the ``agent_id`` WS stream (#2981).
+
+    Mirrors the coordinator's ``jwt_principal`` + ``_bind_ws_principal``:
+    admin/operator JWTs bypass the agent match, agent JWTs must name
+    ``agent_id``, and any other JWT binds to its subject — so a stored
+    client-role JWT can never open ``agent-msg``'s agent stream and would
+    only draw the endpoint's 403. Unparseable tokens return True: the
+    endpoint stays the authority.
+    """
+    try:
+        from aitbc.auth import get_jwt_handler
+
+        payload = get_jwt_handler().validate_token(token).get("payload") or {}
+    except Exception:  # noqa: BLE001 - introspection failure defers to the endpoint
+        logger.debug("WS token introspection failed", exc_info=True)
+        return True
+    jwt_agent = payload.get("agent_id")
+    if jwt_agent:
+        return jwt_agent == agent_id or payload.get("role") == "admin"
+    if payload.get("role") in {"admin", "operator"}:
+        return True
+    subject = payload.get("sub") or payload.get("user_id")
+    return subject is not None and str(subject) == agent_id
+
+
+def _ws_session_token(agent_id: str | None = None) -> str | None:
     """Best stored session JWT for WS auth, or None.
 
     ``get_admin_token`` prefers the ``admin`` credential slot and falls back
     to ``client``; admin/operator-role JWTs resolve to an ``is_admin``
     principal that bypasses per-agent stream binding. A plain client JWT
     still authenticates but binds to its subject — it only opens a stream
-    whose ``agent_id`` matches. The shared API key is deliberately not a
-    candidate: the WS endpoint no longer accepts it (CLI-AGENT-WS-TOKEN-FALLBACK-1).
+    whose ``agent_id`` matches, so ``agent_id`` filters out tokens that can
+    only ever draw the endpoint's 403 (#2981). The shared API key is
+    deliberately not a candidate: the WS endpoint no longer accepts it
+    (CLI-AGENT-WS-TOKEN-FALLBACK-1).
     """
     try:
         from ..auth import AuthManager
 
-        return AuthManager().get_admin_token()
+        token = AuthManager().get_admin_token()
     except Exception as e:  # noqa: BLE001 - auth lookup failure is reported to the user, not silent
         info(f"Stored session credential unusable ({e}) — WS auth needs an agent or admin JWT")
         return None
+    if token is not None and agent_id is not None and not _jwt_usable_for_stream(token, agent_id):
+        info(
+            f"Stored session JWT cannot open the stream as '{agent_id}' — client-role tokens "
+            "bind to their subject, not an agent. " + _WS_STREAM_AUTH_HINT
+        )
+        return None
+    return token
 
 
 def _ws_auth_token(
@@ -165,8 +207,12 @@ def _ws_auth_token(
         else:
             info(binding_error)
     if explicit_token:
-        return explicit_token
-    return _ws_session_token()
+        if looks_like_jwt(explicit_token):
+            return explicit_token
+        # The WS endpoint resolves ?token= as a JWT only — a raw API key can
+        # only draw its 403, so don't spend the round-trip on it (#2981).
+        info("--api-key is not a JWT — the WS stream accepts JWTs only. " + _WS_STREAM_AUTH_HINT)
+    return _ws_session_token(sender)
 
 
 def _default_wallet_name() -> str | None:
@@ -582,6 +628,8 @@ def ping(
         password_file=password_file,
         password_stdin=password_stdin,
     )
+    if token is None:
+        abort(ctx, f"Cannot ping {agent} as '{sender}': " + _WS_STREAM_AUTH_HINT)
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
     display_endpoint = _display_ws_url(ws_endpoint)
 
@@ -688,6 +736,8 @@ def request_coins(
         password_file=password_file,
         password_stdin=password_stdin,
     )
+    if token is None:
+        abort(ctx, f"Cannot open the stream as '{sender}': " + _WS_STREAM_AUTH_HINT)
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
     display_endpoint = _display_ws_url(ws_endpoint)
 

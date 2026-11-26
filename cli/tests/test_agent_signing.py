@@ -809,7 +809,12 @@ class TestWsAuthToken:
         from aitbc_cli.commands import agent
 
         with patch.object(agent, "load_signing_wallet", return_value=None):
-            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", None, None, "api-key") == "api-key"
+            assert (
+                agent._ws_auth_token(
+                    MagicMock(), "http://x", "agent-1", None, None, "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+                )
+                == "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+            )
 
     def test_falls_back_when_binding_fails(self):
         from aitbc_cli.commands import agent
@@ -819,7 +824,17 @@ class TestWsAuthToken:
             patch.object(agent, "check_registry_binding", return_value="not bound"),
             patch.object(agent, "auth_client_kwargs", return_value={}),
         ):
-            assert agent._ws_auth_token(MagicMock(obj={}), "http://x", "agent-1", "w1", None, "api-key") == "api-key"
+            assert (
+                agent._ws_auth_token(
+                    MagicMock(obj={}),
+                    "http://x",
+                    "agent-1",
+                    "w1",
+                    None,
+                    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl",
+                )
+                == "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+            )
 
     def test_falls_back_when_login_endpoint_missing(self):
         from aitbc_cli.commands import agent
@@ -830,7 +845,17 @@ class TestWsAuthToken:
             patch.object(agent, "agent_login_token", return_value=None),
             patch.object(agent, "auth_client_kwargs", return_value={}),
         ):
-            assert agent._ws_auth_token(MagicMock(obj={}), "http://x", "agent-1", "w1", None, "api-key") == "api-key"
+            assert (
+                agent._ws_auth_token(
+                    MagicMock(obj={}),
+                    "http://x",
+                    "agent-1",
+                    "w1",
+                    None,
+                    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl",
+                )
+                == "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+            )
 
     def test_returns_agent_jwt_when_wallet_bound(self):
         from aitbc_cli.commands import agent
@@ -863,7 +888,12 @@ class TestWsAuthToken:
             patch.object(agent, "load_signing_wallet", return_value=None),
             patch.object(agent, "_ws_session_token", return_value="session.jwt"),
         ):
-            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", None, None, "explicit.jwt") == "explicit.jwt"
+            assert (
+                agent._ws_auth_token(
+                    MagicMock(), "http://x", "agent-1", None, None, "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+                )
+                == "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+            )
 
     def test_no_credential_returns_none(self):
         """Nothing configured → no token at all; the server rejects cleanly
@@ -1310,3 +1340,110 @@ class TestCheckRegistryBindingHeaders:
         client = _mock_client(get_map={"/v1/agents/agent-a": {"agent": {"identity_address": ACCOUNT.address}}})
         assert check_registry_binding(client, "agent-a", ACCOUNT.address) is None
         assert client.get.call_args.kwargs["headers"] is None
+
+
+class TestWsStreamAuth2981:
+    """#2981 AGENT-MSG-PING-WS-403-1: the WS stream is JWT-only and
+    agent_id-bound — a missing or unbindable credential must surface as
+    actionable CLI guidance, not the endpoint's bare HTTP 403."""
+
+    _JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl"
+
+    def _payload(self, **claims):
+        return {"valid": True, "payload": claims}
+
+    def test_jwt_usable_admin_role_bypasses_binding(self):
+        from aitbc_cli.commands import agent
+
+        with patch("aitbc.auth.get_jwt_handler") as h:
+            h.return_value.validate_token.return_value = self._payload(role="admin")
+            assert agent._jwt_usable_for_stream(self._JWT, "any-agent") is True
+
+    def test_jwt_usable_operator_role_bypasses_binding(self):
+        from aitbc_cli.commands import agent
+
+        with patch("aitbc.auth.get_jwt_handler") as h:
+            h.return_value.validate_token.return_value = self._payload(role="operator")
+            assert agent._jwt_usable_for_stream(self._JWT, "any-agent") is True
+
+    def test_jwt_usable_agent_claim_must_match(self):
+        from aitbc_cli.commands import agent
+
+        with patch("aitbc.auth.get_jwt_handler") as h:
+            h.return_value.validate_token.return_value = self._payload(agent_id="a-1", role="agent")
+            assert agent._jwt_usable_for_stream(self._JWT, "a-1") is True
+            assert agent._jwt_usable_for_stream(self._JWT, "a-2") is False
+
+    def test_jwt_usable_client_subject_must_match(self):
+        """A client-role JWT binds to its subject — it can never open an
+        agent stream whose agent_id differs (the S04 403 shape)."""
+        from aitbc_cli.commands import agent
+
+        with patch("aitbc.auth.get_jwt_handler") as h:
+            h.return_value.validate_token.return_value = self._payload(role="client", sub="user-1")
+            assert agent._jwt_usable_for_stream(self._JWT, "user-1") is True
+            assert agent._jwt_usable_for_stream(self._JWT, "scenario10-agent") is False
+
+    def test_jwt_usable_unparseable_defers_to_endpoint(self):
+        from aitbc_cli.commands import agent
+
+        with patch("aitbc.auth.get_jwt_handler") as h:
+            h.return_value.validate_token.side_effect = ValueError("bad jwt")
+            assert agent._jwt_usable_for_stream(self._JWT, "any-agent") is True
+
+    def test_session_token_drops_unbindable_client_jwt(self):
+        """Stored client JWT + agent sender → filtered out so the caller
+        aborts with guidance instead of drawing the binding-mismatch 403."""
+        from aitbc_cli.commands import agent
+
+        with (
+            patch("aitbc_cli.auth.AuthManager") as mgr,
+            patch("aitbc.auth.get_jwt_handler") as h,
+        ):
+            mgr.return_value.get_admin_token.return_value = self._JWT
+            h.return_value.validate_token.return_value = self._payload(role="client", sub="user-1")
+            assert agent._ws_session_token("scenario10-agent") is None
+            # …but the same token still works when the stream id IS its subject.
+            assert agent._ws_session_token("user-1") == self._JWT
+
+    def test_session_token_keeps_admin_jwt(self):
+        from aitbc_cli.commands import agent
+
+        with (
+            patch("aitbc_cli.auth.AuthManager") as mgr,
+            patch("aitbc.auth.get_jwt_handler") as h,
+        ):
+            mgr.return_value.get_admin_token.return_value = self._JWT
+            h.return_value.validate_token.return_value = self._payload(role="admin")
+            assert agent._ws_session_token("scenario10-agent") == self._JWT
+
+    def test_non_jwt_api_key_falls_through_to_session(self):
+        """A raw --api-key can only draw the endpoint's 403 — it is skipped
+        with a hint rather than sent as ?token=."""
+        from aitbc_cli.commands import agent
+
+        with (
+            patch.object(agent, "load_signing_wallet", return_value=None),
+            patch.object(agent, "_ws_session_token", return_value="session.jwt") as m,
+        ):
+            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", None, None, "raw-api-key") == "session.jwt"
+        m.assert_called_once_with("agent-1")
+
+    def test_ping_without_credential_aborts_with_guidance(self, runner):
+        """The S04 shape: no wallet/JWT → actionable abort before the WS
+        handshake, not the endpoint's bare HTTP 403."""
+        from aitbc_cli.commands import agent as agent_mod
+        from aitbc_cli.commands.agent import messaging
+
+        with (
+            patch.object(agent_mod, "_ws_auth_token", return_value=None),
+            patch.object(agent_mod, "get_config", return_value=MagicMock(agent_coordinator_url="http://c")),
+        ):
+            result = runner.invoke(
+                messaging,
+                ["ping", "--agent", "hub-coordinator", "--sender", "scenario10-agent"],
+                obj={"output_format": "table"},
+            )
+        assert result.exit_code != 0
+        assert "requires a JWT" in result.output
+        assert "--wallet" in result.output
