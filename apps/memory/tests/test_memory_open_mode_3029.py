@@ -105,3 +105,24 @@ def test_keyed_auth_unaffected_by_open_mode_flag(monkeypatch) -> None:
     )
     assert resp.status_code == 201
     assert resp.json()["owner"] == "shared"
+
+
+@pytest.mark.unit
+def test_default_posture_is_fail_closed(monkeypatch) -> None:
+    """The regression guard for the row itself: with NO memory env vars set at
+    all, a fresh-default service refuses — open mode must never again be the
+    silent default. This pin drives the request through a default-constructed
+    Settings object rather than monkeypatching individual flags, so flipping
+    the ``memory_open_mode`` default back to True kills it."""
+    import memory_app.api as api_mod
+    from memory_app.config import Settings
+
+    for var in ("MEMORY_API_KEY", "MEMORY_API_KEY_OWNERS", "MEMORY_OPEN_MODE"):
+        monkeypatch.delenv(var, raising=False)
+    default_settings = Settings(_env_file=None)
+    assert default_settings.memory_open_mode is False
+    monkeypatch.setattr(api_mod, "settings", default_settings)
+    client = TestClient(app)
+
+    resp = _store(client)
+    assert resp.status_code == 503, resp.text
