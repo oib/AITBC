@@ -400,6 +400,11 @@ class SettlementReconciler:
         ``settlement_failed`` with the dead hash cleared, which puts it back
         inside REFUNDABLE_STATES for the refund sweepers. The escrow row's
         refunded flags are rolled back to match — the money never moved.
+
+        A stranded late-lock recovery (#2996) reaches ``refunded`` without
+        ``escrowed_at`` or a ``job.payment_id`` attachment, so the ordinary
+        and ZK queues cannot see it after requeue; the stranded-escrow
+        sweeper re-picks exactly those rows by ``job_id`` (#3031).
         """
         session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
         if payment.status != "refunded":
@@ -416,8 +421,13 @@ class SettlementReconciler:
         session.add(payment)
         job = session.get(Job, payment.job_id)
         if job is not None:
-            job.payment_status = SETTLEMENT_FAILED
-            session.add(job)
+            # Mirror the status only when the job is attached to this
+            # payment — a displaced row (job.payment_id points at a newer
+            # payment) must not overwrite that payment's denormalized status
+            # (#3031).
+            if getattr(job, "payment_id", None) in (None, payment.id):
+                job.payment_status = SETTLEMENT_FAILED
+                session.add(job)
         escrow = session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
         if escrow:
             escrow.is_refunded = False

@@ -593,6 +593,60 @@ def _released_amount_is_zero(record: dict[str, Any]) -> bool:
         return False
 
 
+def _escrow_record_is_refunded(record: dict[str, Any] | None) -> bool:
+    """True when the node's escrow record shows the refund already landed.
+
+    Used only for ``settlement_failed`` stranded recoveries (#3031): the
+    local row says the refund died, the chain says it did not — the chain
+    wins and the row is marked refunded with the record's hash instead of
+    submitting a second refund.
+    """
+    if not isinstance(record, dict):
+        return False
+    if record.get("refund_tx_hash") or record.get("refunded_at"):
+        return True
+    state = str(record.get("state") or "").lower()
+    status = str(record.get("status") or "").lower()
+    return state == "refunded" or status == "refunded"
+
+
+def _is_unreachable_stranded_refund(payment: JobPayment, job: Job) -> bool:
+    """True when a ``settlement_failed`` row is a stranded recovery no other
+    refund queue can see (#3031).
+
+    The refund-hash audit requeues a dead refund to ``settlement_failed`` so
+    the refund sweepers retry it — but the ordinary and ZK queues join
+    ``Job.payment_id`` and require ``escrowed_at``, neither of which a
+    stranded late-lock recovery (#2996) ever established. Such a row is only
+    reachable here: this pass refunds by ``job_id``, the same key the chain
+    escrow uses, so it never depends on the job's payment attachment and
+    cannot displace a different payment. Rows that DO carry both linkage
+    fields stay with the standard queues — one owner per row.
+    """
+    meta = payment.meta_data if isinstance(payment.meta_data, dict) else {}
+    if not meta.get(META_STRANDED_REFUND):
+        return False
+    return payment.escrowed_at is None or job.payment_id != payment.id
+
+
+def _fresh_row_is_candidate(fresh: JobPayment | None) -> bool:
+    """Pre-POST re-read guard: the row must still be a stranded candidate.
+
+    ``failed`` rows always qualify (the chain record is the real gate);
+    ``settlement_failed`` rows qualify only while they still carry the
+    stranded-recovery mark (#3031).
+    """
+    if fresh is None:
+        return False
+    if fresh.status == "failed":
+        return True
+    return (
+        fresh.status == SETTLEMENT_FAILED
+        and isinstance(fresh.meta_data, dict)
+        and bool(fresh.meta_data.get(META_STRANDED_REFUND))
+    )
+
+
 def _escrow_record_is_stranded(record: dict[str, Any] | None) -> bool:
     """True when the node's escrow record shows a live lock a failed payment never saw.
 
@@ -624,6 +678,14 @@ class StrandedEscrowRefundSweeper:
     deliberately not bypassed: this pass posts the chain refund itself and
     then CAS-marks the row, which is safe precisely because the payment is
     already failed (no release path can still claim it).
+
+    It also owns the *whole* lifecycle of a recovery it marked (#3031): when
+    the refund-hash audit proves the submitted refund died and requeues the
+    row to ``settlement_failed``, the ordinary and ZK refund queues cannot
+    see it — they join ``Job.payment_id`` and require ``escrowed_at``, which
+    a late-lock recovery never established. Those ``settlement_failed``
+    rows are re-picked here (still keyed by ``job_id``, still chain-verified)
+    as long as the standard queues cannot reach them.
     """
 
     def __init__(
@@ -646,14 +708,20 @@ class StrandedEscrowRefundSweeper:
 
         Every failed token payment is a candidate regardless of
         meta_data.escrow_error_kind — the chain point-read decides whether a
-        lock actually landed. Pages with OFFSET until a short page, same as
-        the sibling sweeper, because the age filter runs in Python (stored
-        timestamps come back naive on SQLite).
+        lock actually landed. ``settlement_failed`` rows join the scan too,
+        but only stranded recoveries the standard refund queues cannot reach
+        (#3031): the refund-hash audit returns a dead refund to
+        ``settlement_failed``, and a recovered payment was never stamped
+        ``escrowed_at`` while ``job.payment_id`` may point at a newer
+        payment, so the stuck-escrow and ZK sweepers would never see it.
+        Pages with OFFSET until a short page, same as the sibling sweeper,
+        because the age filter runs in Python (stored timestamps come back
+        naive on SQLite).
         """
         stmt = (
             select(JobPayment, Job)
             .join(Job, col(Job.id) == col(JobPayment.job_id))
-            .where(col(JobPayment.status) == "failed")
+            .where(col(JobPayment.status).in_(("failed", SETTLEMENT_FAILED)))
             .where(col(JobPayment.payment_method) == "aitbc_token")
             .where(col(JobPayment.job_id).is_not(None))
             .order_by(col(JobPayment.id))
@@ -673,6 +741,8 @@ class StrandedEscrowRefundSweeper:
             updated_at = _to_utc(payment.updated_at)
             # An unknown age cannot prove the grace period elapsed; leave it.
             if updated_at is None or updated_at >= cutoff:
+                continue
+            if payment.status == SETTLEMENT_FAILED and not _is_unreachable_stranded_refund(payment, job):
                 continue
             out.append((payment, job))
         return out
@@ -703,9 +773,12 @@ class StrandedEscrowRefundSweeper:
     ) -> bool:
         """CAS the failed row to refunded; False when another worker already moved it.
 
-        The ``status == 'failed'`` predicate is the multi-worker guard: two
-        sweepers can both read the stranded record and both POST (the chain
-        refund is idempotent per job_id), but only one wins this write.
+        The ``status IN ('failed', 'settlement_failed')`` predicate is the
+        multi-worker guard: two sweepers can both read the stranded record
+        and both POST (the chain refund is idempotent per job_id), but only
+        one wins this write. ``settlement_failed`` is the refund-hash audit's
+        requeue state for a stranded recovery whose submitted refund died
+        (#3031) — this pass owns re-refunding it.
         """
         now = datetime.now(UTC)
         meta = dict(payment.meta_data) if isinstance(payment.meta_data, dict) else {}
@@ -717,7 +790,7 @@ class StrandedEscrowRefundSweeper:
         result = session.execute(
             update(JobPayment)
             .where(col(JobPayment.id) == payment.id)
-            .where(col(JobPayment.status) == "failed")
+            .where(col(JobPayment.status).in_(("failed", SETTLEMENT_FAILED)))
             .values(
                 status="refunded",
                 refunded_at=now,
@@ -729,10 +802,16 @@ class StrandedEscrowRefundSweeper:
         )
         if result.rowcount != 1:
             session.rollback()
-            logger.debug("Payment %s left 'failed' before the stranded-refund mark; nothing to do", payment.id)
+            logger.debug(
+                "Payment %s left 'failed'/'settlement_failed' before the stranded-refund mark; nothing to do", payment.id
+            )
             return False
-        job.payment_status = "refunded"
-        session.add(job)
+        # Mirror the status onto the job only when the job is actually
+        # attached to this payment — a displaced recovery must not overwrite
+        # a different payment's denormalized status (#3031).
+        if job.payment_id in (None, payment.id):
+            job.payment_status = "refunded"
+            session.add(job)
         escrow = session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
         if escrow:
             escrow.is_refunded = True
@@ -747,6 +826,87 @@ class StrandedEscrowRefundSweeper:
         )
         return True
 
+    def _handle_settled_record(self, session: Any, payment: JobPayment, job: Job, record: Any) -> str:
+        """Outcome when the chain record shows no live stranded lock.
+
+        For a ``settlement_failed`` stranded recovery (#3031) a record that
+        already shows the refund landed means the audit's "dead" verdict was
+        wrong — a rebroadcast can seal late — so the chain truth is adopted
+        instead of submitting a second refund. Everything else is skipped.
+        Returns the counts key.
+        """
+        if payment.status == SETTLEMENT_FAILED and _escrow_record_is_refunded(record):
+            refund_tx_hash = record.get("refund_tx_hash") if isinstance(record, dict) else None
+            if self._mark_stranded_refunded(session, payment, job, refund_tx_hash, record):
+                return "refunded"
+        return "skipped"
+
+    async def _submit_and_mark(
+        self,
+        session: Any,
+        client: AsyncAITBCHTTPClient,
+        rpc_url: str,
+        payment: JobPayment,
+        job: Job,
+        record: dict[str, Any] | None,
+    ) -> str:
+        """Re-read, POST the idempotent refund and CAS-mark; returns the counts key."""
+        # Re-read before the POST: another worker may have settled the row
+        # since the candidate scan. The CAS below remains the hard guarantee
+        # for the write.
+        fresh = session.get(JobPayment, payment.id, populate_existing=True)
+        if not _fresh_row_is_candidate(fresh):
+            return "skipped"
+        try:
+            refund_data = await self._submit_stranded_refund(client, rpc_url, payment.job_id)
+        except _OPS_ERRORS as e:
+            status_error = _find_http_status_error(e)
+            if status_error is not None and status_error.response.status_code == 425:
+                # Same "lock not yet sealed" deferral the held-state sweeper
+                # handles: retry next pass, do not mark.
+                return "deferred"
+            logger.error("Stranded-escrow refund failed for job %s: %s", payment.job_id, e)
+            return "failed"
+        if not isinstance(refund_data, dict) or refund_data.get("success") is not True:
+            logger.error("Stranded-escrow refund refused for job %s: %s", payment.job_id, refund_data)
+            return "failed"
+        refund_tx_hash = refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash")
+        return "refunded" if self._mark_stranded_refunded(session, payment, job, refund_tx_hash, record) else "skipped"
+
+    async def _reconcile_candidate(
+        self,
+        session: Any,
+        client: AsyncAITBCHTTPClient,
+        rpc_url: str,
+        payment: JobPayment,
+        job: Job,
+        counts: dict[str, int],
+    ) -> None:
+        """One candidate: verify the chain record, then refund, adopt or skip."""
+        try:
+            record = await _lookup_escrow_record(rpc_url, client, payment.job_id)
+        except _OPS_ERRORS as e:
+            counts["failed"] += 1
+            logger.warning(
+                "Stranded-escrow sweep could not read the escrow record for job %s: %s",
+                payment.job_id,
+                e,
+            )
+            return
+        if not _escrow_record_is_stranded(record):
+            counts[self._handle_settled_record(session, payment, job, record)] += 1
+            return
+        counts["stranded"] += 1
+        if self.dry_run:
+            logger.info(
+                "[DRY-RUN] Would refund stranded payment %s for job %s",
+                payment.id,
+                payment.job_id,
+            )
+            counts["refunded"] += 1
+            return
+        counts[await self._submit_and_mark(session, client, rpc_url, payment, job, record)] += 1
+
     async def run_once(self) -> dict[str, int]:
         """One reconciliation pass. Returns counts for logging and tests."""
         counts = {"candidates": 0, "stranded": 0, "refunded": 0, "failed": 0, "deferred": 0, "skipped": 0}
@@ -755,56 +915,7 @@ class StrandedEscrowRefundSweeper:
         with self._session_factory() as session:
             for payment, job in self._find_candidates(session):
                 counts["candidates"] += 1
-                try:
-                    record = await _lookup_escrow_record(rpc_url, client, payment.job_id)
-                except _OPS_ERRORS as e:
-                    counts["failed"] += 1
-                    logger.warning(
-                        "Stranded-escrow sweep could not read the escrow record for job %s: %s",
-                        payment.job_id,
-                        e,
-                    )
-                    continue
-                if not _escrow_record_is_stranded(record):
-                    counts["skipped"] += 1
-                    continue
-                counts["stranded"] += 1
-                if self.dry_run:
-                    logger.info(
-                        "[DRY-RUN] Would refund stranded payment %s for job %s",
-                        payment.id,
-                        payment.job_id,
-                    )
-                    counts["refunded"] += 1
-                    continue
-                # Re-read before the POST: another worker may have settled the
-                # row since the candidate scan. The CAS below remains the
-                # hard guarantee for the write.
-                fresh = session.get(JobPayment, payment.id, populate_existing=True)
-                if fresh is None or fresh.status != "failed":
-                    counts["skipped"] += 1
-                    continue
-                try:
-                    refund_data = await self._submit_stranded_refund(client, rpc_url, payment.job_id)
-                except _OPS_ERRORS as e:
-                    status_error = _find_http_status_error(e)
-                    if status_error is not None and status_error.response.status_code == 425:
-                        # Same "lock not yet sealed" deferral the held-state
-                        # sweeper handles: retry next pass, do not mark.
-                        counts["deferred"] += 1
-                        continue
-                    counts["failed"] += 1
-                    logger.error("Stranded-escrow refund failed for job %s: %s", payment.job_id, e)
-                    continue
-                if not isinstance(refund_data, dict) or refund_data.get("success") is not True:
-                    counts["failed"] += 1
-                    logger.error("Stranded-escrow refund refused for job %s: %s", payment.job_id, refund_data)
-                    continue
-                refund_tx_hash = refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash")
-                if self._mark_stranded_refunded(session, payment, job, refund_tx_hash, record):
-                    counts["refunded"] += 1
-                else:
-                    counts["skipped"] += 1
+                await self._reconcile_candidate(session, client, rpc_url, payment, job, counts)
         logger.debug(
             "Stranded escrow sweep complete: candidates=%s stranded=%s refunded=%s failed=%s deferred=%s skipped=%s",
             counts["candidates"],

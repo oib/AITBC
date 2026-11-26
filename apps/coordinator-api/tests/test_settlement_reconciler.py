@@ -475,6 +475,29 @@ async def test_refund_audit_requeues_a_payment_whose_refund_hash_never_sealed():
 
 
 @pytest.mark.asyncio
+async def test_refund_audit_requeue_does_not_displace_a_different_job_payment():
+    """#3031: when job.payment_id points at a newer payment, the requeue must
+    not stamp settlement_failed over that payment's denormalized status."""
+    payment = _refund_payment(tx_hash="0xrejected")
+    job = SimpleNamespace(id="job-1", payment_id="pay-newer", payment_status="escrowed")
+    reconciler = SettlementReconciler(session_factory=_refund_audit_factory(payment, job=job))
+    p1, p2, _ = _patch_rpc_and_client(
+        {
+            "/rpc/transaction/0xrejected": _FakeResp(200, {"status": "rejected", "block_height": None}),
+            "/rpc/transactions": _FakeResp(200, []),
+        }
+    )
+    with p1, p2:
+        counts = await reconciler._audit_refund_hashes()
+
+    assert counts["refund_requeued"] == 1
+    assert payment.status == "settlement_failed"
+    # The job stays attached to — and describes — the other payment.
+    assert job.payment_id == "pay-newer"
+    assert job.payment_status == "escrowed"
+
+
+@pytest.mark.asyncio
 async def test_refund_audit_readopts_when_a_different_refund_sealed():
     """The recorded envelope died but another ESCROW_REFUND sealed — the payment
     *was* refunded; adopt the real hash like the release audit does."""

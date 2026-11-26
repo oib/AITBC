@@ -13,6 +13,7 @@ import os
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -22,11 +23,14 @@ from sqlmodel import Session, select
 from aitbc.exceptions import NetworkError
 from aitbc_shared import JobPayment, PaymentEscrow
 from coordinator_api.contexts.infrastructure.domain.job import Job
+from coordinator_api.contexts.payments.services.settlement_reconciler import SettlementReconciler
 from coordinator_api.contexts.payments.services.stuck_escrow_sweeper import (
     META_ESCROW_LOCK_TX_HASH,
     META_STRANDED_REFUND,
     StrandedEscrowRefundSweeper,
+    _escrow_record_is_refunded,
     _escrow_record_is_stranded,
+    _is_unreachable_stranded_refund,
     stranded_escrow_refund_sweeper_enabled,
 )
 
@@ -370,3 +374,270 @@ class TestStrandedEscrowRefundSweeper:
         finally:
             if old is not None:
                 os.environ["COORDINATOR_STRANDED_ESCROW_SWEEP_ENABLED"] = old
+
+
+# --- #3031: stranded recovery must survive a dead refund ---------------------
+#
+# A recovered-then-failed refund lands in ``settlement_failed`` via the
+# refund-hash audit, but the ordinary and ZK refund queues join
+# ``Job.payment_id`` and require ``escrowed_at`` — neither of which a late-lock
+# recovery ever established. The stranded sweeper owns the re-pick, keyed by
+# ``job_id`` like the chain escrow itself.
+
+
+def _settlement_failed_stranded_payment(
+    session: Session,
+    job_id: str,
+    payment_id: str,
+    *,
+    escrowed_at=None,
+    job_payment_id=None,
+    payment_method: str = "aitbc_token",
+    with_flag: bool = True,
+    age: timedelta = timedelta(hours=1),
+) -> tuple[Job, JobPayment]:
+    """The post-requeue shape: settlement_failed + stranded mark, no escrowed_at."""
+    meta = {"escrow_error_kind": "unavailable"}
+    if with_flag:
+        meta[META_STRANDED_REFUND] = True
+        meta["refund_hash_rejected"] = {"hash": "0xdeadrefund", "at": datetime.now(UTC).isoformat()}
+    job = Job(
+        id=job_id,
+        client_id="client-1",
+        state="FAILED",
+        payload={"type": "inference", "model": "linear-1"},
+        constraints={},
+        payment_id=payment_id if job_payment_id is None else job_payment_id,
+        payment_status="settlement_failed",
+        requested_at=datetime.now(UTC) - timedelta(hours=2),
+        expires_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+    payment = JobPayment(
+        id=payment_id,
+        job_id=job_id,
+        client_id="client-1",
+        amount=Decimal("0.1"),
+        currency="AITBC",
+        status="settlement_failed",
+        payment_method=payment_method,
+        escrowed_at=escrowed_at,
+        updated_at=datetime.now(UTC) - age,
+        meta_data=meta,
+    )
+    session.add(job)
+    session.add(payment)
+    session.commit()
+    return job, payment
+
+
+@pytest.mark.unit
+class TestUnreachableStrandedRefundPredicate:
+    """_is_unreachable_stranded_refund decides which queue owns a requeued row."""
+
+    def test_flagged_row_without_linkage_is_unreachable(self, sweep_session):
+        job, payment = _settlement_failed_stranded_payment(sweep_session, "job-u1", "pay-u1")
+        assert _is_unreachable_stranded_refund(payment, job) is True
+
+    def test_flagged_row_displaced_from_job_attachment_is_unreachable(self, sweep_session):
+        job, payment = _settlement_failed_stranded_payment(sweep_session, "job-u2", "pay-u2", job_payment_id="pay-other")
+        assert _is_unreachable_stranded_refund(payment, job) is True
+
+    def test_fully_linked_row_stays_with_the_standard_queues(self, sweep_session):
+        """escrowed_at + job.payment_id means the stuck/ZK queues can see it."""
+        job, payment = _settlement_failed_stranded_payment(
+            sweep_session, "job-u3", "pay-u3", escrowed_at=datetime.now(UTC) - timedelta(hours=2)
+        )
+        assert _is_unreachable_stranded_refund(payment, job) is False
+
+    def test_unflagged_settlement_failed_row_is_not_a_stranded_recovery(self, sweep_session):
+        job, payment = _settlement_failed_stranded_payment(sweep_session, "job-u4", "pay-u4", with_flag=False)
+        assert _is_unreachable_stranded_refund(payment, job) is False
+
+    def test_escrow_record_refunded_predicate(self):
+        assert _escrow_record_is_refunded(_locked_record("j", state="refunded", refunded_at="2026-01-02T00:00:00+00:00"))
+        assert _escrow_record_is_refunded(_locked_record("j", refund_tx_hash="0xr"))
+        assert _escrow_record_is_refunded(_locked_record("j", status="refunded"))
+        assert not _escrow_record_is_refunded(_locked_record("j"))
+        assert not _escrow_record_is_refunded(None)
+
+
+@pytest.mark.unit
+class TestStrandedRefundRequeueLifecycle:
+    """#3031 headline: recovered refund dies -> settlement_failed -> re-picked once."""
+
+    def _requeue_via_audit(self, db_engine, payment_id: str) -> None:
+        """Drive the real refund-hash audit against a fake chain: the recorded
+        refund hash is apply-rejected and no ESCROW_REFUND sealed, so the row
+        must land in settlement_failed."""
+        reconciler = SettlementReconciler(min_age_seconds=0, session_factory=lambda: Session(db_engine))
+
+        class _Resp:
+            def __init__(self, status_code, payload):
+                self.status_code = status_code
+                self._payload = payload
+
+            def json(self):
+                return self._payload
+
+        class _Client:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def get(self, url, params=None):
+                if "/rpc/transaction/" in url:
+                    return _Resp(200, {"status": "rejected", "block_height": None})
+                return _Resp(200, [])
+
+        with (
+            patch(
+                "coordinator_api.contexts.payments.services.payments.settings",
+                new=SimpleNamespace(blockchain_rpc_url="http://rpc.test"),
+            ),
+            patch(
+                "coordinator_api.contexts.payments.services.settlement_reconciler.httpx.AsyncClient",
+                return_value=_Client(),
+            ),
+        ):
+            counts = asyncio.run(reconciler._audit_refund_hashes())
+        assert counts["refund_requeued"] == 1
+        assert payment_id  # row identity used by callers' assertions
+
+    def test_dead_refund_is_repicked_by_the_stranded_sweeper_exactly_once(self, db_engine, sweep_session):
+        """Full lifecycle: failed -> stranded refund -> refund dies ->
+        settlement_failed -> fresh stranded session re-refunds, once."""
+        job, payment = _make_failed_payment(sweep_session, "job-life", "pay-life")
+        client = _chain_client(record=_locked_record("job-life"))
+        sweeper = StrandedEscrowRefundSweeper(session_factory=lambda: sweep_session, grace_seconds=900)
+
+        first = _run(sweeper, client)
+        assert first["refunded"] == 1
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, "pay-life")
+        assert payment.status == "refunded"
+        assert payment.refund_transaction_hash == "0xrefundtx"
+        assert payment.meta_data[META_STRANDED_REFUND] is True
+
+        # While the refund is only submitted (hash recorded, seal unproven)
+        # the row is terminally refunded — no queue may re-pick it.
+        pending = _run(sweeper, client)
+        assert pending["candidates"] == 0
+        assert client.post.await_count == 1
+
+        # Age the row past the audit's min-age, then prove the refund died.
+        payment.refunded_at = datetime.now(UTC) - timedelta(hours=1)
+        payment.updated_at = datetime.now(UTC) - timedelta(hours=1)
+        sweep_session.add(payment)
+        sweep_session.commit()
+        self._requeue_via_audit(db_engine, payment.id)
+
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, "pay-life")
+        assert payment.status == "settlement_failed"
+        assert payment.refund_transaction_hash is None
+        # The requeue must not have stamped linkage the standard queues need —
+        # ownership stays with this sweeper (asserted via the predicate pins).
+        assert payment.escrowed_at is None
+
+        # The standard queues still cannot see it: no displacement, no dup path.
+        from coordinator_api.contexts.payments.services.stuck_escrow_sweeper import StuckEscrowSweeper
+
+        stuck = StuckEscrowSweeper(session_factory=lambda: sweep_session)
+        assert stuck._find_candidates(sweep_session) == []
+
+        # Age past the grace window, then a fresh stranded session: chain
+        # still locked -> re-refund exactly once.
+        payment.updated_at = datetime.now(UTC) - timedelta(hours=1)
+        sweep_session.add(payment)
+        sweep_session.commit()
+        client2 = _chain_client(
+            record=_locked_record("job-life"),
+            post_result={"success": True, "refund_tx_hash": "0xrefundtx2"},
+        )
+        sweeper2 = StrandedEscrowRefundSweeper(session_factory=lambda: sweep_session, grace_seconds=900)
+        second = _run(sweeper2, client2)
+        assert second["candidates"] == 1
+        assert second["refunded"] == 1
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, "pay-life")
+        assert payment.status == "refunded"
+        assert payment.refund_transaction_hash == "0xrefundtx2"
+
+        # And once more: refunded rows leave the candidate set — no duplicates.
+        third = _run(sweeper2, client2)
+        assert third["candidates"] == 0
+        assert client2.post.await_count == 1
+        job = sweep_session.get(Job, "job-life")
+        assert job.payment_status == "refunded"
+
+    def test_requeued_refund_with_displaced_job_attachment_still_recovers(self, db_engine, sweep_session):
+        """job.payment_id points at a newer live payment: the stranded sweep
+        must refund by job_id without touching the other payment."""
+        _settlement_failed_stranded_payment(sweep_session, "job-disp", "pay-disp", job_payment_id="pay-newer")
+        newer = JobPayment(
+            id="pay-newer",
+            job_id="job-disp",
+            client_id="client-1",
+            amount=Decimal("0.1"),
+            currency="AITBC",
+            status="escrowed",
+            payment_method="aitbc_token",
+            escrowed_at=datetime.now(UTC) - timedelta(hours=2),
+            updated_at=datetime.now(UTC) - timedelta(hours=2),
+        )
+        sweep_session.add(newer)
+        job = sweep_session.get(Job, "job-disp")
+        job.payment_status = "escrowed"
+        sweep_session.add(job)
+        sweep_session.commit()
+
+        client = _chain_client(record=_locked_record("job-disp"))
+        sweeper = StrandedEscrowRefundSweeper(session_factory=lambda: sweep_session, grace_seconds=0)
+        counts = _run(sweeper, client)
+
+        assert counts["refunded"] == 1
+        sweep_session.expire_all()
+        assert sweep_session.get(JobPayment, "pay-disp").status == "refunded"
+        # The newer payment and the job attachment are untouched.
+        assert sweep_session.get(JobPayment, "pay-newer").status == "escrowed"
+        job = sweep_session.get(Job, "job-disp")
+        assert job.payment_id == "pay-newer"
+        assert job.payment_status == "escrowed"
+
+    def test_requeued_refund_already_on_chain_is_adopted_not_resubmitted(self, sweep_session):
+        """The 'dead' refund sealed after the audit's miss: adopt the chain
+        record's hash instead of posting a second refund."""
+        _settlement_failed_stranded_payment(sweep_session, "job-adopt", "pay-adopt")
+        record = _locked_record(
+            "job-adopt",
+            state="refunded",
+            refunded_at="2026-01-02T00:00:00+00:00",
+            refund_tx_hash="0xsealed-late",
+        )
+        client = _chain_client(record=record)
+        sweeper = StrandedEscrowRefundSweeper(session_factory=lambda: sweep_session, grace_seconds=0)
+
+        counts = _run(sweeper, client)
+
+        assert counts["refunded"] == 1
+        client.post.assert_not_awaited()
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, "pay-adopt")
+        assert payment.status == "refunded"
+        assert payment.refund_transaction_hash == "0xsealed-late"
+
+    def test_unflagged_settlement_failed_row_is_never_a_candidate(self, sweep_session):
+        """A settlement_failed row without the stranded mark belongs to the
+        standard queues — this pass must not touch it even when unreachable."""
+        _settlement_failed_stranded_payment(sweep_session, "job-plain", "pay-plain", with_flag=False)
+        client = _chain_client(record=_locked_record("job-plain"))
+        sweeper = StrandedEscrowRefundSweeper(session_factory=lambda: sweep_session, grace_seconds=0)
+
+        counts = _run(sweeper, client)
+
+        assert counts["candidates"] == 0
+        client.post.assert_not_awaited()
+        sweep_session.expire_all()
+        assert sweep_session.get(JobPayment, "pay-plain").status == "settlement_failed"
