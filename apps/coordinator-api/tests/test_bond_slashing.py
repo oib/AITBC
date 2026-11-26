@@ -818,6 +818,146 @@ async def test_nonce_account_ok_ignores_mempool_failure(db_session, slash_env, m
 
 
 @pytest.mark.asyncio
+async def test_nonce_account_missing_nonce_defers_no_sign(db_session, slash_env, monkeypatch):
+    """#3015: HTTP 200 with no `nonce` property is a malformed response, not
+    nonce 0 — with no mempool fallback the slash must defer retryable and
+    never sign or submit (a fabricated nonce burns the bounded attempts)."""
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"address": "0xabc", "balance": 0}  # 200, but no nonce
+        if "/mempool" in url:
+            return {"transactions": []}
+        return {}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is False
+    assert client.post.call_count == 0
+    assert "nonce" in str(result.get("error", "")).lower()
+
+
+@pytest.mark.asyncio
+async def test_nonce_account_explicit_zero_proceeds(db_session, slash_env, monkeypatch):
+    """#3015/#2999: an explicit ``nonce: 0`` in the account response is real
+    chain truth — the slash signs and submits nonce 0."""
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": 0}
+        if "/mempool" in url:
+            return {"transactions": []}
+        return {}
+
+    posts: list[int] = []
+
+    def _post(url, json=None, **_kw):
+        posts.append(json["nonce"])
+        return {"transaction_hash": "0xzero"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    assert posts == [0]
+
+
+@pytest.mark.asyncio
+async def test_nonce_account_malformed_uses_mempool_pending(db_session, slash_env, monkeypatch):
+    """#3015: a malformed account nonce (non-integer) is no account source —
+    when the mempool probe sees the signer's pending tx the slash proceeds
+    on the pending-derived nonce, same as a failed account read."""
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    signer = os.environ["BOND_SLASH_AUTHORITY_ADDRESS"]
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": "seven"}  # 200 but not an integer nonce
+        if "/mempool" in url:
+            return {"transactions": [{"from": signer, "nonce": 7}]}
+        return {}
+
+    posts: list[int] = []
+
+    def _post(url, json=None, **_kw):
+        posts.append(json["nonce"])
+        return {"transaction_hash": "0xpending"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    assert posts == [8]  # max(pending 7) + 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_nonce", ["5", None, -1, True])
+async def test_nonce_account_malformed_nonce_variants_defer(db_session, slash_env, monkeypatch, bad_nonce):
+    """#3015: string, null, negative and bool nonces are all malformed — same
+    no-source defer as a missing nonce, never a fabricated nonce."""
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": bad_nonce}
+        if "/mempool" in url:
+            return {"transactions": []}
+        return {}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is False
+    assert client.post.call_count == 0
+    assert "nonce" in str(result.get("error", "")).lower()
+
+
+@pytest.mark.asyncio
 async def test_slash_binds_proven_bond_wallet_not_live_capabilities(db_session, slash_env):
     """#1995: the slash tx provider must be the creation-verified wallet on the
     bond (meta.chain_provider), not the miner's mutable capabilities wallet —

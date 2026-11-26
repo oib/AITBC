@@ -87,6 +87,20 @@ def _is_nonce_refusal(exc: Exception) -> bool:
     return "nonce slot" in s or "invalid nonce" in s
 
 
+def _parse_account_nonce(response: Any) -> int | None:
+    """#3015: a successful account response counts as nonce truth only when it
+    carries a real non-negative integer nonce — explicit ``0`` included.
+    A missing, null, string, bool or negative nonce is a malformed response,
+    not a fabricated nonce 0; return None so the caller treats it as no
+    account source (same as a failed probe)."""
+    if not isinstance(response, dict):
+        return None
+    nonce = response.get("nonce")
+    if not isinstance(nonce, int) or isinstance(nonce, bool) or nonce < 0:
+        return None
+    return nonce
+
+
 class SlashNonceUnavailableError(RuntimeError):
     """#2999: neither the account nonce read nor the mempool probe produced
     chain truth, so no safe nonce exists — submitting anyway would sign a
@@ -642,10 +656,15 @@ class BondSlashingService:
         try:
             client = AITBCHTTPClient(timeout=5.0)
             r = client.get(f"{self.blockchain_rpc_url}/rpc/account/{address}")
-            if isinstance(r, dict):
-                chain_nonce = int(r.get("nonce", 0))
-            elif hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
-                chain_nonce = int(r.get("nonce", 0))
+            chain_nonce = _parse_account_nonce(r)
+            if chain_nonce is None:
+                # #3015: HTTP 200 with a missing/invalid nonce is a malformed
+                # response, not nonce 0 — the mempool probe below is the only
+                # remaining source of truth.
+                logger.warning(
+                    "Account nonce response for %s carried no valid nonce; degrading to mempool probe",
+                    address,
+                )
         except (AITBCError, TypeError, ValueError) as e:
             logger.warning("Failed to fetch nonce for %s: %s", address, e)
 
@@ -654,9 +673,10 @@ class BondSlashingService:
             chain_nonce = pending if chain_nonce is None else max(chain_nonce, pending)
 
         if chain_nonce is None:
-            # #2999: a failed read must not fabricate nonce 0 — that submits a
-            # guaranteed-refused tx and spends one of the bounded attempts on
-            # noise. Raise so the caller records a truthful retryable failure.
+            # #2999/#3015: a failed or malformed read must not fabricate nonce
+            # 0 — that submits a guaranteed-refused tx and spends one of the
+            # bounded attempts on noise. Raise so the caller records a
+            # truthful retryable failure.
             raise SlashNonceUnavailableError(
                 f"could not establish slash-authority nonce for {address}: "
                 "account nonce read and mempool probe both unavailable"
