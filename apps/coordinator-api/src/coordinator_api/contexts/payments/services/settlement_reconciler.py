@@ -33,7 +33,8 @@ from aitbc.exceptions import AITBCError
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
-from aitbc_shared import JobPayment
+from ..acceptance import SETTLEMENT_FAILED
+from aitbc_shared import JobPayment, PaymentEscrow
 
 logger = get_logger(__name__)
 
@@ -143,7 +144,9 @@ class SettlementReconciler:
         return list(session.execute(stmt).scalars().all())
 
     @staticmethod
-    async def _recorded_hash_state(client: httpx.AsyncClient, rpc: str, tx_hash: str) -> bool | None:
+    async def _recorded_hash_state(
+        client: httpx.AsyncClient, rpc: str, tx_hash: str, tx_type: str = "ESCROW_RELEASE"
+    ) -> bool | None:
         """True when the recorded hash resolves to a *sealed* tx, False on a
         definitive non-sealed answer (404 or an apply-rejected row), None when
         unverifiable.
@@ -174,21 +177,21 @@ class SettlementReconciler:
         if body.get("status") == "rejected":
             return False
         # A hash that sealed as some other transaction type is not the
-        # recorded release either — definitive miss, let the audit adopt.
-        tx_type = body.get("type")
-        if tx_type is not None and tx_type != "ESCROW_RELEASE":
+        # recorded settlement leg either — definitive miss, let the audit adopt.
+        body_type = body.get("type")
+        if body_type is not None and body_type != tx_type:
             return False
         if body.get("status") == "confirmed" and body.get("block_height") is not None:
             return True
         return None
 
     @staticmethod
-    async def _sealed_release_hashes(client: httpx.AsyncClient, rpc: str, job_id: str) -> set[str] | None:
-        """Confirmed ESCROW_RELEASE hashes for a job; None when unverifiable."""
+    async def _sealed_settlement_hashes(client: httpx.AsyncClient, rpc: str, job_id: str, tx_type: str) -> set[str] | None:
+        """Confirmed ``tx_type`` hashes for a job; None when unverifiable."""
         try:
             resp = await client.get(
                 f"{rpc}/rpc/transactions",
-                params={"transaction_type": "ESCROW_RELEASE", "job_id": job_id, "limit": 20},
+                params={"transaction_type": tx_type, "job_id": job_id, "limit": 20},
             )
         except httpx.HTTPError:
             return None
@@ -207,19 +210,19 @@ class SettlementReconciler:
         }
 
     @staticmethod
-    def _mark_audited(session: Any, payment: Any) -> None:
+    def _mark_audited(session: Any, payment: Any, stamp_key: str = "release_hash_audit_at") -> None:
         """Stamp the audit time so the next pass skips this row for ~20h."""
         meta = dict(payment.meta_data or {})
-        meta["release_hash_audit_at"] = datetime.now(UTC).isoformat()
+        meta[stamp_key] = datetime.now(UTC).isoformat()
         payment.meta_data = meta
         payment.updated_at = datetime.now(UTC)
         session.add(payment)
         session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
 
     @staticmethod
-    def _audit_due(payment: Any) -> bool:
+    def _audit_due(payment: Any, stamp_key: str = "release_hash_audit_at") -> bool:
         meta = payment.meta_data or {}
-        stamped = meta.get("release_hash_audit_at") if isinstance(meta, dict) else None
+        stamped = meta.get(stamp_key) if isinstance(meta, dict) else None
         if not stamped:
             return True
         try:
@@ -280,7 +283,7 @@ class SettlementReconciler:
         recorded: str,
         counts: dict[str, int],
     ) -> None:
-        sealed = await self._sealed_release_hashes(client, rpc, payment.job_id)
+        sealed = await self._sealed_settlement_hashes(client, rpc, payment.job_id, "ESCROW_RELEASE")
         if sealed is None:
             counts["hash_unreachable"] += 1
             return
@@ -332,6 +335,187 @@ class SettlementReconciler:
                     await self._audit_one_release_hash(client, rpc, session, payment, counts)
         return counts
 
+    # --- #3007: refunded-payment tx-hash audit ---------------------------------
+    #
+    # ``refund_payment`` and the stranded-escrow sweeper mark a payment
+    # ``refunded`` from the refund POST's *submission* response. An
+    # apply-rejected refund envelope leaves the row terminally refunded while
+    # the escrow stays locked on-chain — and every automatic refund scan
+    # excludes terminal rows, so nothing ever retries. This pass is the
+    # coordinator-side confirmation reconciler for refunds, parallel to the
+    # release audit above: it proves the recorded ``refund_transaction_hash``
+    # sealed, adopts the real sealed hash when the recorded envelope died but
+    # another refund landed, and — when the chain proves no refund exists —
+    # reverts the row to ``settlement_failed`` so the stuck-escrow and ZK
+    # refund sweepers (both scan REFUNDABLE_STATES for retryable rows) submit
+    # a fresh refund on their next pass. ``settlement_failed`` is the honest
+    # state: a settlement leg failed terminally at this layer while the
+    # funds remain escrowed and refundable; it is outside HELD_STATES so no
+    # release path can pick the row up in the meantime.
+
+    def _find_unsealed_refund_hashes(self, session: Any) -> list[Any]:
+        """Refunded payments whose recorded refund hash is old enough to have sealed."""
+        newest = datetime.now(UTC) - timedelta(days=30)
+        cutoff = (datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)).replace(tzinfo=None)
+        stmt = (
+            select(JobPayment)
+            .where(JobPayment.status == "refunded")
+            .where(JobPayment.refund_transaction_hash.is_not(None))  # type: ignore[union-attr]
+            .where(JobPayment.refunded_at.is_not(None))  # type: ignore[union-attr]
+            .where(JobPayment.refunded_at < cutoff)  # type: ignore[operator]
+            .where(JobPayment.refunded_at > newest.replace(tzinfo=None))  # type: ignore[operator]
+            .order_by(JobPayment.refunded_at.desc())  # type: ignore[union-attr]
+            .limit(self.batch_size * 10)
+        )
+        return list(session.execute(stmt).scalars().all())
+
+    @staticmethod
+    def _requeue_dead_refund(session: Any, payment: Any, recorded: str, counts: dict[str, int]) -> None:
+        """Return a proven-dead refund row to a retryable settlement state.
+
+        The recorded hash never sealed and no other ESCROW_REFUND exists for
+        the job, so the escrow is still locked: the payment goes back to
+        ``settlement_failed`` with the dead hash cleared, which puts it back
+        inside REFUNDABLE_STATES for the refund sweepers. The escrow row's
+        refunded flags are rolled back to match — the money never moved.
+        """
+        session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
+        if payment.status != "refunded":
+            return
+        now = datetime.now(UTC)
+        meta = dict(payment.meta_data or {})
+        meta["refund_hash_rejected"] = {"hash": recorded, "at": now.isoformat()}
+        meta["refund_hash_audit_at"] = now.isoformat()
+        payment.status = SETTLEMENT_FAILED
+        payment.refund_transaction_hash = None
+        payment.refunded_at = None
+        payment.meta_data = meta
+        payment.updated_at = now
+        session.add(payment)
+        job = session.get(Job, payment.job_id)
+        if job is not None:
+            job.payment_status = SETTLEMENT_FAILED
+            session.add(job)
+        escrow = session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
+        if escrow:
+            escrow.is_refunded = False
+            escrow.is_active = True
+            escrow.refunded_at = None
+            session.add(escrow)
+        session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        counts["refund_requeued"] += 1
+        logger.warning(
+            "Payment %s refund hash %s never sealed and no ESCROW_REFUND exists for job %s "
+            "-- requeued to settlement_failed for refund retry",
+            payment.id,
+            recorded,
+            payment.job_id,
+        )
+
+    @staticmethod
+    def _readopt_refund_hash(session: Any, payment: Any, recorded: str, new_hash: str, counts: dict[str, int]) -> None:
+        session.refresh(payment)  # noqa: unawaited-async — sync Session (sqlmodel)
+        if payment.status != "refunded":
+            return
+        meta = dict(payment.meta_data or {})
+        meta["refund_tx_hash_corrected"] = {
+            "from": recorded,
+            "to": new_hash,
+            "at": datetime.now(UTC).isoformat(),
+        }
+        meta["refund_hash_audit_at"] = datetime.now(UTC).isoformat()
+        payment.refund_transaction_hash = new_hash
+        payment.meta_data = meta
+        payment.updated_at = datetime.now(UTC)
+        session.add(payment)
+        session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        counts["refund_hash_readopted"] += 1
+        logger.warning(
+            "Payment %s refund hash corrected for job %s: %s -> %s (recorded envelope never sealed)",
+            payment.id,
+            payment.job_id,
+            recorded,
+            new_hash,
+        )
+
+    async def _audit_one_refund_hash(
+        self,
+        client: httpx.AsyncClient,
+        rpc: str,
+        session: Any,
+        payment: Any,
+        counts: dict[str, int],
+    ) -> None:
+        recorded = payment.refund_transaction_hash
+        state = await self._recorded_hash_state(client, rpc, recorded, "ESCROW_REFUND")
+        if state is None:
+            counts["refund_hash_unreachable"] += 1
+        elif state:
+            counts["refund_hash_ok"] += 1
+            self._mark_audited(session, payment, "refund_hash_audit_at")
+        else:
+            await self._audit_missing_refund_hash(client, rpc, session, payment, recorded, counts)
+
+    async def _audit_missing_refund_hash(
+        self,
+        client: httpx.AsyncClient,
+        rpc: str,
+        session: Any,
+        payment: Any,
+        recorded: str,
+        counts: dict[str, int],
+    ) -> None:
+        sealed = await self._sealed_settlement_hashes(client, rpc, payment.job_id, "ESCROW_REFUND")
+        if sealed is None:
+            counts["refund_hash_unreachable"] += 1
+            return
+        sealed.discard(recorded)
+        if len(sealed) == 1:
+            self._readopt_refund_hash(session, payment, recorded, sealed.pop(), counts)
+        elif not sealed:
+            self._requeue_dead_refund(session, payment, recorded, counts)
+        else:
+            counts["refund_hash_ambiguous"] += 1
+            self._mark_audited(session, payment, "refund_hash_audit_at")
+            logger.error(
+                "Payment %s job %s has multiple sealed ESCROW_REFUND hashes %s -- leaving recorded %s",
+                payment.id,
+                payment.job_id,
+                sorted(sealed),
+                recorded,
+            )
+
+    async def _audit_refund_hashes(self) -> dict[str, int]:
+        """Verify each refunded payment's recorded hash actually sealed.
+
+        Same contract as the release audit, with one deliberate difference:
+        a released payment with no sealed release is a critical anomaly (the
+        audit never guesses), while a refunded payment whose hash died with
+        no sealed ESCROW_REFUND behind it is *recoverable* — the escrow is
+        still locked, so the row is requeued for the refund sweepers instead
+        of being left terminally refunded forever (#3007).
+        """
+        counts = {
+            "refund_hash_ok": 0,
+            "refund_hash_readopted": 0,
+            "refund_requeued": 0,
+            "refund_hash_ambiguous": 0,
+            "refund_hash_unreachable": 0,
+        }
+        with self._session_factory() as session:
+            candidates = [p for p in self._find_unsealed_refund_hashes(session) if getattr(p, "refund_transaction_hash", None)]
+            if not candidates:
+                return counts
+            from . import payments as _pm
+
+            rpc = _pm.settings.blockchain_rpc_url.rstrip("/")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                for payment in candidates:
+                    if not self._audit_due(payment, "refund_hash_audit_at"):
+                        continue
+                    await self._audit_one_refund_hash(client, rpc, session, payment, counts)
+        return counts
+
     async def run_once(self) -> dict[str, int]:
         """One reconciliation pass. Returns counts for logging and tests."""
         from .payments import PaymentService
@@ -363,12 +547,15 @@ class SettlementReconciler:
                     counts["failed"] += 1
                     logger.warning("Job %s still unsettled after retry; leaving it escrowed", job.id)
         counts.update(await self._audit_release_hashes())
+        counts.update(await self._audit_refund_hashes())
         # Heartbeat. A pass with nothing to do logs nothing else, so at info level
         # "ran clean" and "the task died" are indistinguishable. Debug so a normal
         # deployment stays quiet but an operator can prove the loop is alive.
         logger.debug(
             "Settlement reconciliation pass complete: scanned=%s retried=%s settled=%s failed=%s "
-            "hash_ok=%s hash_readopted=%s hash_unbacked=%s hash_ambiguous=%s hash_unreachable=%s",
+            "hash_ok=%s hash_readopted=%s hash_unbacked=%s hash_ambiguous=%s hash_unreachable=%s "
+            "refund_hash_ok=%s refund_hash_readopted=%s refund_requeued=%s "
+            "refund_hash_ambiguous=%s refund_hash_unreachable=%s",
             scanned,
             counts["retried"],
             counts["settled"],
@@ -378,6 +565,11 @@ class SettlementReconciler:
             counts["hash_unbacked"],
             counts["hash_ambiguous"],
             counts["hash_unreachable"],
+            counts["refund_hash_ok"],
+            counts["refund_hash_readopted"],
+            counts["refund_requeued"],
+            counts["refund_hash_ambiguous"],
+            counts["refund_hash_unreachable"],
         )
         return counts
 
