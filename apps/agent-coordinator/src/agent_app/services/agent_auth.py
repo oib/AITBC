@@ -5,8 +5,11 @@ request. Three credential types resolve to one:
 
 * **Agent JWT** — minted by ``POST /api/v1/agent/auth/login`` in exchange for
   a wallet signature; carries ``agent_id`` and ``wallet`` claims. The bound
-  registry identity is re-checked on every resolution so a JWT for an agent
-  whose binding was later removed stops resolving.
+  registry identity is re-checked on every resolution, and the ``wallet``
+  claim must still match that binding — identity rotation (the
+  key-compromise remediation) therefore revokes every pre-rotation token on
+  both HTTP and WebSocket, which share this resolver. Live WebSocket streams
+  are closed outright by the rotation endpoint itself.
 * **Signed-request headers** — ``X-Agent-Id`` / ``X-Agent-Signature`` /
   ``X-Agent-Timestamp`` / ``X-Agent-Nonce``, where the signature is over the
   canonical ``{"agent_id","timestamp","nonce"}`` claim in the
@@ -167,11 +170,23 @@ async def jwt_principal(token: str | None) -> AgentPrincipal | None:
     role = payload.get("role")
     agent_id = payload.get("agent_id")
     if agent_id:
-        # An agent JWT only resolves while the agent stays registered+bound;
-        # the claim's wallet is informational — the registry is authoritative.
+        # An agent JWT only resolves while the agent stays registered+bound to
+        # the wallet the token was minted for. The ``wallet`` claim is
+        # authoritative for validity (not just informational): identity
+        # rotation — the key-compromise remediation — must revoke every
+        # pre-rotation token, so a claim that does not match the *current*
+        # registry binding is a dead token.
         wallet = await _bound_identity(agent_id)
         if wallet is None:
             logger.warning("agent_auth=fail reason=agent_not_bound agent_id=%s", agent_id)
+            return None
+        claimed = payload.get("wallet")
+        try:
+            wallet_matches = claimed is not None and canonical_address(str(claimed)) == canonical_address(wallet)
+        except _OPS_ERRORS:
+            wallet_matches = False
+        if not wallet_matches:
+            logger.warning("agent_auth=fail reason=wallet_binding_mismatch agent_id=%s", agent_id)
             return None
         return AgentPrincipal(agent_id=agent_id, wallet=wallet, auth_type="jwt", is_admin=role == "admin")
     if role in _OPERATOR_ROLES:

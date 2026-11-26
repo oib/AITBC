@@ -50,9 +50,11 @@ from aitbc.crypto.agent_envelope import (  # noqa: E402
     identity_claim,
     login_claim,
     request_claim,
+    rotation_claim,
     sign_identity_claim,
     sign_login_claim,
     sign_request_claim,
+    sign_rotation_claim,
 )
 
 PRIVATE_KEY = "0x" + "42" * 32
@@ -577,3 +579,130 @@ class TestWebSocketBinding:
 def test_state_module_uses_real_registry():
     """Sanity: the app-state module exists and is patchable (fixture wiring)."""
     assert hasattr(app_state, "agent_registry")
+
+
+# --------------------------------------------------------------------------- #
+# JWT rotation revocation (#3004 AUTH-JWT-ROTATION-1)
+# --------------------------------------------------------------------------- #
+
+
+def _rotate_identity(client: TestClient, agent_id: str, old_account, new_account) -> None:
+    """Drive ``PUT /v1/agents/{id}/identity`` with both doc-§7 proofs."""
+    nonce = _issue_reg_nonce(client, agent_id)
+    rotation_ts = datetime.now(UTC).isoformat()
+    registered_at = datetime.now(UTC).isoformat()
+    new_claim = identity_claim(
+        agent_id=agent_id,
+        identity_address=new_account.address,
+        chain_id=CHAIN_ID,
+        nonce=nonce,
+        registered_at=registered_at,
+    )
+    rot_claim = rotation_claim(
+        agent_id=agent_id,
+        old_address=old_account.address,
+        new_address=new_account.address,
+        timestamp=rotation_ts,
+    )
+    resp = client.put(
+        f"/v1/agents/{agent_id}/identity",
+        json={
+            "new_address": new_account.address,
+            "new_proof": sign_identity_claim(new_claim, new_account.key.hex()),
+            "rotation_proof": sign_rotation_claim(rot_claim, old_account.key.hex()),
+            "identity_nonce": nonce,
+            "registered_at": registered_at,
+            "rotation_timestamp": rotation_ts,
+            "chain_id": CHAIN_ID,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+
+class TestJwtRotationRevocation:
+    """#3004: wallet rotation is the key-compromise remediation, so every
+    credential minted under the pre-rotation binding must die — bearer JWTs on
+    HTTP and both WS handshakes share ``jwt_principal``'s wallet-claim check,
+    and the rotation endpoint closes already-open streams outright."""
+
+    def test_prerotation_jwt_rejected_on_http_after_rotation(self, client):
+        _register_bound(client, "agent-rot", ACCOUNT)
+        token = _login(client, "agent-rot", ACCOUNT)
+        ok = client.get("/api/v1/agent/auth/session", headers={"Authorization": f"Bearer {token}"})
+        assert ok.status_code == 200
+
+        _rotate_identity(client, "agent-rot", ACCOUNT, OTHER_ACCOUNT)
+
+        resp = client.get("/api/v1/agent/auth/session", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401
+
+    def test_postrotation_login_with_new_key_accepted(self, client):
+        _register_bound(client, "agent-rot2", ACCOUNT)
+        _rotate_identity(client, "agent-rot2", ACCOUNT, OTHER_ACCOUNT)
+
+        token = _login(client, "agent-rot2", OTHER_ACCOUNT)
+        resp = client.get("/api/v1/agent/auth/session", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert resp.json()["wallet"] == OTHER_ACCOUNT.address
+
+    def test_signed_headers_and_bearer_agree_after_rotation(self, client, monkeypatch):
+        """Both auth paths resolve against the *current* binding: the old
+        key's signed headers and the old JWT are both dead, the new key's
+        headers and a fresh JWT both live."""
+        from agent_app.config import settings
+
+        monkeypatch.setattr(settings, "agent_msg_signature_mode", "enforce")
+        _register_bound(client, "agent-rot3", ACCOUNT)
+        old_token = _login(client, "agent-rot3", ACCOUNT)
+        _rotate_identity(client, "agent-rot3", ACCOUNT, OTHER_ACCOUNT)
+
+        dead = client.get("/api/v1/agent/auth/session", headers={"Authorization": f"Bearer {old_token}"})
+        assert dead.status_code == 401
+        dead_headers = client.get("/api/v1/agent/auth/session", headers=_signed_headers("agent-rot3", ACCOUNT))
+        assert dead_headers.status_code == 401
+
+        live_headers = client.get("/api/v1/agent/auth/session", headers=_signed_headers("agent-rot3", OTHER_ACCOUNT))
+        assert live_headers.status_code == 200
+        assert live_headers.json()["auth_type"] == "signed_headers"
+
+    def test_prerotation_jwt_rejected_on_both_ws_handshakes(self, client):
+        _register_bound(client, "agent-rot4", ACCOUNT)
+        token = _login(client, "agent-rot4", ACCOUNT)
+        _rotate_identity(client, "agent-rot4", ACCOUNT, OTHER_ACCOUNT)
+
+        for url in ("/api/v1/agent/messages/stream", "/api/v1/agent/presence/stream"):
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(f"{url}?agent_id=agent-rot4&token={token}"):
+                    pass
+
+    @pytest.mark.timeout(15)
+    def test_open_stream_closed_by_rotation(self, client, monkeypatch):
+        """Documented rotation semantics: revocation, not natural expiry —
+        the rotation endpoint disconnects the agent's live streams."""
+        from agent_app.config import settings
+
+        monkeypatch.setattr(settings, "agent_msg_signature_mode", "enforce")
+        _register_bound(client, "agent-rot5", ACCOUNT)
+        token = _login(client, "agent-rot5", ACCOUNT)
+        with client.websocket_connect("/api/v1/agent/messages/stream?agent_id=agent-rot5&token=" + token) as ws:
+            assert ws.receive_json()["type"] == "connection_established"
+            _rotate_identity(client, "agent-rot5", ACCOUNT, OTHER_ACCOUNT)
+            with pytest.raises(WebSocketDisconnect):
+                ws.receive_json()
+
+    def test_jwt_with_stale_or_missing_wallet_claim_rejected(self, client):
+        """The wallet claim is authoritative for validity: a token whose
+        claim names a different wallet — or carries none — cannot resolve."""
+        _register_bound(client, "agent-rot6", ACCOUNT)
+
+        stale = create_access_token(
+            user_id="agent-rot6",
+            role="agent",
+            extra_claims={"agent_id": "agent-rot6", "wallet": OTHER_ACCOUNT.address},
+        )
+        resp = client.get("/api/v1/agent/auth/session", headers={"Authorization": f"Bearer {stale}"})
+        assert resp.status_code == 401
+
+        missing = create_access_token(user_id="agent-rot6", role="agent", extra_claims={"agent_id": "agent-rot6"})
+        resp = client.get("/api/v1/agent/auth/session", headers={"Authorization": f"Bearer {missing}"})
+        assert resp.status_code == 401

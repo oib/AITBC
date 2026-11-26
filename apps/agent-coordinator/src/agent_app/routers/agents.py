@@ -405,6 +405,15 @@ async def rotate_agent_identity(
 
         if not await state.agent_registry.update_agent_identity(agent_id, new_address, request.new_proof):
             raise HTTPException(status_code=500, detail="Failed to rotate identity")
+        # Rotation is the key-compromise response, so revocation is total:
+        # pre-rotation JWTs are already dead (their ``wallet`` claim no
+        # longer matches the binding — see ``jwt_principal``), and any live
+        # WebSocket stream opened under the old session is closed here
+        # rather than allowed to expire naturally. The agent re-authenticates
+        # with the new key.
+        from ..websocket import get_connection_manager
+
+        await get_connection_manager().disconnect(agent_id)
         return {
             "status": "success",
             "message": f"Agent {agent_id} identity rotated",

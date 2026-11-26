@@ -205,6 +205,10 @@ makes coordinator tampering *detectable* rather than silently authoritative.
   `rotation_proof` (signed by the *old* key over
   `{agent_id, old_address, new_address, timestamp}`). Both signatures verify →
   binding updated; history keeps the old address for past messages.
+  Rotation is total revocation, not natural expiry: pre-rotation JWTs die at
+  the next resolution (wallet-claim mismatch), and the endpoint closes the
+  agent's live WebSocket streams immediately — the agent re-authenticates
+  with the new key.
 - **Compromise:** operator sets agent `inactive` (existing endpoint) and clears
   `identity_address`; all further envelopes fail verification. If the signing
   key was the wallet key (option 1 in §3), wallet rotation is a separate,
@@ -238,7 +242,10 @@ envelopes and from each other:
   the signature to recover `wallet_address` **and** `wallet_address` to equal
   the registry-bound `identity_address`, then consumes the nonce and issues a
   JWT (`sub=agent_id`, `role=agent`, claims `agent_id` + `wallet`). Login is
-  mode-independent: it proves key possession in every signature mode.
+  mode-independent: it proves key possession in every signature mode. On every
+  resolution the `wallet` claim must still match the *current* registry
+  binding — identity rotation therefore revokes all pre-rotation JWTs on both
+  HTTP and WebSocket (#3004 AUTH-JWT-ROTATION-1).
 * **`aitbc-agent-req-v1`** — per-request auth. `X-Agent-Id`,
   `X-Agent-Timestamp`, `X-Agent-Nonce`, `X-Agent-Signature` over
   `{"agent_id","timestamp","nonce"}`; the coordinator verifies the signature
