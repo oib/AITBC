@@ -87,6 +87,12 @@ def _is_nonce_refusal(exc: Exception) -> bool:
     return "nonce slot" in s or "invalid nonce" in s
 
 
+class SlashNonceUnavailableError(RuntimeError):
+    """#2999: neither the account nonce read nor the mempool probe produced
+    chain truth, so no safe nonce exists — submitting anyway would sign a
+    guaranteed on-chain refusal that burns a bounded retry attempt."""
+
+
 class SlashingCondition(StrEnum):
     DOWNTIME = "downtime"
     FRAUD = "fraud"
@@ -632,7 +638,7 @@ class BondSlashingService:
 
     async def _get_nonce(self, address: str) -> int:
         global _slash_nonce
-        chain_nonce = 0
+        chain_nonce: int | None = None
         try:
             client = AITBCHTTPClient(timeout=5.0)
             r = client.get(f"{self.blockchain_rpc_url}/rpc/account/{address}")
@@ -645,7 +651,16 @@ class BondSlashingService:
 
         pending = self._pending_mempool_nonce(address)
         if pending is not None:
-            chain_nonce = max(chain_nonce, pending)
+            chain_nonce = pending if chain_nonce is None else max(chain_nonce, pending)
+
+        if chain_nonce is None:
+            # #2999: a failed read must not fabricate nonce 0 — that submits a
+            # guaranteed-refused tx and spends one of the bounded attempts on
+            # noise. Raise so the caller records a truthful retryable failure.
+            raise SlashNonceUnavailableError(
+                f"could not establish slash-authority nonce for {address}: "
+                "account nonce read and mempool probe both unavailable"
+            )
 
         async with _slash_nonce_lock:
             if _slash_nonce is None or chain_nonce > _slash_nonce:

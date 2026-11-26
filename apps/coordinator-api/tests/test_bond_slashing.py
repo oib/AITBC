@@ -712,6 +712,112 @@ async def test_nonce_refusal_twice_returns_unslashed(db_session, slash_env, monk
 
 
 @pytest.mark.asyncio
+async def test_nonce_reads_all_fail_never_submits(db_session, slash_env, monkeypatch):
+    """#2999: when the account nonce read AND the mempool probe both fail there
+    is no chain truth — the service must refuse to sign rather than submit a
+    fabricated nonce-0 that the chain rejects anyway. Live specimen: pending
+    slash ps_11592adc001a burned two of three attempts on nonces 0 and 1."""
+    from aitbc.exceptions import NetworkError
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = NetworkError("GET request failed: read timed out")
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is False
+    assert client.post.call_count == 0
+    assert "nonce" in str(result.get("error", "")).lower()
+
+
+@pytest.mark.asyncio
+async def test_nonce_account_fail_uses_mempool_pending(db_session, slash_env, monkeypatch):
+    """#2999: a pending mempool entry is still chain-derived truth — when the
+    sealed-nonce read fails but the probe sees the signer's mempool tx, the
+    slash proceeds on the pending-derived nonce."""
+    from aitbc.exceptions import NetworkError
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    signer = os.environ["BOND_SLASH_AUTHORITY_ADDRESS"]
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            raise NetworkError("GET request failed: read timed out")
+        if "/mempool" in url:
+            return {"transactions": [{"from": signer, "nonce": 7}]}
+        return {}
+
+    posts: list[int] = []
+
+    def _post(url, json=None, **_kw):
+        posts.append(json["nonce"])
+        return {"transaction_hash": "0xpending"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    assert posts == [8]  # max(pending 7) + 1
+
+
+@pytest.mark.asyncio
+async def test_nonce_account_ok_ignores_mempool_failure(db_session, slash_env, monkeypatch):
+    """#2999: a healthy account-nonce read stands on its own — mempool probe
+    failure degrades to the sealed nonce, and the submit retry covers the
+    admitted-but-unlisted window (pre-existing contract, pinned)."""
+    from aitbc.exceptions import NetworkError
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": 5}
+        if "/mempool" in url:
+            raise NetworkError("GET request failed: read timed out")
+        return {}
+
+    posts: list[int] = []
+
+    def _post(url, json=None, **_kw):
+        posts.append(json["nonce"])
+        return {"transaction_hash": "0xsealed"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    assert posts == [5]
+
+
+@pytest.mark.asyncio
 async def test_slash_binds_proven_bond_wallet_not_live_capabilities(db_session, slash_env):
     """#1995: the slash tx provider must be the creation-verified wallet on the
     bond (meta.chain_provider), not the miner's mutable capabilities wallet —
