@@ -2,6 +2,7 @@
 
 from decimal import Decimal, InvalidOperation
 import asyncio
+import hmac
 import json
 import secrets
 import time
@@ -17,6 +18,7 @@ from aitbc.async_tasks import create_task_with_logging
 from aitbc.trading.subscription_types import OfferNotification, OfferSubscription
 
 from ..config import settings
+from ..services.lease_tracker import hash_lease_token
 from ..state import (
     _synced_offer_to_dict,
     get_notification_service,
@@ -88,6 +90,34 @@ def _validated_price_filters(filters: dict[str, Any]) -> tuple[Decimal | None, D
 # revoked only when the node's last connection closes.
 _ws_connections_by_node: dict[str, int] = {}
 
+# #3028: TRADING_API_KEY is a single shared service key, so node_id in the
+# request body/first WS frame is self-asserted. Leases therefore carry a
+# bearer token: subscribe issues a fresh ``lease_token`` (only its SHA-256
+# hash is stored on the lease), and heartbeat/WebSocket subscribe for an
+# already-active lease must present it. This binds lease mutation to the
+# lease holder instead of to the shared key — a key holder can still open
+# subscriptions for fresh node_ids (the feed is not tenant-scoped), but
+# cannot squat, renew, or stream as another node's node_id.
+_LEASE_TOKEN_BYTES = 32
+
+
+def _new_lease_token() -> str:
+    return secrets.token_urlsafe(_LEASE_TOKEN_BYTES)
+
+
+def _lease_token_ok(presented: Any, stored_hash: str) -> bool:
+    """Constant-time check of a presented bearer token against the stored hash."""
+    return isinstance(presented, str) and bool(presented) and hmac.compare_digest(hash_lease_token(presented), stored_hash)
+
+
+async def _lease_token_state_or_503(svc: Any, node_id: str) -> tuple[bool, str | None] | JSONResponse:
+    """Read ``(active, token_hash)`` for ``node_id``, failing closed."""
+    try:
+        return await svc.lease_token_state(node_id)
+    except _OPS_ERRORS as e:
+        logger.warning("Lease token state read failed for %s: %s", node_id, e)
+        return JSONResponse(status_code=503, content={"error": "lease store unavailable"})
+
 
 @router.post("/v1/trading/offers/subscribe")
 async def subscribe_to_offers(request: dict[str, Any]):
@@ -108,12 +138,47 @@ async def subscribe_to_offers(request: dict[str, Any]):
 
     svc = get_subscription_service()
     lease_duration = settings.offer_subscription_heartbeat_seconds * 3
-    try:
-        expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id)
-    except _OPS_ERRORS as e:
-        logger.warning("Lease registration failed for %s: %s — using computed expiry", node_id, e)
-        expiry = time.time() + lease_duration
-    return {"node_id": node_id, "chain_id": chain_id, "expiry": expiry, "lease_duration": lease_duration}
+    state = await _lease_token_state_or_503(svc, node_id)
+    if isinstance(state, JSONResponse):
+        return state
+    active, stored_hash = state
+    presented_token = request.get("lease_token")
+    lease_token_out: str | None = None
+    if active:
+        # An active lease may only be renewed by its bearer-token holder.
+        # Leases issued before token binding (stored_hash None) are refused
+        # until they expire and are re-issued — the window is one lease TTL.
+        if stored_hash is None or not _lease_token_ok(presented_token, stored_hash):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "lease_token missing or does not match the active lease for node_id"},
+            )
+        try:
+            expiry = await svc.renew_lease(node_id=node_id)
+            if expiry == 0.0:
+                # Lease vanished between the check and the renewal.
+                lease_token_out = _new_lease_token()
+                expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id, lease_token=lease_token_out)
+        except _OPS_ERRORS as e:
+            logger.warning("Lease renewal failed for %s: %s — using computed expiry", node_id, e)
+            expiry = time.time() + lease_duration
+    else:
+        lease_token_out = _new_lease_token()
+        try:
+            expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id, lease_token=lease_token_out)
+        except _OPS_ERRORS as e:
+            logger.warning("Lease registration failed for %s: %s — using computed expiry", node_id, e)
+            expiry = time.time() + lease_duration
+    return {
+        "node_id": node_id,
+        "chain_id": chain_id,
+        "expiry": expiry,
+        "lease_duration": lease_duration,
+        # Plaintext token is returned only when a new lease was issued;
+        # it is null on renewal so the stored binding cannot be rotated
+        # by re-subscribing with the same token.
+        "lease_token": lease_token_out,
+    }
 
 
 @router.post("/v1/trading/offers/heartbeat")
@@ -133,15 +198,92 @@ async def offer_heartbeat(request: dict[str, Any]):
 
     svc = get_subscription_service()
     lease_duration = settings.offer_subscription_heartbeat_seconds * 3
+    state = await _lease_token_state_or_503(svc, node_id)
+    if isinstance(state, JSONResponse):
+        return state
+    active, stored_hash = state
+    presented_token = request.get("lease_token")
+    lease_token_out: str | None = None
+    if active:
+        # #3028: renewing someone else's lease requires its bearer token.
+        if stored_hash is None or not _lease_token_ok(presented_token, stored_hash):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "lease_token missing or does not match the active lease for node_id"},
+            )
+        try:
+            expiry = await svc.renew_lease(node_id=node_id)
+            if expiry == 0.0:
+                # Lease vanished between the check and the renewal.
+                lease_token_out = _new_lease_token()
+                expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id, lease_token=lease_token_out)
+        except _OPS_ERRORS as e:
+            logger.warning("Lease renewal failed for %s: %s — using computed expiry", node_id, e)
+            expiry = time.time() + lease_duration
+    else:
+        # No active lease — issue a fresh bound lease (same as subscribe).
+        lease_token_out = _new_lease_token()
+        try:
+            expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id, lease_token=lease_token_out)
+        except _OPS_ERRORS as e:
+            logger.warning("Lease registration failed for %s: %s — using computed expiry", node_id, e)
+            expiry = time.time() + lease_duration
+    return {
+        "node_id": node_id,
+        "chain_id": chain_id,
+        "expiry": expiry,
+        "renewed": True,
+        "lease_token": lease_token_out,
+    }
+
+
+async def _offer_ws_lease_gate(
+    websocket: WebSocket, sub_svc: Any, node_id: str, presented_token: Any
+) -> tuple[bool, str | None] | None:
+    """#3028 lease-token gate for the WS handshake.
+
+    Returns ``(active, stored_hash)`` when the socket may proceed, or
+    ``None`` after sending an error + close. Runs before any subscriber
+    refcount/lease side effects — a rejected socket must not decrement a
+    sibling's count or revoke the real holder's lease in the caller's
+    ``finally`` block.
+    """
     try:
-        expiry = await svc.renew_lease(node_id=node_id)
-        if expiry == 0.0:
-            # Lease not found — re-register so the client can continue
-            expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id)
+        active, stored_hash = await sub_svc.lease_token_state(node_id)
     except _OPS_ERRORS as e:
-        logger.warning("Lease renewal failed for %s: %s — using computed expiry", node_id, e)
-        expiry = time.time() + lease_duration
-    return {"node_id": node_id, "chain_id": chain_id, "expiry": expiry, "renewed": True}
+        logger.warning("WebSocket lease token check failed for %s: %s", node_id, e)
+        await websocket.send_json({"error": "lease store unavailable"})
+        await websocket.close(code=1011)
+        return None
+    if active and (stored_hash is None or not _lease_token_ok(presented_token, stored_hash)):
+        await websocket.send_json({"error": "lease_token missing or does not match the active lease for node_id"})
+        await websocket.close(code=1008)
+        return None
+    return active, stored_hash
+
+
+async def _offer_ws_lease_ensure(sub_svc: Any, node_id: str, chain_id: str, active: bool) -> tuple[float, str | None]:
+    """Renew an existing bound lease or issue a fresh one for ``node_id``.
+
+    Returns ``(lease_expiry, lease_token_out)``; the plaintext token is
+    only non-None when this socket issued the lease (fresh node_id or a
+    lease that vanished mid-handshake).
+    """
+    lease_expiry: float = 0.0
+    lease_token_out: str | None = None
+    try:
+        if active:
+            lease_expiry = await sub_svc.renew_lease(node_id=node_id)
+            if lease_expiry == 0.0:
+                # Lease vanished between the gate and the renewal.
+                lease_token_out = _new_lease_token()
+                lease_expiry = await sub_svc.register_lease(node_id=node_id, chain_id=chain_id, lease_token=lease_token_out)
+        else:
+            lease_token_out = _new_lease_token()
+            lease_expiry = await sub_svc.register_lease(node_id=node_id, chain_id=chain_id, lease_token=lease_token_out)
+    except _OPS_ERRORS as e:
+        logger.warning("WebSocket lease registration failed for %s: %s", node_id, e)
+    return lease_expiry, lease_token_out
 
 
 async def _offer_ws_setup(
@@ -184,18 +326,23 @@ async def _offer_ws_setup(
         await websocket.close(code=1008)
         return False
 
+    # #3028: node_id is self-asserted on a shared service key, so an
+    # already-active lease may only be driven by its bearer-token holder.
+    gate = await _offer_ws_lease_gate(websocket, sub_svc, node_id, data.get("lease_token"))
+    if gate is None:
+        return False
+    active, _stored_hash = gate
+
     # Unique per connection: two sockets from the same node must not
     # overwrite each other's notification registration.
     subscriber_id = f"{node_id}:{chain_id}:{secrets.token_hex(4)}"
     conn["subscriber_id"] = subscriber_id
     _ws_connections_by_node[node_id] = _ws_connections_by_node.get(node_id, 0) + 1
 
-    # v0.10.1 §B19: Register a lease for this subscriber
-    lease_expiry: float = 0.0
-    try:
-        lease_expiry = await sub_svc.register_lease(node_id=node_id, chain_id=chain_id)
-    except _OPS_ERRORS as e:
-        logger.warning("WebSocket lease registration failed for %s: %s", node_id, e)
+    # v0.10.1 §B19: Register/renew a lease for this subscriber. A fresh
+    # node_id gets a newly-issued bearer token returned in the ack; an
+    # existing lease is only renewed (its token binding is unchanged).
+    lease_expiry, lease_token_out = await _offer_ws_lease_ensure(sub_svc, node_id, chain_id, active)
 
     # Build subscription from filters
     subscription = OfferSubscription(
@@ -227,6 +374,9 @@ async def _offer_ws_setup(
             "chain_id": chain_id,
             "filters": filters,
             "lease_expiry": lease_expiry,
+            # Plaintext bearer token only when this socket issued the
+            # lease; null when it joined an existing bound lease.
+            "lease_token": lease_token_out,
         }
     )
     return True

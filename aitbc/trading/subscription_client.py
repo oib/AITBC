@@ -87,6 +87,12 @@ class OfferSubscriptionClient:
         self._http_timeout = http_timeout
         self._poll_interval = poll_interval_seconds
         self._api_key = api_key or os.environ.get("TRADING_API_KEY") or None
+        # #3028: bearer token bound to this node_id's server-side lease.
+        # Issued by POST /v1/trading/offers/subscribe (or the WS ack) and
+        # required on heartbeat/renew and WS subscribe while the lease is
+        # active. ``node_id`` is self-asserted, so the shared API key alone
+        # no longer authorizes driving another node's lease.
+        self._lease_token: str | None = None
         self._http_client: httpx.AsyncClient | None = None
         # Guards concurrent mutation of _lease_expiry, _status, and _subscriptions.
         self._lock = asyncio.Lock()
@@ -148,12 +154,18 @@ class OfferSubscriptionClient:
             "chain_id": chain_id,
             "transport": "websocket",
         }
+        if self._lease_token:
+            payload["lease_token"] = self._lease_token
         if filters:
             payload["filters"] = filters
         try:
             resp = await self._ensure_http().post("/v1/trading/offers/subscribe", json=payload)
             resp.raise_for_status()
             data = resp.json()
+            # The server returns the plaintext token only when it issued a
+            # new lease; keep the stored one on renewal responses.
+            if data.get("lease_token"):
+                self._lease_token = str(data["lease_token"])
             async with self._lock:
                 self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
             logger.info(
@@ -182,12 +194,17 @@ class OfferSubscriptionClient:
         Mirrors ``POST /rpc/heartbeat`` in the blockchain-node pattern.
         """
         try:
+            heartbeat_payload: dict[str, Any] = {"node_id": self._node_id, "chain_id": chain_id}
+            if self._lease_token:
+                heartbeat_payload["lease_token"] = self._lease_token
             resp = await self._ensure_http().post(
                 "/v1/trading/offers/heartbeat",
-                json={"node_id": self._node_id, "chain_id": chain_id},
+                json=heartbeat_payload,
             )
             resp.raise_for_status()
             data = resp.json()
+            if data.get("lease_token"):
+                self._lease_token = str(data["lease_token"])
             async with self._lock:
                 self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
             return True
@@ -269,17 +286,23 @@ class OfferSubscriptionClient:
             async with self._lock:
                 self._status[chain_id] = SubscriptionStatus.DISCONNECTED
 
+    def _ws_first_message(self, chain_id: str, filters: dict[str, Any]) -> str:
+        """First WS frame: subscription config plus the lease bearer token
+        (#3028) when one is bound to this node_id's lease."""
+        payload: dict[str, Any] = {
+            "node_id": self._node_id,
+            "chain_id": chain_id,
+            "transport": "websocket",
+            "filters": filters,
+        }
+        if self._lease_token:
+            payload["lease_token"] = self._lease_token
+        return json.dumps(payload)
+
     async def _ws_stream(self, chain_id: str, filters: dict[str, Any]) -> AsyncIterator[OfferEvent]:
         """Yield events from the WebSocket, reconnecting on disconnect."""
         ws_url = f"{self._ws_url}/v1/trading/offers/subscribe/ws"
-        first_message = json.dumps(
-            {
-                "node_id": self._node_id,
-                "chain_id": chain_id,
-                "transport": "websocket",
-                "filters": filters,
-            }
-        )
+        first_message = self._ws_first_message(chain_id, filters)
         ws_headers = self._ws_headers()
         reconnect_attempts = 0
         use_polling_fallback = False

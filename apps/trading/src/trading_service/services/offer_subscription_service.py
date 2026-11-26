@@ -39,7 +39,7 @@ from aitbc.trading.subscription_types import OfferEvent, SubscriptionStatus
 
 from ..config import settings
 from .gossip_client import GossipClient
-from .lease_tracker import OfferLeaseTracker
+from .lease_tracker import OfferLeaseTracker, hash_lease_token
 
 logger = logging.getLogger(__name__)
 
@@ -207,14 +207,30 @@ class OfferSubscriptionService:
 
     # -- B19: Lease management ------------------------------------------------
 
-    async def register_lease(self, node_id: str, chain_id: str) -> float:
+    async def register_lease(self, node_id: str, chain_id: str, lease_token: str | None = None) -> float:
         """Create a subscriber lease in Redis (B19).
 
         TTL = heartbeat interval × 3.  Returns the expiry timestamp.
+
+        ``lease_token`` (#3028) is the plaintext bearer token bound to the
+        new lease; only its SHA-256 hash is stored. Callers must present the
+        token on heartbeat/renew and WebSocket subscribe for a lease that
+        already exists.
         """
         tracker = self._get_lease_tracker()
         duration = settings.offer_subscription_heartbeat_seconds * 3
-        return await tracker.register_subscriber(node_id=node_id, chain_id=chain_id, duration=duration)
+        token_hash = hash_lease_token(lease_token) if lease_token else None
+        return await tracker.register_subscriber(node_id=node_id, chain_id=chain_id, duration=duration, token_hash=token_hash)
+
+    async def lease_token_state(self, node_id: str) -> tuple[bool, str | None]:
+        """Return ``(active, token_hash)`` for a node's lease (#3028).
+
+        ``token_hash`` is ``None`` for leases issued before token binding
+        existed; routers treat those as unbound and refuse renewal until
+        the lease expires and is re-issued.
+        """
+        tracker = self._get_lease_tracker()
+        return await tracker.lease_token_state(node_id)
 
     async def renew_lease(self, node_id: str) -> float:
         """Renew a subscriber lease (B19).  Returns new expiry or 0.0."""

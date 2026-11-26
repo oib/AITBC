@@ -13,6 +13,7 @@ service remains functional (and tests pass without Redis).
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from typing import Any
@@ -20,6 +21,13 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 LEASE_PREFIX = "lease:offer_subscriber:"
+
+
+def hash_lease_token(token: str) -> str:
+    """SHA-256 hex digest stored on the lease; the plaintext token is
+    returned to the subscriber once at issuance and never persisted."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
 
 # redis is an optional dependency (lazy-imported in start()); fold its error
 # base into the ops tuple only when importable.
@@ -71,6 +79,8 @@ class OfferLeaseTracker:
         self._started = False
         # In-memory fallback: node_id -> expiry timestamp
         self._mem_leases: dict[str, float] = {}
+        # In-memory fallback: node_id -> lease token hash (#3028)
+        self._mem_lease_tokens: dict[str, str] = {}
 
     @property
     def started(self) -> bool:
@@ -112,15 +122,19 @@ class OfferLeaseTracker:
                 logger.debug("Redis close failed during lease tracker shutdown", exc_info=True)
             self._redis = None
         self._mem_leases.clear()
+        self._mem_lease_tokens.clear()
         logger.info("OfferLeaseTracker stopped")
 
-    async def register_subscriber(self, node_id: str, chain_id: str, duration: int) -> float:
+    async def register_subscriber(self, node_id: str, chain_id: str, duration: int, token_hash: str | None = None) -> float:
         """Register a subscriber lease.
 
         Args:
             node_id: Unique subscriber identifier.
             chain_id: Chain the subscription is for.
             duration: Lease TTL in seconds (heartbeat interval × 3).
+            token_hash: SHA-256 hash of the lease bearer token to bind to
+                this lease (#3028). Only the hash is stored; ``None`` leaves
+                any existing binding untouched.
 
         Returns:
             Expiry timestamp (Unix seconds).
@@ -131,22 +145,56 @@ class OfferLeaseTracker:
         if self._redis is not None:
             key = f"{LEASE_PREFIX}{node_id}"
             try:
-                await self._redis.hset(
-                    key,
-                    mapping={
-                        "node_id": node_id,
-                        "chain_id": chain_id,
-                        "expiry": str(expiry),
-                    },
-                )
+                mapping: dict[str, str] = {
+                    "node_id": node_id,
+                    "chain_id": chain_id,
+                    "expiry": str(expiry),
+                }
+                if token_hash is not None:
+                    mapping["token_hash"] = token_hash
+                await self._redis.hset(key, mapping=mapping)
                 await self._redis.expire(key, duration + 60)
                 logger.info("Registered offer subscriber %s (chain=%s) expiry=%s", node_id, chain_id, expiry)
             except _OPS_ERRORS as e:
                 logger.warning("Redis register failed for %s, using in-memory: %s", node_id, e)
                 self._mem_leases[node_id] = expiry
+                if token_hash is not None:
+                    self._mem_lease_tokens[node_id] = token_hash
         else:
             self._mem_leases[node_id] = expiry
+            if token_hash is not None:
+                self._mem_lease_tokens[node_id] = token_hash
         return expiry
+
+    async def lease_token_state(self, node_id: str) -> tuple[bool, str | None]:
+        """Return ``(active, token_hash)`` for a subscriber's lease (#3028).
+
+        ``active`` is False when no unexpired lease exists. ``token_hash``
+        is the bound bearer-token digest, or ``None`` for a lease issued
+        before token binding existed (treated as unbound by callers).
+        """
+        if not self._started:
+            await self.start()
+        if self._redis is not None:
+            key = f"{LEASE_PREFIX}{node_id}"
+            try:
+                expiry_str, token_hash = await self._redis.hmget(key, "expiry", "token_hash")
+                if not expiry_str:
+                    return False, None
+                if float(expiry_str) < time.time():
+                    await self.revoke_lease(node_id)
+                    return False, None
+                return True, (token_hash or None)
+            except _OPS_ERRORS as e:
+                logger.warning("Redis lease-token read failed for %s, using in-memory: %s", node_id, e)
+        expiry = self._mem_leases.get(node_id)
+        if expiry is None:
+            return False, None
+        if expiry < time.time():
+            self._mem_leases.pop(node_id, None)
+            self._mem_lease_tokens.pop(node_id, None)
+            return False, None
+        return True, self._mem_lease_tokens.get(node_id)
 
     async def extend_lease(self, node_id: str, duration: int) -> float:
         """Renew a subscriber lease.
@@ -208,6 +256,7 @@ class OfferLeaseTracker:
             return False
         if expiry < time.time():
             self._mem_leases.pop(node_id, None)
+            self._mem_lease_tokens.pop(node_id, None)
             return False
         return True
 
@@ -226,7 +275,9 @@ class OfferLeaseTracker:
                 return bool(result)
             except _OPS_ERRORS as e:
                 logger.warning("Redis revoke failed for %s, using in-memory: %s", node_id, e)
+                self._mem_lease_tokens.pop(node_id, None)
                 return self._mem_leases.pop(node_id, None) is not None
+        self._mem_lease_tokens.pop(node_id, None)
         return self._mem_leases.pop(node_id, None) is not None
 
     async def get_lease_expiry(self, node_id: str) -> float:
@@ -253,10 +304,12 @@ class OfferLeaseTracker:
                 expiry = self._mem_leases.get(node_id, 0.0)
                 if expiry and expiry < time.time():
                     self._mem_leases.pop(node_id, None)
+                    self._mem_lease_tokens.pop(node_id, None)
                     return 0.0
                 return expiry
         expiry = self._mem_leases.get(node_id, 0.0)
         if expiry and expiry < time.time():
             self._mem_leases.pop(node_id, None)
+            self._mem_lease_tokens.pop(node_id, None)
             return 0.0
         return expiry

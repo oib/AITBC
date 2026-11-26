@@ -2532,6 +2532,36 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "lease_token missing or does not match the active lease for node_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "lease store unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2577,6 +2607,36 @@
           },
           "400": {
             "description": "node_id is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "lease_token missing or does not match the active lease for node_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "lease store unavailable",
             "content": {
               "application/json": {
                 "schema": {

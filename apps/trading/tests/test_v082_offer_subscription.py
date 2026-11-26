@@ -444,13 +444,16 @@ class TestWebSocketEndpoint:
         from trading_service.main import app
 
         client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
+        # Fresh node_id: an active lease now requires its bearer token (#3028),
+        # so heartbeat tests use a node_id no earlier test has leased.
         response = client.post(
             "/v1/trading/offers/heartbeat",
-            json={"node_id": "test-node", "chain_id": "ait-hub"},
+            json={"node_id": "test-node-heartbeat-fresh", "chain_id": "ait-hub"},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["renewed"] is True
+        assert data["lease_token"]
 
     def test_subscription_status_endpoint(self) -> None:
         from fastapi.testclient import TestClient
@@ -528,12 +531,21 @@ class TestWebSocketLeaseLifecycle:
     the refcount must hold the lease until the node's last socket closes.
     """
 
-    def _subscribe(self, client, node_id: str):
+    def _subscribe(self, client, node_id: str, lease_token: str | None = None):
+        """Open a WS and complete the handshake. Returns ``(ws, ack)``.
+
+        ``lease_token`` must be supplied when the node_id already holds an
+        active lease (#3028) — take it from the first connect's ack.
+        """
+        frame: dict = {"node_id": node_id, "chain_id": "ait-hub"}
+        if lease_token is not None:
+            frame["lease_token"] = lease_token
         ws = client.websocket_connect("/v1/trading/offers/subscribe/ws")
         ws.__enter__()
-        ws.send_json({"node_id": node_id, "chain_id": "ait-hub"})
-        assert ws.receive_json()["status"] == "subscribed"
-        return ws
+        ws.send_json(frame)
+        ack = ws.receive_json()
+        assert ack["status"] == "subscribed"
+        return ws, ack
 
     def test_event_callback_wired_once_not_per_connection(self, client) -> None:
         """The shared event hook is set at service construction; connecting
@@ -542,7 +554,7 @@ class TestWebSocketLeaseLifecycle:
 
         svc = get_subscription_service()
         assert svc._on_event is _forward_events_to_notifications
-        ws = self._subscribe(client, "ws-node-callback")
+        ws, _ack = self._subscribe(client, "ws-node-callback")
         assert svc._on_event is _forward_events_to_notifications
         ws.__exit__(None, None, None)
 
@@ -557,8 +569,10 @@ class TestWebSocketLeaseLifecycle:
         subs._ws_connections_by_node.pop(node_id, None)
 
         with patch.object(svc, "revoke_lease", new=AsyncMock(wraps=svc.revoke_lease)) as revoke:
-            ws1 = self._subscribe(client, node_id)
-            ws2 = self._subscribe(client, node_id)
+            ws1, ack1 = self._subscribe(client, node_id)
+            # Second socket for the same node_id must present the lease
+            # bearer token issued to the first (#3028).
+            ws2, _ack2 = self._subscribe(client, node_id, lease_token=ack1["lease_token"])
             assert subs._ws_connections_by_node[node_id] == 2
 
             ws2.__exit__(None, None, None)
@@ -580,8 +594,8 @@ class TestWebSocketLeaseLifecycle:
         subs._ws_connections_by_node.pop(node_id, None)
         notif = get_notification_service()
 
-        ws1 = self._subscribe(client, node_id)
-        ws2 = self._subscribe(client, node_id)
+        ws1, ack1 = self._subscribe(client, node_id)
+        ws2, _ack2 = self._subscribe(client, node_id, lease_token=ack1["lease_token"])
         matching = [k for k in notif._subscribers if k.startswith(f"{node_id}:")]  # noqa: SLF001
         assert len(matching) == 2
 
@@ -604,7 +618,7 @@ class TestWebSocketLeaseLifecycle:
         subs._ws_connections_by_node.pop(node_id, None)
 
         with patch.object(svc, "validate_lease", new=AsyncMock(return_value=False)):
-            ws = self._subscribe(client, node_id)
+            ws, _ack = self._subscribe(client, node_id)
             ws.send_json({"type": "pong"})
             assert ws.receive_json() == {"error": "lease expired"}
             with pytest.raises(WebSocketDisconnect):
@@ -624,7 +638,7 @@ class TestWebSocketLeaseLifecycle:
         monkeypatch.setattr(settings, "offer_subscription_heartbeat_seconds", 0.05)
 
         with patch.object(svc, "renew_lease", new=AsyncMock(side_effect=RuntimeError("redis down"))):
-            ws = self._subscribe(client, node_id)
+            ws, _ack = self._subscribe(client, node_id)
             # The heartbeat survives the renewal failure and still sends a ping.
             msg = ws.receive_json()
             assert msg["type"] == "ping"
@@ -641,7 +655,7 @@ class TestWebSocketLeaseLifecycle:
         subs._ws_connections_by_node.pop(node_id, None)
 
         with patch.object(svc, "validate_lease", new=AsyncMock(side_effect=RuntimeError("boom"))):
-            ws = self._subscribe(client, node_id)
+            ws, _ack = self._subscribe(client, node_id)
             ws.send_json({"type": "pong"})
             # Validation errors are tolerated; the socket stays open for more.
             ws.send_json({"type": "pong"})
@@ -667,8 +681,8 @@ class TestWebSocketLeaseLifecycle:
         subs._ws_connections_by_node.pop(forged, None)
 
         with patch.object(svc, "revoke_lease", new=AsyncMock(wraps=svc.revoke_lease)) as revoke:
-            ws_victim = self._subscribe(client, victim)
-            ws_forged = self._subscribe(client, forged)
+            ws_victim, _v = self._subscribe(client, victim)
+            ws_forged, _f = self._subscribe(client, forged)
             assert subs._ws_connections_by_node[victim] == 1
             assert subs._ws_connections_by_node[forged] == 1
 
