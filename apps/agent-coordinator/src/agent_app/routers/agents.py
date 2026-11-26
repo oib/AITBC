@@ -403,7 +403,19 @@ async def rotate_agent_identity(
             raise HTTPException(status_code=503, detail="Agent registry not available")
         await _consume_identity_nonce(agent_id, request.identity_nonce)
 
-        if not await state.agent_registry.update_agent_identity(agent_id, new_address, request.new_proof):
+        # #3011: compare-and-swap on the verified binding — proofs were
+        # checked against ``old_address`` before the nonce await, so a
+        # concurrent rotation may have moved the binding since. A stale
+        # expected address conflicts instead of committing dead auth.
+        rotation_result = await state.agent_registry.update_agent_identity(
+            agent_id, new_address, request.new_proof, expected_old_address=old_address
+        )
+        if rotation_result == "conflict":
+            raise HTTPException(
+                status_code=409,
+                detail="Agent identity binding changed during rotation; re-read and retry",
+            )
+        if rotation_result != "updated":
             raise HTTPException(status_code=500, detail="Failed to rotate identity")
         # Rotation is the key-compromise response, so revocation is total:
         # pre-rotation JWTs are already dead (their ``wallet`` claim no

@@ -416,7 +416,7 @@
             }
           },
           "409": {
-            "description": "Agent has no bound identity; bind one via POST /v1/agents/register",
+            "description": "Agent identity binding changed during rotation; re-read and retry / Agent has no bound identity; bind one via POST /v1/agents/register",
             "content": {
               "application/json": {
                 "schema": {

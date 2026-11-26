@@ -242,26 +242,46 @@ class AgentRegistry:
             logger.error("Error registering agent %s: %s", agent_info.agent_id, e)
             return False
 
-    async def update_agent_identity(self, agent_id: str, identity_address: str, registered_proof: str) -> bool:
+    async def update_agent_identity(
+        self,
+        agent_id: str,
+        identity_address: str,
+        registered_proof: str,
+        *,
+        expected_old_address: str | None = None,
+    ) -> str:
         """Rebind ``agent_id`` to ``identity_address`` after rotation proofs verify.
 
         The router authenticates the dual-proof scheme (doc §7) before calling
         this; this method only performs the locked swap and persistence.
+
+        ``expected_old_address`` is the compare-and-swap guard (#3011): the
+        router resolves ``old_address`` and verifies the proofs *before* the
+        nonce await, so a concurrent rotation can commit in between. The
+        binding is re-checked under the lock — a stale expected address
+        answers ``"conflict"`` without touching registry state. Returns
+        ``"updated"``, ``"missing"``, ``"conflict"`` or ``"error"``.
         """
         try:
             async with self._lock:
                 agent = self.agents.get(agent_id)
                 if agent is None:
                     logger.warning("Agent %s not found for identity update", agent_id)
-                    return False
+                    return "missing"
+                if expected_old_address is not None and not _same_address(agent.identity_address or "", expected_old_address):
+                    logger.warning(
+                        "Refusing stale identity rotation for agent %s: binding moved during proof verification",
+                        agent_id,
+                    )
+                    return "conflict"
                 agent.identity_address = identity_address
                 agent.registered_proof = registered_proof
             await self._save_agent_to_redis(agent)
             logger.info("Agent %s identity rotated to %s", agent_id, identity_address)
-            return True
+            return "updated"
         except _OPS_ERRORS as e:
             logger.error("Error updating identity for agent %s: %s", agent_id, e)
-            return False
+            return "error"
 
     async def unregister_agent(self, agent_id: str) -> bool:
         """Unregister an agent"""
