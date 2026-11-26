@@ -47,6 +47,7 @@ from .contexts.governance.domain.economic_proposal import EconomicParameterPropo
 from .contexts.governance.domain.slash_appeal import SlashAppeal  # noqa: F401
 from .contexts.governance.routers.economic_proposals import router as economic_proposals_router
 from .contexts.governance.routers.grants import router as grants_router
+from .contexts.market.domain.pending_bond_slash import PendingBondSlash  # noqa: F401
 from .contexts.market.domain.provider_bond import ProviderBond  # noqa: F401
 from .contexts.compliance.finance import NonRepudiationProof, TransactionAuditRecord  # noqa: F401
 from .contexts.compliance.hipaa import ConsentRecord, PHIAccessLog  # noqa: F401

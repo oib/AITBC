@@ -76,6 +76,8 @@ def _provider_bond(db_session, provider_id: str, amount: str = "10", bond_id: st
 
 @pytest.fixture
 def slash_env(monkeypatch):
+    # #2976: pin the immediate path; the appeal window has its own suite.
+    monkeypatch.setenv("BOND_SLASH_WINDOW_ENABLED", "false")
     account = Account.create()
     monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", account.address)
     monkeypatch.setenv("BOND_SLASH_PRIVATE_KEY", account.key.hex())

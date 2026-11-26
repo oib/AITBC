@@ -140,7 +140,10 @@ def test_slash_amount_computed_deterministically():
 @pytest.fixture
 def slash_env(monkeypatch):
     # Use a real keypair so the service can validate that the private key
-    # actually controls the configured authority.
+    # actually controls the configured authority. #2976: these tests pin the
+    # immediate-execution path — the appeal window is covered in
+    # test_pending_bond_slash_window.py.
+    monkeypatch.setenv("BOND_SLASH_WINDOW_ENABLED", "false")
     account = Account.create()
     monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", account.address)
     monkeypatch.setenv("BOND_SLASH_PRIVATE_KEY", account.key.hex())

@@ -24,16 +24,24 @@ from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
-from sqlmodel import Session, select
+from sqlalchemy import update as sa_update
+from sqlmodel import Session, col, select
 
 from ....config import settings
 from ...infrastructure.domain import Job, Miner
 from ...payments.provider_binding import miner_wallet_address
+from ..domain.pending_bond_slash import (
+    PendingBondSlash,
+    PendingBondSlashStatus,
+    utcnow,
+)
 from ..domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
     _default_bond_min_amount,
     apply_bond_slash_cas,
+    stage_bond_projection,
+    suspension_event_id,
 )
 from starlette.concurrency import run_in_threadpool
 
@@ -90,6 +98,56 @@ _SLASH_RATES: dict[SlashingCondition, Decimal] = {
     SlashingCondition.FRAUD: Decimal("0.50"),
     SlashingCondition.BAD_RESULT: Decimal("0.30"),
 }
+
+# #2976: pre-burn appeal window for AUTOMATIC slashes. Detection enqueues a
+# durable pending_bond_slash row and freezes eligibility through the #2966
+# suspension meta flag; the sweeper executes the existing submit+CAS path once
+# the window expires. ``fraud`` has no window — a fraud appeal would be the
+# authority appealing to itself — and BOND_SLASH_WINDOW_ENABLED=false restores
+# the pre-window immediate execution for every condition.
+_APPEAL_WINDOW_ENV: dict[SlashingCondition, str] = {
+    SlashingCondition.DOWNTIME: "BOND_SLASH_WINDOW_DOWNTIME_SECONDS",
+    SlashingCondition.BAD_RESULT: "BOND_SLASH_WINDOW_BAD_RESULT_SECONDS",
+}
+_APPEAL_WINDOW_DEFAULTS: dict[SlashingCondition, int] = {
+    SlashingCondition.DOWNTIME: 900,
+    SlashingCondition.BAD_RESULT: 3600,
+}
+# ``suspended_by`` value marking a suspension the slash-window detector owns —
+# the executor lifts it only when the LAST open pending row for the bond
+# resolves, and never touches an operator suspension.
+_AUTO_SLASH_SUSPENDED_BY = "bond-slash-window"
+# Executor bounds: a claimed row that never records (crash between submit and
+# CAS) is reclaimed after this age via a chain point-read; a row that keeps
+# failing to submit lands FAILED after this many claims.
+_STALE_EXECUTING_SECONDS = 600
+_MAX_PENDING_ATTEMPTS = 3
+_PENDING_EXECUTE_BATCH = 50
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        logger.warning("Invalid %s; falling back to %s", name, default)
+        return default
+
+
+def _appeal_window_seconds(condition: SlashingCondition) -> int | None:
+    """Seconds a detected slash waits for appeal, or ``None`` for immediate.
+
+    ``fraud`` never windows; ``BOND_SLASH_WINDOW_ENABLED=false`` windows
+    nothing; a configured 0 window executes inline exactly like today.
+    """
+    if condition == SlashingCondition.FRAUD:
+        return None
+    enabled = os.getenv("BOND_SLASH_WINDOW_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+    if not enabled:
+        return None
+    env_name = _APPEAL_WINDOW_ENV.get(condition)
+    if env_name is None:
+        return None
+    return _env_int(env_name, _APPEAL_WINDOW_DEFAULTS[condition])
 
 
 @dataclass(frozen=True)
@@ -234,7 +292,7 @@ class BondSlashingService:
         return _compute_slash_amount(bond, condition)
 
     async def slash(self, job: Job, condition: SlashingCondition, evidence: str) -> dict[str, Any]:
-        """Detect the condition and submit a BOND_SLASH transaction if configured."""
+        """Detect the condition; windowed slashes enqueue, the rest submit now."""
         if not self.slash_authority or not self.slash_private_key or not self.bond_burn_address:
             logger.warning("Bond slashing is not configured; skipping slash for job %s", job.id)
             return {"slashed": False, "reason": "slashing not configured"}
@@ -251,6 +309,18 @@ class BondSlashingService:
         if cooldown_skip is not None:
             return cooldown_skip
 
+        # #2976: windowed conditions enqueue a pending row + eligibility
+        # suspension instead of submitting inline; fraud, the kill-switch and
+        # a 0-second window keep the immediate path.
+        window = _appeal_window_seconds(condition)
+        if window is not None and window > 0:
+            return await self._enqueue_pending_slash(job, bond, condition, evidence, window)
+        return await self._execute_slash_now(job, bond, condition, evidence)
+
+    async def _execute_slash_now(
+        self, job: Job, bond: ProviderBond, condition: SlashingCondition, evidence: str
+    ) -> dict[str, Any]:
+        """The pre-#2976 inline path: prepare, build, submit, record."""
         prepared = await self._prepare_slash(job, bond, condition)
         if isinstance(prepared, dict):
             return prepared
@@ -269,7 +339,7 @@ class BondSlashingService:
             return {"slashed": False, "reason": "nonce refused twice"}
 
         return self._record_slash_result(
-            job,
+            job.id,
             bond,
             condition,
             evidence,
@@ -280,6 +350,77 @@ class BondSlashingService:
             expected_updated_at=expected_updated_at,
             bond_pk=bond_pk,
         )
+
+    async def _enqueue_pending_slash(
+        self,
+        job: Job,
+        bond: ProviderBond,
+        condition: SlashingCondition,
+        evidence: str,
+        window_seconds: int,
+    ) -> dict[str, Any]:
+        """#2976: record the violation and freeze eligibility — no chain tx.
+
+        Creates the durable ``pending_bond_slash`` row with the slash amount
+        snapshotted at detection, and — only when the bond is not already
+        suspended — writes the #2966 suspension meta flag so
+        ``is_provider_eligible`` reports False while the appeal window runs.
+        ``ProviderBond.status`` is untouched: the slasher keeps selecting the
+        row and compound violations add independent pending rows. An existing
+        suspension (operator or an earlier pending row) is never clobbered —
+        the new row just records the live ``suspension_event_id``.
+        """
+        prepared = await self._prepare_slash(job, bond, condition)
+        if isinstance(prepared, dict):
+            return prepared
+        slash_amount, _provider, bond_id, _expected_amount, _expected_updated_at, bond_pk = prepared
+
+        now = utcnow()
+        existing_event = suspension_event_id(bond)
+        pending = PendingBondSlash(
+            job_id=job.id,
+            bond_id=bond_id,
+            bond_pk=bond_pk,
+            provider_id=bond.provider_id,
+            condition=condition.value,
+            slash_rate=str(_SLASH_RATES.get(condition, Decimal("0.10"))),
+            slash_amount_units=slash_amount,
+            pre_slash_amount_units=ait_to_units(bond.amount),
+            evidence=evidence,
+            suspension_event_id=existing_event or "",
+            detected_at=now,
+            window_ends_at=now + timedelta(seconds=window_seconds),
+        )
+        self.session.add(pending)
+        if existing_event is None:
+            # The first pending row on an unsuspended bond owns the suspension
+            # event — its own id — so a slash appeal binds
+            # slash_event_id == suspension_event_id == pending.id.
+            pending.suspension_event_id = pending.id
+            suspended_meta = {
+                **(bond.meta or {}),
+                "suspension_event_id": pending.id,
+                "suspended_at": datetime.now(UTC).isoformat(),
+                "suspended_by": _AUTO_SLASH_SUSPENDED_BY,
+                "suspension_reason": f"auto-slash-pending:{pending.id} condition={condition.value}",
+            }
+            if not stage_bond_projection(self.session, bond, meta=suspended_meta):
+                self.session.rollback()  # noqa: unawaited-async — sync Session (sqlmodel)
+                return {"slashed": False, "reason": "bond changed during slash-window enqueue"}
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        logger.info(
+            "Bond slash for job %s queued as %s (%s, %.0fs window)",
+            job.id,
+            pending.id,
+            condition.value,
+            window_seconds,
+        )
+        return {
+            "slashed": False,
+            "reason": "slash pending appeal window",
+            "pending_id": pending.id,
+            "window_ends_at": pending.window_ends_at.isoformat(),
+        }
 
     async def _downtime_cooldown_skip(
         self, job: Job, bond: ProviderBond, condition: SlashingCondition
@@ -342,7 +483,7 @@ class BondSlashingService:
 
     def _record_slash_result(
         self,
-        job: Job,
+        job_id: str,
         bond: ProviderBond,
         condition: SlashingCondition,
         evidence: str,
@@ -370,12 +511,12 @@ class BondSlashingService:
             "slash_evidence": evidence,
             "slash_amount": str(slash_amount),
             "slash_tx_hash": tx_hash,
-            "slash_job_id": job.id,
+            "slash_job_id": job_id,
             "slashed_at": datetime.now(UTC).isoformat(),
         }
         if condition == SlashingCondition.DOWNTIME:
             slash_meta["last_downtime_slash_at"] = slash_meta["slashed_at"]
-            slash_meta["last_downtime_slash_job_id"] = job.id
+            slash_meta["last_downtime_slash_job_id"] = job_id
         merged_meta = {
             **(bond.meta or {}),
             **slash_meta,
@@ -395,7 +536,7 @@ class BondSlashingService:
                 "BOND_SLASH tx %s for job %s succeeded on chain but the bond row %s "
                 "changed before the CAS write; off-chain record not updated",
                 tx_hash,
-                job.id,
+                job_id,
                 bond_pk,
             )
             return {
@@ -414,7 +555,7 @@ class BondSlashingService:
             condition,
             slash_amount,
             tx_hash,
-            job.id,
+            job_id,
         )
         return {
             "slashed": True,
@@ -528,3 +669,319 @@ class BondSlashingService:
         client = AITBCHTTPClient(timeout=10.0)
         body = {**tx, "signature": signature}
         return client.post(f"{self.blockchain_rpc_url}/rpc/transaction", json=body)
+
+    # ------------------------------------------------------------------
+    # #2976: appeal-window executor — the only path that submits BOND_SLASH
+    # for windowed conditions. Driven by BondSlashSweeper.run_once.
+    # ------------------------------------------------------------------
+
+    async def execute_due_pending(self) -> dict[str, int]:
+        """One executor pass: reclaim stale claims, then run due rows.
+
+        Returns outcome counts for logging/tests. Detection never submits a
+        chain transaction, so every windowed slash reaches the chain here.
+        """
+        counts = {"reconciled": 0, "executed": 0, "retried": 0, "failed": 0, "moot": 0, "skipped": 0}
+        if not (self.slash_authority and self.slash_private_key and self.bond_burn_address):
+            return counts
+        now = utcnow()
+        stale_cutoff = now - timedelta(seconds=_STALE_EXECUTING_SECONDS)
+        stale_rows = list(
+            self.session.exec(
+                select(PendingBondSlash)
+                .where(col(PendingBondSlash.status) == PendingBondSlashStatus.EXECUTING.value)
+                .where(col(PendingBondSlash.claimed_at).is_not(None))
+                .where(col(PendingBondSlash.claimed_at) < stale_cutoff)
+            ).all()
+        )
+        for row in stale_rows:
+            counts[await self._reclaim_stale_executing(row)] += 1
+        due_rows = list(
+            self.session.exec(
+                select(PendingBondSlash)
+                .where(col(PendingBondSlash.status) == PendingBondSlashStatus.PENDING.value)
+                .where(col(PendingBondSlash.window_ends_at) <= now)
+                .order_by(col(PendingBondSlash.window_ends_at))
+                .limit(_PENDING_EXECUTE_BATCH)
+            ).all()
+        )
+        for row in due_rows:
+            counts[await self._execute_pending_row(row)] += 1
+        return counts
+
+    def _claim_pending(self, row: PendingBondSlash) -> bool:
+        """CAS-claim pending->executing; only the winner submits."""
+        now = utcnow()
+        result = self.session.execute(
+            sa_update(PendingBondSlash)
+            .where(col(PendingBondSlash.id) == row.id)
+            .where(col(PendingBondSlash.status) == PendingBondSlashStatus.PENDING.value)
+            .values(
+                status=PendingBondSlashStatus.EXECUTING.value,
+                claimed_at=now,
+                attempts=PendingBondSlash.attempts + 1,
+                updated_at=now,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(result, "rowcount", 0) != 1:
+            return False
+        self.session.refresh(row)
+        return True
+
+    def _bond_for_pending(self, row: PendingBondSlash) -> ProviderBond | None:
+        """Resolve the bond row the pending slash targets.
+
+        Prefers the primary key pinned at detection; falls back to the
+        (provider_id, bond_id) pair — the same lookup slash-appeal review uses.
+        """
+        if row.bond_pk:
+            bond = self.session.get(ProviderBond, row.bond_pk)
+            if bond is not None and bond.bond_id == row.bond_id:
+                return bond
+        return self.session.exec(
+            select(ProviderBond).where(
+                ProviderBond.provider_id == row.provider_id,
+                ProviderBond.bond_id == row.bond_id,
+            )
+        ).first()
+
+    async def _execute_pending_row(self, row: PendingBondSlash) -> str:
+        """Claim and execute one due row; returns the outcome bucket."""
+        if not self._claim_pending(row):
+            return "skipped"
+        try:
+            return await self._run_claimed_pending(row)
+        except NetworkError as e:
+            logger.error("Network error executing pending bond slash %s: %s", row.id, e)
+            return self._record_attempt_failure(row, e)
+        except _OPS_ERRORS as e:
+            logger.error("Failed to execute pending bond slash %s: %s", row.id, e)
+            return self._record_attempt_failure(row, e)
+
+    async def _run_claimed_pending(self, row: PendingBondSlash) -> str:
+        """Submit+record body for a claimed row — mirrors _execute_slash_now
+        but takes the detection-time amount snapshot off the row."""
+        bond = self._bond_for_pending(row)
+        slashable = {
+            ProviderBondStatus.ACTIVE.value,
+            ProviderBondStatus.LOCKED.value,
+            ProviderBondStatus.SHORTFALL.value,
+        }
+        if bond is None or bond.status not in slashable or bond.bond_id != row.bond_id:
+            self._finish_pending(row, PendingBondSlashStatus.CANCELLED, last_error="bond no longer slashable")
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            return "moot"
+        await run_in_threadpool(self.session.refresh, bond)
+        slash_amount = min(row.slash_amount_units, int(bond.amount))
+        if slash_amount <= 0:
+            self._finish_pending(row, PendingBondSlashStatus.CANCELLED, last_error="bond amount exhausted")
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            return "moot"
+        miner = self.session.get(Miner, row.provider_id)
+        provider = _bond_payout_wallet(bond, miner)
+        if not provider:
+            return self._record_attempt_failure(row, RuntimeError("miner has no wallet"))
+
+        expected_amount, expected_updated_at, bond_pk = bond.amount, bond.updated_at, bond.id
+        bond_id = bond.bond_id or row.bond_id
+        condition = SlashingCondition(row.condition)
+
+        tx = self._build_slash_tx(bond_id, provider, slash_amount)
+        result = await self._submit_slash_tx(tx, row.job_id or row.id)
+        if result is None:
+            return self._record_attempt_failure(row, RuntimeError("nonce refused twice"))
+
+        recorded = self._record_slash_result(
+            row.job_id,
+            bond,
+            condition,
+            row.evidence,
+            bond_id,
+            slash_amount,
+            result,
+            expected_amount=expected_amount,
+            expected_updated_at=expected_updated_at,
+            bond_pk=bond_pk,
+        )
+        tx_hash = recorded.get("tx_hash") or ""
+        self._finish_pending(row, PendingBondSlashStatus.EXECUTED, submitted_tx_hash=tx_hash)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self._post_execute_pending(row)
+        return "executed"
+
+    def _finish_pending(
+        self,
+        row: PendingBondSlash,
+        status: PendingBondSlashStatus,
+        *,
+        submitted_tx_hash: str = "",
+        last_error: str = "",
+    ) -> None:
+        """Terminal/stage transition on the row; caller owns the commit."""
+        row.status = status.value
+        if submitted_tx_hash:
+            row.submitted_tx_hash = submitted_tx_hash
+        row.claimed_at = None
+        row.last_error = last_error[:500]
+        row.updated_at = utcnow()
+        self.session.add(row)
+
+    def _record_attempt_failure(self, row: PendingBondSlash, exc: BaseException) -> str:
+        """Bounded retry: back to pending until _MAX_PENDING_ATTEMPTS, then FAILED.
+
+        ``window_ends_at`` stays in the past so the next sweep retries
+        immediately; the attempt counter (incremented at claim) bounds the
+        loop. FAILED rows need operator attention — the violation was real but
+        the slash could not be submitted.
+        """
+        if row.attempts >= _MAX_PENDING_ATTEMPTS:
+            self._finish_pending(row, PendingBondSlashStatus.FAILED, last_error=str(exc))
+            self.session.commit()
+            logger.error(
+                "Pending bond slash %s (bond %s, job %s) FAILED after %s attempts: %s",
+                row.id,
+                row.bond_id,
+                row.job_id,
+                row.attempts,
+                exc,
+            )
+            return "failed"
+        self._finish_pending(row, PendingBondSlashStatus.PENDING, last_error=str(exc))
+        self.session.commit()
+        return "retried"
+
+    def _post_execute_pending(self, row: PendingBondSlash) -> None:
+        """Post-execution bookkeeping once a pending row lands EXECUTED.
+
+        Suspension lift rule: the auto-slash suspension covers ALL pending rows
+        detected under one ``suspension_event_id`` (compound violations), so it
+        is lifted only when no pending/executing rows remain for the bond AND
+        the live suspension is still the one the detector wrote
+        (``suspended_by == _AUTO_SLASH_SUSPENDED_BY``). An operator suspension
+        is never lifted here. In the same commit, open slash appeals bound to
+        the lifted event close as rejected — the window expired and the slash
+        executed, so the appeal is moot.
+        """
+        open_rows = list(
+            self.session.exec(
+                select(PendingBondSlash).where(
+                    col(PendingBondSlash.bond_id) == row.bond_id,
+                    col(PendingBondSlash.status).in_(
+                        [PendingBondSlashStatus.PENDING.value, PendingBondSlashStatus.EXECUTING.value]
+                    ),
+                )
+            ).all()
+        )
+        if open_rows:
+            return
+        bond = self._bond_for_pending(row)
+        if bond is None:
+            return
+        meta = bond.meta or {}
+        event_id = meta.get("suspension_event_id")
+        if meta.get("suspended_by") != _AUTO_SLASH_SUSPENDED_BY or not event_id:
+            return
+        resolved_meta = {key: value for key, value in meta.items() if key != "suspension_event_id"}
+        if not stage_bond_projection(self.session, bond, meta=resolved_meta):
+            self.session.rollback()
+            logger.error(
+                "Pending slash %s executed but the suspension lift CAS failed for bond %s; retry manually",
+                row.id,
+                row.bond_id,
+            )
+            return
+        from ...governance.domain.slash_appeal import SlashAppeal, SlashAppealStatus
+
+        self.session.execute(
+            sa_update(SlashAppeal)
+            .where(col(SlashAppeal.bond_id) == row.bond_id)
+            .where(col(SlashAppeal.slash_event_id) == event_id)
+            .where(col(SlashAppeal.status).in_([SlashAppealStatus.SUBMITTED.value, SlashAppealStatus.UNDER_REVIEW.value]))
+            .values(
+                status=SlashAppealStatus.REJECTED.value,
+                reviewer_notes="window expired; slash executed",
+                updated_at=utcnow(),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        self.session.commit()
+        logger.info(
+            "Pending slash %s executed; lifted auto-slash suspension %s on bond %s and closed bound appeals",
+            row.id,
+            event_id,
+            row.bond_id,
+        )
+
+    async def _reclaim_stale_executing(self, row: PendingBondSlash) -> str:
+        """Recover a row claimed >_STALE_EXECUTING_SECONDS ago (crash between
+        submit and record). Point-reads the chain: if the slash landed, mark
+        EXECUTED with the observed hash and run post-steps; otherwise return
+        the row to PENDING for a fresh submit."""
+        from ...blockchain.services.blockchain import BlockchainService
+
+        try:
+            chain = await run_in_threadpool(BlockchainService().get_bond, row.bond_id)
+        except _OPS_ERRORS as e:
+            logger.warning("Chain point-read failed reconciling pending slash %s: %s", row.id, e)
+            return "skipped"
+        if self._chain_shows_slash(chain, row):
+            observed = ""
+            if isinstance(chain, dict):
+                observed = str(chain.get("slashed_tx_hash") or "")
+            now = utcnow()
+            result = self.session.execute(
+                sa_update(PendingBondSlash)
+                .where(col(PendingBondSlash.id) == row.id)
+                .where(col(PendingBondSlash.status) == PendingBondSlashStatus.EXECUTING.value)
+                .values(
+                    status=PendingBondSlashStatus.EXECUTED.value,
+                    submitted_tx_hash=observed or row.submitted_tx_hash,
+                    claimed_at=None,
+                    updated_at=now,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(result, "rowcount", 0) != 1:
+                return "skipped"
+            self.session.refresh(row)  # noqa: unawaited-async — sync Session (sqlmodel)
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            self._post_execute_pending(row)
+            logger.info("Pending slash %s reconciled as executed from chain state (tx %s)", row.id, observed)
+            return "reconciled"
+        # The submit never landed — safe to resubmit.
+        now = utcnow()
+        result = self.session.execute(
+            sa_update(PendingBondSlash)
+            .where(col(PendingBondSlash.id) == row.id)
+            .where(col(PendingBondSlash.status) == PendingBondSlashStatus.EXECUTING.value)
+            .values(status=PendingBondSlashStatus.PENDING.value, claimed_at=None, updated_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(result, "rowcount", 0) == 1:
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            return "retried"
+        return "skipped"
+
+    @staticmethod
+    def _chain_shows_slash(chain: Any, row: PendingBondSlash) -> bool:
+        """Heuristic: did THIS bond's slash land on-chain?
+
+        ``status == "slashed"`` is definitive; otherwise a recorded
+        ``slashed_tx_hash`` or a chain amount below the detection snapshot
+        counts. Compound rows share a bond, so a sibling's slash can satisfy
+        this — acceptable per the ratified design (the bond was slashed; the
+        row's own submit is then moot) and documented here.
+        """
+        if not isinstance(chain, dict) or chain.get("success") is not True:
+            return False
+        if chain.get("status") == "slashed":
+            return True
+        amount = chain.get("amount")
+        amount_units = amount if isinstance(amount, int) and not isinstance(amount, bool) else None
+        dropped = amount_units is not None and row.pre_slash_amount_units > 0 and amount_units < row.pre_slash_amount_units
+        if dropped:
+            return True
+        # A recorded slash hash with an unreadable amount still counts as
+        # landed; with a readable amount it must accompany the drop above.
+        return bool(chain.get("slashed_tx_hash")) and amount_units is None

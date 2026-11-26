@@ -126,6 +126,16 @@ class BondSlashSweeper:
                 except _OPS_ERRORS as e:
                     counts["failed"] += 1
                     logger.error("Bond slash sweep raised for job %s: %s", job.id, e)
+            # #2976: second pass — execute pending_bond_slash rows whose appeal
+            # window has expired (and reclaim stale executing claims). Runs in
+            # the same session; detection above only ever enqueues.
+            try:
+                exec_counts = await BondSlashingService(session).execute_due_pending()
+                for key, value in exec_counts.items():
+                    counts[f"pending_{key}"] = counts.get(f"pending_{key}", 0) + value
+            except _OPS_ERRORS as e:
+                counts["failed"] += 1
+                logger.error("Pending bond-slash execution pass failed: %s", e)
         logger.debug(
             "Bond slash sweep complete: stale=%s slashed=%s failed=%s skipped=%s",
             counts["stale"],

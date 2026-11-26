@@ -32,6 +32,7 @@ from aitbc.exceptions import AITBCError
 from aitbc.utils.units import units_to_ait
 
 from ...blockchain.services.blockchain import BlockchainService
+from ...market.domain.pending_bond_slash import PendingBondSlash, PendingBondSlashStatus
 from ...market.domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
@@ -249,7 +250,9 @@ def resolve_slash_appeal(
         raise _conflict("no bond matches the appeal's provider_id/bond_id")
 
     now = datetime.now(UTC)
+    suspended = False
     if decision == "accepted":
+        _, suspended = _appeal_target_state(bond, appeal)
         bond_status = _stage_accepted_bond(session, bond, appeal, reviewer, now)
     else:
         bond_status = projected_bond_status(bond)
@@ -264,6 +267,28 @@ def resolve_slash_appeal(
     if getattr(appeal_result, "rowcount", 0) != 1:
         session.rollback()
         raise _conflict("appeal changed while being resolved; retry")
+    if decision == "accepted" and suspended:
+        # #2976: an accepted appeal against a live suspension also cancels the
+        # bond's still-open pending_bond_slash rows — in THIS transaction, so a
+        # stale row rolls back with the rest (409 above). Only rows whose
+        # appeal window has NOT yet expired are cancelled: a row past
+        # window_ends_at is already the executor's problem (status executing/
+        # executed) and accept cannot unburn a submitted slash. ``executing``
+        # rows are never touched — a submit may be in flight.
+        now_naive = now.replace(tzinfo=None)
+        session.execute(
+            update(PendingBondSlash)
+            .where(col(PendingBondSlash.bond_id) == appeal.bond_id)
+            .where(col(PendingBondSlash.provider_id) == appeal.provider_id)
+            .where(col(PendingBondSlash.status) == PendingBondSlashStatus.PENDING.value)
+            .where(col(PendingBondSlash.window_ends_at) > now_naive)
+            .values(
+                status=PendingBondSlashStatus.CANCELLED.value,
+                appeal_id=appeal.id,
+                updated_at=now_naive,
+            )
+            .execution_options(synchronize_session=False)
+        )
     session.commit()
     logger.info("slash appeal %s resolved as %s by %s", appeal.id, decision, reviewer)
 
