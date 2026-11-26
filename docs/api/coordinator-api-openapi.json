@@ -41302,6 +41302,8 @@
           },
           "poly_modulus_degree": {
             "type": "integer",
+            "maximum": 32768.0,
+            "minimum": 4096.0,
             "title": "Poly Modulus Degree",
             "default": 8192
           },

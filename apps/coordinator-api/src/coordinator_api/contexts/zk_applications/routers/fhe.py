@@ -8,11 +8,14 @@ otherwise return 503. Install the optional ``[fhe]`` dependency group or
 from __future__ import annotations
 
 import base64
+import threading
+import time
+from collections import OrderedDict
 from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ....auth import AuthDep
 from ..services.fhe_service import EncryptedData, FHEService, FHEContext
@@ -39,16 +42,110 @@ def _get_service() -> FHEService:
 
 # In-memory registries keyed by UUID. Encrypted payloads are returned as
 # base64 so clients can store or pass them without binary transport issues.
-_contexts: dict[str, FHEContext] = {}
-_encrypted: dict[str, EncryptedData] = {}
+#
+# Both registries are bounded (issue #3037): every stored FHEContext or
+# EncryptedData can hold hundreds of MB of serialized keys/ciphertext at
+# large ring dimensions, and the endpoints admit any authenticated client,
+# so unbounded growth would let a caller exhaust coordinator-api memory.
+# Entries expire after a TTL and the stores evict oldest-first past a cap.
+# 50 contexts / 500 ciphertexts / 1h TTL is generous for interactive use —
+# a legitimate job needs only a handful of each — while bounding worst-case
+# retention. Contexts and ciphertexts are ephemeral compute artifacts;
+# clients that need durability should keep the base64 payloads they were
+# already given.
+_CONTEXT_TTL_SECONDS = 3600.0
+_ENCRYPTED_TTL_SECONDS = 3600.0
+_MAX_CONTEXTS = 50
+_MAX_ENCRYPTED = 500
+
+_registry_lock = threading.Lock()
+# id -> (value, monotonic expiry); OrderedDict keeps oldest-first eviction.
+_contexts: OrderedDict[str, tuple[FHEContext, float]] = OrderedDict()
+_encrypted: OrderedDict[str, tuple[EncryptedData, float]] = OrderedDict()
+
+
+def _sweep(store: OrderedDict[str, tuple[Any, float]], now: float) -> None:
+    """Drop expired entries."""
+    expired = [key for key, (_, expires_at) in store.items() if expires_at <= now]
+    for key in expired:
+        store.pop(key, None)
+
+
+def _store_put(
+    store: OrderedDict[str, tuple[Any, float]],
+    key: str,
+    value: Any,
+    cap: int,
+    ttl_seconds: float,
+) -> None:
+    now = time.monotonic()
+    _sweep(store, now)
+    store[key] = (value, now + ttl_seconds)
+    store.move_to_end(key)
+    while len(store) > cap:
+        store.popitem(last=False)
+
+
+def _store_get(store: OrderedDict[str, tuple[Any, float]], key: str) -> Any | None:
+    """Return a live entry; None if absent or expired.
+
+    Reads refresh recency (LRU order) but not the expiry timestamp — the
+    TTL runs from creation so a forgotten entry cannot be kept alive
+    forever by polling.
+    """
+    entry = store.get(key)
+    if entry is None:
+        return None
+    value, expires_at = entry
+    if expires_at <= time.monotonic():
+        store.pop(key, None)
+        return None
+    store.move_to_end(key)
+    return value
+
+
+def _put_context(context_id: str, context: FHEContext) -> None:
+    with _registry_lock:
+        _store_put(_contexts, context_id, context, _MAX_CONTEXTS, _CONTEXT_TTL_SECONDS)
+
+
+def _get_context(context_id: str) -> FHEContext | None:
+    with _registry_lock:
+        return _store_get(_contexts, context_id)
+
+
+def _put_encrypted(encrypted_id: str, encrypted: EncryptedData) -> None:
+    with _registry_lock:
+        _store_put(_encrypted, encrypted_id, encrypted, _MAX_ENCRYPTED, _ENCRYPTED_TTL_SECONDS)
+
+
+def _get_encrypted(encrypted_id: str) -> EncryptedData | None:
+    with _registry_lock:
+        return _store_get(_encrypted, encrypted_id)
+
+
+# Ring dimensions supported by both FHE backends: powers of two between
+# 4096 and 32768 (TenSEAL's valid set in that range is exactly the powers
+# of two; OpenFHE accepts any power of two >= 1024). Larger degrees grow
+# context/key/ciphertext memory roughly linearly and are the main memory
+# risk behind #3037, so the API rejects them outright.
+_MIN_POLY_MODULUS_DEGREE = 4096
+_MAX_POLY_MODULUS_DEGREE = 32768
 
 
 class GenerateContextRequest(BaseModel):
     """Request to generate FHE context"""
 
     scheme: str = "ckks"
-    poly_modulus_degree: int = 8192
+    poly_modulus_degree: int = Field(default=8192, ge=_MIN_POLY_MODULUS_DEGREE, le=_MAX_POLY_MODULUS_DEGREE)
     plain_modulus: int = 1032193
+
+    @field_validator("poly_modulus_degree")
+    @classmethod
+    def _degree_must_be_power_of_two(cls, value: int) -> int:
+        if value & (value - 1) != 0:
+            raise ValueError("poly_modulus_degree must be a power of two")
+        return value
 
 
 class EncryptRequest(BaseModel):
@@ -112,7 +209,7 @@ def _ensure_available() -> None:
 
 def _encrypted_response(encrypted: EncryptedData) -> dict[str, Any]:
     encrypted_id = uuid4().hex
-    _encrypted[encrypted_id] = encrypted
+    _put_encrypted(encrypted_id, encrypted)
     return {
         "encrypted_id": encrypted_id,
         "context_id": None,  # caller already knows the context
@@ -145,7 +242,7 @@ def generate_context(req: GenerateContextRequest, current_user: AuthDep, *, requ
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     context_id = uuid4().hex
-    _contexts[context_id] = context
+    _put_context(context_id, context)
     return _context_response(context_id, context)
 
 
@@ -154,9 +251,9 @@ def generate_context(req: GenerateContextRequest, current_user: AuthDep, *, requ
 def encrypt_data(req: EncryptRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Encrypt plaintext data using FHE."""
     _ensure_available()
-    if req.context_id not in _contexts:
+    context = _get_context(req.context_id)
+    if context is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FHE context not found")
-    context = _contexts[req.context_id]
     import numpy as np
 
     data = np.array(req.data, dtype=np.float64)
@@ -172,9 +269,9 @@ def encrypt_data(req: EncryptRequest, current_user: AuthDep, *, request: Request
 def decrypt_data(req: DecryptRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Decrypt FHE-encrypted data."""
     _ensure_available()
-    if req.encrypted_id not in _encrypted:
+    encrypted = _get_encrypted(req.encrypted_id)
+    if encrypted is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
-    encrypted = _encrypted[req.encrypted_id]
     try:
         plaintext = _get_service().decrypt_ml_data(encrypted)
     except ValueError as exc:
@@ -187,14 +284,16 @@ def decrypt_data(req: DecryptRequest, current_user: AuthDep, *, request: Request
 def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Perform homomorphic addition: E(a) + E(b) = E(a + b)."""
     _ensure_available()
-    if req.context_id not in _contexts:
+    if _get_context(req.context_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FHE context not found")
     if not req.encrypted_b_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="encrypted_b_id is required")
-    if req.encrypted_a_id not in _encrypted or req.encrypted_b_id not in _encrypted:
+    encrypted_a = _get_encrypted(req.encrypted_a_id)
+    encrypted_b = _get_encrypted(req.encrypted_b_id)
+    if encrypted_a is None or encrypted_b is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     try:
-        result = _get_service().add(_encrypted[req.encrypted_a_id], _encrypted[req.encrypted_b_id])
+        result = _get_service().add(encrypted_a, encrypted_b)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(result)
@@ -205,14 +304,15 @@ def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep, *, request
 def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Perform homomorphic multiplication by scalar: E(a) * s = E(a*s)."""
     _ensure_available()
-    if req.context_id not in _contexts:
+    if _get_context(req.context_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FHE context not found")
     if req.scalar is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="scalar is required")
-    if req.encrypted_a_id not in _encrypted:
+    encrypted_a = _get_encrypted(req.encrypted_a_id)
+    if encrypted_a is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     try:
-        result = _get_service().multiply_scalar(_encrypted[req.encrypted_a_id], float(req.scalar))
+        result = _get_service().multiply_scalar(encrypted_a, float(req.scalar))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(result)
@@ -223,12 +323,13 @@ def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep, *, re
 def encrypted_inference(req: InferenceRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Perform ML inference on encrypted data."""
     _ensure_available()
-    if req.context_id not in _contexts:
+    if _get_context(req.context_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FHE context not found")
-    if req.encrypted_input_id not in _encrypted:
+    encrypted_input = _get_encrypted(req.encrypted_input_id)
+    if encrypted_input is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     try:
-        result = _get_service().encrypted_inference(req.model, _encrypted[req.encrypted_input_id])
+        result = _get_service().encrypted_inference(req.model, encrypted_input)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(result)
@@ -238,9 +339,10 @@ def encrypted_inference(req: InferenceRequest, current_user: AuthDep, *, request
 def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, Any]:
     """Get information about an FHE context."""
     _ensure_available()
-    if context_id not in _contexts:
+    context = _get_context(context_id)
+    if context is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FHE context not found")
-    return _context_response(context_id, _contexts[context_id])
+    return _context_response(context_id, context)
 
 
 @router.get("/health", summary="Health check")
