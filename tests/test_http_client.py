@@ -600,3 +600,146 @@ class TestAsyncJsonInsideRetryBoundary:
         with patch("httpx.AsyncClient.get", side_effect=[bad, good]):
             result = await client.get("/test")
         assert result == {"ok": True}
+
+
+class TestDefinitiveNegativeBreakerAccounting:
+    """AUDIT-CIRCUIT-BREAKER-404-STARVATION-1 (#3036): a 4xx the node returns
+    is a definitive application answer — it proves the host is reachable and
+    must not count toward the circuit breaker, or repeated "no escrow
+    exists" 404 probes starve all traffic on that host for the open window.
+    Auth/throttle 4xx (401/403/408/425/429), 5xx and transport errors still
+    count. Callers keep the same NetworkError contract either way."""
+
+    @staticmethod
+    def _requests_error(status):
+        resp = MagicMock()
+        resp.status_code = status
+        resp.json.return_value = {"detail": "no escrow"}
+        err = requests.HTTPError(f"{status} Error for url: http://node.test/x")
+        err.response = resp
+        return err
+
+    @staticmethod
+    def _httpx_error(status):
+        import httpx
+
+        req = httpx.Request("GET", "http://node.test/x")
+        resp = httpx.Response(status, json={"detail": "no escrow"}, request=req)
+        return httpx.HTTPStatusError(f"{status} error", request=req, response=resp)
+
+    def _sync_client(self, threshold=2):
+        return AITBCHTTPClient(base_url="http://node.test", circuit_breaker_threshold=threshold, max_retries=0)
+
+    def test_sync_repeated_404s_never_open_breaker(self):
+        client = self._sync_client()
+        for _ in range(6):
+            with patch.object(client.session, "get", side_effect=self._requests_error(404)):
+                with pytest.raises(NetworkError):
+                    client.get("/rpc/escrow/job-1")
+        assert client.circuit_breaker.is_open is False
+        assert client.circuit_breaker.failure_count == 0
+
+    def test_sync_404_preserves_caller_error_contract(self):
+        """The caller still sees NetworkError wrapping the HTTP status error —
+        payments_helpers._find_http_status_error walks this chain for 404."""
+        client = self._sync_client()
+        err = self._requests_error(404)
+        with patch.object(client.session, "get", side_effect=err):
+            with pytest.raises(NetworkError) as exc:
+                client.get("/rpc/escrow/job-1")
+        assert exc.value.__cause__ is err
+        assert exc.value.__cause__.response.status_code == 404
+
+    def test_sync_404_does_not_reset_or_grow_failure_count(self):
+        """Mixed sequence: 404 is neutral — it neither forgives the accrued
+        5xx failure nor adds one, so two real failures still open."""
+        client = self._sync_client()
+        with patch.object(client.session, "get", side_effect=self._requests_error(500)):
+            with pytest.raises(NetworkError):
+                client.get("/x")
+        assert client.circuit_breaker.failure_count == 1
+        with patch.object(client.session, "get", side_effect=self._requests_error(404)):
+            with pytest.raises(NetworkError):
+                client.get("/rpc/escrow/job-1")
+        assert client.circuit_breaker.failure_count == 1
+        assert client.circuit_breaker.is_open is False
+        with patch.object(client.session, "get", side_effect=self._requests_error(500)):
+            with pytest.raises(NetworkError):
+                client.get("/x")
+        assert client.circuit_breaker.is_open is True
+
+    def test_sync_5xx_still_opens_breaker(self):
+        client = self._sync_client()
+        for _ in range(2):
+            with patch.object(client.session, "get", side_effect=self._requests_error(500)):
+                with pytest.raises(NetworkError):
+                    client.get("/x")
+        assert client.circuit_breaker.is_open is True
+
+    def test_sync_auth_and_throttle_4xx_still_count(self):
+        for status in (401, 403, 408, 425, 429):
+            client = self._sync_client()
+            for _ in range(2):
+                with patch.object(client.session, "get", side_effect=self._requests_error(status)):
+                    with pytest.raises(NetworkError):
+                        client.get("/x")
+            assert client.circuit_breaker.is_open is True, f"status {status} must still count"
+
+    def test_sync_transport_error_still_counts(self):
+        client = self._sync_client()
+        for _ in range(2):
+            with patch.object(client.session, "get", side_effect=requests.ConnectionError("refused")):
+                with pytest.raises(NetworkError):
+                    client.get("/x")
+        assert client.circuit_breaker.is_open is True
+
+    @pytest.mark.asyncio
+    async def test_async_repeated_404s_never_open_breaker(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="http://node.test", circuit_breaker_threshold=2, max_retries=0)
+        for _ in range(6):
+            with patch("httpx.AsyncClient.get", side_effect=self._httpx_error(404)):
+                with pytest.raises(NetworkError):
+                    await client.get("/rpc/escrow/job-1")
+        assert client.circuit_breaker.is_open is False
+        assert client.circuit_breaker.failure_count == 0
+
+    @pytest.mark.asyncio
+    async def test_async_404_preserves_caller_error_contract(self):
+        """payments_helpers._lookup_escrow_record recovers the 404 by walking
+        the cause chain for httpx.HTTPStatusError — that must keep working."""
+        import httpx
+
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="http://node.test", max_retries=0)
+        err = self._httpx_error(404)
+        with patch("httpx.AsyncClient.get", side_effect=err):
+            with pytest.raises(NetworkError) as exc:
+                await client.get("/rpc/escrow/job-1")
+        assert exc.value.__cause__ is err
+        assert isinstance(exc.value.__cause__, httpx.HTTPStatusError)
+        assert exc.value.__cause__.response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_async_5xx_still_opens_breaker(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="http://node.test", circuit_breaker_threshold=2, max_retries=0)
+        for _ in range(2):
+            with patch("httpx.AsyncClient.get", side_effect=self._httpx_error(500)):
+                with pytest.raises(NetworkError):
+                    await client.get("/x")
+        assert client.circuit_breaker.is_open is True
+
+    @pytest.mark.asyncio
+    async def test_async_auth_4xx_still_counts(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="http://node.test", circuit_breaker_threshold=2, max_retries=0)
+        for _ in range(2):
+            with patch("httpx.AsyncClient.get", side_effect=self._httpx_error(401)):
+                with pytest.raises(NetworkError):
+                    await client.get("/x")
+        assert client.circuit_breaker.is_open is True

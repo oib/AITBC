@@ -9,6 +9,7 @@ from typing import Any
 
 from aitbc_errors import CircuitBreakerOpenError, RetryError
 from aitbc.network.circuit_breaker import CircuitBreaker as _CoreCircuitBreaker
+from aitbc.network.circuit_breaker import record_breaker_outcome
 from aitbc.network.retry_policy import RetryPolicy as _CoreRetryPolicy
 
 
@@ -48,8 +49,10 @@ class SDKCircuitBreaker:
             result = request_func(*args, **kwargs)
             self._breaker.record_success()
             return result
-        except Exception:
-            self._breaker.record_failure()
+        except Exception as exc:
+            # Definitive-negative 4xx answers (e.g. a 404 lookup) prove the
+            # upstream is reachable — they must not trip the breaker (#3036).
+            record_breaker_outcome(self._breaker, None, exc)
             raise
 
     def is_open(self) -> bool:

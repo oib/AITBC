@@ -12,7 +12,7 @@ from ..aitbc_logging import get_logger
 from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError, RetryError
 from ._client_base import _check_api_key_target, _detail_suffix, _response_json
 from .cache_layer import CacheLayer
-from .circuit_breaker import CircuitBreaker
+from .circuit_breaker import CircuitBreaker, record_breaker_outcome
 from .json_types import JSONResponse, expect_object
 from .rate_limiter import RateLimiter
 from .retry_policy import RetryPolicy
@@ -193,10 +193,10 @@ class AsyncAITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure(f"GET {url}")
+            record_breaker_outcome(self.circuit_breaker, f"GET {url}", e)
             raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
-            self.circuit_breaker.record_failure(f"GET {url}")
+            record_breaker_outcome(self.circuit_breaker, f"GET {url}", e)
             raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
 
     async def post(
@@ -259,10 +259,10 @@ class AsyncAITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure(f"POST {url}")
+            record_breaker_outcome(self.circuit_breaker, f"POST {url}", e)
             raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
-            self.circuit_breaker.record_failure(f"POST {url}")
+            record_breaker_outcome(self.circuit_breaker, f"POST {url}", e)
             raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
 
     async def put(
@@ -321,10 +321,10 @@ class AsyncAITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure(f"PUT {url}")
+            record_breaker_outcome(self.circuit_breaker, f"PUT {url}", e)
             raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
-            self.circuit_breaker.record_failure(f"PUT {url}")
+            record_breaker_outcome(self.circuit_breaker, f"PUT {url}", e)
             raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
 
     async def patch(
@@ -383,10 +383,10 @@ class AsyncAITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure(f"PATCH {url}")
+            record_breaker_outcome(self.circuit_breaker, f"PATCH {url}", e)
             raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
-            self.circuit_breaker.record_failure(f"PATCH {url}")
+            record_breaker_outcome(self.circuit_breaker, f"PATCH {url}", e)
             raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
 
     async def delete(
@@ -443,10 +443,10 @@ class AsyncAITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure(f"DELETE {url}")
+            record_breaker_outcome(self.circuit_breaker, f"DELETE {url}", e)
             raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
-            self.circuit_breaker.record_failure(f"DELETE {url}")
+            record_breaker_outcome(self.circuit_breaker, f"DELETE {url}", e)
             raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
 
     async def close(self) -> None:

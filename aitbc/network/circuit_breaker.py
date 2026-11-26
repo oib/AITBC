@@ -14,6 +14,58 @@ _CLOSED = "closed"  # Normal operation — all calls allowed
 _OPEN = "open"  # Tripped — all calls blocked
 _HALF_OPEN = "half_open"  # Probation — limited probe calls allowed
 
+# 4xx statuses that still count as breaker failures. Every other 4xx is a
+# definitive application answer (the upstream is reachable and said "no" —
+# e.g. the escrow lookup's 404 for a job that has no escrow, #3036), so it
+# must not trip the breaker and starve unrelated traffic on the same host.
+# Auth faults (401/403), request timeouts (408), early-data refusals (425)
+# and throttling (429) are excluded: those signal a misbehaving or
+# overloaded upstream, not a definitive answer.
+_BREAKER_COUNTING_4XX = frozenset({401, 403, 408, 425, 429})
+
+
+def http_status_code(exc: BaseException) -> int | None:
+    """Return the HTTP status carried by ``exc`` or its cause chain, if any.
+
+    Duck-typed on ``.response.status_code`` so it works for both ``httpx``
+    and ``requests`` errors (and ``NetworkError`` wrappers around them)
+    without importing either transport library.
+    """
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        response = getattr(cur, "response", None)
+        code = getattr(response, "status_code", None)
+        if isinstance(code, int) and not isinstance(code, bool):
+            return code
+        cur = cur.__cause__ or cur.__context__
+    return None
+
+
+def is_definitive_response_error(exc: BaseException) -> bool:
+    """True when ``exc`` carries a definitive-negative 4xx application answer.
+
+    A 4xx the upstream returned is proof the host is reachable and answered;
+    only auth/throttle/transient-request classes (``_BREAKER_COUNTING_4XX``)
+    still count as failures. 5xx and transport errors (no status) count.
+    """
+    status = http_status_code(exc)
+    return status is not None and 400 <= status < 500 and status not in _BREAKER_COUNTING_4XX
+
+
+def record_breaker_outcome(breaker: "CircuitBreaker", context: str | None, exc: BaseException) -> None:
+    """Account one failed request against ``breaker``.
+
+    Definitive-negative 4xx responses are recorded neutrally (they close an
+    in-flight half-open probe but do not reset or grow the failure count);
+    everything else counts as an infrastructure failure.
+    """
+    if is_definitive_response_error(exc):
+        breaker.record_definitive_response(context)
+    else:
+        breaker.record_failure(context)
+
 
 class CircuitBreaker:
     """Circuit breaker state machine for preventing cascading failures.
@@ -92,6 +144,24 @@ class CircuitBreaker:
                 self.is_open = True
                 self.open_time = datetime.now(UTC)
                 self.logger.warning("Circuit breaker opened after %s failures%s", self.failure_count, suffix)
+
+    def record_definitive_response(self, context: str | None = None) -> None:
+        """Record a definitive application answer (e.g. a 404) — neutral.
+
+        The upstream proved reachable, so an in-flight half-open probe
+        closes the breaker exactly like a success. In the closed state the
+        call is a no-op: it must neither reset accrued infrastructure
+        failures (a 404 interleaved with 5xx must not mask them, #3036) nor
+        count as one.
+        """
+        if not self.enabled:
+            return
+        with self._lock:
+            if self._state == _HALF_OPEN:
+                self._state = _CLOSED
+                self.failure_count = 0
+                suffix = f" — last failure: {context}" if context else ""
+                self.logger.info("Circuit breaker closed after definitive response probe%s", suffix)
 
     def record_success(self) -> None:
         """Record a success and reset failure count."""

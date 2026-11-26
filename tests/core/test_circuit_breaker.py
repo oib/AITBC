@@ -204,3 +204,91 @@ class TestCircuitBreakerFailureContext:
             breaker.record_failure()
         assert "Circuit breaker opened after 1 failures" in caplog.text
         assert "last failure" not in caplog.text
+
+
+class TestDefinitiveResponseAccounting:
+    """#3036: definitive-negative application answers (e.g. the escrow
+    lookup's 404) are neutral — they must not grow or reset the failure
+    count, but they DO prove reachability so a half-open probe closes."""
+
+    def test_closed_state_is_noop(self):
+        breaker = CircuitBreaker(threshold=3, timeout=1)
+        breaker.record_failure()
+        breaker.record_definitive_response("GET http://node/rpc/escrow/j1")
+        # Neither reset nor incremented
+        assert breaker.failure_count == 1
+        assert breaker.is_open is False
+
+    def test_does_not_reset_infra_failures(self):
+        breaker = CircuitBreaker(threshold=3, timeout=1)
+        breaker.record_failure()
+        breaker.record_failure()
+        breaker.record_definitive_response()
+        assert breaker.failure_count == 2
+        breaker.record_failure()
+        assert breaker.is_open is True
+
+    def test_half_open_probe_definitive_response_closes(self):
+        breaker = CircuitBreaker(threshold=2, timeout=0.05)
+        breaker.record_failure()
+        breaker.record_failure()
+        assert breaker.is_open is True
+        time.sleep(0.06)
+        breaker.check()  # half-open, probe allowed
+        breaker.record_definitive_response()  # probe got a definitive answer
+        assert breaker.is_open is False
+        assert breaker.failure_count == 0
+        breaker.check()  # fully closed — no raise
+
+    def test_open_state_untouched(self):
+        """A definitive response recorded while still inside the open window
+        must not shorten or clear the open state."""
+        breaker = CircuitBreaker(threshold=1, timeout=60)
+        breaker.record_failure()
+        assert breaker.is_open is True
+        breaker.record_definitive_response()
+        assert breaker.is_open is True
+        with pytest.raises(CircuitBreakerOpenError):
+            breaker.check()
+
+
+class TestDefinitiveResponseClassification:
+    """#3036: which HTTP statuses count as breaker failures."""
+
+    @staticmethod
+    def _exc_with_status(status):
+        class _Resp:
+            status_code = status
+
+        class _Err(Exception):
+            response = _Resp()
+
+        return _Err("boom")
+
+    def test_definitive_4xx(self):
+        for status in (400, 404, 405, 409, 410, 412, 413, 415, 422, 451):
+            assert cb_module.is_definitive_response_error(self._exc_with_status(status)), status
+
+    def test_counting_4xx(self):
+        for status in (401, 403, 408, 425, 429):
+            assert not cb_module.is_definitive_response_error(self._exc_with_status(status)), status
+
+    def test_5xx_and_transport_count(self):
+        for status in (500, 502, 503):
+            assert not cb_module.is_definitive_response_error(self._exc_with_status(status)), status
+        assert not cb_module.is_definitive_response_error(RuntimeError("conn refused"))
+
+    def test_status_found_through_cause_chain(self):
+        inner = self._exc_with_status(404)
+        outer = RuntimeError("wrapped")
+        outer.__cause__ = inner
+        assert cb_module.is_definitive_response_error(outer)
+
+    def test_record_breaker_outcome_routes(self):
+        breaker = CircuitBreaker(threshold=5, timeout=1)
+        cb_module.record_breaker_outcome(breaker, "ctx", self._exc_with_status(404))
+        assert breaker.failure_count == 0
+        cb_module.record_breaker_outcome(breaker, "ctx", self._exc_with_status(503))
+        assert breaker.failure_count == 1
+        cb_module.record_breaker_outcome(breaker, "ctx", RuntimeError("timeout"))
+        assert breaker.failure_count == 2
