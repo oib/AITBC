@@ -3252,8 +3252,28 @@
               }
             }
           },
+          "403": {
+            "description": "reviews require a client account / reviews require a GPU booking between you and this listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "you have already reviewed this GPU",
             "content": {
               "application/json": {
                 "schema": {
@@ -33924,7 +33944,7 @@
           "edge-gpu"
         ],
         "summary": "Discover Edge Gpus",
-        "description": "Discover and register edge GPUs for a miner",
+        "description": "Discover this node's edge GPUs for the calling miner.\n\n#3021: the matrix gates ``/v1/edge-gpu*`` to MINER and this handler takes\nMinerDep so the route stays protected even if the matrix entry regresses.\n``miner_id`` was previously caller-asserted with no check; it is now\nbound to the authenticated miner's ``sub`` \u2014 a miner cannot register a\ndiscovery under another miner's id. (Nothing is persisted either way:\nthe response only echoes this host's nvidia-smi inventory.)",
         "operationId": "discover_edge_gpus_v1_edge_gpu_discover_post",
         "parameters": [
           {
@@ -33956,6 +33976,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner_id must match the authenticated miner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

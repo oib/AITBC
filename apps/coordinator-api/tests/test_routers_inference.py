@@ -94,10 +94,15 @@ def fake_ollama(monkeypatch: pytest.MonkeyPatch) -> type[_FakeClient]:
 
 
 class TestInferenceUpstream:
-    def test_matrix_any(self) -> None:
+    def test_matrix_levels(self) -> None:
+        """#3021: GPU compute is customer-role, model pull is admin, reads stay ANY."""
         from aitbc.auth.security_matrix import AuthLevel, get_auth_level
 
-        assert get_auth_level("/v1/inference/generate") == AuthLevel.ANY
+        assert get_auth_level("/v1/inference/generate") == AuthLevel.ADMIN_OR_CLIENT
+        assert get_auth_level("/v1/inference/batch") == AuthLevel.ADMIN_OR_CLIENT
+        assert get_auth_level("/v1/inference/models/llama3/pull") == AuthLevel.ADMIN
+        assert get_auth_level("/v1/inference/models") == AuthLevel.ANY
+        assert get_auth_level("/v1/inference/health") == AuthLevel.ANY
 
     def test_generate_success(self, client: TestClient, fake_ollama: type[_FakeClient]) -> None:
         resp = client.post(

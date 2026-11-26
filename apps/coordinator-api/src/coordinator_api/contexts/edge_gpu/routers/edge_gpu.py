@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from aitbc.rate_limiting import rate_limit
 from aitbc.utils.env import subprocess_env
 
+from ....auth import MinerDep
+
 router = APIRouter(prefix="/edge-gpu", tags=["edge-gpu"])
 
 
@@ -153,8 +155,22 @@ def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any]:
 
 @router.post("/discover")
 @rate_limit(rate=20, per=60)
-async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
-    """Discover and register edge GPUs for a miner"""
+async def discover_edge_gpus(request: Request, miner_id: str, user: MinerDep) -> dict[str, Any]:
+    """Discover this node's edge GPUs for the calling miner.
+
+    #3021: the matrix gates ``/v1/edge-gpu*`` to MINER and this handler takes
+    MinerDep so the route stays protected even if the matrix entry regresses.
+    ``miner_id`` was previously caller-asserted with no check; it is now
+    bound to the authenticated miner's ``sub`` — a miner cannot register a
+    discovery under another miner's id. (Nothing is persisted either way:
+    the response only echoes this host's nvidia-smi inventory.)
+    """
+    caller = str(user.get("sub") or "")
+    if caller and caller != miner_id:
+        raise HTTPException(
+            status_code=403,
+            detail="miner_id must match the authenticated miner",
+        )
     gpus = await parse_gpu_info()
     registered = len(gpus)
     edge_optimized = sum(1 for gpu in gpus if "RTX" in gpu["name"] or "GTX" in gpu["name"])

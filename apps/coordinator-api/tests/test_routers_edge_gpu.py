@@ -1,10 +1,12 @@
 """Tests for /v1/edge-gpu/* — nvidia-smi boundary, arg validation, response shapes (#1289 round 4).
 
 The router shells out to ``nvidia-smi`` via ``asyncio.create_subprocess_exec``;
-that boundary is faked here. Like ``knowledge``, the router has **no auth
-dependency** — production gating is the matrix ``/v1/edge-gpu*`` → ANY floor
-plus AuthMiddleware (disabled under TEST_MODE). ``run_nvidia_smi``'s
-allowlist arg check is the security-relevant branch and is pinned directly.
+that boundary is faked here. Like ``knowledge``, most handlers carry **no auth
+dependency** — production gating is the matrix ``/v1/edge-gpu*`` → MINER floor
+(#3021; was ANY) plus AuthMiddleware (disabled under TEST_MODE).
+``run_nvidia_smi``'s allowlist arg check is the security-relevant branch and is
+pinned directly. ``POST /discover`` additionally takes ``MinerDep`` and binds
+the caller-asserted ``miner_id`` to the authenticated miner's ``sub``.
 """
 
 from __future__ import annotations
@@ -16,8 +18,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from coordinator_api.contexts.edge_gpu.routers.edge_gpu import run_nvidia_smi
+from aitbc.auth import create_access_token
 
 BASE = "/v1/edge-gpu"
+
+
+def _miner_headers(sub: str = "miner-1", role: str = "miner") -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(sub, role)}"}
 
 
 class _FakeProc:
@@ -134,12 +141,28 @@ class TestWrites:
 
     def test_discover_counts_edge_optimized(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch_smi(monkeypatch, "0, NVIDIA RTX 4090, 24564\n1, NVIDIA GTX 1660, 6144\n")
-        resp = client.post(f"{BASE}/discover", params={"miner_id": "miner-1"})
+        resp = client.post(f"{BASE}/discover", params={"miner_id": "miner-1"}, headers=_miner_headers("miner-1"))
         assert resp.status_code == 200
         data = resp.json()
         assert data["miner_id"] == "miner-1"
         assert data["registered"] == 2
         assert data["edge_optimized"] == 2
+
+    def test_discover_binds_miner_id_to_caller(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#3021: a miner cannot discover/register under another miner's id."""
+        _patch_smi(monkeypatch, "0, NVIDIA RTX 4090, 24564\n")
+        resp = client.post(f"{BASE}/discover", params={"miner_id": "miner-2"}, headers=_miner_headers("miner-1"))
+        assert resp.status_code == 403
+
+    def test_discover_requires_miner_auth(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#3021: MinerDep rejects missing and non-miner credentials."""
+        _patch_smi(monkeypatch, "0, NVIDIA RTX 4090, 24564\n")
+        assert client.post(f"{BASE}/discover", params={"miner_id": "miner-1"}).status_code in (401, 403)
+        assert client.post(
+            f"{BASE}/discover",
+            params={"miner_id": "client-1"},
+            headers=_miner_headers("client-1", "client"),
+        ).status_code in (401, 403)
 
     def test_optimize_inference(self, client: TestClient) -> None:
         resp = client.post(
@@ -151,6 +174,6 @@ class TestWrites:
         assert resp.status_code == 501
 
     def test_no_dep_level_auth_documented(self, client: TestClient) -> None:
-        """Same contract note as knowledge: no dep-level auth; prod floor is
-        matrix ANY + middleware."""
+        """Same contract note as knowledge: GET handlers carry no dep; prod
+        floor is matrix MINER (#3021) + middleware."""
         assert client.get(f"{BASE}/profiles").status_code == 200

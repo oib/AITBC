@@ -117,7 +117,7 @@ def _auth_headers(ctx: click.Context | dict[str, Any], role: str = "client") -> 
 def _coord_headers(ctx: click.Context | dict[str, Any]) -> dict[str, str] | None:
     """Coordinator auth for the shop dashboard: miner key, else stored client (#2138).
 
-    ``/v1/monitoring*`` and ``/v1/jobs*`` accept any authenticated role, so a
+    ``/v1/monitoring/metrics`` and ``/v1/jobs*`` accept any authenticated role, so a
     stored client JWT is enough for those sections when no miner key exists;
     miner-only routes still refuse it, and ``_safe_get`` degrades them as
     before. A client JWT is never sent *instead of* a miner key — miner auth
@@ -462,7 +462,8 @@ def _resolve_miner_id(miner_id: str | None, config) -> str:
 
 
 def _shop_coord_client(ctx: click.Context, miner_id: str) -> tuple[AITBCHTTPClient, dict[str, str] | None]:
-    # Miner-role headers for /v1/miners/* and /v1/monitoring* (ANY authenticated role).
+    # Miner-role headers for /v1/miners/* and /v1/monitoring/metrics (ANY
+    # authenticated role; the /dashboard* internals are ADMIN since #3021).
     miner_headers = _coord_headers(ctx)
     if miner_headers is not None:
         # The path miner_id comes from --miner-id/NODE_ID/hostname while

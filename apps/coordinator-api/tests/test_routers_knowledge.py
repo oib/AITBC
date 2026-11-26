@@ -2,8 +2,9 @@
 
 The router is a stub: handlers return canned responses and never touch the
 session. It carries **no auth dependency** — production gating relies
-entirely on the security matrix (`/v1/knowledge*` → AuthLevel.ANY,
-enforced by AuthMiddleware, which is disabled under TEST_MODE). These
+entirely on the security matrix (`/v1/knowledge*` → AuthLevel.ADMIN_OR_CLIENT
+since #3021, was ANY; enforced by AuthMiddleware, which is disabled under
+TEST_MODE). These
 tests pin the router-level contract: request validation, response shapes,
 and the documented absence of dep-level auth so a future auth regression
 is visible here too.

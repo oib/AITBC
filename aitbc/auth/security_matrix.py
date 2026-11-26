@@ -216,25 +216,77 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/ipfs/retrieve": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/ipfs/list/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/ipfs*": AuthLevel.ANY,
+    # #3021 AUTHZ-ANY-SURFACE-MUTATION-EXPOSURE-1 rulings.
+    #
+    # /v1/monitoring/dashboard* probes the node's internal service roster
+    # (ports, localhost URLs, per-service health incl. response bodies) and
+    # host psutil vitals — ops internals, not customer data → ADMIN. The
+    # handlers carry no auth dep; the matrix is the only gate. The CLI
+    # `monitor dashboard` command was moved to the admin credential to
+    # match. /v1/monitoring/metrics stays ANY deliberately: it returns only
+    # aggregate job/miner counts plus coarse host vitals, and it is consumed
+    # cross-role by the public shop dashboard (website/dashboard.js, miner
+    # and client credentials) and `aitbc monitor metrics|history` — no
+    # narrower level admits that caller set without a fleet-visible break.
+    "/v1/monitoring/dashboard*": AuthLevel.ADMIN,
+    "/v1/monitoring*": AuthLevel.ANY,
+    # /v1/inference* — the direct Ollama passthrough. Handlers carry no auth
+    # dep; the paid job path is /v1/jobs → miners and never touches this
+    # router, so these endpoints are an opt-in convenience surface, not the
+    # product path. POST generate/generate-stream/batch burn GPU →
+    # ADMIN_OR_CLIENT (customer-role convention, admin wallets included).
+    # POST models/{name}/pull downloads multi-GB weights to disk+network —
+    # an ops mutation → ADMIN. GET models and GET health stay under the ANY
+    # floor: model names/sizes and a liveness bit are not sensitive.
+    "/v1/inference/generate*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/inference/batch": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/inference/models/*/pull": AuthLevel.ADMIN,
     "/v1/inference*": AuthLevel.ANY,
+    # /v1/knowledge* — knowledge-graph create/contribute/join are writes to
+    # a customer collaboration surface (handlers are stubs today, but the
+    # routes are mutating by contract). No handler dep; customer-role
+    # convention → ADMIN_OR_CLIENT for the whole family including reads
+    # (graph contents are not public market data).
+    "/v1/knowledge*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/agents*": AuthLevel.ANY,
     # PI-API-016: agent-performance handlers enforce per-agent ownership
     # (AgentIdentity owner wallet or admin); the matrix floor keeps
     # unauthenticated callers out and restricts to customer roles.
     "/v1/agent-performance*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/multi-modal-rl*": AuthLevel.ANY,
-    "/v1/edge-gpu*": AuthLevel.ANY,
+    # /v1/edge-gpu* — node-local GPU inventory (nvidia-smi) plus miner-scoped
+    # discover/metrics writes. No deployed caller; the real edge-gpu API is
+    # /v1/market/edge-gpu/* on the gpu/edge services. MINER: the surface is
+    # provider-side, and /discover's caller-asserted miner_id is now bound to
+    # the authenticated miner in the handler (#3021).
+    "/v1/edge-gpu*": AuthLevel.MINER,
     "/v1/bounty*": AuthLevel.ANY,
     "/v1/reputation*": AuthLevel.NONE,
-    "/v1/knowledge*": AuthLevel.ANY,
     "/v1/services*": AuthLevel.ANY,
     "/v1/disputes*": AuthLevel.ANY,
+    # /v1/zk* stays ANY deliberately (#3021): the legitimate caller set spans
+    # every role — miners via the MCP zk tools (auth='miner'), operators via
+    # `aitbc zk` (admin or client JWT), and job-receipt verification is part
+    # of the public trust surface. No narrower AuthLevel admits miner+admin+
+    # client without re-breaking one of them (the #2740/#3018 deadlock
+    # class). Handlers carry no auth dep; the compute is bounded by
+    # @rate_limit and the snarkjs subprocess pool (CE-002).
     "/v1/zk*": AuthLevel.ANY,
-    "/v1/fhe*": AuthLevel.ANY,
-    "/v1/ml-zk*": AuthLevel.ANY,
+    # /v1/fhe* — homomorphic encrypt/decrypt/add/multiply/inference are
+    # expensive compute on caller-supplied ciphertexts; handlers take
+    # AuthDep but the matrix is the role gate. No deployed caller; the
+    # surface is optional (tenseal) → customer roles, admin wallets
+    # included (#3021).
+    "/v1/fhe*": AuthLevel.ADMIN_OR_CLIENT,
+    # /v1/ml-zk* — snarkjs proving is the most expensive compute in this
+    # family (bounded subprocess pool + rate limit). Published via the
+    # api-v2 gateway for customer/agent ML-proof flows → ADMIN_OR_CLIENT
+    # (#3021). Verify/circuits ride the same floor: path-level matrix
+    # cannot split them without a handler dep, and the whole family is a
+    # customer product surface.
+    "/v1/ml-zk*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/islands*": AuthLevel.ANY,
     "/v1/web-vitals*": AuthLevel.ANY,
-    "/v1/monitoring*": AuthLevel.ANY,
     "/v1/users/me": AuthLevel.ANY,
     "/v1/users/*/transactions": AuthLevel.ANY,
     "/v1/users/*/balance": AuthLevel.ANY,

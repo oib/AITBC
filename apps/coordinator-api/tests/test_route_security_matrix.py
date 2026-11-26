@@ -156,6 +156,22 @@ def test_sensitive_routes_have_their_exact_levels():
         "/v1/agent-creativity/capabilities": AuthLevel.ANY,
         "/v1/oracle/price/BTC-USD": AuthLevel.ANY,
         "/v1/agents/security/trust-scores": AuthLevel.ANY,
+        # #3021 AUTHZ-ANY-SURFACE-MUTATION-EXPOSURE-1 per-surface rulings
+        "/v1/monitoring/dashboard": AuthLevel.ADMIN,
+        "/v1/monitoring/dashboard/metrics": AuthLevel.ADMIN,
+        "/v1/monitoring/metrics": AuthLevel.ANY,
+        "/v1/inference/generate": AuthLevel.ADMIN_OR_CLIENT,
+        "/v1/inference/batch": AuthLevel.ADMIN_OR_CLIENT,
+        "/v1/inference/models/some-model/pull": AuthLevel.ADMIN,
+        "/v1/inference/models": AuthLevel.ANY,
+        "/v1/knowledge/graphs": AuthLevel.ADMIN_OR_CLIENT,
+        "/v1/edge-gpu/discover": AuthLevel.MINER,
+        "/v1/edge-gpu/profiles": AuthLevel.MINER,
+        "/v1/fhe/encrypt": AuthLevel.ADMIN_OR_CLIENT,
+        "/v1/ml-zk/prove/training": AuthLevel.ADMIN_OR_CLIENT,
+        # multi-role ops surface — documented ANY ruling (#3021)
+        "/v1/zk/generate": AuthLevel.ANY,
+        "/v1/zk/receipt/verify": AuthLevel.ANY,
     }
     wrong = [p for p, lvl in cases.items() if get_auth_level(p) is not lvl]
     assert wrong == [], f"routes resolving to the wrong auth level: {wrong}"

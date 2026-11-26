@@ -1783,18 +1783,61 @@ def test_pricing_endpoint_survives_zero_static_price(client, client_token, miner
 
 
 @pytest.mark.unit
-def test_add_gpu_review_binds_authenticated_user(client, client_token, db_session, available_gpu):
-    """#1377: review user_id comes from the JWT sub, not a hardcoded placeholder."""
+def test_add_gpu_review_binds_authenticated_user(client, client_token, miner_token, db_session):
+    """#1377: review user_id comes from the JWT sub, not a hardcoded placeholder.
+
+    #3021: reviews are anchored to a real rental — the reviewer needs a
+    non-cancelled GPUBooking on the listing (booking-proof, mirroring
+    reputation.py's feedback eligibility).
+    """
     from coordinator_api.contexts.market.domain.gpu_market import GPUReview
 
+    gpu_id = _booked_gpu(client, miner_token, db_session)
     resp = client.post(
-        f"/v1/market/gpu/{available_gpu}/reviews",
+        f"/v1/market/gpu/{gpu_id}/reviews",
         headers={"Authorization": f"Bearer {client_token}"},
         json={"rating": 5, "comment": "fast"},
     )
     assert resp.status_code == 201, resp.text
-    review = db_session.query(GPUReview).filter_by(gpu_id=available_gpu).one()
+    review = db_session.query(GPUReview).filter_by(gpu_id=gpu_id).one()
     assert review.user_id == "client1"
+
+
+@pytest.mark.unit
+def test_add_gpu_review_requires_booking(client, client_token, db_session, available_gpu):
+    """#3021 AUTHZ-GPU-REVIEW-BOOKING-PROOF-1: no rental, no review.
+
+    A client with no GPUBooking on the listing gets 403, not a free rating
+    write — same eligibility shape as reputation.py's community feedback.
+    """
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/reviews",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"rating": 5, "comment": "never rented this"},
+    )
+    assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.unit
+def test_add_gpu_review_dedupes_per_reviewer_and_gpu(client, client_token, miner_token, db_session):
+    """#3021: one review per (reviewer, GPU) — the second POST is a 409."""
+    gpu_id = _booked_gpu(client, miner_token, db_session)
+    headers = {"Authorization": f"Bearer {client_token}"}
+    first = client.post(f"/v1/market/gpu/{gpu_id}/reviews", headers=headers, json={"rating": 4, "comment": "ok"})
+    assert first.status_code == 201, first.text
+    second = client.post(f"/v1/market/gpu/{gpu_id}/reviews", headers=headers, json={"rating": 1, "comment": "changed my mind"})
+    assert second.status_code == 409, second.text
+
+
+@pytest.mark.unit
+def test_add_gpu_review_admin_bypass(client, admin_token, db_session, available_gpu):
+    """#3021: admins moderate without a booking, same as reputation feedback."""
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/reviews",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"rating": 3, "comment": "mod"},
+    )
+    assert resp.status_code == 201, resp.text
 
 
 @pytest.mark.unit
@@ -1808,15 +1851,26 @@ def test_add_gpu_review_requires_auth(client, db_session, available_gpu):
 
 
 @pytest.mark.unit
-def test_get_gpu_reviews_respects_limit(client, client_token, available_gpu):
+def test_get_gpu_reviews_respects_limit(client, db_session, available_gpu):
     """#1377: the limit query param was accepted but never applied."""
-    for rating in (5, 4, 3):
-        resp = client.post(
-            f"/v1/market/gpu/{available_gpu}/reviews",
-            headers={"Authorization": f"Bearer {client_token}"},
-            json={"rating": rating, "comment": f"r{rating}"},
+    from datetime import UTC, datetime, timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUReview
+
+    # Seed rows directly — POSTing three reviews as one user would now
+    # (correctly) hit the #3021 one-review-per-(reviewer, GPU) dedup.
+    base = datetime.now(UTC)
+    for i, rating in enumerate((5, 4, 3)):
+        db_session.add(
+            GPUReview(
+                gpu_id=available_gpu,
+                user_id=f"reviewer-{i}",
+                rating=rating,
+                comment=f"r{rating}",
+                created_at=base - timedelta(minutes=i),
+            )
         )
-        assert resp.status_code == 201, resp.text
+    db_session.commit()
     resp = client.get(f"/v1/market/gpu/{available_gpu}/reviews?limit=2")
     assert resp.status_code == 200, resp.text
     assert len(resp.json()["reviews"]) == 2

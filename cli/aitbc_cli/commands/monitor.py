@@ -112,7 +112,10 @@ def dashboard(ctx, refresh: int, duration: int):
             console.rule("[bold blue]AITBC Dashboard[/bold blue]")
             console.print(f"[dim]Refreshing every {refresh}s | Elapsed: {int(elapsed)}s[/dim]\n")
             try:
-                client = _monitoring_client(ctx, timeout=30)
+                # /v1/monitoring/dashboard* is ADMIN since #3021 — it exposes
+                # internal service topology, so it needs the admin credential
+                # (_monitoring_client's client JWT would 403 every refresh).
+                client = _admin_client(ctx, timeout=30)
                 data = client.get("/v1/monitoring/dashboard")
                 console.print("[bold green]Dashboard Status:[/bold green] Online")
                 overall = data.get("overall_status", "unknown")

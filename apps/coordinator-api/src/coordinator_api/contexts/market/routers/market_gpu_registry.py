@@ -21,6 +21,7 @@ from aitbc_shared import JobPayment
 
 from ....auth import AuthDep, MinerDep
 from ....storage.db import get_session
+from ....utils.client_resolver import resolve_client
 from ...trading.services.trading_market.dynamic_pricing import (
     DynamicPricingEngine,
     PricingStrategy,
@@ -587,6 +588,51 @@ def add_gpu_review(
         if not 1 <= request.rating <= 5:
             raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Rating must be between 1 and 5")
         reviewer_id = str(user.get("sub") or user.get("user_id") or "unknown")
+        # AUTHZ-GPU-REVIEW-BOOKING-PROOF-1 (#3021): a review must be anchored
+        # to a real rental, mirroring reputation.py's feedback eligibility —
+        # admin bypasses, everyone else needs a non-cancelled/non-expired
+        # GPUBooking on this GPU as the resolved client. Without this any
+        # authenticated role could stuff a listing's rating before ever
+        # renting it.
+        if user.get("role") != "admin":
+            try:
+                caller_client_id, _ = resolve_client(session, reviewer_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=http_status.HTTP_403_FORBIDDEN,
+                    detail="reviews require a client account",
+                ) from None
+            booking = (
+                session.execute(
+                    select(GPUBooking)
+                    .where(
+                        GPUBooking.gpu_id == gpu_id,
+                        GPUBooking.client_id == caller_client_id,
+                        col(GPUBooking.status).in_(("active", "completed")),
+                    )
+                    .limit(1)
+                )
+                .scalars()
+                .first()
+            )
+            if booking is None:
+                raise HTTPException(
+                    status_code=http_status.HTTP_403_FORBIDDEN,
+                    detail="reviews require a GPU booking between you and this listing",
+                )
+        # One review per (reviewer, GPU) — the same dedup reputation.py
+        # enforces per (reviewer, job); GPUReview has no job/booking column,
+        # so the GPU listing is the dedup key.
+        existing = (
+            session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id, GPUReview.user_id == reviewer_id).limit(1))
+            .scalars()
+            .first()
+        )
+        if existing is not None:
+            raise HTTPException(
+                status_code=http_status.HTTP_409_CONFLICT,
+                detail="you have already reviewed this GPU",
+            )
         review = GPUReview(gpu_id=gpu_id, user_id=reviewer_id, rating=request.rating, comment=request.comment)
         logger.info(
             "Starting review transaction for GPU %s",
