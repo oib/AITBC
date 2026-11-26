@@ -298,11 +298,19 @@ def _revoke_token(token: str) -> None:
 
 
 def _extract_token(request: Request) -> str:
-    """Extract session token from Authorization header or query parameter."""
+    """Extract session token from the Authorization header.
+
+    #3024: no ``?token=`` fallback — a URL-borne JWT lands in proxy/nginx
+    access logs, browser history and Referer headers (same hygiene class as
+    PI-API-004 #1181, which banned query-param credentials in
+    agent-coordinator). Cookie/browser-reachable surfaces authenticate by
+    header only; the documented WS bootstrap carve-out lives in
+    agent-coordinator's ``resolve_ws_principal``.
+    """
     auth_header = request.headers.get("Authorization", "")
     if auth_header.lower().startswith("bearer "):
         return auth_header.split(" ", 1)[1].strip()
-    return request.query_params.get("token", "")
+    return ""
 
 
 async def _get_current_user_payload(request: Request) -> dict[str, Any]:
@@ -545,10 +553,10 @@ async def get_user_balance(
 
 @router.post("/logout")
 @rate_limit(rate=20, per=60)
-async def logout_user(token: str, request: Request) -> dict[str, str]:
+async def logout_user(request: Request) -> dict[str, str]:
     """Logout user and invalidate session"""
-    # Accept token from explicit query parameter or Authorization header
-    effective_token = token or _extract_token(request)
+    # #3024: header-only — a ?token= query param would put the JWT in URLs.
+    effective_token = _extract_token(request)
     if effective_token:
         await run_in_threadpool(_revoke_token, effective_token)
 

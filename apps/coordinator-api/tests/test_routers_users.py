@@ -114,7 +114,7 @@ def test_get_current_user(client):
     reg_resp = _register_user(client, account)
     token = reg_resp.json()["session_token"]
 
-    profile_resp = client.get(f"/v1/users/me?token={token}")
+    profile_resp = client.get("/v1/users/me", headers={"Authorization": f"Bearer {token}"})
     assert profile_resp.status_code == 200
     data = profile_resp.json()
     assert data["email"] == reg_resp.json()["email"]
@@ -122,7 +122,7 @@ def test_get_current_user(client):
 
 def test_get_current_user_invalid_token(client):
     """Test getting profile with an invalid or malformed token."""
-    response = client.get("/v1/users/me?token=invalid-token")
+    response = client.get("/v1/users/me", headers={"Authorization": "Bearer invalid-token"})
     assert response.status_code == 401
     assert "Invalid or expired token" in response.json()["detail"]
 
@@ -133,11 +133,11 @@ def test_logout(client):
     reg_resp = _register_user(client, account)
     token = reg_resp.json()["session_token"]
 
-    logout_resp = client.post(f"/v1/logout?token={token}")
+    logout_resp = client.post("/v1/logout", headers={"Authorization": f"Bearer {token}"})
     assert logout_resp.status_code == 200
     assert "Logged out successfully" in logout_resp.json()["message"]
 
-    profile_resp = client.get(f"/v1/users/me?token={token}")
+    profile_resp = client.get("/v1/users/me", headers={"Authorization": f"Bearer {token}"})
     assert profile_resp.status_code == 401
 
 
@@ -247,7 +247,7 @@ def test_token_guessing_rejected(client):
     import secrets
 
     fake_token = secrets.token_urlsafe(32)
-    response = client.get(f"/v1/users/me?token={fake_token}")
+    response = client.get("/v1/users/me", headers={"Authorization": f"Bearer {fake_token}"})
     assert response.status_code == 401
 
 
@@ -264,11 +264,11 @@ def test_idor_balance_access_denied(client):
     bob_user_id = bob_resp.json()["user_id"]
 
     # Alice tries to read Bob's balance
-    response = client.get(f"/v1/users/{bob_user_id}/balance?token={alice_token}")
+    response = client.get(f"/v1/users/{bob_user_id}/balance", headers={"Authorization": f"Bearer {alice_token}"})
     assert response.status_code == 403
 
     # Alice can read her own balance
-    own = client.get(f"/v1/users/{alice_user_id}/balance?token={alice_token}")
+    own = client.get(f"/v1/users/{alice_user_id}/balance", headers={"Authorization": f"Bearer {alice_token}"})
     assert own.status_code == 200
     assert own.json()["user_id"] == alice_user_id
 
@@ -313,16 +313,16 @@ def test_logout_revocation_shared_across_workers(client):
     other_resp = _register_user(client, other)
     other_token = other_resp.json()["session_token"]
 
-    logout_resp = client.post(f"/v1/logout?token={out_token}")
+    logout_resp = client.post("/v1/logout", headers={"Authorization": f"Bearer {out_token}"})
     assert logout_resp.status_code == 200
 
     # Simulate the second worker: it shares none of the first worker's memory.
     state_manager._memory.clear()
 
-    denied = client.get(f"/v1/users/me?token={out_token}")
+    denied = client.get("/v1/users/me", headers={"Authorization": f"Bearer {out_token}"})
     assert denied.status_code == 401
 
-    allowed = client.get(f"/v1/users/me?token={other_token}")
+    allowed = client.get("/v1/users/me", headers={"Authorization": f"Bearer {other_token}"})
     assert allowed.status_code == 200
 
 

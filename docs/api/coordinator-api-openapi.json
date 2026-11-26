@@ -13553,38 +13553,17 @@
         "summary": "Logout User",
         "description": "Logout user and invalidate session",
         "operationId": "logout_user_v1_logout_post",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Token"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
                   "additionalProperties": {
                     "type": "string"
                   },
+                  "type": "object",
                   "title": "Response Logout User V1 Logout Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }

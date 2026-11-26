@@ -108,6 +108,6 @@ def test_logout_endpoint_end_to_end_revokes_other_routes(auth_client: TestClient
     """The real POST /v1/logout path: revoke via the endpoint, reject on a non-users route."""
     token = create_access_token("user-e2e", "client")
     assert _get(auth_client, token).status_code not in (401, 403)
-    out = auth_client.post(f"/v1/logout?token={token}", headers={"Authorization": f"Bearer {token}"})
+    out = auth_client.post("/v1/logout", headers={"Authorization": f"Bearer {token}"})
     assert out.status_code == 200
     assert _get(auth_client, token).status_code == 401
