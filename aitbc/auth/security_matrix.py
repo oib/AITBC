@@ -233,13 +233,23 @@ _READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def _lookup_level(path: str, matrix: dict[str, AuthLevel]) -> AuthLevel | None:
-    """Exact-then-wildcard lookup shared by the route matrix and write floors."""
+    """Exact match, then the most specific wildcard pattern.
+
+    ``fnmatch`` ``*`` crosses ``/``, so a broad entry like ``/v1/market/gpu/*``
+    also matches ``/v1/market/gpu/{id}/book`` — under first-match dict order it
+    shadowed the ``/v1/market/gpu/*/book`` ADMIN_OR_CLIENT entry declared later
+    (#3017). Longest-pattern-wins makes declaration order irrelevant except
+    for equal-length ties, which keep dict order.
+    """
     if path in matrix:
         return matrix[path]
+    best: tuple[str, AuthLevel] | None = None
     for pattern, level in matrix.items():
-        if "*" in pattern and fnmatch.fnmatch(path, pattern):
-            return level
-    return None
+        if "*" not in pattern or not fnmatch.fnmatch(path, pattern):
+            continue
+        if best is None or len(pattern) > len(best[0]):
+            best = (pattern, level)
+    return best[1] if best is not None else None
 
 
 def get_auth_level(path: str, method: str = "GET", matrix: dict[str, AuthLevel] | None = None) -> AuthLevel:

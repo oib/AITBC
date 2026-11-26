@@ -179,3 +179,35 @@ def test_dropped_patterns_match_no_registered_route():
 def test_anonymous_deny_still_applies_to_unregistered_routes():
     """The deny-by-default floor must survive — a brand new path is denied."""
     assert get_auth_level("/v1/no-such-route-ever") is AuthLevel.DENY
+
+
+def test_gpu_book_resolves_admin_or_client_not_the_broad_wildcard():
+    """#3017 AUTHZ-GPU-BOOK-WILDCARD-SHADOW-1: ``/v1/market/gpu/*`` (ANY)
+    fnmatch-crosses ``/`` and used to shadow the later
+    ``/v1/market/gpu/*/book`` ADMIN_OR_CLIENT entry, letting any role book
+    GPUs. Lookup is now most-specific-wins."""
+    level = get_auth_level("/v1/market/gpu/gpu-1/book", "POST")
+
+    assert level is AuthLevel.ADMIN_OR_CLIENT
+    assert check_role_match(level, "client")
+    assert check_role_match(level, "admin")
+    assert not check_role_match(level, "miner")
+
+
+def test_matrix_resolution_is_order_independent():
+    """#3017 invariant: no pattern may be shadowed by declaration order.
+
+    ``_lookup_level`` resolves the most specific (longest) matching wildcard,
+    so reversing the matrix must not change any resolution. A regression to
+    first-match dict order fails here on the next shadowed pair — the same
+    class that hid ``/v1/market/gpu/*/book`` behind ``/v1/market/gpu/*``.
+    """
+    import re as _re
+
+    paths = set(ROUTE_SECURITY_MATRIX) | {
+        _re.sub(r"\*", "probe", pattern) for pattern in ROUTE_SECURITY_MATRIX if "*" in pattern
+    }
+    reversed_matrix = dict(reversed(list(ROUTE_SECURITY_MATRIX.items())))
+
+    wrong = sorted(p for p in paths if get_auth_level(p, matrix=reversed_matrix) is not get_auth_level(p))
+    assert wrong == [], f"matrix resolution depends on declaration order: {wrong}"
