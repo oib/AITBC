@@ -221,8 +221,9 @@ def _configured_miner_key_bindings() -> dict[str, str]:
     comma-separated ``key=miner_id`` list. A bound key may only act as its bound
     miner id — ``X-Miner-ID`` must match it (or be omitted, in which case the
     bound id is used). This closes the shared-key impersonation hole (#1597)
-    for deployments that provision per-miner keys; keys without a binding keep
-    the legacy caller-asserted ``X-Miner-ID`` behaviour.
+    for deployments that provision per-miner keys. Since #3022 an unbound key
+    may not assert ``X-Miner-ID`` at all — it resolves to the derived
+    ``miner_<hash>`` identity or is refused when it claims one.
     """
     raw = os.getenv("MINER_API_KEY_BINDINGS", "").strip()
     if not raw:
@@ -302,8 +303,7 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
 
     # Per-key miner binding (#1597): when MINER_API_KEY_BINDINGS names this key,
     # the caller-asserted X-Miner-ID must equal the bound miner — a shared key
-    # can no longer impersonate an arbitrary miner id. Unbound keys keep the
-    # legacy behaviour so existing single-key deployments are unaffected.
+    # can no longer impersonate an arbitrary miner id.
     bound = _configured_miner_key_bindings().get(matched_key or "")
     if bound is not None:
         claimed = (miner_id or "").strip()
@@ -314,12 +314,22 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
             )
         sub = bound
     else:
+        claimed = (miner_id or "").strip()
+        if claimed:
+            # #3022 AUTHZ-MINER-KEY-IMPERSONATION-1: an unbound key may not
+            # assert a miner identity at all — that was the fleet-wide
+            # impersonation hole (one shared key acting as ANY miner id).
+            # Bind the key via MINER_API_KEY_BINDINGS, or drop X-Miner-ID
+            # and accept the stable derived id below.
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="API key is not bound to a miner id — set MINER_API_KEY_BINDINGS or omit X-Miner-ID",
+            )
         # #2702: never let the raw API key become the miner identity — it
         # propagates into Miner.id/assigned_miner_id, which the unauthenticated
         # explorer lists publicly, leaking the credential. Derive a stable,
-        # non-reversible id from the key instead; an explicit X-Miner-ID still
-        # wins for unbound keys (legacy single-key deployments).
-        sub = miner_id or f"miner_{hashlib.sha256((matched_key or api_key_str).encode()).hexdigest()[:16]}"
+        # non-reversible id from the key instead.
+        sub = f"miner_{hashlib.sha256((matched_key or api_key_str).encode()).hexdigest()[:16]}"
     return {"sub": sub, "role": "miner"}
 
 

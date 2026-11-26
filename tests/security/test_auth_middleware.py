@@ -59,6 +59,8 @@ def _no_miner_keys(monkeypatch) -> None:
 def test_auth_middleware_accepts_miner_api_key(monkeypatch):
     """Test that /v1/miners/* accepts X-Api-Key authentication"""
     _configure_miner_key(monkeypatch)
+    # #3022: X-Miner-ID is only honoured for bound keys — bind this key.
+    monkeypatch.setenv("MINER_API_KEY_BINDINGS", f'{{"{MINER_KEY}": "miner-1"}}')
 
     app = _make_app()
     client = TestClient(app)
@@ -240,14 +242,21 @@ def test_bound_miner_key_rejects_foreign_miner_id(monkeypatch):
     assert none_.status_code == 200 and none_.json()["sub"] == "miner-a"
 
 
-def test_unbound_miner_key_keeps_legacy_miner_id(monkeypatch):
-    """Backward compatibility: keys without a binding still honour X-Miner-ID."""
+def test_unbound_miner_key_asserting_miner_id_rejected(monkeypatch):
+    """#3022: an unbound key may not assert X-Miner-ID — that was the
+    fleet-wide impersonation hole. It must be bound via
+    MINER_API_KEY_BINDINGS or drop the header for the derived id."""
     _configure_miner_key(monkeypatch)
     monkeypatch.setenv("MINER_API_KEY_BINDINGS", '{"some-other-key": "miner-x"}')
 
     client = TestClient(_miner_key_app())
     resp = client.get("/whoami", headers={"X-Api-Key": MINER_KEY, "X-Miner-ID": "miner-9"})
-    assert resp.status_code == 200 and resp.json()["sub"] == "miner-9"
+    assert resp.status_code == 403
+    assert "MINER_API_KEY_BINDINGS" in resp.json()["detail"]
+
+    # Same key without the asserted id still resolves to the derived miner.
+    ok = client.get("/whoami", headers={"X-Api-Key": MINER_KEY})
+    assert ok.status_code == 200 and ok.json()["sub"].startswith("miner_")
 
 
 def test_miner_key_bindings_pair_syntax(monkeypatch):

@@ -189,6 +189,8 @@ class TestDeveloperBinding:
 class TestCapacityBinding:
     def test_foreign_provider_capacity_403(self, client: TestClient, seeded, monkeypatch) -> None:
         monkeypatch.setenv("MINER_API_KEYS", "miner-key-1")
+        # #3022: X-Miner-ID requires a binding — pin key-1 to miner-a.
+        monkeypatch.setenv("MINER_API_KEY_BINDINGS", '{"miner-key-1": "miner-a"}')
         headers = {"X-Api-Key": "miner-key-1", "X-Miner-ID": "miner-a"}
         resp = client.post(
             "/v1/market/providers/miner-b/capacity",
@@ -199,6 +201,8 @@ class TestCapacityBinding:
 
     def test_own_provider_capacity_passes_binding(self, client: TestClient, seeded, monkeypatch) -> None:
         monkeypatch.setenv("MINER_API_KEYS", "miner-key-1")
+        # #3022: X-Miner-ID requires a binding — pin key-1 to miner-b.
+        monkeypatch.setenv("MINER_API_KEY_BINDINGS", '{"miner-key-1": "miner-b"}')
         headers = {"X-Api-Key": "miner-key-1", "X-Miner-ID": "miner-b"}
         resp = client.post(
             "/v1/market/providers/miner-b/capacity",
