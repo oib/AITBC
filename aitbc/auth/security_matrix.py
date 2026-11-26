@@ -113,8 +113,17 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/market/native-energy/floor": AuthLevel.NONE,
     "/v1/market/native-energy/rate": AuthLevel.ANY,
     "/v1/market/gpu/sell": AuthLevel.MINER,
-    "/v1/market/gpu/*/release": AuthLevel.MINER,
-    "/v1/market/gpu/*/confirm": AuthLevel.MINER,
+    # #3018: release and confirm each serve THREE principals — release admits
+    # admin OR the GPU owner (miner) OR the booking client; confirm is the
+    # client ACK (client_id must equal the caller sub, admin bypass). MINER
+    # here made the handler's client and admin paths unreachable — the same
+    # deadlock class as #2740/#1327. ANY is the honest floor: every role
+    # reaches the handler, whose three-principal check is the real authz.
+    # ADMIN_OR_CLIENT would still block the GPU owner from releasing their
+    # own GPU. The entries stay ahead of the broader "/v1/market/gpu/*"
+    # entry so they remain the explicit match for these two paths.
+    "/v1/market/gpu/*/release": AuthLevel.ANY,
+    "/v1/market/gpu/*/confirm": AuthLevel.ANY,
     # Details, DELETE and reviews all share /v1/market/gpu/{id}: the handlers
     # take AuthDep, so ANY is the honest floor for the whole path family
     # (#1073). The old "/v1/market/gpu/*/delete" entry matched no real route —
