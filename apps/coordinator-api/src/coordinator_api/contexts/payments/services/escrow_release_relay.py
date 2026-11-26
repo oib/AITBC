@@ -213,19 +213,22 @@ class EscrowReleaseRelayService(EscrowRelayService):
             isinstance(chain_response, dict) and chain_response.get("success") is True and bool(chain_response.get("tx_hash"))
         )
 
-    def _dedup_replay(self, existing: EscrowReleaseRelay | None) -> dict[str, Any] | None:
-        """Stored result for a trustworthy dedup row; None means re-drive.
+    def _clear_dead_dedup_hash(self, row: EscrowReleaseRelay) -> None:
+        """Drop a stored tx_hash the escrow state proved dead (#3009).
 
-        A row is replayed as-is only when it carries a tx_hash — the chain
-        may still be sealing that transaction, so re-driving is pointless.
-        A hashless row falls through either way: on a released escrow the
-        caller heals it from chain state, on an unreleased one it is a
-        wedge recorded before tx_hash verification (#2813) and the release
-        re-drives.
+        The row stays (job_id dedup + audit trail); only the dead hash is
+        cleared. ``_record_relay_row`` then heals it with the replacement
+        release's hash once the re-drive verifies.
         """
-        if existing is not None and existing.tx_hash:
-            return self._stored_result(existing)
-        return None
+        dead = row.tx_hash
+        row.tx_hash = None
+        self.session.add(row)
+        self.session.commit()
+        logger.warning(
+            "Escrow release relay cleared dead tx_hash %s for job_id=%s; re-driving the release",
+            dead,
+            row.job_id,
+        )
 
     def _fill_dedup_row(self, row: EscrowReleaseRelay, *, tx_hash: Any, contract_id: Any) -> None:
         """Heal a dedup row recorded without a tx_hash once the release verifies."""
@@ -242,7 +245,9 @@ class EscrowReleaseRelayService(EscrowRelayService):
         existing: EscrowReleaseRelay | None,
     ) -> dict[str, Any]:
         """Record (or heal) the dedup row for an escrow already released on-chain."""
-        tx_hash = escrow.get("release_tx_hash")
+        # The chain's hash is authoritative when present; a released escrow
+        # that omits it must not wipe a hash the row already carries (#3009).
+        tx_hash = escrow.get("release_tx_hash") or (existing.tx_hash if existing is not None else None)
         contract_id = escrow.get("contract_id")
         if existing is not None:
             await run_in_threadpool(self._fill_dedup_row, existing, tx_hash=tx_hash, contract_id=contract_id)
@@ -398,24 +403,32 @@ class EscrowReleaseRelayService(EscrowRelayService):
         state = escrow.get("state")
         settled_on_chain = state == "released" or bool(escrow.get("released_at"))
 
-        # Dedup: a prior relay row settles the job — return it without a
-        # chain call so a replayed request can never double-release. The
-        # escrow state was fetched fresh above, so a row is only replayed
-        # when it carries a tx_hash or the escrow verifies released now;
-        # a hashless row on an unreleased escrow is a wedge and re-drives.
+        # Dedup row lookup happens after the escrow read because the fresh
+        # escrow state is the arbiter (#3009): the node marks released_at at
+        # release-submit time and its sweeper demotes the row once the
+        # envelope proves unsealed.
+        #
+        # - Escrow reads released (pending *or* confirmed — both carry
+        #   released_at): _record_settled_release returns the chain's
+        #   authoritative release_tx_hash and repairs a stale cached one,
+        #   so a replayed request can never double-release and a dead
+        #   recorded hash is never reported as the settlement.
+        # - Escrow does NOT read released but a relay row carries a
+        #   tx_hash: the stored attempt is dead (apply-rejected, node
+        #   record demoted). Replaying it would report a release that
+        #   never happened — clear the corpse and re-drive instead.
+        # - Hashless rows fall through either way (#2813 wedge contract).
         existing: EscrowReleaseRelay | None = await run_in_threadpool(
             lambda: (
                 self.session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == job_id)).scalars().first()
             )
         )
-        replay = self._dedup_replay(existing)
-        if replay is not None:
-            return replay
-
         if settled_on_chain:
             # Already settled on-chain: record the outcome and return it —
             # a second release POST is unnecessary and unsafe to repeat.
             return await self._record_settled_release(client_id, job_id, escrow, existing)
+        if existing is not None and existing.tx_hash:
+            await run_in_threadpool(self._clear_dead_dedup_hash, existing)
         if state == "refunded" or escrow.get("refunded_at"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

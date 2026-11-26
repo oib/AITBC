@@ -75,14 +75,39 @@ def _chain_client_mock(
     get_side_effect: Exception | None = None,
 ):
     client = AsyncMock()
-    if get_side_effect is not None:
-        client.get.side_effect = get_side_effect
-    else:
-        client.get.return_value = escrow if escrow is not None else _escrow_state()
-    if side_effect is not None:
-        client.post.side_effect = side_effect
-    else:
-        client.post.return_value = release or {"success": True, "tx_hash": "0xrel1", "contract_id": "0xc1"}
+    # #3009: the node marks the escrow released at release-submit time, so
+    # the default fixture flips to a released escrow after a settled release
+    # POST — an explicit ``escrow`` stays a fixed fixture.
+    settled = {"done": False, "hash": None}
+
+    async def _get(url, *args, **kwargs):
+        if get_side_effect is not None:
+            raise get_side_effect
+        if isinstance(escrow, dict):
+            return escrow
+        payload = _escrow_state()
+        if settled["done"]:
+            payload.update(
+                {
+                    "state": "released",
+                    "released_at": "2026-10-27T00:00:00+00:00",
+                    "release_tx_hash": settled["hash"],
+                }
+            )
+        return payload
+
+    client.get.side_effect = _get
+    release_payload = release or {"success": True, "tx_hash": "0xrel1", "contract_id": "0xc1"}
+
+    async def _post(url, *args, **kwargs):
+        if side_effect is not None:
+            raise side_effect
+        if isinstance(release_payload, dict) and release_payload.get("success") is True and release_payload.get("tx_hash"):
+            settled["done"] = True
+            settled["hash"] = release_payload["tx_hash"]
+        return release_payload
+
+    client.post = AsyncMock(side_effect=_post)
     return client
 
 
@@ -174,6 +199,61 @@ class TestEscrowReleaseRelay:
         # The replay re-reads the escrow for the ownership check (which runs
         # before dedup) but never re-posts the release.
         assert mock_client.get.call_count == 2
+
+    def test_release_dead_stored_hash_redrives_replacement(self, client, db_session):
+        """#3009: stored tx_hash + escrow state proving the attempt dead
+        (apply-rejected, node record demoted back to funded) → the relay
+        must re-drive a replacement release, never replay the corpse."""
+        _bind_wallet(db_session, "client-1", BUYER)
+        db_session.add(EscrowReleaseRelay(client_id="client-1", job_id="mkt_job_1", tx_hash="0xdead", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(release={"success": True, "tx_hash": "0xnew", "contract_id": "0xc1"})
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text if hasattr(resp, "text") else resp
+        assert resp.json()["tx_hash"] == "0xnew"
+        assert resp.json()["duplicate"] is False
+        assert "/rpc/escrow/mkt_job_1/release" in mock_client.post.call_args.args[0]
+        row = db_session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == "mkt_job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xnew"
+
+    def test_release_stale_stored_hash_repairs_from_chain_state(self, client, db_session):
+        """#3009: stored tx_hash + escrow released under a DIFFERENT hash →
+        the chain's release_tx_hash is authoritative; the cache is repaired,
+        no second release POST."""
+        _bind_wallet(db_session, "client-1", BUYER)
+        db_session.add(EscrowReleaseRelay(client_id="client-1", job_id="mkt_job_1", tx_hash="0xdead", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(
+            escrow=_escrow_state(state="released", released_at="2026-10-27T00:00:00", release_tx_hash="0xsealed")
+        )
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["tx_hash"] == "0xsealed"
+        assert resp.json()["duplicate"] is True
+        mock_client.post.assert_not_called()
+        row = db_session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == "mkt_job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xsealed"
+
+    def test_release_stored_hash_replays_while_escrow_released(self, client, db_session):
+        """#3009 other direction: stored tx_hash + escrow still released
+        (pending or confirmed — the node marks released_at at submission)
+        → the stored result returns, no second chain call, no double-release."""
+        _bind_wallet(db_session, "client-1", BUYER)
+        db_session.add(EscrowReleaseRelay(client_id="client-1", job_id="mkt_job_1", tx_hash="0xlive", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(
+            escrow=_escrow_state(state="released", released_at="2026-10-27T00:00:00", release_tx_hash="0xlive")
+        )
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["tx_hash"] == "0xlive"
+        assert resp.json()["duplicate"] is True
+        mock_client.post.assert_not_called()
+        row = db_session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == "mkt_job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xlive"
 
     def test_release_already_released_on_chain(self, client, db_session):
         """An escrow the chain already released returns its tx without a
