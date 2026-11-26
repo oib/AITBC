@@ -224,7 +224,7 @@ async def test_audit_adopts_the_sealed_release_hash_when_the_recorded_one_never_
             "/rpc/transaction/0xbb81dead": _FakeResp(404),
             "/rpc/transactions": _FakeResp(
                 200,
-                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "job_id": "job-1"}],
+                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "block_height": 11, "job_id": "job-1"}],
             ),
         }
     )
@@ -268,7 +268,7 @@ async def test_audit_treats_apply_rejected_row_as_missing_and_readopts():
             "/rpc/transaction/0xrejected-hash": _FakeResp(200, {"status": "rejected", "block_height": None}),
             "/rpc/transactions": _FakeResp(
                 200,
-                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "job_id": "job-1"}],
+                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "block_height": 11, "job_id": "job-1"}],
             ),
         }
     )
@@ -326,7 +326,7 @@ async def test_audit_sealed_wrong_type_is_a_miss_and_readopts():
             "/rpc/transaction/0xother-tx": _FakeResp(200, {"status": "confirmed", "block_height": 7, "type": "TRANSFER"}),
             "/rpc/transactions": _FakeResp(
                 200,
-                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "job_id": "job-1"}],
+                [{"transaction_hash": "0x88aedb3f", "status": "confirmed", "block_height": 11, "job_id": "job-1"}],
             ),
         }
     )
@@ -364,8 +364,8 @@ async def test_audit_refuses_to_pick_between_multiple_sealed_releases():
             "/rpc/transactions": _FakeResp(
                 200,
                 [
-                    {"transaction_hash": "0xaaa", "status": "confirmed"},
-                    {"transaction_hash": "0xbbb", "status": "confirmed"},
+                    {"transaction_hash": "0xaaa", "status": "confirmed", "block_height": 11},
+                    {"transaction_hash": "0xbbb", "status": "confirmed", "block_height": 11},
                 ],
             ),
         }
@@ -402,7 +402,7 @@ async def test_audit_ignores_rejected_rows_when_adopting_a_hash():
                 200,
                 [
                     {"transaction_hash": "0xrejected", "status": "rejected"},
-                    {"transaction_hash": "0xsealed", "status": "confirmed"},
+                    {"transaction_hash": "0xsealed", "status": "confirmed", "block_height": 11},
                 ],
             ),
         }
@@ -508,7 +508,7 @@ async def test_refund_audit_readopts_when_a_different_refund_sealed():
             "/rpc/transaction/0xdead": _FakeResp(404),
             "/rpc/transactions": _FakeResp(
                 200,
-                [{"transaction_hash": "0xalive", "status": "confirmed", "job_id": "job-1"}],
+                [{"transaction_hash": "0xalive", "status": "confirmed", "block_height": 11, "job_id": "job-1"}],
             ),
         }
     )
@@ -569,8 +569,8 @@ async def test_refund_audit_refuses_to_pick_between_multiple_sealed_refunds():
             "/rpc/transactions": _FakeResp(
                 200,
                 [
-                    {"transaction_hash": "0xaaa", "status": "confirmed"},
-                    {"transaction_hash": "0xbbb", "status": "confirmed"},
+                    {"transaction_hash": "0xaaa", "status": "confirmed", "block_height": 11},
+                    {"transaction_hash": "0xbbb", "status": "confirmed", "block_height": 11},
                 ],
             ),
         }

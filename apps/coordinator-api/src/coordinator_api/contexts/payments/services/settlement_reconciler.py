@@ -224,11 +224,22 @@ class SettlementReconciler:
             rows = resp.json()
         except ValueError:
             return None
+        # #3034: only a JSON list is a usable answer. A decodable non-list
+        # body (an error object, ``{"transactions": [...]}``, ``null``)
+        # iterates as an empty result and would read as *authoritative
+        # absence* — the refund path would requeue on unusable evidence.
+        # Unusable must stay unverifiable (None), never empty.
+        if not isinstance(rows, list):
+            return None
         return {
             str(row.get("transaction_hash") or row.get("tx_hash"))
             for row in rows
             if isinstance(row, dict)
             and row.get("status") == "confirmed"
+            # #3034: same seal standard as #3016 — a "confirmed" row
+            # without a block height never sealed and cannot establish
+            # settlement or be adopted as the replacement hash.
+            and row.get("block_height") is not None
             and (row.get("transaction_hash") or row.get("tx_hash"))
         }
 
