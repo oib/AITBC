@@ -68,9 +68,16 @@ class Settings(ServiceSettings):
     # additional API keys to fixed owner identities — a request
     # authenticated with one of these keys is bound to that owner and the
     # caller-supplied owner is ignored. MEMORY_API_KEY itself binds all
-    # its callers to the single tenant "shared". With neither set the
-    # service stays open and self-asserted (single-tenant deployments).
+    # its callers to the single tenant "shared".
     memory_api_key_owners: str | None = None
+
+    # AUTHZ-MEMORY-OPEN-MODE-FAILOPEN-1 (#3029): with neither key configured
+    # the service used to run "open mode" — any caller could store/read/
+    # delete under ANY owner namespace, a fail-open default. Open mode now
+    # requires this explicit opt-in (single-tenant/loopback deployments);
+    # without it the authenticated routes refuse with 503. The fleet runs
+    # no memory service today, so the fail-closed default strands nothing.
+    memory_open_mode: bool = False
 
 
 settings = Settings()

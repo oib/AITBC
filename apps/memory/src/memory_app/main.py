@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from aitbc.middleware import RequestValidationMiddleware
 from aitbc.aitbc_logging import configure_logging, get_logger
 
-from .api import router
+from .api import _auth_configured, router
 from .config import settings
 
 configure_logging(level=settings.log_level, service_name="memory", to_file=True)
@@ -29,6 +29,19 @@ app.add_middleware(RequestValidationMiddleware, max_request_size=_MAX_REQUEST_BY
 async def startup() -> None:
     """Log service start."""
     logger.info("%s starting on %s:%s", settings.service_name, settings.app_host, settings.app_port)
+    # #3029: surface the auth posture at boot — open mode is a deliberate
+    # single-tenant choice, and unconfigured-without-opt-in refuses every
+    # authenticated route, which an operator needs to see immediately.
+    if not _auth_configured():
+        if settings.memory_open_mode:
+            logger.warning(
+                "MEMORY OPEN MODE ACTIVE — no MEMORY_API_KEY/MEMORY_API_KEY_OWNERS configured; "
+                "any caller can store/read/delete under any owner namespace"
+            )
+        else:
+            logger.error(
+                "memory auth NOT CONFIGURED and MEMORY_OPEN_MODE unset — /store, /retrieve and DELETE will refuse with 503"
+            )
 
 
 @app.on_event("shutdown")

@@ -36,21 +36,36 @@ def _key_owner_map() -> dict[str, str]:
     return {str(k): str(v) for k, v in parsed.items()}
 
 
+def _auth_configured() -> bool:
+    """True when any key material is configured (shared key or owner map)."""
+    return bool(settings.memory_api_key or _key_owner_map())
+
+
 async def require_api_key(request: Request) -> str | None:
     """Shared-secret gate (#1682) returning the authenticated owner identity.
 
     Constant-time compare, same pattern as the hermes /run credential.
-    Returns ``None`` when no key material is configured (open mode — the
-    per-blob owner checks still apply, self-asserted as before). With
-    MEMORY_API_KEY set, every caller authenticates as the single tenant
-    ``"shared"``; with MEMORY_API_KEY_OWNERS entries, the presented key
-    binds the caller to that entry's owner (#2801). Either way the
-    caller-supplied owner is ignored once authenticated — cross-tenant
-    read/delete is impossible.
+    Returns ``None`` only in explicit open mode (#3029: no key material
+    configured AND ``MEMORY_OPEN_MODE=true``) — the per-blob owner checks
+    still apply, self-asserted as before. With MEMORY_API_KEY set, every
+    caller authenticates as the single tenant ``"shared"``; with
+    MEMORY_API_KEY_OWNERS entries, the presented key binds the caller to
+    that entry's owner (#2801). Either way the caller-supplied owner is
+    ignored once authenticated — cross-tenant read/delete is impossible.
     """
     owners = _key_owner_map()
     if not settings.memory_api_key and not owners:
+        # #3029: open mode is no longer the silent default — it requires
+        # the explicit MEMORY_OPEN_MODE opt-in. Unconfigured + not opted
+        # in fails closed: no credential can ever satisfy the gate, so
+        # this is a server-side 503, not a 401.
+        if not settings.memory_open_mode:
+            raise HTTPException(
+                status_code=503,
+                detail="memory service has no auth configured and MEMORY_OPEN_MODE is not set",
+            )
         return None
+
     token = request.headers.get("x-api-key", "")
     if settings.memory_api_key and hmac.compare_digest(token, settings.memory_api_key):
         return "shared"
