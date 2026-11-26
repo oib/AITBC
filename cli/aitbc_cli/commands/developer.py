@@ -148,7 +148,10 @@ def register(
             "timestamp": timestamp,
         }
         client = _get_client(ctx)
-        result = client.post("/v1/developers", json={k: v for k, v in payload.items() if v is not None})
+        # #3023: self-service registration is public at /register — the
+        # wallet signature is the credential; POST /v1/developers stays
+        # admin/client-gated for the provisioned flow.
+        result = client.post("/v1/developers/register", json={k: v for k, v in payload.items() if v is not None})
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")

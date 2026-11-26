@@ -21824,7 +21824,7 @@
           "developer"
         ],
         "summary": "Register Developer",
-        "description": "Register a developer for the DAO grant program.",
+        "description": "Register a developer for the DAO grant program.\n\nServed on both ``POST /v1/developers`` (admin/client via the matrix \u2014\nadmin-provisioned flow) and ``POST /v1/developers/register`` (public \u2014\n#3023 self-service flow). The endpoint carries its own wallet-signature\n+ fresh-timestamp proof like ``/v1/register``, so the public path's\ngate is the signature, not a JWT: a new developer cannot hold a client\nJWT before registering. Rate limit (20/min) applies to both.",
         "operationId": "register_developer_v1_developers_post",
         "requestBody": {
           "required": true,
@@ -21952,6 +21952,78 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/developers/register": {
+      "post": {
+        "tags": [
+          "developer"
+        ],
+        "summary": "Register Developer",
+        "description": "Register a developer for the DAO grant program.\n\nServed on both ``POST /v1/developers`` (admin/client via the matrix \u2014\nadmin-provisioned flow) and ``POST /v1/developers/register`` (public \u2014\n#3023 self-service flow). The endpoint carries its own wallet-signature\n+ fresh-timestamp proof like ``/v1/register``, so the public path's\ngate is the signature, not a JWT: a new developer cannot hold a client\nJWT before registering. Rate limit (20/min) applies to both.",
+        "operationId": "register_developer_v1_developers_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/coordinator_api__contexts__developer__schemas__developer__DeveloperCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Registration timestamp is stale or in the future",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wallet signature does not match wallet_address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

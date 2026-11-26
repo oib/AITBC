@@ -4524,6 +4524,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/developers/register",
+          "upstream": "/v1/developers/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/developers/{wallet_address}",
           "upstream": "/v1/developers/{wallet_address}",
           "methods": [

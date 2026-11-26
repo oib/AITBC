@@ -295,6 +295,9 @@ def test_register_rejects_mismatched_signing_wallet(runner, monkeypatch):
 def test_register_signs_claim_and_posts(runner, monkeypatch):
     result = _invoke_register(runner, monkeypatch, (WALLET, "0x" + "11" * 32))
     assert result.exit_code == 0, result.output
+    # #3023: self-service register posts to the public /register path —
+    # POST /v1/developers stays admin/client-gated.
+    assert _PostClient.posts[0]["path"] == "/v1/developers/register"
     posted = _PostClient.posts[0]["json"]
     assert posted["wallet_address"] == WALLET
     assert posted["signature"].startswith("0x") and len(posted["signature"]) == 132

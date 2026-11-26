@@ -179,6 +179,14 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # Admin or client routes
     "/v1/governance*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/grants*": AuthLevel.ADMIN_OR_CLIENT,
+    # #3023 AUTHZ-DEVELOPERS-SELFREG-JWT-FRICTION-1: self-service developer
+    # registration is public — the endpoint verifies the wallet signature +
+    # fresh timestamp itself (same model as /v1/register + /v1/login), and
+    # requiring a client JWT first was a chicken-and-egg dead end. Exact
+    # entry beats the "/v1/developers*" wildcard; GET on this path resolves
+    # to the {wallet_address} lookup and 404s harmlessly. POST
+    # /v1/developers stays ADMIN_OR_CLIENT for the admin-provisioned flow.
+    "/v1/developers/register": AuthLevel.NONE,
     "/v1/developers*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/staking*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/stake*": AuthLevel.ADMIN_OR_CLIENT,

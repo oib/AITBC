@@ -26,6 +26,7 @@ def get_service(session: Annotated[Session, Depends(get_session)]) -> DeveloperS
     return DeveloperService(session)
 
 
+@router.post("/register", response_model=DeveloperResponse, status_code=201)
 @router.post("", response_model=DeveloperResponse, status_code=201)
 @rate_limit(rate=20, per=60)
 async def register_developer(
@@ -33,7 +34,15 @@ async def register_developer(
     body: DeveloperCreate,
     service: Annotated[DeveloperService, Depends(get_service)],
 ) -> Developer:
-    """Register a developer for the DAO grant program."""
+    """Register a developer for the DAO grant program.
+
+    Served on both ``POST /v1/developers`` (admin/client via the matrix —
+    admin-provisioned flow) and ``POST /v1/developers/register`` (public —
+    #3023 self-service flow). The endpoint carries its own wallet-signature
+    + fresh-timestamp proof like ``/v1/register``, so the public path's
+    gate is the signature, not a JWT: a new developer cannot hold a client
+    JWT before registering. Rate limit (20/min) applies to both.
+    """
     from aitbc.crypto.developer_registry import (
         developer_register_claim,
         developer_register_timestamp_fresh,

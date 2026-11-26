@@ -562,6 +562,7 @@
 | `POST` | `/v1/developer-platform/unstake` | Unstake Tokens |
 | `GET` | `/v1/developers` | List Developers |
 | `POST` | `/v1/developers` | Register Developer |
+| `POST` | `/v1/developers/register` | Register Developer (public self-service, #3023) |
 | `GET` | `/v1/developers/{wallet_address}` | Get Developer |
 | `PUT` | `/v1/developers/{wallet_address}` | Update Developer |
 | `GET` | `/v1/disputes/` | List disputes |
