@@ -135,3 +135,13 @@ a write; not played on a workflow the operator did not start.
 - `… requires an admin-role credential … (HTTP 403 — {"detail":"Role
   required"})` — the stored credential is a client JWT; store an admin
   login (`aitbc auth login --credential-name admin`) or pass `--api-key`.
+- `Error: No such option '--output'` on `aitbc auth login|logout …` —
+  `--output` is a **root-level** flag and must precede the subcommand:
+  `aitbc --output json auth login …`, not `aitbc auth login --output json`
+  (#3001).
+- Replaying the admin login **from hub**: hub has no working SSH path to
+  node2, so `ssh node2`/`scp` wallet pulls fail (exit 1 after the connect
+  timeout). Stage the provider admin key via the IDE custody fleet copy
+  (`credentials/wallets/fleet/<node>/…`), run
+  `aitbc auth login --private-key-file <staged>`, then delete the staged
+  file — the same path the 26 Nov S66 replay used (#3001).
