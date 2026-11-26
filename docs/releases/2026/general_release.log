@@ -88,6 +88,105 @@ Before tagging v1.0.0:
 *Version: 1.0.0*
 *Status: Planned — Production Readiness (after v0.9.0)*
 
+## v0.30.0
+
+### v0.30.0 — post-v0.29 window (10 Nov → 26 Nov 2026)
+
+Consolidated notes for the ~1,600-commit window between the v0.29.0
+draft cutoff and the v0.30.0 tag. This is a themes pass, not an
+exhaustive per-commit sweep — the window was dominated by the
+repository split, the money-plane correctness cluster, and the
+large refactor waves. Topic logs carry the per-subsystem detail.
+
+### Repository split and public export (#2956 epic, #2969)
+
+- **Operations corpus carved out of the product repo** (#2964/#2965):
+  all `ops/`/`scripts/ops` deployment, monitoring, and fleet tooling
+  moved to the private `aitbc-ops` repository; the product checkout is
+  ~71k lines lighter. Fleet relinked — OPS paths resolve through
+  `/opt/aitbc-ops` on every host, zero new unit failures.
+- **AGPLv3 relicensing** of the product core (#2972-era): license
+  headers and `LICENSE` updated; commercial-licensing contact line
+  restored. **Trademark carve-out**: AITBC marks are excluded from the
+  copyright grant (`95c1942ffa`).
+- **Public GitHub mirror rebuilt by history rewrite** (#2969):
+  `git filter-repo` pipeline in `aitbc-ops`
+  (`scripts/ops/export-public-github.py`) excises ops paths, scrubs
+  host topology from blobs/commit messages/identity headers, and
+  preserves golden chain fixtures. The old GitHub repo was deleted and
+  recreated empty (zero stars/forks/watchers; the only true purge for
+  GitHub-retained `refs/pull/*` objects). Fresh-clone verifier: all
+  ten gates green — fsck clean, zero forbidden paths, zero topology
+  hits, HEAD tree byte-identical, 47 tags, deterministic double-run.
+  Gitea remains canonical; the mirror is export-only.
+- **Release docs reorganized** topic-first (#2974): per-version log
+  directories folded into `2026/<topic>_release.log` files with a
+  `versions/` archive and `MANIFEST.csv`.
+
+### Money-plane correctness cluster (Nov 23–25)
+
+A coordinated audit-and-fix wave across escrow, market settlement,
+wallet release paths, and coordinator reconciliation:
+
+- **Escrow/settlement**: settle-CAS arbitration and on-chain outcome
+  reconciliation on lost CAS (#2855); partial unique indexes on
+  `client_ref`/`bids.tx_hash` so one payment settles one bid (#2858,
+  #2848); sealed-verdict adoption on hashless settle; escrow residue
+  leg matching by exact payload `job_id`; coordinator escrow state
+  reconciled with chain truth on lock rejection; refund relay dedup
+  and client_id resolution hardened.
+- **Wallet release proofs**: release nonces proven free on `pending`
+  (not just `latest`); reverted release receipts gated on confirmation
+  depth; `released_at` stamped only on release intent; sell/exchange
+  ETH release gated on admissible fresh status and non-positive
+  amounts rejected.
+- **Market audit cluster**: registry row repair on identical-offer
+  skip; offer floor escrow sizing with unsealed-refund retry; signed
+  provider pin confirmations; `MAX_PAYMENT_AMOUNT` aligned to
+  `Numeric(20,8)`; service price/price_unit validation; pin-confirm
+  size/hash bounds; dispute adjudication reroute of settled escrow.
+- **Agent-coordinator**: escrow replay terms cover timeout/reinvest;
+  refund on post-lock distribution failure; rejected release/refund
+  txs reconciled to LOCKED.
+
+### IPFS market hosting propagation (#2967, #2968)
+
+- **Signed CAR fallback rescue**: provider pinning sweeps that cannot
+  reach buyer↔provider bitswap fetch a CAR over the hub coordinator
+  and verify every block against its CID multihash before it enters
+  the blockstore — transport is never authority; weak hashes fail
+  closed.
+- Rental release gated on provider delivery attestation; escrow locks
+  sized at the offer floor; miner execution keeps market IPFS escrow
+  rails out of the job path; `aitbc market ipfs attest` CLI surface.
+- Refund direction is fail-closed: a provider failure report can only
+  refund the buyer, never pay the provider — the 30-day money-lock
+  failure mode is closed.
+
+### Bond slash lifecycle (#2966, #2976)
+
+- Bond suspension and appeal separated from on-chain slashing
+  (`d160a62e93`).
+- **Pre-burn appeal window** for automatic bond slashing (`b9853f682d`):
+  slash intents enter a challenge window before the burn executes.
+
+### ZK unsafe-model unpaid execution (#2951)
+
+- Coordinator refuses 422 before any escrow when the ZK rule fires and
+  the resolved model has no `MODEL_CIRCUITS` entry; dispatch backstop
+  skips such jobs for internal callers; CLI `aitbc ai submit --wait`
+  handles the pending-acceptance/retry interlock correctly.
+
+### Cross-cutting
+
+- **Refactor waves** (#1860, #1867, c901 ratchet): 1–2k-line band
+  modules split across coordinator-api, market, sync, exchange, RPC,
+  MCP, and wallet; broad exception handlers narrowed; dead services
+  and dead model tables removed.
+- **Mempool**: unsigned protocol writes drain behind the sender's
+  signed run (`bf88229636`).
+- **Ops-signer**: identical payments deduped; ambiguous sends reported.
+
 ## v0.29.0
 
 ### v0.29.0 — post-v0.28.0 work (staging draft)

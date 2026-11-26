@@ -26,7 +26,7 @@
 ## 🧾 **One version number, one source of truth**
 
 The package version and the release train are the same number — currently
-`0.25.9`. `aitbc/_version.py` is the single source of truth (`pip`, `make
+`0.30.0`. `aitbc/_version.py` is the single source of truth (`pip`, `make
 version-check`, and `aitbc --version` all report it), and
 `scripts/ci/check-version-consistency.py` enforces that every other reference
 matches it:
@@ -48,11 +48,12 @@ Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
 
-- **[v0.29.0](2026/README.md#v0290)** - Post-v0.28 window (staging draft): consensus domain separation (#1298), state transitions v21–v24 (#1314), mempool reservations (#1300), agent-spend policy, contract + app audit-bug waves (#1380–#1512)
-- **[v0.28.0](2026/README.md#v0280)** - Post-reset tasks: island gauges, CLI error/exit sweeps, failover + backup runbooks, PG-capable services, fork guards (staged, tag pending)
-- **[v0.27.0](2026/README.md#v0270)** - RAM optimization wave: systemd memory caps, coordinator startup footprint, journal-errors streaming, watchdog/OOM visibility (staged, tag pending)
-- **[v0.26.0](2026/README.md#v0260)** - Post-reset window: RPC `chain_id` 400s, governance sealed-proposal reader, reset-window gate tooling (staged, tag pending)
-- **[v0.25.13](2026/README.md#v02513)** - MCP routing/groups hardening, post-tag follow-ups (staged, tag pending)
+- **[v0.30.0](2026/README.md#v0300)** - Repo split + public GitHub export, AGPLv3 relicensing, money-plane correctness cluster, IPFS hosting propagation, bond slash lifecycle, ZK unsafe-model refusal ✅ tagged 2026-11-26
+- **[v0.29.0](2026/README.md#v0290)** - Post-v0.28 window (staging draft): consensus domain separation (#1298), state transitions v21–v24 (#1314), mempool reservations (#1300), agent-spend policy, contract + app audit-bug waves (#1380–#1512) ✅ retro-tagged 2026-11-26
+- **[v0.28.0](2026/README.md#v0280)** - Post-reset tasks: island gauges, CLI error/exit sweeps, failover + backup runbooks, PG-capable services, fork guards ✅ retro-tagged 2026-11-26
+- **[v0.27.0](2026/README.md#v0270)** - RAM optimization wave: systemd memory caps, coordinator startup footprint, journal-errors streaming, watchdog/OOM visibility ✅ retro-tagged 2026-11-26
+- **[v0.26.0](2026/README.md#v0260)** - Post-reset window: RPC `chain_id` 400s, governance sealed-proposal reader, reset-window gate tooling ✅ retro-tagged 2026-11-26
+- **[v0.25.13](2026/README.md#v02513)** - MCP routing/groups hardening, post-tag follow-ups ✅ retro-tagged 2026-11-26
 - **[v0.25.12](2026/README.md#v02512)** - Post-v0.25.11 consolidation: chain-stall alert, MCP groups, CLI exit codes, failover/backup drills, escrow relays ✅ tagged 2026-10-21
 - **[v0.25.11](2026/README.md#v02511)** - On-chain messaging, bridge ledger/ops hardening, KR-2…KR-6 key rotations, v13/v14 shared activation ✅
 - **[v0.25.10](2026/README.md#v02510)** - Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling ✅
@@ -161,6 +162,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: November 10, 2026*
-*Version: 2.4*
-*Status: Release index updated through the v0.29.0 staging draft (v0.25.2–v0.25.13, v0.26.0, v0.27.0, v0.28.0 entries added 2026-11-10)*
+*Last updated: November 26, 2026*
+*Version: 2.5*
+*Status: Release index updated through v0.30.0 — v0.25.13–v0.29.0 retro-tagged and v0.30.0 tagged 2026-11-26 under the ratified release model (#2987)*

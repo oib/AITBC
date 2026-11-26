@@ -37,6 +37,27 @@ to [`versions/<version>/`](versions/) — same directory names as the old
 tree (`versions/v0.10/`, `versions/v1.0/`, ...), so relative links between
 them still resolve.
 
+## Release model (ratified 2026-11-26, #2987)
+
+- **One version number, one source of truth**: `aitbc/_version.py`;
+  `scripts/ci/check-version-consistency.py` enforces every other
+  reference (`pyproject.toml`, `cli/aitbc_cli/__init__.py`, README badge).
+- **Tags live on `main` only.** Every release tag (`vX.Y.Z`) is an
+  annotated tag on a commit reachable from `main` first-parent; no
+  release tags on side branches or verify refs.
+- **Minor/patch discipline**: patch releases (`vX.Y.Z+1`) cover
+  post-tag fixes within a minor window; minor releases (`vX.Y+1.0`)
+  consolidate a completed staging window. Retro-tags for windows that
+  closed untagged are cut at the last commit that finalized each
+  version's change log (see `../STATUS.md` for anchors).
+- **Tagging is part of Done.** A release row is not complete until its
+  tag is pushed to the canonical Gitea remote; `STATUS.md` records the
+  tag and anchor for every version.
+- **GitHub Release objects for minors only.** The public GitHub mirror
+  is export-only; GitHub Releases are created for minor versions, not
+  patches. Tags flow to the mirror on the next `aitbc-ops` export run —
+  the export pipeline does not need per-tag runs.
+
 ## Historical note
 
 The retired `docs/releases/archive/` README described the v0.0.x–v0.4.x
@@ -55,6 +76,10 @@ Each version's notes are distributed across the topic files above; every split r
 - [General](general_release.log#v100)
 - [Security](security_release.log#v100)
 - [Testing](testing_release.log#v100)
+
+### v0.30.0
+
+- [General](general_release.log#v0300)
 
 ### v0.29.0
 

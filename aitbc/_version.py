@@ -3,4 +3,4 @@ AITBC Version Module
 Single source of truth for version information
 """
 
-__version__ = "0.25.9"
+__version__ = "0.30.0"
