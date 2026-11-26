@@ -6,9 +6,10 @@ fallback in tests). monitor_payment is an infinite background loop
 not route logic. Honest-stub contract: confirm-payment is a documented
 501 (free-minting guard).
 
-Matrix note: /v1/exchange/* = CLIENT admits ONLY role 'client' — admin
-is excluded by check_role_match(CLIENT,'admin')==False. Flagged as an
-observation (policy choice vs defect) on the #1289 ledger.
+Matrix note: /v1/exchange/* = ADMIN_OR_CLIENT since #3019
+(AUTHZ-EXCHANGE-ADMIN-LOCKOUT-1). Both authed handlers take
+AdminOrClientDep; the old CLIENT level let middleware 403 every admin
+JWT before the handler ran — the same deadlock class as #2740/#1327.
 """
 
 from __future__ import annotations
@@ -63,14 +64,16 @@ class TestExchangeMatrix:
         assert get_auth_level("/v1/exchange/rates") == AuthLevel.NONE
         assert get_auth_level("/v1/exchange/market-stats") == AuthLevel.NONE
 
-    def test_create_payment_client_only(self) -> None:
-        # CLIENT level admits 'client' and rejects 'admin'/'miner' per
-        # check_role_match — admin exclusion noted on #1289 ledger
+    def test_create_payment_admin_or_client(self) -> None:
+        # #3019: ADMIN_OR_CLIENT matches the handlers' AdminOrClientDep —
+        # admin wallets drive the customer exchange workflow; miner and
+        # anonymous callers stay out.
         level = get_auth_level("/v1/exchange/create-payment")
-        assert level == AuthLevel.CLIENT
+        assert level == AuthLevel.ADMIN_OR_CLIENT
         assert check_role_match(level, "client")
-        assert not check_role_match(level, "admin")
+        assert check_role_match(level, "admin")
         assert not check_role_match(level, "miner")
+        assert not check_role_match(level, None)
 
 
 class TestPaymentLifecycle:

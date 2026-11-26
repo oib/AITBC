@@ -169,7 +169,13 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/escrow/relay": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/escrow/release": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/escrow/refund": AuthLevel.ADMIN_OR_CLIENT,
-    "/v1/exchange/*": AuthLevel.CLIENT,
+    # #3019 AUTHZ-EXCHANGE-ADMIN-LOCKOUT-1: both authed handlers
+    # (create-payment, payment-status/{id}) take AdminOrClientDep — admin
+    # wallets drive the same customer exchange workflow as jobs/payments,
+    # so CLIENT here 403'd every admin JWT in middleware before the handler
+    # ran. rates/market-stats keep their exact NONE entries above; confirm-
+    # payment has no auth dep but is a documented 501 stub for everyone.
+    "/v1/exchange/*": AuthLevel.ADMIN_OR_CLIENT,
     # Admin or client routes
     "/v1/governance*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/grants*": AuthLevel.ADMIN_OR_CLIENT,
