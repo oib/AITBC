@@ -396,15 +396,72 @@ class TestEscrowRefundRelay:
         assert resp.status_code == 409
         mock_client.post.assert_not_called()
 
-    def test_refund_job_payment_refunded_returns_stored(self, client, db_session):
+    def test_refund_stale_local_marker_redrives_instead_of_answering_success(self, client, db_session):
+        """#3032: a job_payments ``refunded`` marker is submission-time
+        evidence, not settlement. With the escrow still funded on-chain the
+        marker is stale — the relay must re-drive the refund, not replay
+        ``0xpayref`` as success while the funds stay locked."""
         headers = _actor(db_session, "c-pref")
         _add_job(db_session, client_id="c-pref", state="FAILED")
         _add_payment(db_session, status="refunded", refunded_at=datetime.now(UTC), refund_transaction_hash="0xpayref")
         mock_client = _chain_client_mock()
         with patch(PATCH_TARGET, return_value=mock_client):
             resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
-        assert resp.status_code == 200
-        assert resp.json()["refund_tx_hash"] == "0xpayref"
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["refund_tx_hash"] == "0xref1"
+        assert resp.json()["duplicate"] is False
+        mock_client.post.assert_called_once()
+
+    def test_dedup_row_adopts_authoritative_hash_when_chain_names_a_different_attempt(self, client, db_session):
+        """#3032: escrow reads refunded under ``0xauthoritative`` while the
+        relay row cached ``0xstale`` — the chain's hash replaces the cache
+        and is returned; no second submission."""
+        headers = _actor(db_session, "c-diverge")
+        _add_job(db_session, client_id="c-diverge", state="FAILED")
+        db_session.add(EscrowRefundRelay(client_id="c-diverge", job_id="job_1", tx_hash="0xstale", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(
+            escrow=_escrow_state(state="refunded", refunded_at="2026-10-27T00:00:00", refund_tx_hash="0xauthoritative")
+        )
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["refund_tx_hash"] == "0xauthoritative"
+        assert resp.json()["duplicate"] is True
+        mock_client.post.assert_not_called()
+        row = db_session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == "job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xauthoritative"
+
+    def test_dedup_replay_preserved_when_cached_hash_matches_chain(self, client, db_session):
+        """#3032 control: cached hash == chain hash → plain replay, no heal."""
+        headers = _actor(db_session, "c-match")
+        _add_job(db_session, client_id="c-match", state="FAILED")
+        db_session.add(EscrowRefundRelay(client_id="c-match", job_id="job_1", tx_hash="0xsame", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(
+            escrow=_escrow_state(state="refunded", refunded_at="2026-10-27T00:00:00", refund_tx_hash="0xsame")
+        )
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["refund_tx_hash"] == "0xsame"
+        assert resp.json()["duplicate"] is True
+        mock_client.post.assert_not_called()
+        row = db_session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == "job_1")).scalars().first()
+        assert row is not None and row.tx_hash == "0xsame"
+
+    def test_dedup_replay_when_chain_omits_refund_hash(self, client, db_session):
+        """#3032: a refunded escrow that names no ``refund_tx_hash`` gives
+        no authoritative alternative — the cached hash still replays."""
+        headers = _actor(db_session, "c-nohash")
+        _add_job(db_session, client_id="c-nohash", state="FAILED")
+        db_session.add(EscrowRefundRelay(client_id="c-nohash", job_id="job_1", tx_hash="0xcached", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(escrow=_escrow_state(state="refunded", refunded_at="2026-10-27T00:00:00"))
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["refund_tx_hash"] == "0xcached"
         assert resp.json()["duplicate"] is True
         mock_client.post.assert_not_called()
 

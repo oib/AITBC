@@ -195,8 +195,12 @@ class EscrowRefundRelayService(EscrowRelayService):
         A missing ``job`` row means the escrow was minted market-side; the
         relay structurally refuses those (they stay settlement-node
         refunds). COMPLETED is never refundable, whatever the clock says.
-        A held ``job_payments`` row in released/refunded state is secondary
-        evidence and short-circuits before the chain call.
+        A held ``job_payments`` row in released state is secondary evidence
+        and refuses; a refunded marker is *not* — the node marks
+        ``refunded_at`` at submission and this gate only runs after the
+        escrow read proved the chain record is NOT refunded, so a local
+        refunded marker here is stale evidence (#3032) and the refund
+        re-drives instead of answering success.
         """
         job = self.session.get(Job, job_id)
         if job is None:
@@ -226,15 +230,11 @@ class EscrowRefundRelayService(EscrowRelayService):
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"payment for job_id={job_id} has already been released",
                 )
-            if payment.status == "refunded" or payment.refunded_at is not None:
-                row = EscrowRefundRelay(
-                    client_id=client_id,
-                    job_id=job_id,
-                    tx_hash=payment.refund_transaction_hash,
-                    contract_id=None,
-                )
-                stored = self._insert_or_existing(row)
-                raise _AlreadyRefunded(stored if stored is not None else row)
+            # #3032: a local refunded marker is deliberately NOT trusted
+            # here — this gate only runs after the escrow read proved the
+            # chain record is not refunded, so the marker is stale
+            # (submission-time write or a dead envelope). It must not answer
+            # success; fall through and re-drive the refund.
 
         if job.state == "COMPLETED":
             logger.warning(
@@ -358,6 +358,11 @@ class EscrowRefundRelayService(EscrowRelayService):
         existing: EscrowRefundRelay | None = await run_in_threadpool(
             lambda: self.session.execute(select(EscrowRefundRelay).where(EscrowRefundRelay.job_id == job_id)).scalars().first()
         )
+        # #3032: the chain record is authoritative for *which* refund
+        # landed — a divergent cached hash is healed, never replayed.
+        adopted = await self._adopt_authoritative_hash(job_id, escrow, existing, escrow_refunded=escrow_refunded)
+        if adopted is not None:
+            return adopted
         replay = self._dedup_replay(existing, escrow_refunded=escrow_refunded)
         if replay is not None:
             return replay
@@ -380,14 +385,48 @@ class EscrowRefundRelayService(EscrowRelayService):
 
         # Phase-1 gate: coordinator job must exist and be terminal-unpaid;
         # secondary payment evidence; then the on-chain conflict check.
-        try:
-            await run_in_threadpool(self._check_job_refundable, canonical_client_id, is_admin, job_id)
-        except _AlreadyRefunded as prior:
-            return self._stored_result(prior.row)
+        await run_in_threadpool(self._check_job_refundable, canonical_client_id, is_admin, job_id)
         await self._check_no_completed_job_record(client, job_id)
 
         chain_response = await self._post_refund(client, job_id, {"reason": reason})
         return await self._finish_refund(client, client_id, job_id, reason, chain_response, existing)
+
+    async def _adopt_authoritative_hash(
+        self,
+        job_id: str,
+        escrow: dict[str, Any],
+        existing: EscrowRefundRelay | None,
+        *,
+        escrow_refunded: bool,
+    ) -> dict[str, Any] | None:
+        """#3032: heal a stale cached hash to the chain's authoritative one.
+
+        When the escrow reads refunded and its ``refund_tx_hash`` names a
+        different attempt than the dedup row cached, the cache is stale —
+        adopt the chain's hash and return the corrected stored result. No
+        second submission: the escrow already reads refunded. Returns None
+        when there is nothing to adopt (no row, no cached hash, escrow not
+        refunded, hashes agree, or the chain names no hash).
+        """
+        if existing is None or not existing.tx_hash or not escrow_refunded:
+            return None
+        authoritative = escrow.get("refund_tx_hash")
+        if not authoritative or authoritative == existing.tx_hash:
+            return None
+        stale = existing.tx_hash
+        await run_in_threadpool(
+            self._fill_dedup_row,
+            existing,
+            tx_hash=authoritative,
+            contract_id=escrow.get("contract_id") or existing.contract_id,
+        )
+        logger.warning(
+            "Escrow refund relay adopted authoritative hash %s for job_id=%s (cached %s was stale)",
+            authoritative,
+            job_id,
+            stale,
+        )
+        return self._stored_result(existing)
 
     @staticmethod
     def _chain_refund_settled(chain_response: Any) -> bool:
@@ -537,11 +576,3 @@ class EscrowRefundRelayService(EscrowRelayService):
         result["refund_tx_hash"] = refund_tx_hash
         result["duplicate"] = False
         return result
-
-
-class _AlreadyRefunded(Exception):
-    """Internal short-circuit: job_payments already shows the refund."""
-
-    def __init__(self, row: EscrowRefundRelay) -> None:
-        super().__init__()
-        self.row = row
