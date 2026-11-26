@@ -20,7 +20,7 @@ from ..utils.agent_signing import (
     signed_request_headers,
 )
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, origin_base_url
+from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, http_response_status, origin_base_url
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -73,6 +73,25 @@ def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
         timeout=30,
         **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key),
     )
+
+
+_REGISTRY_READ_AUTH_HINT = (
+    "registry reads are principal-gated — pass --wallet with --signing-agent-id "
+    "(or AGENT_ID) for X-Agent-* headers, or authenticate with --api-key/`aitbc auth login`"
+)
+
+
+def _abort_read_error(ctx: click.Context, prefix: str, e: Exception) -> None:
+    """Abort a registry/inbox read; a 401 gets the auth hint (#2980/#2984).
+
+    The agent-coordinator gates ``/v1/agents/discover``, ``/v1/agents/{id}``
+    and the message inbox behind ``authorize_any_principal`` /
+    ``authorize_agent_scope`` — an anonymous call draws a bare 401 that
+    reads like a server fault. Name the credentials that actually open it.
+    """
+    if http_response_status(e) == 401:
+        abort(ctx, f"{prefix}: {_REGISTRY_READ_AUTH_HINT}", from_exception=e)
+    abort(ctx, f"{prefix}: {e}", from_exception=e)
 
 
 def _lookup_registered_agent(client: AITBCHTTPClient, agent_id: str, signing: tuple[str, str] | None) -> dict[str, Any]:
@@ -343,7 +362,7 @@ def list_agents(
     except CLIError:
         raise
     except _OPS_ERRORS as e:
-        abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
+        _abort_read_error(ctx, "Error listing agents", e)
 
 
 @agent_comm.command(
@@ -392,7 +411,7 @@ def discover(
     except CLIError:
         raise
     except _OPS_ERRORS as e:
-        abort(ctx, f"Error discovering agents: {str(e)}", from_exception=e)
+        _abort_read_error(ctx, "Error discovering agents", e)
 
 
 @agent_comm.command(
@@ -435,7 +454,7 @@ def status(ctx, agent_id, output_format, signing_agent_id, wallet_name, password
     except CLIError:
         raise
     except _OPS_ERRORS as e:
-        abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
+        _abort_read_error(ctx, "Error getting agent status", e)
 
 
 @agent_comm.command(
@@ -504,7 +523,7 @@ def network(ctx, output_format, signing_agent_id, wallet_name, password, passwor
     except CLIError:
         raise
     except _OPS_ERRORS as e:
-        abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
+        _abort_read_error(ctx, "Error getting network overview", e)
 
 
 @agent_comm.command(
@@ -689,4 +708,4 @@ def receive(ctx, receiver_id, limit, wallet_name, password, password_file, passw
     except CLIError:
         raise
     except _OPS_ERRORS as e:
-        abort(ctx, f"Error receiving messages: {e}", from_exception=e)
+        _abort_read_error(ctx, "Error receiving messages", e)

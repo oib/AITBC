@@ -60,6 +60,34 @@ aitbc agent-msg request-coins \
   --coordinator-url https://hub.example.net/agent
 ```
 
+## agent-comm commands
+
+`aitbc agent-comm` manages the agent registry (`/v1/agents/*`) and the
+message inbox. Registry reads (`list`, `discover`, `status`, `network`)
+and the inbox (`receive`) are **principal-gated** — an anonymous call gets
+HTTP 401 with a credential hint (#2980/#2984). Authenticate with any of:
+
+```bash
+# Signed agent read: the wallet's X-Agent-* headers authenticate as
+# --signing-agent-id (must be registered + bound to that wallet)
+aitbc agent-comm list --wallet <wallet> --signing-agent-id <agent-id>
+
+# Or a session/operator credential
+aitbc --api-key <JWT> agent-comm list
+aitbc auth login   # stored JWT is picked up automatically
+```
+
+Wallet passwords for non-interactive signing legs resolve through the
+standard chain: `--password-file`/`--password` → `AITBC_WALLET_PASSWORD_FILE`
+→ `AITBC_WALLET_PASSWORD_<NAME>`/`AITBC_WALLET_PASSWORD` → keyring/TTY —
+see [docs/cli/README.md](../cli/README.md) ("Wallet password input"). On
+fleet nodes provision `AITBC_WALLET_PASSWORD_FILE` (or the per-wallet env)
+rather than relying on a TTY prompt.
+
+`agent-task hire` needs no manual registration: its implicit
+`buyer-<host>` agent self-registers bound to the signing wallet on first
+use (#2983).
+
 ## REST endpoints
 
 The Agent Coordinator also exposes a small HTTP API on port 8107. Common paths:
