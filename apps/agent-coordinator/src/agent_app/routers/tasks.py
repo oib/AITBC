@@ -232,7 +232,11 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         payload_ref = request.task_data.get("payload_ref")
         if isinstance(payload_ref, str):
             escrow.metadata["payload_ref"] = payload_ref
-        state.payment_escrow.persist_entry(escrow)
+        # #2998: the durable row must exist BEFORE the chain lock is
+        # submitted — a swallowed store failure here is how a funded escrow
+        # ends up with no payment row at all. Strict: a write failure aborts
+        # the submit before any on-chain side effect.
+        state.payment_escrow.persist_entry(escrow, strict=True)
     contract_id = _lock_escrow_on_chain_with_retry(escrow, request.payment, task_id)
     return escrow.escrow_id, contract_id, escrow.status.value
 

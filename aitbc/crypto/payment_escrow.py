@@ -376,24 +376,96 @@ class PaymentEscrow:
         with self._lock:
             return [e for e in self._escrows.values() if e.status == status]
 
-    def persist_entry(self, entry: EscrowEntry) -> None:
-        """Flush a caller-mutated entry (e.g. metadata/contract_id) to the store."""
+    def persist_entry(self, entry: EscrowEntry, *, strict: bool = False) -> None:
+        """Flush a caller-mutated entry (e.g. metadata/contract_id) to the store.
+
+        ``strict=True`` re-raises store failures instead of logging them —
+        the task-submit path uses it so the durable row is proven before the
+        on-chain lock is attempted (#2998): a swallowed write failure there
+        is exactly how a funded escrow ends up with no payment row.
+        """
         with self._lock:
             self._escrows[entry.escrow_id] = entry
-            self._persist(entry)
+            self._persist(entry, strict=strict)
 
-    def _persist(self, entry: EscrowEntry) -> None:
+    def adopt_chain_lock(
+        self,
+        entry: EscrowEntry,
+        *,
+        tx_hash_lock: str | None = None,
+        contract_id: str | None = None,
+    ) -> bool:
+        """Flip a PENDING/REJECTED entry to LOCKED from chain truth (#2998).
+
+        The node's escrow record is authoritative: a lock that sealed after
+        an ambiguous submit — or after a bookkeeping-only persist — leaves
+        the local row below LOCKED while funds are actually held. Adopting
+        records the chain's lock hash/contract id so the normal
+        release/refund/expire paths can settle it. Returns ``False`` when
+        the stored entry is missing or no longer in an adoptable state (a
+        concurrent transition wins; the caller must not mutate blindly).
+        """
+        with self._lock:
+            current = self._escrows.get(entry.escrow_id)
+            if current is None or current.status not in (EscrowStatus.PENDING, EscrowStatus.REJECTED):
+                return False
+            current.status = EscrowStatus.LOCKED
+            current.locked_at = time.time()
+            if tx_hash_lock:
+                current.tx_hash_lock = str(tx_hash_lock)
+            if contract_id:
+                current.contract_id = str(contract_id)
+                current.metadata["contract_id"] = str(contract_id)
+            current.metadata["orphan_adopted_at"] = time.time()
+            self._persist(current)
+            logger.info("Adopted on-chain lock for escrow %s (task %s)", current.escrow_id, current.task_id)
+            return True
+
+    def refund_orphaned(self, entry: EscrowEntry, submitter: EscrowCallback | None = None) -> EscrowEntry:
+        """Refund a PENDING/REJECTED escrow whose on-chain lock is live (#2998).
+
+        Same callback signature and argument order as :meth:`refund`. The
+        status check runs under the manager lock, so a concurrent
+        transition (a same-task resubmit locking the entry, a settle path
+        moving it) wins and this raises ``ValueError`` instead of
+        double-acting. The chain refund itself is idempotent per job id.
+        """
+        with self._lock:
+            current = self._escrows.get(entry.escrow_id)
+            if current is None:
+                raise ValueError(f"Escrow {entry.escrow_id} not found")
+            if current.status not in (EscrowStatus.PENDING, EscrowStatus.REJECTED):
+                raise ValueError(f"Escrow {entry.escrow_id} is not orphan-eligible (status={current.status})")
+            callback = submitter or self._refund_callback
+            if callback:
+                current.tx_hash_refund = callback(
+                    current.chain_id,
+                    current.agent,
+                    current.requester,
+                    current.amount,
+                )
+            current.status = EscrowStatus.REFUNDED
+            current.metadata["orphan_refund"] = True
+            self._persist(current)
+            logger.info("Refunded orphaned escrow %s (tx=%s)", current.escrow_id, current.tx_hash_refund)
+            return current
+
+    def _persist(self, entry: EscrowEntry, *, strict: bool = False) -> None:
         """Write ``entry`` through to the configured store (best effort).
 
         A store failure is logged but never raised: the chain operation the
         entry records has already happened, so failing the call would only
-        mislead the caller into retrying a settled transaction.
+        mislead the caller into retrying a settled transaction. ``strict``
+        callers (the pre-lock submit path, #2998) opt out of that — for them
+        the write IS the precondition, not a post-hoc record.
         """
         if self._store is None:
             return
         try:
             self._store.save(entry)
         except Exception as e:  # noqa: BLE001 - fail-safe: store write-through failure is logged, never raised
+            if strict:
+                raise
             logger.error("Failed to persist escrow %s: %s", entry.escrow_id, e)
 
     def _get_entry(self, escrow_id: str) -> EscrowEntry:

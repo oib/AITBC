@@ -193,6 +193,32 @@ class ChainEscrowClient:
         logger.info("On-chain escrow refunded: job_id=%s tx=%s", job_id, tx_hash)
         return str(tx_hash) if tx_hash else None
 
+    def get_escrow_record(self, job_id: str) -> dict[str, Any] | None:
+        """Return the node's escrow record for ``job_id``; ``None`` on 404.
+
+        The point-read is the reconciliation truth for the orphan sweeper
+        (#2998): transport errors and non-404 refusals raise
+        ``EscrowRPCError`` so a sweep never mistakes "could not tell" for
+        "no escrow". The atask escrow's on-chain id IS the task id —
+        ``make_lock_submitter`` submits ``job_id=task_id``.
+        """
+        try:
+            response = self._client.get(f"/rpc/escrow/{job_id}", timeout=10.0)
+        except httpx.HTTPError as e:
+            raise EscrowRPCError(f"escrow RPC get {job_id} unreachable: {e}") from e
+        if response.status_code == 404:
+            return None
+        if response.status_code >= 400:
+            raise EscrowRPCError(
+                f"escrow RPC get {job_id} returned {response.status_code}: {response.text[:300]}",
+                status_code=response.status_code,
+            )
+        try:
+            data = response.json()
+        except ValueError as e:
+            raise EscrowRPCError(f"escrow RPC get {job_id} returned non-JSON response") from e
+        return data if isinstance(data, dict) else None
+
     def transaction_status(self, tx_hash: str, chain_id: str | None = None) -> dict[str, Any] | None:
         """Return the chain's record for ``tx_hash``; ``None`` when unreadable.
 

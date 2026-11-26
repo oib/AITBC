@@ -192,6 +192,52 @@ async def sweep_stale_escrows() -> None:
         await asyncio.sleep(max(_settings.task_payment_sweep_seconds, 5.0))
 
 
+def _orphan_sweep_once() -> dict[str, int]:
+    """One orphaned-escrow reconcile pass (#2998), run in a worker thread.
+
+    The chain point-reads and refund submits are synchronous httpx — same
+    off-loop rule as ``_escrow_sweep_once`` (#1750).
+    """
+    from .config import settings as _settings
+    from .services.orphan_escrow_sweeper import OrphanedTaskEscrowSweeper
+
+    sweeper = OrphanedTaskEscrowSweeper(
+        payment_escrow=state.payment_escrow,
+        escrow_rpc=state.escrow_rpc,
+        load_balancer=state.load_balancer,
+        grace_seconds=_settings.task_payment_orphan_grace_seconds,
+        batch_size=_settings.task_payment_orphan_sweep_batch_size,
+        dry_run=_settings.task_payment_orphan_sweep_dry_run,
+    )
+    return sweeper.run_once()
+
+
+async def sweep_orphaned_task_escrows() -> None:
+    """Background task: reconcile escrows whose chain lock outlived the local row (#2998).
+
+    Sleeps ``settings.task_payment_orphan_sweep_seconds`` between passes;
+    0 disables. Registered only when task-payment escrow is enabled.
+    """
+    from .config import settings as _settings
+
+    while True:
+        try:
+            counts = await asyncio.to_thread(_orphan_sweep_once)
+            if counts["candidates"]:
+                logger.info(
+                    "Orphaned escrow sweep: candidates=%s adopted=%s refunded=%s failed=%s deferred=%s skipped=%s",
+                    counts["candidates"],
+                    counts["adopted"],
+                    counts["refunded"],
+                    counts["failed"],
+                    counts["deferred"],
+                    counts["skipped"],
+                )
+        except _OPS_ERRORS as e:
+            logger.error("Error sweeping orphaned escrows: %s", e)
+        await asyncio.sleep(max(_settings.task_payment_orphan_sweep_seconds, 5.0))
+
+
 async def sweep_stale_assignments() -> None:
     """Background task: fail load-balancer assignments that never reported (#1749).
 
@@ -299,6 +345,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         if settings.task_payment_sweep_seconds > 0:
             _task_registry.create_task(sweep_stale_escrows, name="escrow_expiry_sweeper")
+        # #2998: reconcile escrows whose chain lock outlived a PENDING/REJECTED
+        # local row — the expire sweep only sees LOCKED entries.
+        if settings.task_payment_orphan_sweep_enabled and settings.task_payment_orphan_sweep_seconds > 0:
+            _task_registry.create_task(sweep_orphaned_task_escrows, name="orphaned_escrow_sweeper")
     else:
         logger.info("Payment escrow disabled (task_payment_escrow_enabled=False)")
 

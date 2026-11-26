@@ -148,6 +148,28 @@ class Settings(ServiceSettings):
     task_payment_sweep_seconds: float = float(os.getenv("TASK_PAYMENT_SWEEP_SECONDS", "60"))
     task_max_retries: int = 3
 
+    # Orphaned atask escrow reconciler (#2998): PENDING/REJECTED escrow rows
+    # whose on-chain lock landed anyway (ambiguous submit 502, lost persist).
+    # The sweep point-reads the chain per candidate and refunds or adopts.
+    task_payment_orphan_sweep_enabled: bool = os.getenv("TASK_PAYMENT_ORPHAN_SWEEP_ENABLED", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    # not-money: a duration in seconds; interval between orphan reconcile passes (0 disables)
+    task_payment_orphan_sweep_seconds: float = float(os.getenv("TASK_PAYMENT_ORPHAN_SWEEP_SECONDS", "300"))
+    # not-money: a duration in seconds; minimum row age before the chain is probed
+    task_payment_orphan_grace_seconds: float = float(os.getenv("TASK_PAYMENT_ORPHAN_GRACE_SECONDS", "900"))
+    # not-money: max candidates per pass
+    task_payment_orphan_sweep_batch_size: int = int(os.getenv("TASK_PAYMENT_ORPHAN_SWEEP_BATCH_SIZE", "25"))
+    task_payment_orphan_sweep_dry_run: bool = os.getenv("TASK_PAYMENT_ORPHAN_SWEEP_DRY_RUN", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
     # Agent TTL (v0.6.5 — configurable, was hardcoded in agent_discovery.py)
     agent_heartbeat_timeout_seconds: int = 120
     agent_cleanup_interval_seconds: int = 60
