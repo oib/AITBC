@@ -208,6 +208,14 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         if isinstance(payload_ref, str) and "payload_ref" not in escrow.metadata:
             escrow.metadata["payload_ref"] = payload_ref
             state.payment_escrow.persist_entry(escrow)
+        # #3005: a reused PENDING entry that reaches the chain lock must
+        # prove the durable row first — the same contract the new-entry
+        # path enforces below. A first submit whose strict write failed
+        # leaves a poisoned in-memory PENDING; without this check a retry
+        # would seal a funded escrow with no payment row — the orphan
+        # failure #2998 exists to prevent.
+        if escrow.status == EscrowStatus.PENDING:
+            state.payment_escrow.persist_entry(escrow, strict=True)
     else:
         escrow = state.payment_escrow.create_escrow(
             task_id=task_id,
