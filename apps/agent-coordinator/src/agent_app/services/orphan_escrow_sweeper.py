@@ -201,7 +201,7 @@ class OrphanedTaskEscrowSweeper:
         if self._task_was_distributed(entry.task_id):
             self._adopt_candidate(entry, record, counts)
         else:
-            self._refund_candidate(entry, client, counts)
+            self._refund_candidate(entry, record, client, counts)
 
     def _adopt_candidate(self, entry: EscrowEntry, record: dict[str, Any] | None, counts: dict[str, int]) -> None:
         """Heal a distributed task's row to LOCKED from the chain record."""
@@ -228,15 +228,31 @@ class OrphanedTaskEscrowSweeper:
         else:
             counts["skipped"] += 1
 
-    def _refund_candidate(self, entry: EscrowEntry, client: ChainEscrowClient, counts: dict[str, int]) -> None:
-        """Refund an orphan whose submit died before distribution."""
+    def _refund_candidate(
+        self, entry: EscrowEntry, record: dict[str, Any] | None, client: ChainEscrowClient, counts: dict[str, int]
+    ) -> None:
+        """Refund an orphan whose submit died before distribution.
+
+        The chain record's ``lock_tx_hash``/``contract_id`` are handed to
+        ``refund_orphaned`` so the verified lock identity lands on the row
+        *before* the refund tx is submitted (#3006): if that refund is
+        apply-rejected, the reconcile restores LOCKED and the expire sweep
+        can build a real chain submitter — without the backfill the row
+        reads bookkeeping-only and gets marked REFUNDED with no transaction,
+        stranding the on-chain funds.
+        """
         if self.dry_run:
             logger.info("[DRY-RUN] Would refund orphaned escrow %s (task %s)", entry.escrow_id, entry.task_id)
             counts["refunded"] += 1
             return
         submitter = make_refund_submitter(client, entry.task_id, reason=ORPHAN_REFUND_REASON)
         try:
-            self._payment_escrow.refund_orphaned(entry, submitter=submitter)
+            self._payment_escrow.refund_orphaned(
+                entry,
+                submitter=submitter,
+                tx_hash_lock=record.get("lock_tx_hash") if isinstance(record, dict) else None,
+                contract_id=record.get("contract_id") if isinstance(record, dict) else None,
+            )
         except ValueError:
             # A concurrent transition (resubmit lock, settle path) won —
             # the CAS inside refund_orphaned already re-checked.

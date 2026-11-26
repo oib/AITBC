@@ -421,7 +421,14 @@ class PaymentEscrow:
             logger.info("Adopted on-chain lock for escrow %s (task %s)", current.escrow_id, current.task_id)
             return True
 
-    def refund_orphaned(self, entry: EscrowEntry, submitter: EscrowCallback | None = None) -> EscrowEntry:
+    def refund_orphaned(
+        self,
+        entry: EscrowEntry,
+        submitter: EscrowCallback | None = None,
+        *,
+        tx_hash_lock: str | None = None,
+        contract_id: str | None = None,
+    ) -> EscrowEntry:
         """Refund a PENDING/REJECTED escrow whose on-chain lock is live (#2998).
 
         Same callback signature and argument order as :meth:`refund`. The
@@ -429,6 +436,16 @@ class PaymentEscrow:
         transition (a same-task resubmit locking the entry, a settle path
         moving it) wins and this raises ``ValueError`` instead of
         double-acting. The chain refund itself is idempotent per job id.
+
+        ``tx_hash_lock``/``contract_id`` carry the chain point-read's
+        verified lock identity (#3006): the orphan's original submit died
+        before ``lock()`` could record it, so the sweeper supplies what the
+        chain proved. It is backfilled and persisted *before* the refund
+        submitter runs — if the refund tx is later apply-rejected,
+        ``reconcile_rejected_refund`` restores LOCKED and the expire sweep
+        needs ``tx_hash_lock`` to build a real chain submitter instead of
+        reading the row as bookkeeping-only and marking it REFUNDED with
+        no transaction.
         """
         with self._lock:
             current = self._escrows.get(entry.escrow_id)
@@ -436,6 +453,13 @@ class PaymentEscrow:
                 raise ValueError(f"Escrow {entry.escrow_id} not found")
             if current.status not in (EscrowStatus.PENDING, EscrowStatus.REJECTED):
                 raise ValueError(f"Escrow {entry.escrow_id} is not orphan-eligible (status={current.status})")
+            if tx_hash_lock and not current.tx_hash_lock:
+                current.tx_hash_lock = str(tx_hash_lock)
+            if contract_id and not current.contract_id:
+                current.contract_id = str(contract_id)
+                current.metadata["contract_id"] = str(contract_id)
+            if tx_hash_lock or contract_id:
+                self._persist(current)
             callback = submitter or self._refund_callback
             if callback:
                 current.tx_hash_refund = callback(
