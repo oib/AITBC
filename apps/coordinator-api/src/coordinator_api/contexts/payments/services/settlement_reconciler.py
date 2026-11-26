@@ -118,6 +118,30 @@ class SettlementReconciler:
         )
         return list(session.execute(stmt).scalars().all())
 
+    def _audit_candidates(self, session: Any, stmt: Any, stamp_key: str) -> list[Any]:
+        """Page ``stmt`` with OFFSET, collecting audit-due rows up to budget.
+
+        #3013: the previous shape applied ``LIMIT`` *before* the Python-side
+        ``_audit_due`` check, so a full head of recently-audited rows hid
+        every older eligible row until the 30-day window excluded it. Paging
+        until a short page — the sibling sweepers' pattern — while capping
+        the number of *due* rows audited keeps RPC work bounded and the 20h
+        stamp cadence intact, and guarantees forward progress: audited rows
+        get stamped and leave the due set, so the queue advances every pass.
+        """
+        budget = self.batch_size * 10
+        offset = 0
+        due: list[Any] = []
+        while len(due) < budget:
+            page = list(session.execute(stmt.offset(offset).limit(budget)).scalars().all())
+            if not page:
+                break
+            due.extend(p for p in page if self._audit_due(p, stamp_key))
+            if len(page) < budget:
+                break
+            offset += budget
+        return due[:budget]
+
     def _find_unsealed_release_hashes(self, session: Any) -> list[Any]:
         """Released payments whose recorded tx hash is old enough to have sealed.
 
@@ -139,9 +163,8 @@ class SettlementReconciler:
             # Newest first: hash_ok rows stay eligible, so without an explicit
             # order the same head of the table would starve the tail (#2483).
             .order_by(JobPayment.released_at.desc())  # type: ignore[union-attr]
-            .limit(self.batch_size * 10)
         )
-        return list(session.execute(stmt).scalars().all())
+        return self._audit_candidates(session, stmt, "release_hash_audit_at")
 
     @staticmethod
     async def _recorded_hash_state(
@@ -221,7 +244,7 @@ class SettlementReconciler:
 
     @staticmethod
     def _audit_due(payment: Any, stamp_key: str = "release_hash_audit_at") -> bool:
-        meta = payment.meta_data or {}
+        meta = getattr(payment, "meta_data", None) or {}
         stamped = meta.get(stamp_key) if isinstance(meta, dict) else None
         if not stamped:
             return True
@@ -365,9 +388,8 @@ class SettlementReconciler:
             .where(JobPayment.refunded_at < cutoff)  # type: ignore[operator]
             .where(JobPayment.refunded_at > newest.replace(tzinfo=None))  # type: ignore[operator]
             .order_by(JobPayment.refunded_at.desc())  # type: ignore[union-attr]
-            .limit(self.batch_size * 10)
         )
-        return list(session.execute(stmt).scalars().all())
+        return self._audit_candidates(session, stmt, "refund_hash_audit_at")
 
     @staticmethod
     def _requeue_dead_refund(session: Any, payment: Any, recorded: str, counts: dict[str, int]) -> None:
