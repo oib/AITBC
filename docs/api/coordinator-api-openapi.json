@@ -17356,7 +17356,7 @@
           "Agent Identity"
         ],
         "summary": "Get Agent Identity",
-        "description": "Get comprehensive agent identity summary",
+        "description": "Get comprehensive agent identity summary.\n\n#3020 (AUTHZ-AGENT-IDENTITY-READ-EXPOSURE-1): the summary payload carries\nowner_address, per-chain chain_address/wallet_address and wallet\nstatistics \u2014 owner-or-admin only, same gate as the write routes.",
         "operationId": "get_agent_identity_v1_agent_identity_identities__agent_id__get",
         "parameters": [
           {
@@ -17366,6 +17366,22 @@
             "schema": {
               "type": "string",
               "title": "Agent Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -17392,8 +17408,18 @@
               }
             }
           },
+          "403": {
+            "description": "not the identity owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "Agent identity not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -17748,7 +17774,7 @@
           "Agent Identity"
         ],
         "summary": "Get Cross Chain Mapping",
-        "description": "Get all cross-chain mappings for an agent",
+        "description": "Get all cross-chain mappings for an agent.\n\n#3020: each mapping exposes chain_address and wallet_address \u2014 the same\nwallet-binding data the wallet reads leak, so this is owner-or-admin too.",
         "operationId": "get_cross_chain_mapping_v1_agent_identity_identities__agent_id__cross_chain_mapping_get",
         "parameters": [
           {
@@ -17758,6 +17784,22 @@
             "schema": {
               "type": "string",
               "title": "Agent Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -17782,6 +17824,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the identity owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent identity not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -18253,7 +18315,7 @@
           "Agent Identity"
         ],
         "summary": "Get All Agent Wallets",
-        "description": "Get all wallets for an agent across all chains",
+        "description": "Get all wallets for an agent across all chains.\n\n#3020: the payload lists every chain_address plus balance, spending\nlimits and spend totals \u2014 owner-or-admin only.",
         "operationId": "get_all_agent_wallets_v1_agent_identity_identities__agent_id__wallets_get",
         "parameters": [
           {
@@ -18263,6 +18325,22 @@
             "schema": {
               "type": "string",
               "title": "Agent Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -18289,6 +18367,26 @@
               }
             }
           },
+          "403": {
+            "description": "not the identity owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent identity not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Operation failed",
             "content": {
@@ -18308,7 +18406,7 @@
           "Agent Identity"
         ],
         "summary": "Get Wallet Balance",
-        "description": "Get wallet balance for an agent on a specific chain",
+        "description": "Get wallet balance for an agent on a specific chain.\n\n#3020: balances are owner-or-admin \u2014 any authenticated role could\npreviously read any agent's balance.",
         "operationId": "get_wallet_balance_v1_agent_identity_identities__agent_id__wallets__chain_id__balance_get",
         "parameters": [
           {
@@ -18327,6 +18425,22 @@
             "schema": {
               "type": "integer",
               "title": "Chain Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -18355,6 +18469,26 @@
           },
           "400": {
             "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the identity owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent identity not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -18482,7 +18616,7 @@
           "Agent Identity"
         ],
         "summary": "Get Wallet Transaction History",
-        "description": "Get transaction history for agent wallet",
+        "description": "Get transaction history for agent wallet.\n\n#3020: transaction history is owner-or-admin \u2014 it exposes counterparties\nand amounts for any agent to any authenticated role pre-fix.",
         "operationId": "get_wallet_transaction_history_v1_agent_identity_identities__agent_id__wallets__chain_id__transactions_get",
         "parameters": [
           {
@@ -18525,6 +18659,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -18549,6 +18699,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the identity owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent identity not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19436,7 +19606,7 @@
           "Agent Identity"
         ],
         "summary": "Resolve Agent Identity",
-        "description": "Resolve agent identity to chain-specific address",
+        "description": "Resolve agent identity to chain-specific address.\n\n#3020: the response IS the agent's wallet address on that chain \u2014\nowner-or-admin. (The inverse lookup below stays open discovery.)",
         "operationId": "resolve_agent_identity_v1_agent_identity_identities__agent_id__resolve__chain_id__get",
         "parameters": [
           {
@@ -19455,6 +19625,22 @@
             "schema": {
               "type": "integer",
               "title": "Chain Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -19481,8 +19667,18 @@
               }
             }
           },
+          "403": {
+            "description": "not the identity owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Identity mapping not found",
+            "description": "Agent identity not found / Identity mapping not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -19510,7 +19706,7 @@
           "Agent Identity"
         ],
         "summary": "Resolve Address To Agent",
-        "description": "Resolve chain address back to agent ID",
+        "description": "Resolve chain address back to agent ID.\n\n#3020 ruling: kept at the ANY floor deliberately. This is the pure\ndiscovery direction \u2014 the caller must already know the chain address,\nand the payload only echoes that address back plus the public agent_id\n(agent_ids are already enumerable via /identities/search). It exposes\nno balances, wallets, owner data or spend metadata. The sensitive\ndirection (agent_id -> wallet addresses) is gated above.",
         "operationId": "resolve_address_to_agent_v1_agent_identity_address__chain_address__resolve__chain_id__get",
         "parameters": [
           {

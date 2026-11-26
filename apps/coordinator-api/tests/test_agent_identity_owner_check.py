@@ -134,3 +134,81 @@ def test_admin_bypasses_owner_check(client, seeded_identity):
         json={"display_name": "admin set"},
     )
     assert resp.status_code != 403
+
+
+# #3020 (AUTHZ-AGENT-IDENTITY-READ-EXPOSURE-1): the read side of the same
+# surface. Every endpoint below exposes wallet addresses, balances,
+# transaction history, owner_address or spend metadata and must apply the
+# same owner-or-admin gate the writes already had. The matrix stays ANY —
+# the middleware admits any valid JWT and the handler enforces ownership.
+
+GATED_READ_PATHS = [
+    # identity summary: owner_address + per-chain chain_address/wallet_address + wallet stats
+    f"/v1/agent-identity/identities/{AGENT_ID}",
+    # cross-chain mappings carry chain_address + wallet_address
+    f"/v1/agent-identity/identities/{AGENT_ID}/cross-chain/mapping",
+    f"/v1/agent-identity/identities/{AGENT_ID}/wallets",
+    f"/v1/agent-identity/identities/{AGENT_ID}/wallets/1/balance",
+    f"/v1/agent-identity/identities/{AGENT_ID}/wallets/1/transactions",
+    # agent_id -> chain wallet address
+    f"/v1/agent-identity/identities/{AGENT_ID}/resolve/1",
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("path", GATED_READ_PATHS)
+def test_non_owner_cannot_read(client, seeded_identity, path):
+    resp = client.get(path, headers=_token("intruder", "miner"))
+    assert resp.status_code == 403, path
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("path", GATED_READ_PATHS)
+def test_anonymous_cannot_read(client, seeded_identity, path):
+    assert client.get(path).status_code == 401, path
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("path", GATED_READ_PATHS)
+def test_owner_can_read(client, seeded_identity, path):
+    resp = client.get(path, headers=_token("owner1", "client"))
+    assert resp.status_code != 403, f"{path}: {resp.status_code} {resp.text[:200]}"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("path", GATED_READ_PATHS)
+def test_admin_can_read(client, seeded_identity, path):
+    resp = client.get(path, headers=_token("admin1", "admin"))
+    assert resp.status_code != 403, f"{path}: {resp.status_code} {resp.text[:200]}"
+
+
+@pytest.mark.unit
+def test_owner_gets_identity_summary(client, seeded_identity):
+    """Owner pin on the summary payload itself — the 200 path, not just !=403."""
+    resp = client.get(f"/v1/agent-identity/identities/{AGENT_ID}", headers=_token("owner1", "client"))
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["identity"]["agent_id"] == AGENT_ID
+
+
+@pytest.mark.unit
+def test_address_resolve_stays_discovery(client, seeded_identity, db_session):
+    """#3020: /address/{addr}/resolve/{chain} is the pure discovery direction —
+    it echoes the caller-supplied address plus the public agent_id and stays
+    at the ANY floor (any authenticated role)."""
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import CrossChainMapping
+
+    db_session.add(
+        CrossChainMapping(
+            agent_id=AGENT_ID,
+            chain_id=1,
+            chain_address="0x" + "11" * 20,
+            wallet_address=OWNER_ADDR.lower(),
+        )
+    )
+    db_session.commit()
+    resp = client.get(
+        f"/v1/agent-identity/address/{'0x' + '11' * 20}/resolve/1",
+        headers=_token("intruder", "miner"),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["agent_id"] == AGENT_ID

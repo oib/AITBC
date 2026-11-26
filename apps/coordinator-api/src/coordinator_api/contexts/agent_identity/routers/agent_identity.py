@@ -154,9 +154,18 @@ async def search_agent_identities(
 
 @router.get("/identities/{agent_id}", response_model=dict[str, Any])
 async def get_agent_identity(
-    agent_id: str, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
-    """Get comprehensive agent identity summary"""
+    """Get comprehensive agent identity summary.
+
+    #3020 (AUTHZ-AGENT-IDENTITY-READ-EXPOSURE-1): the summary payload carries
+    owner_address, per-chain chain_address/wallet_address and wallet
+    statistics — owner-or-admin only, same gate as the write routes.
+    """
+    _require_owned_identity(session, agent_id, user)
     try:
         result = await manager.get_agent_identity_summary(agent_id)
         if "error" in result:
@@ -249,9 +258,17 @@ async def register_cross_chain_identity(
 
 @router.get("/identities/{agent_id}/cross-chain/mapping", response_model=list[CrossChainMappingResponse])
 async def get_cross_chain_mapping(
-    agent_id: str, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> list[CrossChainMappingResponse]:
-    """Get all cross-chain mappings for an agent"""
+    """Get all cross-chain mappings for an agent.
+
+    #3020: each mapping exposes chain_address and wallet_address — the same
+    wallet-binding data the wallet reads leak, so this is owner-or-admin too.
+    """
+    _require_owned_identity(session, agent_id, user)
     try:
         mappings = await manager.registry.get_all_cross_chain_mappings(agent_id)
         return [
@@ -425,9 +442,18 @@ async def create_agent_wallet(
 
 @router.get("/identities/{agent_id}/wallets/{chain_id}/balance", response_model=dict[str, Any])
 async def get_wallet_balance(
-    agent_id: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    chain_id: int,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
-    """Get wallet balance for an agent on a specific chain"""
+    """Get wallet balance for an agent on a specific chain.
+
+    #3020: balances are owner-or-admin — any authenticated role could
+    previously read any agent's balance.
+    """
+    _require_owned_identity(session, agent_id, user)
     try:
         balance = await manager.wallet_adapter.get_wallet_balance(agent_id, chain_id)
         return {
@@ -478,10 +504,17 @@ async def get_wallet_transaction_history(
     agent_id: str,
     chain_id: int,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
-    """Get transaction history for agent wallet"""
+    """Get transaction history for agent wallet.
+
+    #3020: transaction history is owner-or-admin — it exposes counterparties
+    and amounts for any agent to any authenticated role pre-fix.
+    """
+    _require_owned_identity(session, agent_id, user)
     try:
         history = await manager.wallet_adapter.get_wallet_transaction_history(agent_id, chain_id, limit or 50, offset or 0)
         return history
@@ -491,9 +524,17 @@ async def get_wallet_transaction_history(
 
 @router.get("/identities/{agent_id}/wallets", response_model=dict[str, Any])
 async def get_all_agent_wallets(
-    agent_id: str, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
-    """Get all wallets for an agent across all chains"""
+    """Get all wallets for an agent across all chains.
+
+    #3020: the payload lists every chain_address plus balance, spending
+    limits and spend totals — owner-or-admin only.
+    """
+    _require_owned_identity(session, agent_id, user)
     try:
         wallets = await manager.wallet_adapter.get_all_agent_wallets(agent_id)
         stats = await manager.wallet_adapter.get_wallet_statistics(agent_id)
@@ -780,9 +821,18 @@ async def batch_verify_identities(
 
 @router.get("/identities/{agent_id}/resolve/{chain_id}", response_model=dict[str, Any])
 async def resolve_agent_identity(
-    agent_id: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    chain_id: int,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
-    """Resolve agent identity to chain-specific address"""
+    """Resolve agent identity to chain-specific address.
+
+    #3020: the response IS the agent's wallet address on that chain —
+    owner-or-admin. (The inverse lookup below stays open discovery.)
+    """
+    _require_owned_identity(session, agent_id, user)
     try:
         address = await manager.registry.resolve_agent_identity(agent_id, chain_id)
         if not address:
@@ -799,7 +849,15 @@ async def resolve_agent_identity(
 async def resolve_address_to_agent(
     chain_address: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
 ) -> dict[str, Any]:
-    """Resolve chain address back to agent ID"""
+    """Resolve chain address back to agent ID.
+
+    #3020 ruling: kept at the ANY floor deliberately. This is the pure
+    discovery direction — the caller must already know the chain address,
+    and the payload only echoes that address back plus the public agent_id
+    (agent_ids are already enumerable via /identities/search). It exposes
+    no balances, wallets, owner data or spend metadata. The sensitive
+    direction (agent_id -> wallet addresses) is gated above.
+    """
     try:
         agent_id = await manager.registry.resolve_agent_identity_by_address(chain_address, chain_id)
         if not agent_id:
