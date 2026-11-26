@@ -24,7 +24,8 @@ from aitbc_shared import JobPayment
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 from ...payments.acceptance import deadline_from
 from ...payments.provider_binding import miner_wallet_address, same_address
-from ...payments.services.payments import PaymentService
+from ...payments.services.payments import PaymentService, _zk_required_for_constraints
+from ...zk_applications.services import model_registry
 from ..domain import Job, JobReceipt, Miner
 from ..domain.user import User
 from ...reputation.domain.reputation import AgentReputation
@@ -212,6 +213,27 @@ def _provider_binding_blocks_dispatch(
         if gpu is None:
             return f"miner {miner.id} does not own protected resource {job.resource_id}"
     return None
+
+
+def _zk_model_blocks_dispatch(job: Job, payment: JobPayment | None = None) -> str | None:
+    """Return why a ZK-required job must not be dispatched, or None if it may.
+
+    #2951: the proof gate in ``miner._attach_zk_proof`` can only resolve
+    ``unsupported_model`` *after* the miner has run the job, which leaves the
+    provider unpaid and the customer refunded. The coordinator knows the
+    circuit registry up front, so a job whose ZK requirement combines with a
+    model that has no registered circuit is refused here instead of burning
+    miner compute. This is the dispatch-side backstop; the submit route
+    refuses the same combination before an escrow exists.
+    """
+    amount = payment.amount if payment is not None else job.payment_amount
+    constraints = job.constraints if isinstance(job.constraints, dict) else None
+    if not _zk_required_for_constraints(constraints, amount):
+        return None
+    model_id = model_registry.resolve_model_id(job, None)
+    if model_id and model_registry.get_model(model_id) is not None:
+        return None
+    return f"ZK proof required but model {model_id!r} has no registered circuit"
 
 
 def _to_utc(dt: datetime | None) -> datetime | None:
@@ -921,6 +943,23 @@ class JobService:
             logger.error("Error acquiring next job: %s", e)
             raise
 
+    def _dispatch_block_reason(self, job: Job, miner: Miner, payment: JobPayment | None) -> tuple[str, bool] | None:
+        """First reason this job must not dispatch to ``miner``, or None.
+
+        Returns ``(reason, miner_scoped)`` — miner_scoped marks reasons that
+        only bind this provider (provider binding), not the job itself.
+        """
+        unpaid_reason = _payment_blocks_dispatch(job, payment)
+        if unpaid_reason:
+            return unpaid_reason, False
+        zk_reason = _zk_model_blocks_dispatch(job, payment)
+        if zk_reason:
+            return zk_reason, False
+        mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner, payment)
+        if mismatch_reason:
+            return mismatch_reason, True
+        return None
+
     def _try_claim_queued_job(
         self,
         job: Job,
@@ -941,13 +980,13 @@ class JobService:
                 if expires_at and expires_at <= now:
                     return None
             payment = payments.get(job.payment_id)
-            unpaid_reason = _payment_blocks_dispatch(job, payment)
-            if unpaid_reason:
-                logger.info("Job %s is not dispatchable: %s", job.id, unpaid_reason)
-                return None
-            mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner, payment)
-            if mismatch_reason:
-                logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, mismatch_reason)
+            block = self._dispatch_block_reason(job, miner, payment)
+            if block is not None:
+                reason, miner_scoped = block
+                if miner_scoped:
+                    logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, reason)
+                else:
+                    logger.info("Job %s is not dispatchable: %s", job.id, reason)
                 return None
             if not self._satisfies_constraints(job, miner, payment):
                 return None

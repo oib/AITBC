@@ -41,6 +41,7 @@ __all__ = [
     "get_model_hash",
     "hash_to_field",
     "resolve_model_id",
+    "resolve_model_id_from_parts",
     "text_to_field_array",
 ]
 
@@ -97,14 +98,18 @@ def get_model_hash(model: ModelCircuit) -> int:
     return _poseidon(model.weights)
 
 
-def resolve_model_id(job: Any, result: Any) -> str | None:
-    """Extract the model identifier from a job and result."""
-    if job and job.payload:
-        if job.payload.get("model"):
-            return str(job.payload["model"])
-        if job.payload.get("model_id"):
-            return str(job.payload["model_id"])
-    constraints = getattr(job, "constraints", None) or {}
+def resolve_model_id_from_parts(payload: Any, constraints: Any, result: Any = None) -> str | None:
+    """Extract the model identifier from job payload/constraints and a result.
+
+    Same precedence as :func:`resolve_model_id`, but takes the raw fields so
+    pre-dispatch callers (job submission, the dispatch gate) can resolve the
+    model before a ``Job`` row or miner ``result`` exists.
+    """
+    if payload:
+        if payload.get("model"):
+            return str(payload["model"])
+        if payload.get("model_id"):
+            return str(payload["model_id"])
     if isinstance(constraints, dict):
         models = constraints.get("models")
         if models:
@@ -117,6 +122,15 @@ def resolve_model_id(job: Any, result: Any) -> str | None:
         if result.get("model_id"):
             return str(result["model_id"])
     return None
+
+
+def resolve_model_id(job: Any, result: Any) -> str | None:
+    """Extract the model identifier from a job and result."""
+    return resolve_model_id_from_parts(
+        getattr(job, "payload", None),
+        getattr(job, "constraints", None),
+        result,
+    )
 
 
 def _job_input_text(job: Any) -> str:
