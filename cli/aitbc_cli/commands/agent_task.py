@@ -33,8 +33,9 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
+from aitbc.crypto.signature_recovery import canonical_address
 from ..utils.agent_signing import (
-    check_registry_binding,
+    identity_attestation_fields,
     load_signing_wallet,
     scan_agents_for_identity,
     sign_send_envelope,
@@ -127,6 +128,92 @@ def _resolve_buyer_agent(
                 "coordinator enforces agent auth."
             )
     return f"buyer-{os.uname().nodename}"
+
+
+def _register_buyer_agent(client: AITBCHTTPClient, agent_id: str, address: str, private_key: str) -> str | None:
+    """Self-register ``agent_id`` bound to ``address``; ``None`` on success.
+
+    Only reached for *implicit* buyer agents (see ``_ensure_buyer_agent_binding``)
+    — the fallback ``buyer-<host>`` identity is CLI-owned, so a minimal payload
+    has no operator metadata to preserve. Returns an operator-facing note on
+    failure; the downstream signed read then produces the authoritative error.
+    """
+    try:
+        payload: dict[str, Any] = {
+            "agent_id": agent_id,
+            "agent_type": "worker",
+            "capabilities": [],
+            "services": [],
+            "endpoints": {},
+            "metadata": {"name": agent_id, "reputation": 0.5, "version": "1.0.0", "wallet": address},
+            "chain_id": None,
+            "island_id": "",
+        }
+        payload.update(identity_attestation_fields(client, agent_id, address, None, private_key))
+        result = client.post("/v1/agents/register", json=payload)
+    except _OPS_ERRORS as e:
+        return f"buyer agent auto-registration failed: {e}"
+    if isinstance(result, dict) and result.get("status") == "success":
+        info(f"Registered buyer agent {agent_id} bound to wallet {address}")
+        return None
+    return f"buyer agent auto-registration rejected: {result}"
+
+
+def _ensure_buyer_agent_binding(
+    client: AITBCHTTPClient,
+    agent_id: str,
+    address: str,
+    private_key: str,
+    *,
+    auto_register: bool,
+) -> str | None:
+    """``None`` when ``agent_id`` authenticates as ``address``; else a note.
+
+    The signed ``GET /v1/agents/{id}`` resolves a principal only when the
+    agent is registered *and* bound to the signing wallet — the precondition
+    every later signed read (provider lookup, escrow, inbox, submit) needs.
+    On auth failure an implicit buyer agent (``auto_register``) is
+    self-registered bound to the wallet: ``POST /v1/agents/register`` is
+    unauthenticated and the identity attestation proves key ownership, so
+    hire no longer dead-ends on "register first" (#2983/#2979). Explicit
+    ``--from-agent`` identities are never auto-registered — the operator
+    named them, and a foreign binding must surface as guidance, not a
+    silent rebind attempt. Transient lookup failures stay soft: advisory
+    coordinators still accept unsigned traffic.
+    """
+    headers = signed_request_headers(agent_id, private_key)
+    try:
+        data = client.get(f"/v1/agents/{agent_id}", headers=headers)
+    except _OPS_ERRORS as e:
+        status = http_response_status(e)
+        if status in (401, 403, 404):
+            if auto_register:
+                return _register_buyer_agent(client, agent_id, address, private_key)
+            if status == 404:
+                return (
+                    f"Agent '{agent_id}' is not registered with the coordinator — register it first with "
+                    f"`aitbc agent-comm register --agent-id {agent_id} --wallet ...`, or pass --from-agent "
+                    "for an already-registered buyer agent"
+                )
+        return None
+    agent = data.get("agent", {}) if isinstance(data, dict) else {}
+    bound = agent.get("identity_address")
+    if not bound:
+        if auto_register:
+            return _register_buyer_agent(client, agent_id, address, private_key)
+        return (
+            f"Agent '{agent_id}' is registered but has no bound identity — it cannot authenticate "
+            "signed requests; bind a wallet via `aitbc agent-comm register --update --wallet ...`"
+        )
+    try:
+        if canonical_address(bound) == canonical_address(address):
+            return None
+    except (AttributeError, TypeError, ValueError, ImportError):
+        pass
+    return (
+        f"Agent '{agent_id}' is bound to identity {bound} but the signing wallet is {address} — "
+        "use the bound wallet (or rotate via PUT /v1/agents/{agent_id}/identity)"
+    )
 
 
 def _send_task_message(
@@ -362,13 +449,17 @@ def _buyer_signing(
 
     signing = (buyer_address, private_key) if sign else None
     signing_key = private_key if sign else None
+    explicit_agent = buyer_agent
     buyer_agent = _resolve_buyer_agent(client, buyer_agent, buyer_address)
     if signing is not None:
         # Soft check only: the coordinator still accepts while advisory, and a
-        # registry lookup failure must not block the escrowed hire.
-        binding_note = check_registry_binding(client, buyer_agent, buyer_address, signing_key)
+        # registry lookup failure must not block the escrowed hire. Implicit
+        # buyer agents self-register when unauthenticated (#2983/#2979).
+        binding_note = _ensure_buyer_agent_binding(
+            client, buyer_agent, buyer_address, private_key, auto_register=explicit_agent is None
+        )
         if binding_note:
-            warning(f"{binding_note} — signed envelopes may be rejected once the coordinator enforces")
+            warning(f"{binding_note} — signed requests may be rejected once the coordinator enforces")
     return buyer_address, private_key, signing, signing_key, buyer_agent
 
 

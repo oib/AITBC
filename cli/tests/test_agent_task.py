@@ -560,3 +560,169 @@ def test_resolve_provider_wallet_401_is_actionable():
 
     with pytest.raises(CLIError, match="registered and bound"):
         _resolve_provider_wallet(client, "aitbc-miner-1", signing_agent_id="buyer-x", signing_key=wallet.key.hex())
+
+
+# --- #2983/#2979: implicit buyer agent self-registration ------------------
+#
+# Under advisory/enforce agent auth every registry read is principal-gated,
+# so hire's implicit ``buyer-<host>`` principal must be registered +
+# wallet-bound or every signed read 401s before escrow. Hire now
+# self-registers the implicit agent; explicit --from-agent identities are
+# never auto-registered.
+
+
+def _http_exc(status: int) -> RuntimeError:
+    from types import SimpleNamespace
+
+    exc = RuntimeError(f"HTTP {status}")
+    exc.response = SimpleNamespace(status_code=status)  # type: ignore[attr-defined]
+    return exc
+
+
+def test_ensure_buyer_agent_binding_auto_registers_implicit():
+    """#2983: an implicit buyer agent that cannot authenticate self-registers
+    bound to the signing wallet (identity attestation over a nonce)."""
+    import os
+    from types import SimpleNamespace  # noqa: F401 - kept for parity with _http_exc
+
+    from aitbc_cli.commands import agent_task as mod
+
+    wallet = _real_wallet()
+    buyer = f"buyer-{os.uname().nodename}"
+    client = MagicMock()
+
+    def fake_get(path, params=None, headers=None):
+        if path == f"/v1/agents/{buyer}":
+            raise _http_exc(401)
+        if path == "/v1/agents/nonce":
+            return {"status": "success", "nonce": "n-1", "chain_id": "ait-mainnet"}
+        return {}
+
+    client.get.side_effect = fake_get
+    client.post.return_value = {"status": "success", "agent_id": buyer}
+
+    with patch.dict("os.environ", {}, clear=False):
+        os.environ.pop("AGENT_ID", None)
+        note = mod._ensure_buyer_agent_binding(client, buyer, wallet.address, wallet.key.hex(), auto_register=True)
+    assert note is None
+
+    register = next(c for c in client.post.call_args_list if c.args[0] == "/v1/agents/register")
+    payload = register.kwargs["json"]
+    assert payload["agent_id"] == buyer
+    assert payload["identity_address"].lower() == wallet.address.lower()
+    assert payload["identity_nonce"] == "n-1"
+    assert payload["identity_proof"]
+    assert payload["metadata"]["wallet"].lower() == wallet.address.lower()
+
+
+def test_ensure_buyer_agent_binding_explicit_never_auto_registers():
+    """#2983: --from-agent identities are operator-named — a 404 surfaces
+    registration guidance, never a silent registration POST."""
+    from aitbc_cli.commands import agent_task as mod
+
+    wallet = _real_wallet()
+    client = MagicMock()
+    client.get.side_effect = _http_exc(404)
+
+    note = mod._ensure_buyer_agent_binding(client, "operator-agent", wallet.address, wallet.key.hex(), auto_register=False)
+    assert note is not None and "not registered" in note
+    client.post.assert_not_called()
+
+
+def test_ensure_buyer_agent_binding_foreign_binding_no_register():
+    """A wallet-bound agent that resolves OK but names a different identity
+    gets the mismatch note — auto-register must not attempt a rebind."""
+    from aitbc_cli.commands import agent_task as mod
+
+    wallet = _real_wallet()
+    client = MagicMock()
+    client.get.return_value = {"agent": {"identity_address": "0x" + "99" * 20}}
+
+    note = mod._ensure_buyer_agent_binding(client, "agent-x", wallet.address, wallet.key.hex(), auto_register=True)
+    assert note is not None and "bound to identity" in note
+    client.post.assert_not_called()
+
+
+def test_ensure_buyer_agent_binding_already_bound_ok():
+    """Registered + bound to the signing wallet: no register POST at all."""
+    from aitbc_cli.commands import agent_task as mod
+
+    wallet = _real_wallet()
+    client = MagicMock()
+    client.get.return_value = {"agent": {"identity_address": wallet.address}}
+
+    note = mod._ensure_buyer_agent_binding(client, "buyer-x", wallet.address, wallet.key.hex(), auto_register=True)
+    assert note is None
+    client.post.assert_not_called()
+
+
+def test_hire_auto_registers_buyer_then_submits(runner, mock_client):
+    """#2983 end-to-end: implicit hire whose buyer-agent read 401s
+    self-registers, then the provider lookup and task submit proceed signed."""
+    import os
+
+    from aitbc_cli.commands.agent_task import agent_task
+
+    wallet = _real_wallet()
+    buyer = f"buyer-{os.uname().nodename}"
+
+    def fake_get(path, params=None, headers=None):
+        if path == f"/v1/agents/{buyer}":
+            raise _http_exc(401)
+        if path == "/v1/agents/nonce":
+            return {"status": "success", "nonce": "n-1", "chain_id": "ait-mainnet"}
+        if path.startswith("/v1/agents/"):
+            return {"agent": {"metadata": {"wallet": "0xProvider"}}}
+        if path == "/v1/tasks/escrow-config":
+            return {"status": "success", "settlement_wallet": "0xSettleNode"}
+        return {"messages": []}
+
+    def fake_post(path, json=None, headers=None):
+        if path == "/v1/tasks/submit":
+            return {"status": "success", "escrow_id": "esc-9", "task_id": json["task_data"]["task_id"]}
+        if path == "/v1/agents/register":
+            return {"status": "success", "agent_id": (json or {}).get("agent_id")}
+        return {"status": "success", "message_id": "m-1"}
+
+    mock_client.get.side_effect = fake_get
+    mock_client.post.side_effect = fake_post
+
+    with (
+        patch.dict("os.environ", {}, clear=False),
+        patch("aitbc_cli.commands.agent_task._resolve_payload_ref", return_value="QmCID"),
+        patch(
+            "aitbc_cli.commands.agent_task.load_wallet_for_payment",
+            return_value=(wallet.address, wallet.key.hex(), "w1"),
+        ),
+        patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")),
+        patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
+    ):
+        os.environ.pop("AGENT_ID", None)
+        result = runner.invoke(
+            agent_task,
+            [
+                "hire",
+                "--to-agent",
+                "aitbc-miner-1",
+                "--service-type",
+                "ollama",
+                "--payload",
+                "QmCID",
+                "--max-price",
+                "0.05",
+                "--no-wait",
+                "--coordinator-url",
+                "http://coord.local",
+            ],
+            obj={"output_format": "json"},
+        )
+    assert result.exit_code == 0, result.output
+
+    register = next(c for c in mock_client.post.call_args_list if c.args[0] == "/v1/agents/register")
+    assert register.kwargs["json"]["agent_id"] == buyer
+    assert register.kwargs["json"]["identity_address"].lower() == wallet.address.lower()
+
+    submit = next(c for c in mock_client.post.call_args_list if c.args[0] == "/v1/tasks/submit")
+    assert submit.kwargs["json"]["task_data"]["buyer_agent"] == buyer
+    submit_headers = submit.kwargs.get("headers") or {}
+    assert submit_headers.get("X-Agent-Id") == buyer
