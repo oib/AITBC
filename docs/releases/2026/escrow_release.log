@@ -1,0 +1,996 @@
+# Escrow & Payments — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of escrow & payments changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.26.0
+
+### RPC-DISPUTE-EVIDENCE-1
+
+- `GET /rpc/disputes/{id}/evidence` and `/{id}/votes` answered 500 for an
+  unknown dispute id while `/{id}` answered 404: the two readers mapped
+  every service-level `{"success": False}` to HTTPException(500). A
+  shared helper now maps "not found" to 404 (any other failure stays
+  500), matching `get_dispute`. CLI `dispute evidence list` and
+  `dispute votes` print `Dispute N not found` and exit non-zero on the
+  404 instead of dumping the request error. Live reproduction on node2
+  (dispute 999999) showed the 500s in hub's rpc journal.
+
+
+
+### ESCROW-DOCS-1
+
+- New runbook `docs/ops/escrow-relays.md`: the node-wallet `to` rule,
+  the two JWT relays (create + release, buyer-bound, 360,000,000-unit
+  cap, dedup), refund as a settlement-node operation, and the named
+  errors. `market-api.md` corrected to describe the relay split; the
+  route security matrix gained `/v1/escrow/*` rows; scenarios 34/44
+  note the planned CLI-uses-relay path and the settlement-node refund.
+
+
+
+## v0.25.13
+
+### ESCROW-ROUTE-1
+
+- fix(cli): relay buyer-signed market escrow creates through the coordinator (`POST /v1/escrow/relay`) before the settlement-node retry, so customer nodes blocked by the hub nginx `/rpc/escrow/` allowlist can create escrows once the relay endpoint ships; a 404 (older coordinator) or missing client credential falls through to the existing hub/loopback retry. Refs #442
+
+### ESCROW-ROUTE-1 relay
+- feat(coordinator): `POST /v1/escrow/relay` relays a buyer-signed `/rpc/escrow/create` payload to the settlement node from inside the nginx allowlist — the market-escrow counterpart of `POST /v1/payments`, which requires an owned coordinator job and cannot serve locally-minted market job_ids. The JWT subject's bound wallet must equal `buyer` (admin exempt), non-admin amounts are capped at `ESCROW_RELAY_MAX_UNITS` compute units (default 360,000,000 = 10 AIT), replays of the same lock or (client_id, job_id) return the stored `contract_id` without a second chain call (new `escrow_relay` table, alembic `b1e2f3a4c5d6`), chain 4xx pass through at the same status while timeouts/5xx map to 502, and each relay writes one audit log line (client_id, job_id, contract_id — never signature content). Rate-limited 30/min per client credential on top of the existing per-client limits. Refs #442
+
+### fix(cli): paid-job escrow to resolves node_wallet, not proposer id (Refs #455)
+
+- `market run`/`market hermes` no longer seed the escrow `to` from HUB_PROPOSER_ID; the explicit `--proposer` flag remains the only caller-side override and `_escrow_create` resolves the custody wallet from the node RPC /health (warned HUB_PROPOSER_ID fallback).
+- `agent-task hire` settlement wallet order is now coordinator escrow-config → /health node_wallet → warned HUB_PROPOSER_ID.
+
+
+### ESCROW-RELEASE-1 release relay + CLI fixes
+
+- feat(coordinator): `POST /v1/escrow/release` relays an escrow release (`{job_id, amount, job_tx_hash}`) to the settlement node's `/rpc/escrow/{job_id}/release` from inside the nginx allowlist — the release counterpart of `/v1/escrow/relay`. The chain route is node-signed with no caller auth, so the relay reads the on-chain escrow row first and requires its `buyer` to equal the wallet bound to the JWT subject (admin exempt); the amount is bounded by the escrow's locked amount for non-admin callers. Replays — a stored `escrow_release_relay` row or an escrow already released on-chain — return the stored tx_hash without a second chain call; a refunded escrow returns 409 (new table, alembic `c2d3e4f5a6b7`). Chain 4xx pass through at the same status, timeouts/5xx map to 502, and each relay writes one audit line (client_id, job_id, contract_id, tx_hash — never payload detail). Rate-limited 30/min per client credential. Refund stays settlement-node only — no refund relay. Refs #456
+- fix(cli): the paid-job `software_job` record leg retries once at nonce+1 (re-signed) on the occupied-slot 400 — the sealed-state nonce read races the still-pending escrow lock; any other 400 is not retried. `market escrow release|refund` and the job/host release legs now try the hub RPC after a local refusal and print the real status (a 403 names the API-key cause) instead of silently returning None; the refund path logs when the coordinator refund is unavailable before falling back to the chain rpc. Refs #456
+
+
+### ESCROW-RELEASE-2 CLI release legs on the relay
+
+- feat(cli): every escrow release call site now tries the coordinator JWT release relay `POST /v1/escrow/release` first (`market escrow release`, host `_release_market_payment`, and the ollama/whisper/ffmpeg/hermes paid-job legs) via a shared `_post_escrow_release` helper next to `_post_escrow_rpc`. The two bare-release sites that send no amount read the escrow's locked amount over the local→hub GET (GET is not nginx-allowlisted) to satisfy the relay's required `amount` field. Fallback to `_post_escrow_rpc` happens only on transport/auth classes — no stored client credential, 401 (rejected/expired JWT), 404 (relay not deployed or escrow absent), 5xx, timeout/connection failure — each named in the failure list; a relay business refusal (buyer mismatch 403, already refunded 409, amount-over-lock/invalid 400, any other 4xx) is terminal and never falls back, so a refusal cannot be laundered through the weaker-auth rpc path. Refund stays on the rpc — no refund relay exists by design. Refs #461
+
+
+### ESCROW-RELEASE-2 review fixes
+
+- fix(cli): release-relay edge cases from the #461 review — a non-positive or unparseable metered amount skips the relay (it would 400 terminally) and goes straight to the rpc as before; a transport failure (timeout/connection, no HTTP status) retries the relay once before falling back — the relay dedups on job_id so a repost cannot double-release; and a bare `{"detail":"Forbidden"}` 403 (middleware deny-by-default on a coordinator missing the route's security-matrix entry) is a skip/fallback like a 404, while 403s carrying a real refusal reason stay terminal. Refs #461
+
+
+### ESCROW-RELEASE-3 release relay 425 retry
+
+- fix(cli): a relay `425 "lock not yet sealed"` (chain gate `_ensure_lock_sealed`, `Retry-After: 5` — the ESCROW_LOCK is still in mempool) is no longer treated as a terminal business refusal: `_release_via_relay` now waits and reposts the same body — honouring `Retry-After` (default 5 s, 10 s per-wait cap, ~24 s total budget) — safe because the relay dedups on `job_id`. If the bound is exhausted the failure is reported as a named *retryable* condition ("not yet sealed — rerun `market escrow release`"), still without an rpc fallback (the rpc would 425 identically and a customer node cannot authenticate it). Business 4xx handling unchanged. Refs #469
+
+
+### ESCROW-REFUND-1 refund relay (coordinator jobs only)
+
+- feat(coordinator): `POST /v1/escrow/refund` relays `{job_id, reason?}` to the settlement node's `/rpc/escrow/{job_id}/refund` — the refund counterpart of `/v1/escrow/release`, buyer-bound the same way (escrow `buyer` must equal the JWT-bound wallet, admin exempt; ownership checked before any dedup/stored return). Phase-1 scope per the #471 ruling: the coordinator `job` row must exist and be terminal-unpaid (`FAILED`/`CANCELED`/`EXPIRED`, or a `QUEUED`/`RUNNING` job past its own `expires_at`); `COMPLETED` is never refundable and a missing row (market-minted escrow) is refused — those stay settlement-node refunds. A sealed on-chain `software_job`/`completed` record contradicting the job row fails closed (409), as does a failed lookup (502); a `job_payments` row already released → 409 or already refunded → stored result. No caller-chosen amount — the chain refunds locked minus released legs clamped to the sealed lock; `reason` is allowlisted (`buyer_requested`/`job_failed`/`timeout`/`expired`) and forwarded verbatim. Replays return the stored `refund_tx_hash` (new `escrow_refund_relay` table, alembic `d3e4f5a6b7c8`); concurrent inserts return the winner's row. Chain 4xx pass through at the same status (incl. the 425 unsealed-lock retryable), timeouts/5xx map to 502. Rate-limited 30/min + 10/hour per client credential; every refusal logs WARNING. Refs #471
+
+
+
+### ESCROW-BREAKER-1 relay calls opt out of the circuit breaker
+
+- fix(cli): the escrow relay helpers now build their `AITBCHTTPClient` with `enable_circuit_breaker=False`. The breaker is per-client-instance (nothing is shared across callers), but `_release_via_relay` reuses one client across its bounded 425/transport repost loop — every repost counted as a breaker failure, so after `circuit_breaker_threshold` (5) answers the client's `check()` rejected the next relay POST before it was sent, the status-less `CircuitBreakerOpenError` was classified as a transport failure, and the release fell back to the rpc path (which 503s/403s on a customer node) — the escrow stayed locked until a manual relay POST (#472 finding). The JWT-authed relay is the only release path a customer has, so its own bounded repost budget is the flood protection; `CircuitBreaker` gained an `enabled` flag (check/record_* become no-ops) and the same opt-out applies to the create and refund relays. Refs #479
+
+## v0.25.12
+
+### Auth: aitbc.auth.api_key no longer touches the filesystem at import. api_key_manager is now a lazy module-__getattr__ singleton (get_api_key_manager(), double-checked under a lock) — `import aitbc.auth`/`import aitbc.auth.api_key` create no <API_KEY_STORAGE_PATH>.lock and no longer raise PermissionError on hosts without /var/lib/aitbc. The name still yields a real APIKeyManager; API_KEY_STORAGE_PATH set after import but before first access is now honored. ENG-1.
+
+
+### Security: refresh `.secrets.baseline` (SECRETS-BASELINE-1). Regenerated via `detect-secrets scan --baseline` (1.5.0, unchanged plugin/filter set): drops 12 entries for files deleted from the tree plus 5 existing files whose recorded secret no longer appears; refreshes 82 line numbers; records 110 new findings accumulated since the 23 Sep generation (64 test fixtures, 31 generated MCP tool files, 5 lockfile, 10 in source — reviewed: alembic revision hashes, env-var-name constants, config label maps; none are live credentials). No operator verdicts existed to preserve; none flipped.
+
+
+## v0.25.11
+
+### MSG-2e — lock scope rule (b): sealed-while-locked rows stay flagged
+
+- ``after_lock`` is now interval-based: a row sealed while its topic (or
+  an ancestor thread) was locked stays flagged after the unlock — an
+  unlock clears only rows sealed after it. ``_ModState`` gains
+  ``topic_intervals``/``thread_intervals`` ([start, end|None]); a second
+  ``lock`` while open does not move the start, an ``unlock`` with no
+  open interval is a no-op, and ineffective actions create no interval.
+  "Locked now" routes (``locked``/``locked_by``, ``topic_lock``) are
+  unchanged; LOCK_WALK_LIMIT still bounds descendants walked per root
+  across all of that root's intervals.
+- Design note: the "rows appear again after unlock" sentence replaced
+  with rule (b); *confirm intended* marker removed.
+- Tests: ``TestLockIntervals`` (8) in the production hash layout —
+  during-lock permanence, two cycles, second-lock no-move, unlock-noop,
+  non-moderator no-interval, thread intervals, same-block reorder,
+  reorg re-opens the interval.
+
+
+
+### MSG-2e (fix 2) — nested thread locks accumulate intervals
+
+- ``_walk_locked_subtree`` stamped ``out[child] = intervals``, so a
+  descendant reachable from several locked roots kept only the last
+  root's intervals — a reply under an unlocked B dropped the still-open
+  interval of ancestor A and read ``after_lock: false``. Descendants now
+  accumulate (``setdefault().extend()``) with per-child copies, so no
+  shared mutable lists can corrupt the read cache. LOCK_WALK_LIMIT stays
+  a per-root walk bound; a shared descendant counts toward each root's
+  budget and carries every reaching root's intervals.
+- Tests: three more in ``TestLockIntervals`` — nested A-locked/B-unlocked
+  keeping C flagged, the same with B locked first (dict-order
+  independence), and the per-root walk bound with a shared descendant.
+
+
+### ETH-14: release gas estimation + receipt-gated completion + withdraw_admin recovery (2026-10-14)
+
+Withdrawal `withdrawal_90ff8a73` was recorded `completed` on a broadcast
+that reverted on-chain (gas limit 100,000 vs the ~207,391 a fresh-account
+transfer needs post-Glamsterdam — Sepolia activated EIP-8037 state-gas on
+2026-10-06). The broadcast echo was trusted as payment proof; the ETH-9
+receipt machinery only ran on crash/resume paths, never the happy path.
+
+- `bridge_withdraw_monitor.py`: `_release_eth_for_withdrawal` now leaves
+  the row `releasing` after broadcast — `completed` is written only by
+  the verified-outcome paths (`_resume_unfinished_releases`,
+  `_resolve_release_failure`, the retry command). Gas is
+  `eth_estimateGas(from, to, value)` × `ETH_WITHDRAW_GAS_MARGIN`
+  (default 1.25), floored at 21,000, hard-capped by
+  `ETH_WITHDRAW_GAS_MAX` (default 300,000); an estimate error or an
+  over-cap result raises before signing. `ETH_WITHDRAW_GAS` survives only
+  as an explicit override escape hatch (rejected outside (0, MAX]).
+- `sell_escrow_monitor.py`: `_release_eth_for_lock` takes the same gas
+  path and drops its post-broadcast `released` write — `_handle_inflight`
+  verifies the receipt each poll and moves `releasing` → `released` →
+  settle only on proof.
+- `bridge_db.py`: additive `eth_withdrawals.retry_count` +
+  `eth_withdrawal_release_attempts` (id, ait_tx_hash, eth_tx_hash,
+  release_nonce, resolved_by, resolved_at, operator_note, outcome);
+  resumable/pending status lists cover `releasing_retry` +
+  `needs_review_release` — the parked retry status is deliberately NOT
+  auto-resumed.
+- `withdraw_admin.py` (new, `python -m wallet_app.bridge.withdraw_admin`
+  on hub, in the unit env): `status`, `release-retry` (dry-run default;
+  `--confirm --note` required to sign), `mark-review` (the refund
+  fallback). `release-retry` refuses unless two independent Ethereum RPCs
+  in the same run prove the recorded release reverted at depth + nonce
+  consumed + receiver gained nothing in the failed block (or, for a
+  retry that never sealed, hash absent + nonce still free), and the AIT
+  `BRIDGE_WITHDRAW` leg is `confirmed`. The resend uses exactly the
+  recorded `amount_eth`/`eth_address` at the current account nonce —
+  never re-quoted — with intent (`releasing_retry` + nonce +
+  deterministic hash + attempt row) persisted before broadcast. A
+  verified `sent` completes the row; a proven failure parks it
+  `needs_review_release` for the operator, never auto-refunds.
+- `bridge_monitor.py`: dropped the dead `ETH_WITHDRAW_GAS` constant.
+- Runbook: `docs/ops/withdraw-release-runbook.md`.
+- Absence grace (follow-up): receipt verification now runs on the happy
+  path, so a lagging RPC can report a just-broadcast release as absent.
+  `_compose_release_outcome` treats an absence-only view (no receipt, no
+  tx, nonce not pending) on a row whose release intent is younger than
+  `ETH_RELEASE_ABSENCE_GRACE_SECONDS` (default `600`, measured from the
+  row's `released_at` intent-write timestamp) as `unknown` — never a
+  refund trigger. A status-0 receipt is `not_sent` at any age. Applies to
+  `releasing`, `releasing_retry` and sell-escrow releases alike.
+
+Tests: `test_bridge_withdraw_monitor.py` (broadcast-leaves-releasing,
+estimate/margin/floor/cap/override, estimate-failure refund path,
+releasing_retry park + sent, parked row not resumable),
+`test_sell_escrow_monitor.py` (releasing → verified released on all
+release tests), `test_bridge_db.py` (attempt record/retry_count/status
+lists), `test_withdraw_admin.py` (dry-run purity, every refusal gate,
+confirm→completed, revert→parked, single-use nonce reuse).
+
+
+### ETH-13: sell-lock operator command — sell_admin (2026-10-14)
+
+Builds the operator command the sell-escrow runbook flagged as a tool
+gap, per `TOPOLOGY/2026-10-13-sell-lock-operator-command.md` (all six
+open choices decided 14 Oct). `python -m wallet_app.bridge.sell_admin` —
+hub-local root only, no new network surface, same
+dry-run/`--confirm --note` contract and exit codes as `withdraw_admin`.
+
+Verbs: `list`/`inspect` (read-only; the persisted intent is shown parsed
+and the signed blob never prints), `confirm-swept <hash> --tx <sealed>`
+(re-verifies the sealed outflow on-chain through the monitor's own
+`_find_escrow_outflow` match rule — nonce + recipient + amount +
+`payload.sell_ref` — then writes `settled`/`refunded`; no hash or
+mismatch refuses), `requeue` (literal return to the intent's lane —
+`released`/`refund_pending`; refuses while a sweep is in flight and when
+the intent blob is unreadable), `write-off --reason` (terminal
+`written_off`; refuses rows with a live send in flight), and `sweep-now`
+(`queued_fee_*` only — one synchronous `_escrow_sweep` through the
+monitor's own code path, same fee-float check and park outcome).
+
+Ledger: `bridge_sell_locks` gains `resolved_by`/`resolved_at`/
+`operator_note` via `init_db`'s `_add_column_if_not_exists` block — the
+same mechanism `eth_withdrawals.retry_count` used — written on every
+resolution; the row's `error` carries `operator:<verb>`.
+`sell_escrow_monitor._expected_sweep` takes an explicit `lane` argument
+so the admin can re-derive the expected outflow for a
+`needs_review_sweep` row (whose status no longer names the lane).
+`written_off` is terminal by omission from every status set, but a
+written-off row that recorded a release tx still counts toward the daily
+sell-release cap (`get_sell_eth_committed_since` filters on
+`eth_tx_hash IS NOT NULL` for it — decided 14 Oct): the cap measures ETH
+that left the wallet, and write-off bookkeeping does not undo a payment.
+It stays fully out of the pending reserve — the reserve is for ETH not
+yet paid.
+`SELL_ESCROW_ENABLED` is not required — operator duties exist while the
+feature stays dark; chain-touching verbs still need the sell config and
+(for `sweep-now`) a loadable escrow key slot. Runbook
+`docs/ops/sell-escrow-runbook.md` gained the real procedures.
+
+Host gates (decided 14 Oct, enforced in code): the module refuses unless
+euid 0 and `BLOCKCHAIN_MODE=hub` in the loaded env set, and refuses when
+the bridge ledger file is absent — `init_db` can never create an empty
+DB on the wrong host.
+
+Commits: `c2b963f5b` (module + audit columns + cap rule + tests),
+`4ada8732f` (host gates + settled/foreign-nonce/requeue-serialization
+proofs). `docs/ops/sell-escrow-runbook.md` + this section land in the
+accompanying docs commit.
+
+
+### ETH-JOIN-3: order_refund dust-lock bound + ref_id guard (2026-10-15)
+
+Closes the two residuals ETH-JOIN-2's report named against the
+owner-lock refund fallback — both are monitor-side in
+`exchange_settlement_monitor.py`, no schema change, and neither alters
+the ETH-JOIN/ETH-JOIN-2 semantics (http_* refusals stay unmarked,
+sign-split + lock-keyed ref_ids, flag-off 503, the one-inbound-refund
+bound per stranger per order).
+
+- **Sub-fee inbound locks create no row.** `_lock_refund` — the single
+  funnel for `remainder=False` refunds — now skips when
+  `lock_ait <= _sweep_fee_ait()`, the same caller-side bound
+  `_refund_stranded_locks` applies to the lock remainder. A lock worth
+  less than its refund sweep stays in escrow instead of draining the
+  shared float one sweep fee at a time. The check precedes both inserts
+  in `_ensure_order_refund`, so a sub-fee owner lock gets neither the
+  `−order_id` row nor the lock-keyed fallback. Outcome `below_fee`
+  returns to `_scan_order_locks`, which deliberately writes no
+  `lock:<hash>` mark — the lock is re-evaluated each poll so a fee
+  change picks it back up, and the notice is rate-limited to INFO once
+  per lock per hour (DEBUG between) behind a bounded, attacker-keyed
+  map. Order 23's 1 AIT lock is far above the bound; its funded-path
+  behaviour is unchanged.
+- **`bad_tx_hash` guard on the fallback.** An empty or non-hex lock hash
+  on the owner-fallback attempt no longer raises out of
+  `_lock_refund_ref_id` — `_ensure_order_refund` returns `bad_tx_hash`,
+  which the scan marks exactly like `duplicate` (terminal, no retry).
+  The ERROR line names the hash problem and never claims a ref_id
+  collision. The normal `−order_id` insert path does not read the hash
+  and needs no guard.
+
+Residual left open (stated, not implemented): an owner can still send
+many *above-fee* locks against their own order — each fallback refund
+costs the shared float one sweep fee at cost parity with the owner's
+lock fee. Bounding that fully takes either the `lock_tx_hash` column
+proposal (one refund row per lock, schema change) or a per-order cap on
+fallback rows; `lock_tx_hash` is the cleaner cut.
+
+Tests: 10 new items in `test_exchange_settlement_monitor.py` — sub-fee
+stranger/owner locks write no row and no mark, just-above-fee refunds
+for both sender classes, the bound following a monkeypatched
+`_sweep_fee_ait`, empty/non-hex/None hash → `bad_tx_hash` through the
+direct path and the scanner mark, and the hourly log rate limit. The
+below-fee and bad-hash cases failed on the pre-change source; the full
+75-test file passes.
+
+
+## v0.25.9
+
+### Escrow routing: 404 is submit-time divergence, not corruption (2026-09-29)
+
+The ``escrow`` table is service-local: a create/release/refund routed to a
+node other than the one that accepted the create gets a 404 "Escrow not
+found" — expected divergence, not corruption and not a sync failure.
+Confirmed the missing-row routes return 404 as designed
+(``rpc/routers/settlement.py``: :181, :280, :317; refund maps the
+service-level miss at :160). Routing rule + design TODO recorded in
+``docs/ops/escrow-routing.md``: aux service tables should be *derivable
+from sealed ``ESCROW_*`` history* — the chain already records the
+lock/release/refund transitions, so a node could rebuild its escrow view by
+replay instead of depending on which node fielded the submit POST.
+
+
+### governance_vote reclassified service-local; payout wallet funded
+
+- governance_vote leaves AUX_SHIPPED_TABLES/aux_state.AUX_TABLES: the vote
+  ledger is operator-RPC bookkeeping on the serving node only and apply
+  never reads it (execution is gated on the executor signature), so
+  cross-host must-match was the wrong contract. Digest class -> service.
+- The v0.25.8 duplicate invariant is RETAINED as a hard failure: new
+  spec field dup_hard lists governance_vote; fleet-config-check treats
+  (proposal_id, lower(voter_address)) case-duplicates on any host as FAIL
+  regardless of service class. NOCASE unique index stands on all five.
+- state-digest-spec emits the governance_vote dupkey explicitly (same
+  natural key as before, now like bridge_validators); the
+  case-insensitive aux-upset lookup test survives via monkeypatched spec.
+- Funded the dedicated ETH-deposit payout wallet 0x5A1a52b8... with
+  10,000,000 units from the proposer (tx 0x8dfdedc4..., sealed at 27974,
+  verified on all five hosts): aitbc-bridge-monitor can now submit
+  correctly-signed deposit payouts after the GENESIS_WALLET_ADDRESS fix.
+
+
+### fix(security): apply receipt-circuit cleanup to the deployed in-package tree + pin .circom source sync
+
+- `receipt_simple.circom`: the dead `BidRangeProof` removal now also applied to the in-package copy the service actually loads (`apps/coordinator-api/.../zk-circuits/`); recompiled r1cs is byte-identical to the committed artifact (`6a873d…`), so deployed zkeys/vkeys are unaffected.
+- `scripts/ci/check-zk-circuit-sync.sh` + pre-commit hook: the two circuit trees (build workspace vs deployed package) must keep identical `.circom` sources; artifacts may differ (separate ceremonies).
+- `audit-findings.md`: receipt finding status now `Resolved (closed by architecture)`; old remediation marked superseded; `data_layer`/`stage_runner` findings marked Resolved (fixed in 05fd6c206b). Ledger-wide consistency check finds no status/note disagreements.
+
+
+### fix(security): generic /zk/verify refuses receipt circuits; agent-integration ZK mock gated
+
+- `POST /verify` returned `verified` for caller-supplied signals — valid for the signals given, not evidence of correct computation. Receipt circuits (`receipt_model`/`receipt_public`/`receipt_simple`) now get 400 pointing at `/receipt/verify`, which binds proofs to server-derived signals. Docstring states the semantics plainly.
+- `agent_coordination` mock `ZKProofService` (fake proof ids, always `verified: true`) was reachable via the mounted admin router `/v1/agents/integration/integrations/zk/{id}`. Its methods now raise unless `AGENT_INTEGRATION_ZK_MOCK=1` (dev only); the integration flow records the failures non-fatally in `integration_errors`.
+
+
+### docs(design): SD-1 escrow rebuild design — derive rows from sealed history, prove before write
+
+- `docs/design/escrow-rebuild-from-chain.md`: derivation rules from the sealed `transaction` table (two-leg metered settlement, latest-lock-wins, block-timestamp seal times, canonical-chain guard), the non-derivable fields stated as such, and the reconciliation proof (R1–R5 per-job + G1–G4 global invariants, incl. the v3 bonded-balance check) that gates `--write`.
+- Decision log records the SD-1 choice: rebuild is read → prove → write, never write-then-check; the lazy healers stay as read-path fallbacks until the tool lands.
+
+
+## v0.25.6
+
+### State / escrow v3 parallel path
+
+- **Pure state transition v3 support**:
+  - `ESCROW_LOCK` implemented (`38acca737`).
+  - `ESCROW_RELEASE` and `ESCROW_REFUND` modeled (`1df6eb365`).
+  - Escrow accounts pre-fetched and context built for v2/v3 parallel path (`fe5f4a451`).
+  - `escrow_context` wired into parallel callers (`2baf883f3`).
+  - `pure_state_delta` helpers refactored to keep C901 baseline (`1c8df3a50`, `e75e7355b`).
+  - `block_version` plumbed through `pure_state_transition` and v3 parallel path guarded (`f7262cc64`).
+- **Governance execute sender gating** (`628f99a74`): `GOVERNANCE_EXECUTE` senders validated against the on-chain executor list.
+- **Bond-slash authority deterministic + auditable** (`5c79eebe3`).
+
+
+## v0.25.5
+
+### Escrow & payments
+
+- Escrow dedupe gaps closed (`53c1b6d608`): `_find_existing_lock`,
+  idempotency guard, double-lock refusal.
+- ZK refund sweeper cross-process lock (`374988beeb`): `filelock` on
+  `run_once`; losing worker skips the pass.
+- Sweeper gate coverage fixed (`53c1b6d608`): `escrowed_at IS NOT NULL`
+  gate dropped.
+- Auto-adjudication endpoint (`f9aa1df824`): scans DISPUTED payments for
+  spot-check mismatch evidence.
+- Per-escrow custody addresses (`3ba7328768`): Option B — each escrow gets a
+  unique derived address.
+- Energy quote digest bound on every lock path (`7fecd759d2`).
+- Energy operator signature verified before funding (`ee2583b281`).
+- Protected release refuses when locked gross cannot cover floor
+  (`5a1b00be8a`).
+- Caller-supplied receipt no longer displaces signed `JobReceipt`
+  (`7a3e664eb6`).
+- Paid submit aborts when escrow left unsecured (`f8a09b547c`,
+  `886b10b79f`).
+
+
+## v0.25.3
+
+### 2026-08-31 — Escrow and payment self-lock / node-wallet hardening (7b7a61108)
+
+- `payments.py`: remove `GENESIS_ADDRESS` fallback for the escrow buyer; a buyer must be explicit (`payment_data.buyer_address` or `PAYMENT_BUYER_ADDRESS`).
+- `payments.py`: reject an escrow whose buyer or provider is the node wallet before building the `ESCROW_LOCK` transaction.
+- `payments.py`: fail closed on `computation_correct` in `release_payment` and use the canonical `JobReceipt` payload.
+- `payments.py`: re-raise `NetworkError` during refund submission instead of returning `False`.
+- `escrow_routes.py`: reject a lock whose provider is the node wallet and a release whose provider cannot be resolved.
+- `escrow_routes.py`: propagate unexpected errors from `_submit_refund_tx`.
+- `client.py`, `miner.py`, `zk_refund_sweeper.py`: prefer the authoritative `JobReceipt` payload over the denormalised `Job.receipt` JSON.
+- `test_payments_refund.py` and `test_escrow_routes.py`: add regression tests for the new fail-closed and self-lock guards.
+
+
+## v0.25.0
+
+### ZK receipt proof verification
+
+`692932d0b` hardens `/v1/zk/receipt/verify` in the coordinator-api ZK router by verifying the `receipt_model` proof binding. Updates the coordinator-api OpenAPI spec accordingly.
+
+
+## v0.24.18
+
+### Fix — `Escrow` DB lookups use the correct primary key
+
+Three call sites in `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py`
+used `session.get(Escrow, (job_id, chain_id))`, copying the composite-key
+pattern from `Account`. The `Escrow` model has a single-column primary key on
+`job_id`, so that identifier raised a SQLAlchemy primary-key-count error and
+aborted the `session_scope()` before any row could be written or updated.
+
+This caused escrow lock, release and refund operations to silently persist
+nothing to the chain database ("Failed to persist escrow to DB after lock").
+
+Updated the three sites to `session.get(Escrow, job_id)` to match the model and
+the other four call sites in the same file.
+
+
+### Fix — `PaymentService.create_payment` writes the amount back to the job
+
+`Job.payment_amount` and `Job.payment_token` were only set in
+`JobService.create_job` when the `JobCreate` request carried an amount. For the
+common two-step path (job submitted first, then `POST /v1/payments`), the
+payment record carried the real amount while the job row stayed `NULL`.
+
+`miner.py`, `client.py` and `JobService.to_view()` all read the job row, so a
+priced job could be treated as a zero-value job by the ZK/TEE threshold checks
+and the refund sweeper, even though the payment was real.
+
+Updated `PaymentService.create_payment` to set `job.payment_amount` and
+`job.payment_token` from the `JobPaymentCreate` data, keeping the job and the
+payment row authoritative. Added a regression test in
+`apps/coordinator-api/tests/test_payments_refund.py`.
+
+
+### Fix — PaymentService no longer blocks the async loop with synchronous HTTP
+
+`PaymentService._get_account_nonce`, `_create_token_escrow`, `_create_crypto_escrow`,
+`release_payment` and `refund_payment` are all `async def`, but they were instantiating
+the synchronous `AITBCHTTPClient` and calling `get`/`post` without `await`. On a single
+worker this blocks the coordinator event loop while the blockchain RPC answered.
+
+Switched all five call sites in
+`apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py`
+to the existing `AsyncAITBCHTTPClient` and `await`ed the `get`/`post` calls. Updated
+`test_payments_refund.py` and `test_zk_computation_correct_gate.py` to mock the async
+client with `AsyncMock`.
+
+
+### Fix — Stuck escrow sweeper for canceled, failed, expired, and disputed jobs
+
+Jobs that are canceled, fail, expire, or remain disputed and unresolved can leave
+escrowed payments locked indefinitely, because only `COMPLETED` jobs were covered
+by the ZK refund and acceptance sweepers.
+
+Added `apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py`.
+It queries jobs whose `payment_status` is in `HELD_STATES` and whose `state` is
+`CANCELED`, `FAILED`, or `EXPIRED`, or whose `payment_status` is `disputed`, and
+refunds them through `PaymentService.refund_payment` after a grace period. The
+dispute path uses a longer default grace (`86400` seconds, configurable via
+`COORDINATOR_STUCK_ESCROW_SWEEP_DISPUTED_MIN_AGE_SECONDS`) so operators have time
+to rule before the sweeper refunds. The sweeper is wired into `main.py` and can be
+disabled with `COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=false`. Added
+`apps/coordinator-api/tests/test_stuck_escrow_sweeper.py`.
+
+## v0.24.14
+
+### G3 — computation_correct wired into escrow release (2026-08-25)
+
+- `_attach_zk_proof` records `computation_correct` from `zk_proof_service.verify_proof` and sets
+  `zk_status` to `computation_incorrect` when the proof is valid but the result is wrong.
+- `PaymentService.release_payment` refuses to release escrow when `computation_correct` is `False`,
+  closing the gate for `pending_acceptance -> release`.
+- Added `apps/coordinator-api/tests/test_zk_computation_correct_gate.py` with four tests covering
+  `computation_correct=True` (pass), `computation_correct=False` (blocked in attach and in release),
+  and the `release_payment` path.
+- Live enablement requires restarting `aitbc-coordinator-api` on `<hub-node>`.
+
+
+## v0.24.8
+
+### Fixed negative receipt `units`, `duration_ms` and `price`
+
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`: store `requested_at`, `expires_at`, and `completed_at` as UTC.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/domain/job.py`: default `requested_at` and `expires_at` to UTC.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`: prefer `execution_time` from the miner result when computing `duration_ms`, and clamp negative values to 0.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py`: clamp `units`, `unit_price`, and `price` to non-negative values; prefer `duration_ms` only when positive.
+- `apps/miner/production_miner.py`: send `duration_ms` in metrics so the coordinator does not derive it from clock-sensitive timestamps.
+
+
+## v0.24.6
+
+### P2.3 live validation — lock and release on chain
+
+- Created `BOND_LOCK` tx and queried it: bond is active and queryable.
+- Released the same bond with `BOND_RELEASE` after a 0-day lock and verified
+  status=\`released\`, amount=0, and released_tx_hash recorded.
+- Account balance recovered the locked collateral after the release.
+- CLI now fetches the real provider nonce before signing each bond transaction.
+
+
+## v0.24.4
+
+### P1.5 — `aitbc ai submit --wait` polls until release and prints the escrow tx
+
+- Enhanced the `--wait` polling path in `cli/aitbc_cli/commands/ai.py`.
+- After a paid job reaches `COMPLETED`, continue polling until `payment_status` flips to `released`.
+- Fetch the payment view (`GET /v1/jobs/{job_id}/payment`) and include `escrow_tx_hash` in the final output.
+- Added keyboard-interrupt handling that attempts to cancel the job before aborting.
+- Updated scenarios 07 and 34 to use `--wait` and document the JSON fields returned.
+
+## v0.24.3
+
+### Escrow refund end-to-end (2026-08-21)
+
+A stuck failed TEE job (`febb20dde26342238196a3a99b57423e`) was refunded through the canonical `aitbc` CLI:
+
+- `aitbc market escrow refund <job_id>` now tries the coordinator payment refund first when a client token is available, then falls back to the on-chain `/rpc/escrow/{job_id}/refund` path.
+- `aitbc ai refund <job_id>` is the canonical full-cycle refund command: it updates the coordinator `JobPayment`/`job.payment_status` and the on-chain escrow in one call.
+- The blockchain RPC `EscrowManager` now loads active escrow contracts from the chain DB on startup and can lazy-load any persisted contract by `job_id`.
+- The blockchain `/escrow/{job_id}` endpoint exposes `refunded_at` and `refund_tx_hash` so the coordinator can record the on-chain refund hash.
+- `PaymentService.refund_payment` is idempotent: if the on-chain escrow is already `refunded`, the coordinator DB is updated without resubmitting a transaction.
+- Loaded escrows use a deterministic `contract_id` derived from buyer/provider/job_id, so release/refund lookups stay stable across node restarts.
+
+Live validation on `<hub-node>`:
+- `aitbc market escrow refund febb20dde26342238196a3a99b57423e` returned `success`, `contract_id=escrow_ba963aba0d3dd882`, and `refund_tx_hash=0x71df...7e7e8`.
+- Coordinator `job.payment_status` and `JobPayment.status` are now `refunded` with the same `refund_transaction_hash`.
+
+## v0.24.1
+
+### V23-97 — `is_not` operator fixed so billing sync can build a query
+
+The Pool Hub SLA/billing query builder now emits the `is_not` operator correctly, allowing `/v1/sla/violations?resolved=true` to return 200 instead of 500. The CLI also aborts with a clear message when asked for per-pool SLA or when the host is unreachable.
+
+
+## v0.23.34
+
+### V23-64 — the account canonicalisation is right; it dropped escrow's foreign keys on the way
+
+`bee3e4a83` closed the latent half of V23-63: an `AccountAddress` column type that normalises
+`0x…`, `ait1…` and `aitbc1…` to one lowercase `ait1` form on both bind and result, plus the same
+normalisation on trie keys. That is the right shape of fix — one normalisation point on account
+access rather than patches at each call site — and it works. Two things came with it.
+
+**The escrow foreign keys are gone.** The new columns were written as
+`Field(sa_column=Column(AccountAddress(), foreign_key="account.address"))`. `foreign_key=` is
+SQLModel's `Field` argument, not SQLAlchemy's `Column` argument; `Column` reads unrecognised
+keywords as `<dialect>_<option>`, so it parsed this as a dialect named `foreign` with an option
+`key` and dropped the constraint. SQLAlchemy said so —
+`SAWarning: Can't validate argument 'foreign_key'; can't locate any SQLAlchemy dialect named 'foreign'`
+— at import, where nothing was watching. `Escrow.__table__.foreign_keys` was empty. Now
+`ForeignKey("account.address")`, and asserted.
+
+**It arrived without tests, and the suite could not have caught it.** 471 tests passed both
+before and after, and the SAWarning does not surface in a pytest run. Added 46, in
+`test_account_address_canonicalization.py`. Most are the round trip — 25 of them are every
+spelling written against every spelling queried — but two carry real weight:
+
+- `test_the_state_root_does_not_move_for_an_already_canonical_chain`. Trie keys feed the state
+  root and the state root is recorded in every block. If normalisation changed the key for
+  accounts already spelled `ait1`, every historical block would fail verification and the node
+  would diverge from its peers. Measured: unchanged for a canonical chain, changed for a chain
+  holding any `0x`, `aitbc1` or mixed-case account. So the change is safe exactly to the degree
+  the chain is already canonical, which is a fact about the deployed data, not about the code.
+- `test_escrow_still_references_the_account_table`, which fails against `bee3e4a83`.
+
+**Also folded in:** `_to_ait_address` now delegates its parsing to `canonical_address` rather
+than reimplementing the prefix and hex-length rules. There are now two spellings of "canonical"
+in the tree — `0x` for the signature layer, `ait1` for storage — and that is fine as long as they
+agree on *what counts as an address*. Two independent copies of that rule is how they stop
+agreeing, and the failure would be the chain and the signature layer disagreeing about who owns
+an account.
+
+Root 2886, blockchain-node 517, both green.
+
+**Unresolved, and it needs the hub's data to answer.** `process_bind_param` normalises the value
+in a query but does not rewrite rows already stored. Any existing account, transaction or escrow
+row written as `0x…` is now unreachable — queries bind `ait1…` and miss it — and an insert for
+that same account will succeed as a second row with a separate balance. The local chain database
+is empty post-reset, so this could not be measured here. Before this reaches a node with history,
+count the non-canonical rows and migrate them.
+
+---
+
+
+### V23-66 — the coin-request database claims a payout the chain has never heard of
+
+`req-follower-1782118019` records a `transaction_hash` for a transaction that no longer exists.
+The hub's chain was reset on 2026-08-15 and rebuilt from genesis; the coin-request database was
+not, and nothing connects them. So it goes on asserting that a payout settled, on a chain nobody
+has any more.
+
+Fixing that one row by hand would have taken a minute and taught nothing. The two stores can
+disagree by construction — one is the chain, the other is an application database beside it —
+and there was no way to find out that they had.
+
+**The chain could not be asked.** `/rpc/transactions` describes transactions in bulk with
+filters for type, island and order, but there was no way to ask "do you have this hash". Added
+`GET /rpc/transaction/{tx_hash}`, 404 when it does not. The 404 is the part with a consumer.
+
+**`aitbc coin-requests reconcile`** checks every request holding a hash against the chain and
+reports the ones it has never heard of. Read-only by default, so it is safe on a schedule;
+`--annotate` writes the finding into each affected request's audit log and still clears nothing.
+
+**`aitbc coin-requests reopen <id>`** clears one hash so the request can be paid again. Separate
+command, one request at a time, named explicitly — because that hash is the only thing standing
+between a request and a second payout, here and at `/execute`. It refuses when the chain still
+holds the transaction, and refuses when the chain cannot be reached to say either way. That
+second refusal is the one worth having: an unreachable node looks exactly like a missing
+transaction unless the code distinguishes them, and treating them alike invites reissuing a
+payout that was made perfectly well. `--force` exists and says so in the output.
+
+For `req-follower-1782118019` specifically the answer is *not* to reopen it: `-v2` was already
+issued and paid. Annotate it, so the record says what happened rather than nothing.
+
+14 tests. The three that carry the design are the two refusals in `reopen` and
+`test_annotate_records_the_discrepancy_but_still_does_not_clear_it` — annotating a whole
+database must never make anything payable. blockchain-node 538, root 2918, both green.
+
+**V23-66a — the endpoint 404'd every hash, and the test that should have caught it mocked it away.**
+Reported from the hub: `reconcile` called `GET /rpc/transaction/{tx_hash}` without a `chain_id`
+and got a 404 for all nine executed requests. The endpoint's fault, not the caller's —
+
+    resolved_chain_id = get_chain_id(chain_id if chain_id else "")
+
+`get_chain_id` falls back to the node's own chain for `None` only; an empty string comes back
+unchanged, and `chain_id == ""` matches no transaction. So the documented default — omit the
+parameter, get this node's chain — answered "no such transaction" for every hash on the chain.
+Now `get_chain_id(chain_id or None)`.
+
+`test_rpc_get_transaction.py` stubbed `get_chain_id` as `lambda _requested: CHAIN_ID`, which
+swallows the argument and returns the right answer no matter what is passed. It pinned that the
+call happened, not that it was right. It now configures `settings.chain_id` and lets the real
+resolution run; the two new cases fail on the old code and pass on the new.
+
+The hub's fix passed `chain_id` from `TransactionService().chain_id` at the call site. Reverted:
+that is `CHAIN_ID` from the environment, defaulting to `ait-hub`, while the hub actually serves
+`ait-hub.aitbc.bubuit.net` — a client-side guess at something the node already knows, wrong
+exactly where it matters. A wrong guess 404s every hash, which reads as "not one of these
+payouts happened", which is the state that invites reopening requests that were paid. The node
+answers for its own chain; `--chain-id` stays available on both commands for a node serving
+several islands, and is sent only when given.
+
+blockchain-node 540, root 2922.
+
+---
+
+
+### V23-97 — Pool Hub's billing sync and resolved-violation query never built a statement · CONFIRMED → RESOLVED
+
+Three query filters in Pool Hub spelled the SQLAlchemy operator `isnot_`. There is no such
+operator. A column offers `is_`, `is_not`, and the legacy alias `isnot`; the trailing
+underscore matches nothing, so `InstrumentedAttribute.__getattr__` raised `AttributeError`
+while the statement was still being *constructed* — before any database was touched. No
+query ran, no connection was opened, and nothing in the logs mentioned SQL.
+
+```python
+stmt = stmt.where(SLAViolation.resolved_at.isnot_(None))   # sla_collector.py:291
+    .where(MatchResult.eta_ms.isnot_(None))                # billing_integration.py:151, :226
+```
+
+What that reached:
+
+- **`GET /v1/sla/violations?resolved=true` — 500, every time.** The `resolved=False` branch
+  uses `is_(None)` and worked, which is why the endpoint looked healthy: the default answer
+  was correct and only the explicit `resolved=true` query failed.
+- **`POST /v1/sla/billing/sync` — 500 on both paths.** With a `miner_id` it runs
+  `sync_miner_usage` → `_collect_miner_usage` (line 226); without one it runs
+  `sync_all_miners_usage`, whose copy of the same filter (line 151) sits inside
+  `async with self.db.begin()`. Either way the `AttributeError` propagated to the router's
+  `except Exception` and became `{"detail": "Internal server error"}`. Pool Hub's entire
+  usage export to coordinator-api has never completed a single run.
+
+The compute-time filter is what the sync is *for*: `MatchResult.eta_ms` is the per-match
+compute time that becomes `compute_hours` and, at 1.5×, `gpu_hours`. Excluding rows where
+it is NULL is the first thing either method does with match data, so there is no partial
+success — the failure is total and silent.
+
+`BillingIntegrationScheduler._sync_loop` calls `sync_all_miners_usage` every hour and
+swallows the exception into `logger.error` before sleeping 300s. Nothing in `poolhub`
+constructs that scheduler, so the loop is dormant rather than failing hourly; it is one
+`Scheduler(...)` call away from being a log full of `AttributeError` and no billing data.
+
+**Why it survived.** `apps/pool-hub/tests/test_billing_integration.py`,
+`test_sla_collector.py`, `test_sla_endpoints.py` and `test_integration_coordinator.py` —
+775 lines covering exactly these two services — were deleted in `ea97ba9aa`
+("test(apps): delete skipped integration tests in pool-hub and coordinator-api", 2026-08-13),
+along with the `conftest.py` that gave them a session. Their compiled bytecode is still
+sitting in `apps/pool-hub/tests/__pycache__/`, which is the only trace left that this code
+was ever covered.
+
+`mypy` cannot cover for them. The hook at `scripts/ci/mypy-precommit.sh` does check
+`apps/pool-hub` on every commit against an empty baseline, and a file containing nothing but
+`select(SLAViolation).where(SLAViolation.resolved_at.isnot_(None))` type-checks clean —
+SQLAlchemy resolves comparator methods on an instrumented attribute dynamically, so an
+unknown method name on a `Mapped[...]` column is not a type error. A misspelled operator is
+only ever caught by running the query.
+
+#### What changed
+
+`isnot_` → `is_not` at all three call sites, each with a comment naming the operator so the
+next reader does not re-derive it. Nothing else about the queries changed: the resolved
+branch still filters `resolved_at IS NOT NULL`, the unresolved branch still filters
+`IS NULL`, and both usage queries still exclude rows with no recorded compute time.
+
+#### Verification
+
+- Eight tests in `tests/unit/test_v2397_poolhub_sla_billing_queries.py` drive the real
+  `SLACollector` and `BillingIntegration` methods against a recording session stub, so they
+  fail where production failed — at statement construction, not at a database call.
+- Run against the pre-change code, **5 of 8 fail**: the repo-wide sweep, both resolved-violation
+  cases, and both billing-usage cases.
+- The other three pass before and after by design, and are stated as such rather than counted:
+  the root-cause assertion is about SQLAlchemy's own API (`is_not` exists, `isnot_` does not),
+  `test_unresolved_violations_still_filter_on_null` guards the branch that already worked, and
+  `test_a_sync_with_no_miners_never_reaches_the_usage_query` pins the early return so the other
+  sync assertion is known to be about real work.
+- The tests assert rendered SQL, not just the absence of an exception: `resolved_at IS NOT NULL`
+  on the resolved path, `resolved_at IS NULL` with no `IS NOT NULL` on the unresolved one, and
+  `eta_ms IS NOT NULL` in both usage queries. A fix that silenced the error by dropping the
+  filter would fail them.
+- `test_no_call_site_still_uses_the_nonexistent_operator` sweeps every `.py` under `apps/`,
+  `aitbc/` and `cli/` for `.isnot_(`. It found exactly these three and now finds none.
+- Scoped suite — `apps/pool-hub/tests` plus the new file: 45 passed, 0 failures.
+- Full root suite: 6,684 tests, 0 failures, 0 errors, 131 skipped, exit 0 — re-run after
+  merging the `main` that now carries V23-96, which stands at 6,676. The eight new tests are
+  this branch's only additions. V23-95's 21 are still on an unmerged branch and are not in
+  this count.
+- `pre-commit run --files`: clean over all four changed paths.
+
+#### Not fixed here
+
+- **The 775 lines of deleted pool-hub tests are still deleted.** Eight new tests cover the
+  three filters; they do not cover `record_usage`, `_send_billing_event`, the SLA threshold
+  logic, or the collector's metric recording, all of which those files exercised. The stale
+  `__pycache__` entries are the standing evidence — a directory whose bytecode names tests
+  that no longer exist is worth a sweep of its own across every app.
+- **Nothing exercises Pool Hub's billing surface end to end.** These tests prove the queries
+  build and filter correctly; they do not prove a sync reaches coordinator-api, because
+  `_send_billing_event` posts to `coordinator_billing_url` and there is no fixture for that.
+  The first real proof that billing works will still come from a live run.
+- **The router's `except Exception` → 500 is what hid the shape of this.** An `AttributeError`
+  in query construction is a bug in Pool Hub, not a failure of the request, and reporting it
+  as "Internal server error" with the detail only in the log is why it read as a transient
+  outage. That handler shape repeats across `routers/sla.py`; narrowing it is a separate change.
+- `BillingIntegrationScheduler` is defined and never constructed. Dead as written, and the
+  reason this defect was reachable only by explicit request rather than hourly.
+
+
+## v0.23.30
+
+### `PaymentService` was called with the wrong arguments in four places
+
+```python
+async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate)
+async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason=None)
+```
+
+`client_id` is an authorisation identity — both methods start with
+`self._require_owned_job(job_id, client_id)`, which 403s unless the job belongs to that
+client. Every call site got it wrong, and what each did next differed:
+
+| call site | the call | what happened |
+|---|---|---|
+| `infrastructure/routers/client.py` | `create_payment(job.id, payment_create)` | `TypeError`, caught by the `except Exception` below it → **every job with a payment amount was silently marked `payment_status="skipped"`** and no escrow was ever created. The API returned 200. |
+| `infrastructure/routers/miner.py` | `release_payment(job.id, job.payment_id, reason=…)` | `TypeError`, **not** caught → 500 to the miner, *after* the job was committed as completed with its receipt. Payment never released. |
+| `marketplace/routers/marketplace_gpu.py` (buy_gpu) | `create_payment(job_id=…, payment_data=…)` | `client_id` missing entirely; caught and logged |
+| `marketplace/routers/marketplace_gpu.py` (send_payment) | same | caught and logged |
+
+The identities were recoverable in each case: the client router has `user["sub"]`; the miner
+router does not own the job, so it uses `job.client_id`; `buy_gpu` creates the job with
+`client_id=request.buyer_id`; `send_payment`'s payer is the authenticated caller.
+
+
+## v0.23.14
+
+### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED → RESOLVED
+
+```
+cd contracts && npm audit
+# 38 vulnerabilities (15 low, 4 moderate, 19 high)
+```
+
+`contracts/node_modules` is empty in a fresh checkout, so this is a property of the
+**tracked lockfile** — what anyone gets on `npm ci` — not of one machine. That makes it
+strictly more actionable than V23-19/V23-20.
+
+The one worth attention beyond a routine bump is `elliptic`, flagged as *"Uses a
+Cryptographic Primitive with a Risky Implementation"* (GHSA-848j-6mx2-7j84), reached via
+`@ethersproject/signing-key`. That is the signing path of the contract tooling. `axios`
+(10 advisories), `ws`, `adm-zip` and `brace-expansion` account for most of the rest.
+
+`npm audit fix --force` reports it would install `@nomicfoundation/hardhat-verify@3.0.22`,
+a breaking change — which is why this has not happened by itself.
+
+By contrast `packages/` is clean: `pnpm audit` reports no known vulnerabilities.
+
+> **Fix**: take the non-breaking `npm audit fix` first and commit the lockfile, then handle
+> the hardhat-verify major separately against the contract suite (115 passing as of v0.22).
+> Splitting them keeps the breaking change reviewable.
+
+**PARTLY RESOLVED — 38 → 32 (19 high → 13).** The non-breaking half is done and the lockfile
+committed. Unlike V23-19, this count *is* a property of the repository: it comes from the
+tracked lockfile, so it is what anyone gets on `npm ci`.
+
+**The remaining 32 are one migration, not thirty-two problems.** Every one traces to the
+Hardhat 2.x toolchain:
+
+| | |
+|---|---|
+| `@nomicfoundation/hardhat-toolbox` → 7.0.0 | pulls `adm-zip`, `undici`, `hardhat` |
+| `@nomicfoundation/hardhat-verify` → 3.0.22 | pulls the twelve `@ethersproject/*`, including `elliptic` |
+| `solidity-coverage` → 0.7.22 | pulls `serialize-javascript`, `mocha` |
+| `@typechain/hardhat`, `hardhat-gas-reporter` | **no fix published at any version** |
+
+All five are direct dev dependencies and all five are semver-major. Two have no fix at all,
+so even taking every breaking bump does not reach zero — this is a Hardhat 2 → 3 migration
+with two dependencies that must be replaced or dropped. That is a project, and splitting it
+out is what the finding asked for.
+
+**On `elliptic`**, which the finding singled out: it is reached through
+`@ethersproject/signing-key` in `hardhat-verify`, which is **contract tooling, not deployed
+code**. The exposure is a developer or CI machine running verification, not anything
+on-chain. Worth stating because "risky cryptographic primitive in the signing path" reads
+much worse than it is here.
+
+**Verified against the contract suite**, with a baseline rather than an assumption: on the
+*original* lockfile, `npx hardhat test` gives **115 passing / 87 pending / 2 failing**; on the
+fixed lockfile, identical, with the same two failures (`Phase 4 Modular Smart Contracts`,
+`TreasuryManager`). The lockfile change is neutral.
+
+> **Two things the audit did not record, found while establishing that baseline**: the
+> contract suite has **2 pre-existing failures and 87 pending** tests — "115 passing as of
+> v0.22" was accurate and incomplete — and **no CI workflow references `contracts/` at
+> all**. Nothing builds, tests or audits the contract toolchain automatically, which is the
+> same gap V23-10a found for app suites.
+
+> **Correction to that second point. It is wrong.** Seven workflows reference `contracts/`,
+> and six jobs across two of them build and test it: `smart-contract-tests.yml`
+> (`test-solidity`, `test-foundry`, `lint-solidity`, `deploy-contracts`) and
+> `contract-benchmarks.yml` (three benchmark jobs). I had grepped `.github/workflows/`. This
+> repository runs on Gitea Actions and its CI lives in **`.gitea/workflows/`** — the
+> directory whose job names were visible in the PR checks I had been reading all along.
+> Checking one plausible location and reporting the absence as a fact is the same error as
+> V23-14, where a grep that resembled the finding stood in for the code the finding named.
+> The real defect is worse than the one I reported, and is written up below.
+
+**Second pass on the remainder — 32 → 27, and high 13 → 1.** The finding said the rest was a
+Hardhat 2 → 3 migration. Most of it is. Some of it was not, and the part that was not is
+reachable through `overrides`, which `contracts/package.json` already uses.
+
+| Override | Was | Now | Clears |
+|---|---|---|---|
+| `serialize-javascript` | `^6.0.2` | `^7.1.0` | 2 high |
+| `ws` | *(none)* | `^8.21.3` | 2 high |
+| `adm-zip` | *(none)* | `^0.6.0` | 1 high |
+
+**`serialize-javascript` was already overridden — to a vulnerable version.** The advisory range
+is `<=7.0.4`; the override pinned `^6.0.2`, squarely inside it. An override added to fix a
+vulnerability was holding the package at a vulnerable version, and because the entry existed
+it read as handled. Clearing it also cleared `mocha` and `hardhat-gas-reporter`, which the
+finding lists as *"no fix published at any version"* — true of an advisory against the package
+itself, and not the reason they were flagged.
+
+**`undici` — 12 of the 32 advisories — cannot be fixed without the migration, and this was
+verified rather than assumed.** The vulnerable range is `<=6.27.0`, so any 7.x or 8.x clears
+it, and with `undici@8.10.0` the audit reported **zero high and zero moderate** while the test
+suite stayed at exactly 115/87/2. It would have shipped a broken toolchain:
+
+```
+$ rm -rf ~/.cache/hardhat-nodejs && npx hardhat compile
+Error HH502: Couldn't download compiler version list.
+  Caused by: InvalidArgumentError: maxRedirections is not supported, use the redirect interceptor
+```
+
+undici removed `maxRedirections` in 7.0; Hardhat 2.29 still passes it. **The suite passed
+because solc was already cached, so the download path never ran.** `undici@7.29.0` fails the
+same way, so there is no version above the vulnerable range that Hardhat 2 can use. That is
+the difference between "the tests pass" and "it works", and it is the second time in this
+audit that a green result came from a code path that never executed.
+
+**On `elliptic`**, two corrections to the finding. It is **low**, not high. And its vulnerable
+range is `*` — *no published version is unaffected* — so the existing `elliptic: ^6.5.4`
+override cannot do anything and never could.
+
+**On `solidity-coverage`**, `npm audit fix --force` proposes `0.7.22` against an installed
+`0.8.17`. That is a **downgrade**, presented in the same column as the upgrades. Taking it
+would move backwards to reach a version predating the advisory. The finding quoted the
+proposal without noting it goes the wrong way; it should not be taken.
+
+**Remaining: 27 (18 low, 8 moderate, 1 high).** Every one traces to Hardhat 2.x, and the one
+high is `undici`. Verified with `npm ci` from an empty `node_modules` and a cleared compiler
+cache: 51 contracts compile, suite at 115/87/2 — the baseline, unchanged.
+
+**The migration, now scoped against the registry rather than guessed at.** Hardhat 3.12.0 is
+stable and the plugin line has shipped: `hardhat-toolbox-mocha-ethers@3.0.7` keeps mocha and
+ethers, so the test *framework* need not change; `hardhat-verify@3.0.22`,
+`hardhat-ethers@4.0.15`, `hardhat-chai-matchers@3.0.0`, `hardhat-network-helpers@3.0.11` all
+exist for it. Two do not and must be dropped, not upgraded: **`@typechain/hardhat` stops at
+9.1.0** and **`solidity-coverage` stops at 0.8.17** (Hardhat 3 has built-in coverage). The
+work is 33 files that import `hardhat`, 16 test files and 20 scripts, plus the config:
+Hardhat 3 removes the injected global `ethers` in favour of `await network.connect()`, and
+`solidity.compilers` becomes `solidity.profiles`.
+
+**DONE — 27 → 11, and every remaining advisory is `low`.** The migration was carried out;
+see V23-27b. One correction to the scoping above: typechain was not dropped, it **moved** —
+`@typechain/hardhat` is dead but `@nomicfoundation/hardhat-typechain@3` is bundled in the
+toolbox, so bindings are still generated. And Hardhat 3 removed `undici` from its dependency
+tree entirely, which is why the 12 advisories that had no reachable fix disappear rather than
+being suppressed.
+
+
+### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED → RESOLVED
+
+`contracts/.npmrc` is tracked and contains only pnpm-specific keys:
+
+```
+auto-install-peers=false
+strict-peer-dependencies=true
+prefer-frozen-lockfile=true
+shamefully-hoist=true
+```
+
+npm does not understand any of them and says so on every invocation — `npm warn Unknown
+project config "auto-install-peers"`, and the same for the other three. Among the ignored
+settings is `prefer-frozen-lockfile`, the one that would make installs reproducible. The
+repository believes it has that guarantee and does not.
+
+Both lockfiles are present, and only one can be committed:
+
+```
+ls contracts/ | grep lock          # package-lock.json, pnpm-lock.yaml
+git ls-files contracts/ | grep lock # package-lock.json only
+git check-ignore -v contracts/pnpm-lock.yaml
+# .gitignore:376:*.yaml	contracts/pnpm-lock.yaml
+```
+
+This is the **fourth** thing the blanket `*.yaml` rule has swallowed: after `*.zkey`
+breaking the v0.22.0 tag, `*.yaml` hiding `pnpm-workspace.yaml` (v0.22 PKG-05) and
+`wallet*.json` hiding the generated wallet spec (v0.22 DOC-02), a pattern written for
+secrets is now hiding the dependency lockfile of the contract toolchain.
+
+> **Fix**: pick one package manager for `contracts/`. If pnpm — which the `.npmrc` and the
+> rest of the repo suggest — un-ignore `contracts/pnpm-lock.yaml`, commit it, and delete
+> `package-lock.json`. If npm, rewrite `.npmrc` in keys npm reads. Either way the audit in
+> V23-27 should be run against whichever lockfile is authoritative, because right now it is
+> auditing the one nobody installs from.
+>
+> Separately: `.gitignore` has now hidden four needed files by accident. The rule to change
+> is not any single pattern but the practice of writing bare globs — anchor them
+> (`/secrets/*.yaml`) rather than negating them one casualty at a time.
+
+**RESOLVED — npm.** One correction to the finding first: **`contracts/pnpm-lock.yaml` does
+not exist.** It was present on the machine the audit ran on, untracked and ignored, so "both
+lockfiles are present" was true there and is not true of the repository. In a fresh checkout
+there is one lockfile, `package-lock.json`, and it is tracked.
+
+That makes the decision straightforward rather than a judgement call: the tracked lockfile is
+npm's, `package.json` declares no pnpm section, and pnpm belongs to `packages/`, which has
+its own workspace. **The `.npmrc` was the odd file out** — four pnpm-only keys, on which npm
+warns *"Unknown project config ... This will stop working in the next major version"*. They
+already did nothing.
+
+`contracts/.npmrc` is rewritten in keys npm reads, and the choice is now **machine-enforced
+rather than documented**: `package.json` declares `packageManager: npm@11.16.0`, so corepack
+refuses `pnpm install` here.
+
+One trap avoided while doing it. The natural `.npmrc` content is `engine-strict=true` — which
+does nothing unless `package.json` has an `engines` field, and it did not. Shipping that
+would have replaced four settings that do nothing with a fifth. `engines` is declared
+alongside it.
+
+`npm config list` now reports **zero** unknown-config warnings, down from four.
+
+#### The `.gitignore` practice — the actual fix
+
+The finding is right that the rule to change is the practice. `*.yaml` had accumulated
+**five** negations, each added after it had already swallowed something needed, and V23-28
+found `contracts/pnpm-lock.yaml` as the sixth.
+
+Two facts settled it:
+
+- **The rule ignores zero files** outside vendored trees. It was protecting nothing.
+- It only affects *new* files. The 61 YAML files already tracked were unaffected — which is
+  precisely why it stayed invisible until it ate something, every few releases.
+
+Replaced with patterns anchored to where secrets live and to names that mean "secret":
+`/secrets/`, `.wallets/*.yaml`, `.agent_data/*.yaml`, `**/*secret*.yaml`,
+`**/*credential*.yaml`. Verified in both directions rather than assumed:
+
+| Path | Result |
+|---|---|
+| `secrets/anything.yaml`, `config/db-secret.yaml`, `.wallets/keys.yaml`, `apps/x/credentials.yml` | ignored |
+| `apps/x/config.yaml`, `.github/workflows/new.yml`, **`contracts/pnpm-lock.yaml`** | visible |
+
+And the check that matters for a `.gitignore` change: **no currently-tracked YAML became
+ignored, and no previously-hidden file became newly visible.** The blast radius is future
+files only, which is where the damage was.
+
+---

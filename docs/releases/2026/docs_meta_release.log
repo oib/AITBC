@@ -1,0 +1,731 @@
+# Docs & Meta — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of docs & meta changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.26.0
+
+### SCEN-DOCS-1
+
+- Scenario docs pass: stale chain ids (`ait-mainnet`/`ait-hub`/
+  `ait-devnet`/`ait-testnet`) corrected to `bc-2`; retired
+  `messaging send --recipient`/`messaging topic` calls rewritten to the
+  current `send --wallet --message [--topic]`/`topics` interface;
+  `gpu list` → `gpu list-gpus`; `python -m json.tool` → `python3`.
+  Scenario 08 (removed `market bid` group) retired to
+  `docs/archive/scenarios`; README count corrected 58 → 51.
+
+
+### DOCS-CMD-PARSE-1 (#559)
+
+- `6a1102bf9`, `775d04e24` — new test extracts every `aitbc` command
+  line from the scenario docs and resolves it with click's parser
+  (parse only — no invocation, no CliRunner); 1,598 command lines
+  checked, unparseable lines and bogus global-flag lines now fail the
+  suite. `node info --node-id` doc line fixed.
+- `c3e95c432` — `_resolve` walk split to satisfy the C901 ratchet.
+
+
+## v0.25.13
+
+### OPTION-DOCS-1
+
+- docs(scenarios): option-level CLI coverage census lands as scripts/dev/gen_option_coverage.py (reads the staging SCENARIO-PLAY-1 census + cli-tree dump, emits the per-option exercise report). The census fix masking <placeholder> tokens before the shell-operator split revealed only 5 truly undocumented required options; docs gained a worked 'aitbc market host' example (scenario 11) and 'aitbc wallet bridge deposit/withdraw' entry-point lines (scenario 59). Required-but-undocumented options: 0. Refs #450
+
+
+## v0.25.12
+
+### docs(release): relocate post-tag entries from the v0.25.9 log to v0.25.11
+
+- `f35a3df1` — the v0.25.9 tag froze its log, but 30 `### ` sections and a
+  283-line commit index (2026-10-14/15 work, all inside the v0.25.11
+  window) had been appended to it afterwards. They move to
+  `v0.25.11_change.log`: sections appended in order, the hash list under a
+  new `### Commit index` section so the coverage check still resolves
+  every hash. `v0.25.9_change.log` matches its tag again except the
+  retained internal-host-token scrub.
+
+
+## v0.25.9
+
+### docs(contracts): strip drifted helper lists from Python-contract stubs (2026-09-30)
+
+The `docs/contracts/*` per-file stubs enumerate private helpers that have
+drifted (`htlc.md` cited helpers removed from `htlc_contract.py`). The
+"Key Functions" sections are removed; the class-level summaries verified
+against the sources and each page carries a stub banner.
+
+
+### docs(license): copyright year range 2025–2026 (2026-09-30)
+
+`LICENSE` and the root `README.md` footer now read `Copyright (c)
+2025–2026 AITBC` — the project spans both years.
+
+
+### docs(cleanup): delete foreign 2025-dated templates; fix broken examples (2026-09-30)
+
+Deleted foreign-template docs that describe a stack AITBC does not have:
+`ci-cd/CI-CD-Pipeline-Guide.md` (Next.js/yarn/Stripe — self-labelled
+foreign), and the `docs/database/` RLS set (PostgreSQL + Prisma + RLS;
+nothing named `withUserContext`, `CREATE POLICY`, or `RLS_*` exists in
+code): `RLS_IMPLEMENTATION_GUIDE.md`, `RLS_DATABASE_MIGRATION_SOP.md`,
+`RLS_POLICY_CATALOG.md`, `DATA_DICTIONARY.md`. The two index READMEs were
+part of the same import and are rewritten to point at the real schema doc
+and the real CI files. `docs/security/SECURITY.md` reporting now defers
+to `.github/SECURITY.md` (the actual policy). Fixed the broken imports a
+reader would hit first: `aitbc.crypto.security` → `aitbc.crypto.secrets`,
+`aitbc.security_hardening` → `aitbc.security.validators`,
+`aitbc.redis_cache` → `aitbc.caching`, in `quick-start.md` and
+`performance-features.md`. Dropped the stale per-app "last commit"
+stamps from `architecture/active_apps.md`.
+
+
+### docs(staleness): second sweep — SDK versioning, stale stamps, structure map (2026-09-30)
+
+Follow-up on the stale-docs audit (Feb–Apr 2026 batch). `aitbc-agent-sdk`
+is unpublished — install lines now show `pip install -e
+packages/py/aitbc-agent-sdk`; doc versions ("v1.0.0") annotated against
+the real package version (`0.1.0`); the "Planned v1.1.0 (2026-04-15)"
+section reworded as unshipped candidates. Dropped the vestigial
+"Generated: 2026-03-08" stamps from `blockchain/README.md` and
+`reference/backend.md` (no generator runs). `REPOSITORY_STRUCTURE.md`
+regained `aitbc/`, `mcp-server/`, `plugins/`, `skills/` and lost the
+nonexistent `dev/` and `build/` rows.
+
+
+### chore(docs): drop last baseline orphan — pytest_cache artifact (2026-09-30)
+
+`.pytest_cache/` deleted (untracked pytest artifact; `.gitignore` already
+covers it) and `orphan-docs-baseline.txt` is now empty — zero known
+orphans. The checker learned to skip `#` comment lines so the baseline
+can carry explanations.
+
+
+### chore(docs): exempt tool-generated dirs in orphan check (2026-09-30)
+
+`.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/` and `node_modules/` are
+now exempt prefixes in `check_orphan_docs.py` — pytest recreates
+`.pytest_cache/README.md` on every test run, and a generated artifact
+should never fail the orphan gate.
+
+
+### feat(docs): mechanical evidence for ✅ feature-status rows (2026-09-30)
+
+`check_feature_status.py` (new pre-commit hook
+`validate-feature-status-evidence`) makes every `✅` in the feature
+tables a verifiable claim: the row must carry a backticked code
+identifier that resolves in the tree — otherwise it lands in
+`feature-status-baseline.txt` (278 legacy rows baselined, ratchet only
+shrinks). The bridge table in `2-bridge-cross-chain.md` is seeded with
+real tokens (`BRIDGE_LOCK`, `refund_transfer`, `get_validator_set`, …);
+its "Bridge Unlock" row now names the real on-chain type `BRIDGE_REFUND`,
+and the threat-model row is `📄 doc` (a document, not shipped code).
+Convention documented in `docs/meta/DOCUMENTATION_TEMPLATE_STANDARD.md`.
+
+
+## v0.25.8
+
+### 2026-09-28 — AGENTS.md is now cloner-facing
+
+The repo `AGENTS.md` was rewritten from a 761-line operator workspace guide
+into a ~125-line contributor/agent guide: repo layout, node deployment
+entry points (`setup.sh`, `--open-island`), env-file and venv conventions,
+development workflow (pre-commit, mypy/ruff/pytest, changelog tooling,
+shell-script conventions), both contract test suites, and the MCP server.
+All fleet-internal sections — gitea topology, sshfs, validator key layout
+and rejoin runbook, faucet budgets, shell/SSH environment wiring, tea CLI —
+moved to the operator's private workspace guide (`AGENTS/` detail files in
+the IDE checkout). Fixes the always-on-rule injection truncating the file
+mid-load.
+
+
+## v0.25.6
+
+### Documentation
+
+- v0.25.5 release log and `STATUS.md` updates (`7fd8a398e`, `79769fb57`, `85c30e7f6`, `7d93b678a`).
+- Post-audit corrections for D-2, O-3, and CI red streak (`ae7dd6b9b`, `1b3397970`, `b57c2e454`, `b02aed4da`).
+- F3/F4/F5 remediation and 2026-09-09 validation notes (`163e249d0`, `362169a2b`, `d4144972d`, `e67e130ab`, `9b4ac089f`).
+- `MEGAPLAN.md` and `TASKLIST.md` untracked (`83bf08fa7`).
+- Admin-router wallet creation, cpuset cleanup, and BOND_SLASH operational notes (`df85fedc8`, `84f3120d3`, `b486147f1`, `e41b2d7e0`, `25a4eeee5`).
+- AWStats setup on `<hub-node>` recorded (`3ae7ea266`).
+
+
+## v0.25.0
+
+### Documentation reorganization
+
+`4c4ddd90d` moves the top-level `specs/` design-document tree under `docs/specs/`:
+- Updates internal cross-links in the moved files, `docs/security/`, `docs/archive/README-TEMPLATE.md`, `docs/MASTER_INDEX.md` and `tests/workflow-v2-sim.py`.
+- Extends `scripts/docs/check_links.py` skip lists for the moved specs.
+- Converts an `ABS-262` link to plain text because that spec has never existed in this checkout.
+- `bash scripts/validate_docs.sh` is green.
+
+
+## v0.24.14
+
+### Doc-sync verification and follow-up (2026-08-25)
+
+- Verified the `docs/releases/STATUS.md` and `docs/releases/v0.24/v0.24.0_change.log` updates from commit `31ab0d797` on `<hub-node>`:
+  - `git blame` confirms the added lines trace to that commit.
+  - The `Open design-review gaps` table is a genuine 5-row table and its content matches the rest of `STATUS.md`.
+  - Independent inspection of the live payment-release code confirms it still gates on `receipt_public.verified` for high-value jobs, not on `computation_correct`, so the G3 remaining gap is accurate.
+- Closed two operational loose ends identified during verification:
+  - `<node1>` was one commit behind; ran `git pull` to fast-forward it to `main`.
+  - `<node2>` venv had `pre-commit==4.2.0`; reinstalled `pre-commit==4.5.1` to match the project lockfile.
+
+
+## v0.24.8
+
+### Operator documentation
+
+- `docs/ops/aitbc-cli-live-setup.md`: new guide covering coordinator URL, JWT generation, client/shop commands, and governance live setup.
+- `docs/scenarios/34_hub_customer_node_e2e.md`, `docs/scenarios/07_ai_job_submission.md`, `docs/scenarios/17_governance_voting.md`: cross-reference the live setup guide and use the correct `http://hub.example.net/c/v1` coordinator URL.
+
+- fix(payments): `PaymentService.refund_payment` now calls the blockchain
+  escrow `/rpc/escrow/{job_id}/refund` endpoint instead of the non-existent
+  wallet `/api/v1/refund` endpoint.
+- fix(jobs): normalize SQLite naive datetimes to UTC-aware before expiry checks;
+  prevents 500 errors from offset-naive vs offset-aware comparisons.
+
+
+## v0.24.2
+
+### P0 Phase 1 — Documentation and config honesty (2026-08-21)
+
+- docs/releases/STATUS.md now distinguishes payment escrow (live) from bridge HTLC gating.
+- docs/architecture/1_system-flow.md rewritten to describe the current CLI-driven flow.
+- docs/architecture/active_apps.md updated to v0.10.18 and notes deprecated/parked entries.
+- docs/scenarios/27_cli_commands.md adds command-family clarity step (market vs marketplace, governance vs operations governance).
+- docs/scenarios/README.md and docs/README.md cross-link releases/STATUS.md and note the P0 pass.
+
+
+## v0.22
+
+### Docs & repo hygiene
+
+- **DOC-01** *(High)* Root `README.md` badge reads `version-v0.20.4` while `docs/releases/`
+  documents versions through v2.10.0. Sync it, or generate it from a single source of truth.
+- **DOC-02** *(High)* **OpenAPI spec drift** — two parallel directories for the same services
+  have diverged. `docs/api/wallet-openapi.json` carries an extra `x-api-key` header parameter
+  and the title "AITBC Wallet Daemon"; `docs/openapi/wallet.json` says "AITBC Wallet Service".
+  `docs/api/marketplace-openapi.json` includes a `chain_id` query filter (labeled v0.6.6) that
+  `docs/openapi/marketplace.json` lacks. Pick one canonical location (`docs/api/` looks newer)
+  and auto-regenerate or delete the other.
+- **DOC-03** *(Medium)* `docs/releases/` version-scheme inconsistency — directories with
+  `change.log`/`suggestions.md` through v2.0.0, then loose top-level files
+  (`v2.5.0-UPGRADE.md`, `v2.6.0-STRUCTURED-CHANGELOG.md`, three separate v2.9.0 files,
+  `v2.10.0-UPGRADE.md`), with gaps at v2.1–v2.4 and v2.7–v2.8. Standardize going forward.
+- **DOC-04** *(Medium)* `docs/getting-started/quick-start.md` and `quickstart.md` are two
+  entirely unrelated documents with near-identical names (security/performance features vs.
+  joining the network as a follower node) — a guaranteed source of wrong links.
+- **DOC-05** *(Medium)* `docs/agent-outputs/` holds 32 entries / ~2.9MB of ticket-scoped scratch
+  artifacts (`epic-ABS-*-merge-log.md`, `live-runs/`, `qa-validations/`, `test-prep/`,
+  `enrichment-staging/`) accumulating indefinitely in the docs tree. Prune or archive
+  completed-ticket outputs.
+- **DOC-06** *(Low)* Near-duplicate directory names: `docs/release/` (process docs) vs
+  `docs/releases/` (version history); `docs/ops/` (one runbook) vs `docs/operations/` (the real
+  tree). Merge or rename. Likewise `docs/CHANGELOG.md` (a "Documentation Changelog") vs the
+  root project `CHANGELOG.md`.
+- **DOC-07** *(Low)* `docs/meta/pre-boilerplate-backup/` (48K of `.orig` files) is a one-time
+  migration backup with no removal date; `specs/` at the repo root mirrors the same
+  ticket-scoped pattern as `docs/agent-outputs/`, splitting design docs across two locations.
+- **HYG-01** *(Clean)* Cache and build artifacts are correctly handled — `.mypy_cache/`,
+  `.ruff_cache/`, `htmlcov/`, `tests/htmlcov/`, `.hypothesis/`, `.pytest_cache/`, `.coverage`,
+  `coverage.json`, `tmp/`, `work/`, `data/`, and `venv/` are all gitignored and untracked
+  (verified via `git check-ignore -v` and `git ls-files`). The single 17KB top-level
+  `.gitignore` is well organized. No action needed.
+- **HYG-02** *(Low)* Uncommitted working-tree changes at audit time: `.gitignore` (2 lines) and
+  `docs/releases/v0.21/release.log` (47 lines). `work/scratch/` holds 10 leftover agent files
+  (gitignored, but residue accumulating — the workflow that writes there should clean up).
+
+---
+
+
+## v0.19.0
+
+### Documentation
+
+- `docs/releases/v0.19/v0.19.0_AGENTS.md` — full agent split and release gate
+- `docs/releases/v0.19/RELEASE_v0.19.0.md` — this file
+
+
+## v0.10.1
+
+### 📝 Documentation & Operational Items
+
+| # | Source | Item | Status |
+|---|--------|------|--------|
+| O1 | v0.7.4 | `docs/architecture/oracle-roadmap.md` missing | Create in v0.10.1 |
+| O2 | v0.7.5 | 48h testnet soak test pending | Schedule after v0.10.1 |
+| O3 | v0.7.5 | External security audit not performed | Acknowledged — homebrew project, no audit budget |
+
+
+## v0.9.0
+
+### 📚 Documentation
+
+- [Atomic Cross-Chain Settlement Architecture](README.md)
+- [HTLC Implementation Guide](README.md)
+- [Two-Phase Commit Reference](README.md)
+- [Chaos Testing Guide](README.md)
+- [Escrow Configuration](README.md)
+- [Settlement Troubleshooting](README.md)
+
+
+## v0.8.2
+
+### 📚 Documentation
+
+- [Subscription-Based Sync Guide](README.md)
+- [Real-Time Offer Notifications](README.md)
+- [Gossip-Based Offer Propagation](README.md)
+- [Search Index Configuration](README.md)
+
+
+## v0.8.1
+
+### 📚 Documentation
+
+- [Cross-Chain Offer Discovery Guide](README.md)
+- [Offer Synchronization Architecture](README.md)
+- [Offer Consistency Model](README.md)
+- [Offer Sync Configuration](README.md)
+
+
+## v0.8.0
+
+### 📚 Documentation
+
+- [TRADING_GUIDE.md](README.md)
+- [AGENT_COORDINATION.md](README.md)
+- [MATCHING_ENGINE.md](README.md)
+- [CLI_TRADING.md](README.md)
+
+
+## v0.7.4
+
+### 📚 Documentation
+
+- [External Oracle Integration Guide](README.md)
+- [Cross-Chain Governance Architecture](README.md)
+- [Parameter Automation Guide](README.md)
+- [MultiValidatorPoA Activation Guide](README.md)
+
+
+## v0.7.3
+
+### 📚 Documentation
+
+- [Governance Guide](README.md)
+- [Proposal Creation API](README.md)
+- [Voting Mechanism](README.md)
+- [Parameter Changes Reference](README.md)
+- [Cross-Chain Governance](README.md)
+
+
+## v0.7.2
+
+### 📚 Documentation
+
+- [Bridge Verification Architecture](README.md)
+- [Bridge Configuration Guide](README.md)
+- [Proof Verification Reference](README.md)
+- [Future Oracle Integration Roadmap](README.md)
+
+
+## v0.7.1
+
+### 📚 Documentation
+
+- [Bridge Security Architecture](README.md)
+- [Multi-Sig Configuration Guide](README.md)
+- [Time-Lock Configuration](README.md)
+- [Bridge Audit Guide](README.md)
+
+
+## v0.7.0
+
+### 📚 Documentation
+
+- [Bridge Architecture Guide](README.md)
+- [Cross-Chain Operations Guide](README.md)
+- [Bridge API Reference](README.md)
+- [Bridge Troubleshooting](README.md)
+
+
+## v0.6.7
+
+### 📚 Documentation
+
+- [Pool Hub Guide](README.md)
+- [Miner Registration](README.md)
+- [Scoring Algorithm](README.md)
+- [Reward Distribution](README.md)
+
+
+## v0.6.6
+
+### 📚 Documentation
+
+- [Compute Marketplace Guide](README.md)
+- [GPU Offer Registration](README.md)
+- [Edge Node Setup](README.md)
+- [Marketplace Matching API](README.md)
+- [Service Payment Flow](README.md)
+
+
+## v0.6.5
+
+### 📚 Documentation
+
+- [Agent Coordination Guide](README.md)
+- [Task Submission API](README.md)
+- [Swarm Coordination Guide](README.md)
+- [Workflow Execution Guide](README.md)
+- [Agent Payment Integration](README.md)
+
+
+## v0.6.4
+
+### 📚 Documentation
+
+- [Multi-Chain Island Setup Guide](README.md)
+- [MultiChainManager Architecture](README.md)
+- [Per-Chain Configuration Reference](README.md)
+- [Multi-Genesis Generation Guide](README.md)
+- [Chain Lifecycle Management CLI](README.md)
+
+
+## v0.6.3
+
+### 📚 Documentation
+
+- [Multi-Island Node Configuration Guide](README.md)
+- [Per-Chain Sync Sources Reference](README.md)
+- [Island Registry Configuration](README.md)
+- [Multi-Hub Subscription Architecture](README.md)
+- [Gossip Backend Configuration](README.md)
+
+
+## v0.6.2
+
+### 📚 Documentation
+
+- [Gossip Protocol v2 Specification](README.md)
+- [Parallel Sync Guide](README.md)
+- [Delta Sync Architecture](README.md)
+
+
+## v0.6.1
+
+### 📚 Documentation
+
+- [Parallel Processing Architecture](README.md)
+- [State Root Optimization Guide](README.md)
+- [Deterministic Scheduling Reference](README.md)
+- [Parallel Validation Troubleshooting](README.md)
+
+
+## v0.5.17
+
+### 📚 Documentation
+
+- [Test Infrastructure Guide](README.md)
+- [Multi-Chain Test Fixtures](README.md)
+- [Multi-Node Test Harness](README.md)
+- [Bridge Testing Guide](README.md)
+
+
+## v0.5.16
+
+### 📚 Documentation
+
+- [Multi-Chain Transaction Submission](README.md)
+- [Transaction Signature Guide](README.md)
+- [Bridge Proof Format Reference](README.md)
+- [API Authentication Guide](README.md)
+- [Migration Guide: v0.5.15 → v0.5.16](README.md)
+
+
+## v0.5.15
+
+### P15: Slim AGENTS.md — remove completed release plans
+
+**Context**: `AGENTS.md` had grown to 153 lines, containing full task tables and follow-up notes for all four completed releases (v0.5.12–v0.5.15). This was stale noise — the release plans are complete and the details live in the respective changelogs.
+
+**Fix**: Removed the full task tables and follow-up notes (104 lines), replaced with a compact "Completed Releases" section linking to the respective changelogs. The stable conventions (Project Layout, Verification Commands, Conventions, Agent Roles) are unchanged.
+
+**Result**: AGENTS.md slimmed from 153 → 61 lines. Stable conventions preserved, completed plans archived via changelog links.
+
+---
+
+
+## v0.5.2
+
+### Documentation
+
+- ✅ **Marketplace Page**: Added marketplace.html with comprehensive offer display
+- ✅ **Navigation**: Updated all website pages to include Marketplace navigation link
+- ✅ **CSS Styling**: Added marketplace-specific styles for filtering, offer cards, and responsive design
+
+---
+
+
+## v0.5.0
+
+### P2: Documentation & Tooling
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Create `docs/deployment/STAGING.md` | ✅ Complete | Agent B |
+| Update `docs/deployment/DEPENDENCIES.md` | ✅ Complete | Agent B |
+| Create `scripts/check-production-readiness.py` | ✅ Complete | Agent B |
+| Fix mypy errors in non-excluded files | ✅ Complete | Agent B |
+| Remove dead code (unused imports, functions) | ✅ Complete | Agent B |
+
+### Completed Work
+
+**Documentation:**
+- Created comprehensive staging environment guide (`docs/deployment/STAGING.md`) covering architecture, deployment, data management, testing, monitoring, and troubleshooting
+- Created system-level dependencies documentation (`docs/deployment/DEPENDENCIES.md`) covering OS requirements, software dependencies, service-specific requirements, network configuration, SSL/TLS, storage, monitoring, and backup dependencies
+- Updated deployment README to link to new documentation
+
+**Tooling:**
+- Created production readiness check script (`scripts/check-production-readiness.py`) with 34+ checks across 9 categories:
+  - Secrets validation (service files, Python code, .gitignore)
+  - Dependencies (Python version, system commands, pyproject.toml)
+  - Service configuration (security directives, restart policies)
+  - Database connectivity (PostgreSQL, Redis)
+  - Health endpoints (service status)
+  - SSL/TLS configuration (nginx, certificates)
+  - Monitoring setup (Prometheus, Grafana, metrics middleware)
+  - Backup configuration (scripts, directory)
+  - Documentation completeness
+- Script supports `--environment` flag (production/staging) with different criticality thresholds
+- Script returns appropriate exit codes (0=pass, 1=warnings, 2=critical)
+
+**Code Quality:**
+- Fixed mypy errors in non-excluded files:
+  - `aitbc/middleware/prometheus_metrics.py`: Added type cast for Response
+  - `aitbc/training_setup/environment.py`: Fixed Optional type annotations
+  - `aitbc/training_setup/messaging.py`: Fixed return type consistency
+  - `apps/ai-engine/examples/src/aitbc_ai/storage.py`: Use async_sessionmaker
+- Verified no dead code (unused imports, functions) in modified files
+
+### Files
+- `docs/deployment/STAGING.md` — Comprehensive staging environment guide
+- `docs/deployment/DEPENDENCIES.md` — System-level dependencies documentation
+- `scripts/check-production-readiness.py` — Production readiness validation script
+
+---
+
+
+## v0.4.15
+
+### 📚 Documentation Updates
+
+- ✅ `/opt/aitbc/docs/releases/RELEASE_v0.4.15.md` — this file
+- ✅ `/opt/aitbc/docs/reference/packages.md` — updated package documentation
+- ✅ `/opt/aitbc/docs/contracts/PNPM_SETUP.md` — updated pnpm setup guide
+- ✅ `/opt/aitbc/docs/architecture/8_codebase-structure.md` — updated architecture documentation
+- ✅ `/opt/aitbc/docs/security/DEPENDENCY_MONITORING.md` — updated security monitoring
+- ✅ `/opt/aitbc/docs/development/REQUIREMENTS.md` — updated development requirements
+
+
+## v0.4.14
+
+### 📚 Documentation Updates
+
+- ✅ `/opt/aitbc/docs/releases/RELEASE_v0.4.14.md` — this file
+- ✅ `/etc/prometheus/prometheus.yml` — production scrape config
+- ✅ `/etc/prometheus/rules/aitbc_alerts.yml` — alert rules
+
+
+## v0.4.13
+
+### 📚 Documentation Updates
+
+### Updated Documentation
+
+- ✅ `/opt/aitbc/docs/SECURITY_VULNERABILITIES_2026-06-07.md`
+- ✅ `/opt/aitbc/docs/PYENV_MIGRATION_2026-06-07.md`
+- ✅ `/opt/aitbc/docs/reference/SERVICE_PORTS.md`
+- ✅ `/opt/aitbc/docs/api/blockchain/README.md`
+- ✅ `/opt/aitbc/docs/testing/README.md`
+- ✅ `/opt/aitbc/docs/infrastructure/migration/microservices-migration-status.md`
+
+### New Documentation
+
+- 📋 Performance optimization guides
+- 📋 Monitoring setup guides
+- 📋 Security hardening procedures
+- 📋 Backup and recovery procedures
+
+
+## v0.4.11
+
+### Documentation Updates
+
+### New Documentation
+
+- `docs/MAINTENANCE_FIXES_2026-06-07.md` - Comprehensive fix documentation
+- `docs/releases/RELEASE_v0.6.1.md` - This release note
+
+### Updated Documentation
+
+- `docs/development/17_windsurf-testing.md` - Updated coverage report paths
+- `.gitignore` - Updated to prevent legacy directory recreation
+- `pyproject.toml` - Updated coverage report output location
+
+
+## v0.4.10
+
+### 📚 Documentation
+
+### New Documentation Files
+
+- **docs/SECURITY_AND_PERFORMANCE.md** (655 lines) - Comprehensive feature guide
+- **docs/QUICK_START.md** (343 lines) - 5-minute quick start guide
+- **.github/SECURITY.md** (214 lines) - Security policy and procedures
+- **CHANGELOG.md** (435 lines) - Detailed changelog
+
+### Enhanced Documentation
+
+- Inline docstrings for all new classes and methods
+- Type hints for better IDE support
+- Test files as usage examples
+- Comprehensive error messages
+- API reference documentation
+
+
+## v0.4.9
+
+### 📚 Documentation
+
+- ETH_BRIDGE_GUIDE.md
+- BRIDGE_OPERATIONS.md
+- EXCHANGE_API.md
+- CLI_EXCHANGE.md
+- WEBSITE_UPDATE.md
+- BLOCKCHAIN_EXPLORER.md
+
+
+## v0.4.8
+
+### 📚 Documentation
+
+- LOGGING.md
+- SECRETS_MANAGEMENT.md
+- SUBSCRIPTION_GUIDE.md
+- WEBSOCKET_MIGRATION.md
+
+
+## v0.4.5
+
+### 📚 Documentation
+
+- [HOWTO_WHISPER_OFFER.md](../../apps/market/HOWTO_WHISPER_OFFER.md)
+- [SETUP.md - Software Marketplace](../../getting-started/SETUP.md)
+- [SERVICE_PORTS.md](../../reference/SERVICE_PORTS.md)
+- [nginx-aitbc.conf.example](../../../examples/nginx/nginx-aitbc.conf.example)
+- [install-nginx-node.sh](../../../scripts/setup/install-nginx-node.sh)
+
+
+## v0.4.3
+
+### 📚 Documentation
+
+- [SETUP.md - Node Profiles](../../getting-started/SETUP.md)
+- [SETUP.md - Sync Modes](../../getting-started/SETUP.md)
+- [SETUP.md - Lease-Based Subscription](../../getting-started/SETUP.md)
+- [setup.sh - Profile Selection](../../../scripts/deployment/setup.sh)
+
+
+## v0.4.2
+
+### 📝 Documentation Updates
+
+### Path Standardization
+
+- Update documentation paths from `/home/oib/windsurf/aitbc` to `/opt/aitbc`
+- Update setup script path references to `scripts/deployment/setup.sh`
+- Update .gitignore paths from `infra/` to `scripts/deployment/`
+- Update .gitignore paths from `scripts/deploy` to `scripts/deployment`
+
+### GitHub Migration
+
+- Replace Gitea URLs with GitHub for public-facing docs
+- Clarify CI/CD: GitHub for public, Gitea for dev
+- Update repository URLs from Gitea to GitHub
+
+### Troubleshooting
+
+- Add comprehensive troubleshooting sections for services not running
+- Add GPU detection validation across AI operations, basic operations, and blockchain troubleshooting
+- Fix log directory documentation: `/var/log/aitbc/` (not symlink to `/var/lib/aitbc/logs/`)
+
+### Port References
+
+- Update port references across documentation to match SERVICE_PORTS.md
+- Fix P2P port in deploy-integrated-blockchain-node.sh from 8001 to 7070
+- Update port references in setup.sh and SETUP.md
+
+### Documentation Cleanup
+
+- Remove deprecated monolithic multi-node blockchain setup workflow
+- Rename openclaw references to hermes across documentation
+- Remove docker-compose examples in favor of systemd service management
+- Remove outdated environment setup and training materials
+- Remove scenarios documentation references
+
+
+### 📝 Documentation Updates — AITBC v0.4.3 Release Notes
+
+### Release Notes
+
+- Updated RELEASE_v0.4.2.md with v0.4.3 section
+- Documented all landing page and endpoint improvements
+
+
+## v0.4.1
+
+### 📚 Documentation & Skills
+
+### Agent Skills Setup
+
+- **Setup Script**: Automated script to symlink skills to agent directory
+- **Frontmatter**: Added proper SKILL.yml frontmatter for agent discovery
+- **Documentation**: Comprehensive setup guide for agent skills
+- **White-Label**: Generic agent system terminology (not OWL-specific)
+
+### Documentation Cleanup
+
+- **Hermes Docs**: Removed outdated Hermes analysis and decomposition plans
+- **Skills Directory**: Organized skills in `docs/hermes/skills/`
+- **Setup Guide**: Created SETUP.md for agent skills configuration
+
+
+## v0.4.0
+
+### 📚 Documentation Enhancements
+
+### Documentation Structure
+
+- **Planning Directory**: Dedicated location for planning documents
+- **Feature Analysis**: Comprehensive 740-line feature gap analysis
+- **Rate Limiting Guide**: 144-line implementation guide
+- **Roadmap Updates**: 345 lines of completed roadmap items
+
+### Documentation Coverage
+
+- **Planning Visibility**: Better insight into project status
+- **Implementation Guides**: Step-by-step implementation instructions
+- **Feature Analysis**: Detailed service health and gap analysis
+- **Roadmap Clarity**: Clear completion status and future plans

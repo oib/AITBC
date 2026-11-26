@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-25
+**Last Updated**: 2026-11-26
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1533
+- **Markdown files under docs/**: 1509
 
 | Directory | Files | Description |
 |---|---|---|
@@ -90,7 +90,7 @@ docs/
 | [ops](ops/) | 52 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
-| [releases](releases/) | 313 | Release notes, changelogs, and status |
+| [releases](releases/) | 289 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 81 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
@@ -183,7 +183,7 @@ Inbound markdown links per document (top referrers).
 | [apps/exchange/trading-engine.md](apps/exchange/trading-engine.md) | [apps/exchange/exchange-integration.md](apps/exchange/exchange-integration.md) |
 | [apps/explorer/CLI_TOOLS.md](apps/explorer/CLI_TOOLS.md) | [README.md](README.md) |
 | [apps/market/CLI_TOOLS.md](apps/market/CLI_TOOLS.md) | [api/market-api.md](api/market-api.md) |
-| [apps/market/HOWTO_WHISPER_OFFER.md](apps/market/HOWTO_WHISPER_OFFER.md) | [releases/v0.4/RELEASE_v0.4.5.md](releases/v0.4/RELEASE_v0.4.5.md) |
+| [apps/market/HOWTO_WHISPER_OFFER.md](apps/market/HOWTO_WHISPER_OFFER.md) | — |
 | [apps/market/README.md](apps/market/README.md) | [getting-started/free-ait.md](getting-started/free-ait.md) |
 | [apps/market/gpu_monetization_guide.md](apps/market/gpu_monetization_guide.md) | [README.md](README.md) |
 | [apps/market/market.md](apps/market/market.md) | [apps/market/README.md](apps/market/README.md) |
@@ -198,14 +198,14 @@ Inbound markdown links per document (top referrers).
 | [architecture/8_codebase-structure.md](architecture/8_codebase-structure.md) | [architecture/README.md](architecture/README.md) |
 | [architecture/README.md](architecture/README.md) | — |
 | [architecture/active_apps.md](architecture/active_apps.md) | [README.md](README.md) |
-| [architecture/bridge-threat-model.md](architecture/bridge-threat-model.md) | [features/2-bridge-cross-chain.md](features/2-bridge-cross-chain.md), [releases/v0.7/v0.7.4_security-review-multivalidator-poa.md](releases/v0.7/v0.7.4_security-review-multivalidator-poa.md), [security/README.md](security/README.md), +1 more |
+| [architecture/bridge-threat-model.md](architecture/bridge-threat-model.md) | [features/2-bridge-cross-chain.md](features/2-bridge-cross-chain.md), [releases/2026/versions/v0.7/v0.7.4_security-review-multivalidator-poa.md](releases/2026/versions/v0.7/v0.7.4_security-review-multivalidator-poa.md), [security/README.md](security/README.md), +1 more |
 | [architecture/coordinator-context-map.md](architecture/coordinator-context-map.md) | [architecture/README.md](architecture/README.md) |
 | [architecture/edge_gpu_setup.md](architecture/edge_gpu_setup.md) | [architecture/2_components-overview.md](architecture/2_components-overview.md), [architecture/README.md](architecture/README.md), [features/8-edge-gpu.md](features/8-edge-gpu.md) |
 | [architecture/money-types-and-the-signature-boundary.md](architecture/money-types-and-the-signature-boundary.md) | [architecture/README.md](architecture/README.md) |
 | [architecture/route_security_matrix.md](architecture/route_security_matrix.md) | [features/10-security.md](features/10-security.md) |
 | [archive/agent/blockchain/staking.md](archive/agent/blockchain/staking.md) | [agent/README.md](agent/README.md), [agent/blockchain/overview.md](agent/blockchain/overview.md), [reference/faq.md](reference/faq.md) |
-| [archive/agents/AGENT_COMMUNICATION.md](archive/agents/AGENT_COMMUNICATION.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [archive/agents/AGENT_WORKFLOWS.md](archive/agents/AGENT_WORKFLOWS.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
+| [archive/agents/AGENT_COMMUNICATION.md](archive/agents/AGENT_COMMUNICATION.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [archive/agents/AGENT_WORKFLOWS.md](archive/agents/AGENT_WORKFLOWS.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
 | [archive/apps-clients/1_quick-start.md](archive/apps-clients/1_quick-start.md) | [archive/apps-clients/6_api-reference.md](archive/apps-clients/6_api-reference.md), [archive/apps-clients/README.md](archive/apps-clients/README.md) |
 | [archive/apps-clients/2_job-submission.md](archive/apps-clients/2_job-submission.md) | [archive/apps-clients/1_quick-start.md](archive/apps-clients/1_quick-start.md), [archive/apps-clients/3_job-lifecycle.md](archive/apps-clients/3_job-lifecycle.md), [archive/apps-clients/5_pricing-billing.md](archive/apps-clients/5_pricing-billing.md), +2 more |
 | [archive/apps-clients/3_job-lifecycle.md](archive/apps-clients/3_job-lifecycle.md) | [archive/apps-clients/1_quick-start.md](archive/apps-clients/1_quick-start.md), [archive/apps-clients/2_job-submission.md](archive/apps-clients/2_job-submission.md), [archive/apps-clients/README.md](archive/apps-clients/README.md) |
@@ -1064,7 +1064,7 @@ Inbound markdown links per document (top referrers).
 | [features/verify-evidence.md](features/verify-evidence.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +13 more |
 | [features/wallet-balance-info.md](features/wallet-balance-info.md) | [cli/commands/wallet-address.md](cli/commands/wallet-address.md), [cli/commands/wallet-backup.md](cli/commands/wallet-backup.md), [cli/commands/wallet-balance.md](cli/commands/wallet-balance.md), +38 more |
 | [getting-started/README.md](getting-started/README.md) | [CONTRIBUTING.md](CONTRIBUTING.md), [README.md](README.md), [apps/README.md](apps/README.md), +12 more |
-| [getting-started/SETUP.md](getting-started/SETUP.md) | [getting-started/UPDATE.md](getting-started/UPDATE.md), [getting-started/ait-value-model.md](getting-started/ait-value-model.md), [infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md](infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md), +4 more |
+| [getting-started/SETUP.md](getting-started/SETUP.md) | [getting-started/UPDATE.md](getting-started/UPDATE.md), [getting-started/ait-value-model.md](getting-started/ait-value-model.md), [infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md](infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md), +2 more |
 | [getting-started/UPDATE.md](getting-started/UPDATE.md) | [getting-started/setup-reference.md](getting-started/setup-reference.md) |
 | [getting-started/ait-value-model.md](getting-started/ait-value-model.md) | [getting-started/unit-system.md](getting-started/unit-system.md) |
 | [getting-started/free-ait.md](getting-started/free-ait.md) | [agent/guides/open-island-joining-guide.md](agent/guides/open-island-joining-guide.md), [getting-started/UPDATE.md](getting-started/UPDATE.md), [getting-started/ait-value-model.md](getting-started/ait-value-model.md), +1 more |
@@ -1201,7 +1201,7 @@ Inbound markdown links per document (top referrers).
 | [reference/QUICK_REFERENCE.md](reference/QUICK_REFERENCE.md) | [README.md](README.md) |
 | [reference/README.md](reference/README.md) | [README.md](README.md), [reference/backend.md](reference/backend.md) |
 | [reference/REPOSITORY_STRUCTURE.md](reference/REPOSITORY_STRUCTURE.md) | [README.md](README.md) |
-| [reference/SERVICE_PORTS.md](reference/SERVICE_PORTS.md) | [CONTRIBUTING.md](CONTRIBUTING.md), [README.md](README.md), [agent-coordinator/API.md](agent-coordinator/API.md), +50 more |
+| [reference/SERVICE_PORTS.md](reference/SERVICE_PORTS.md) | [CONTRIBUTING.md](CONTRIBUTING.md), [README.md](README.md), [agent-coordinator/API.md](agent-coordinator/API.md), +49 more |
 | [reference/all-routes.md](reference/all-routes.md) | [README.md](README.md) |
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
@@ -1210,319 +1210,295 @@ Inbound markdown links per document (top referrers).
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |
+| [releases/2026/README.md](releases/2026/README.md) | [architecture/bridge-threat-model.md](architecture/bridge-threat-model.md), [features/1-blockchain-core.md](features/1-blockchain-core.md), [features/2-bridge-cross-chain.md](features/2-bridge-cross-chain.md), +59 more |
+| [releases/2026/versions/v0.10/v0.10.10_AGENTS.md](releases/2026/versions/v0.10/v0.10.10_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_AGENTS.md](releases/2026/versions/v0.10/v0.10.11_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE1_COMPLETED.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE1_COMPLETED.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE2_FINDINGS.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE2_FINDINGS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE2_FIXES_APPLIED.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE2_FIXES_APPLIED.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE2_MEDIUM_LOW_FIXES.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE2_MEDIUM_LOW_FIXES.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE3_5_COMPLETE.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE3_5_COMPLETE.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE3_COMPLETE.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_PHASE3_COMPLETE.md) | — |
+| [releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_SUMMARY.md](releases/2026/versions/v0.10/v0.10.11_BUG_HUNT_SUMMARY.md) | — |
+| [releases/2026/versions/v0.10/v0.10.12_AGENTS.md](releases/2026/versions/v0.10/v0.10.12_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.13_AGENTS.md](releases/2026/versions/v0.10/v0.10.13_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.14_AGENTS.md](releases/2026/versions/v0.10/v0.10.14_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.14_router_refactoring_plan.md](releases/2026/versions/v0.10/v0.10.14_router_refactoring_plan.md) | — |
+| [releases/2026/versions/v0.10/v0.10.15_AGENTS.md](releases/2026/versions/v0.10/v0.10.15_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.16_AGENTS.md](releases/2026/versions/v0.10/v0.10.16_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.17_AGENTS.md](releases/2026/versions/v0.10/v0.10.17_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.18_AGENTS.md](releases/2026/versions/v0.10/v0.10.18_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.1_AGENTS.md](releases/2026/versions/v0.10/v0.10.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.3_AGENTS.md](releases/2026/versions/v0.10/v0.10.3_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.3_suggestions.md](releases/2026/versions/v0.10/v0.10.3_suggestions.md) | [releases/2026/versions/v0.10/v0.10.3_AGENTS.md](releases/2026/versions/v0.10/v0.10.3_AGENTS.md) |
+| [releases/2026/versions/v0.10/v0.10.4_AGENTS.md](releases/2026/versions/v0.10/v0.10.4_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.4_suggestions.md](releases/2026/versions/v0.10/v0.10.4_suggestions.md) | — |
+| [releases/2026/versions/v0.10/v0.10.6_AGENTS.md](releases/2026/versions/v0.10/v0.10.6_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.7_AGENTS.md](releases/2026/versions/v0.10/v0.10.7_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.8_AGENTS.md](releases/2026/versions/v0.10/v0.10.8_AGENTS.md) | — |
+| [releases/2026/versions/v0.10/v0.10.9_AGENTS.md](releases/2026/versions/v0.10/v0.10.9_AGENTS.md) | — |
+| [releases/2026/versions/v0.11/v0.11.0_AGENTS.md](releases/2026/versions/v0.11/v0.11.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.11/v0.11.0_capability_verification.md](releases/2026/versions/v0.11/v0.11.0_capability_verification.md) | — |
+| [releases/2026/versions/v0.11/v0.11.0_decentralized_memory_plan.md](releases/2026/versions/v0.11/v0.11.0_decentralized_memory_plan.md) | — |
+| [releases/2026/versions/v0.12/v0.12.0_AGENTS.md](releases/2026/versions/v0.12/v0.12.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.13/v0.13.0_AGENTS.md](releases/2026/versions/v0.13/v0.13.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.13/v0.13.0_autonomous_economics_plan.md](releases/2026/versions/v0.13/v0.13.0_autonomous_economics_plan.md) | — |
+| [releases/2026/versions/v0.14/v0.14.1_AGENTS.md](releases/2026/versions/v0.14/v0.14.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.14/v0.14.1_tee_implementation_strategy.md](releases/2026/versions/v0.14/v0.14.1_tee_implementation_strategy.md) | — |
+| [releases/2026/versions/v0.14/v0.14.2_AGENTS.md](releases/2026/versions/v0.14/v0.14.2_AGENTS.md) | — |
+| [releases/2026/versions/v0.15/v0.15.1_AGENTS.md](releases/2026/versions/v0.15/v0.15.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.15/v0.15.1_compliance_technical_plan.md](releases/2026/versions/v0.15/v0.15.1_compliance_technical_plan.md) | — |
+| [releases/2026/versions/v0.15/v0.15.2_AGENTS.md](releases/2026/versions/v0.15/v0.15.2_AGENTS.md) | — |
+| [releases/2026/versions/v0.16/v0.16.1_AGENTS.md](releases/2026/versions/v0.16/v0.16.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.16/v0.16.2_AGENTS.md](releases/2026/versions/v0.16/v0.16.2_AGENTS.md) | — |
+| [releases/2026/versions/v0.16/v0.16.2_white_label_sdk_plan.md](releases/2026/versions/v0.16/v0.16.2_white_label_sdk_plan.md) | — |
+| [releases/2026/versions/v0.17/v0.17.0_AGENTS.md](releases/2026/versions/v0.17/v0.17.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.17/v0.17.0_accessibility-checklist.md](releases/2026/versions/v0.17/v0.17.0_accessibility-checklist.md) | — |
+| [releases/2026/versions/v0.17/v0.17.0_accessibility_theme_plan.md](releases/2026/versions/v0.17/v0.17.0_accessibility_theme_plan.md) | [releases/2026/versions/v0.17/v0.17.0_AGENTS.md](releases/2026/versions/v0.17/v0.17.0_AGENTS.md) |
+| [releases/2026/versions/v0.18/v0.18.0_AGENTS.md](releases/2026/versions/v0.18/v0.18.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.19/v0.19.0_AGENTS.md](releases/2026/versions/v0.19/v0.19.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.20/v0.20.0_AGENTS.md](releases/2026/versions/v0.20/v0.20.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.22/AGENTS.md](releases/2026/versions/v0.22/AGENTS.md) | — |
+| [releases/2026/versions/v0.4/mypy-investigation-v0.4.19.md](releases/2026/versions/v0.4/mypy-investigation-v0.4.19.md) | — |
+| [releases/2026/versions/v0.4/v0.4.0_10_implementation-complete-summary.md](releases/2026/versions/v0.4/v0.4.0_10_implementation-complete-summary.md) | [reference/README.md](reference/README.md) |
+| [releases/2026/versions/v0.4/v0.4.0_11_integration-test-fixes.md](releases/2026/versions/v0.4/v0.4.0_11_integration-test-fixes.md) | — |
+| [releases/2026/versions/v0.4/v0.4.0_12_integration-test-updates.md](releases/2026/versions/v0.4/v0.4.0_12_integration-test-updates.md) | — |
+| [releases/2026/versions/v0.4/v0.4.0_13_test-fixes-complete.md](releases/2026/versions/v0.4/v0.4.0_13_test-fixes-complete.md) | — |
+| [releases/2026/versions/v0.4/v0.4.0_14_testing-status-report.md](releases/2026/versions/v0.4/v0.4.0_14_testing-status-report.md) | — |
+| [releases/2026/versions/v0.4/v0.4.0_15_skipped-tests-roadmap.md](releases/2026/versions/v0.4/v0.4.0_15_skipped-tests-roadmap.md) | [reference/README.md](reference/README.md) |
+| [releases/2026/versions/v0.4/v0.4.0_16_security-audit-2026-02-13.md](releases/2026/versions/v0.4/v0.4.0_16_security-audit-2026-02-13.md) | [reference/README.md](reference/README.md) |
+| [releases/2026/versions/v0.4/v0.4.0_17_docs-gaps.md](releases/2026/versions/v0.4/v0.4.0_17_docs-gaps.md) | [reference/README.md](reference/README.md) |
+| [releases/2026/versions/v0.4/v0.4.0_compliance-matrix.md](releases/2026/versions/v0.4/v0.4.0_compliance-matrix.md) | [reference/4_confidential-transactions.md](reference/4_confidential-transactions.md) |
+| [releases/2026/versions/v0.4/v0.4.10_security-scanning.md](releases/2026/versions/v0.4/v0.4.10_security-scanning.md) | — |
+| [releases/2026/versions/v0.4/v0.4.12_CLI_COMMANDS.md](releases/2026/versions/v0.4/v0.4.12_CLI_COMMANDS.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_DAO_PROPOSAL_SYSTEM.md](releases/2026/versions/v0.4/v0.4.12_DAO_PROPOSAL_SYSTEM.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_DATABASE_SCHEMA.md](releases/2026/versions/v0.4/v0.4.12_DATABASE_SCHEMA.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_GOVERNANCE_API.md](releases/2026/versions/v0.4/v0.4.12_GOVERNANCE_API.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_GOVERNANCE_TOKEN_SYSTEM.md](releases/2026/versions/v0.4/v0.4.12_GOVERNANCE_TOKEN_SYSTEM.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_MARKETPLACE_GOVERNANCE.md](releases/2026/versions/v0.4/v0.4.12_MARKETPLACE_GOVERNANCE.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_RISK_ASSESSMENT.md](releases/2026/versions/v0.4/v0.4.12_RISK_ASSESSMENT.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_ROLLBACK_PLAN.md](releases/2026/versions/v0.4/v0.4.12_ROLLBACK_PLAN.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_SECURITY.md](releases/2026/versions/v0.4/v0.4.12_SECURITY.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_SMART_CONTRACTS.md](releases/2026/versions/v0.4/v0.4.12_SMART_CONTRACTS.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_TOKENOMICS.md](releases/2026/versions/v0.4/v0.4.12_TOKENOMICS.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_VOTING_MECHANISMS.md](releases/2026/versions/v0.4/v0.4.12_VOTING_MECHANISMS.md) | [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.12_changelog.md](releases/2026/versions/v0.4/v0.4.12_changelog.md) | — |
+| [releases/2026/versions/v0.4/v0.4.13_17_windsurf-testing.md](releases/2026/versions/v0.4/v0.4.13_17_windsurf-testing.md) | — |
+| [releases/2026/versions/v0.4/v0.4.13_MAINTENANCE_FIXES_2026-06-07.md](releases/2026/versions/v0.4/v0.4.13_MAINTENANCE_FIXES_2026-06-07.md) | — |
+| [releases/2026/versions/v0.4/v0.4.13_PYENV_MIGRATION_2026-06-07.md](releases/2026/versions/v0.4/v0.4.13_PYENV_MIGRATION_2026-06-07.md) | — |
+| [releases/2026/versions/v0.4/v0.4.13_SECURITY_VULNERABILITIES_2026-06-07.md](releases/2026/versions/v0.4/v0.4.13_SECURITY_VULNERABILITIES_2026-06-07.md) | — |
+| [releases/2026/versions/v0.4/v0.4.15_REQUIREMENTS.md](releases/2026/versions/v0.4/v0.4.15_REQUIREMENTS.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_CACHE_CONSOLIDATION.md](releases/2026/versions/v0.4/v0.4.16_CACHE_CONSOLIDATION.md) | [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.16_CACHE_CONSOLIDATION_SUMMARY.md](releases/2026/versions/v0.4/v0.4.16_CACHE_CONSOLIDATION_SUMMARY.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION.md](releases/2026/versions/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION.md) | [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION_SUMMARY.md](releases/2026/versions/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION_SUMMARY.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_MIGRATION_GUIDE.md](releases/2026/versions/v0.4/v0.4.16_MIGRATION_GUIDE.md) | [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN.md](releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN.md) | [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN_PLAN.md](releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN_PLAN.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_FINAL_REPORT.md](releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_FINAL_REPORT.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_PROGRESS_REPORT.md](releases/2026/versions/v0.4/v0.4.16_MONOLITHIC_FILES_PROGRESS_REPORT.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_OPERATIONAL_FIXES.md](releases/2026/versions/v0.4/v0.4.16_OPERATIONAL_FIXES.md) | [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.16_REFACTORING_COMPLETION_REPORT.md](releases/2026/versions/v0.4/v0.4.16_REFACTORING_COMPLETION_REPORT.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_REFACTORING_PLAN.md](releases/2026/versions/v0.4/v0.4.16_REFACTORING_PLAN.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_SECURITY_FIXES.md](releases/2026/versions/v0.4/v0.4.16_SECURITY_FIXES.md) | [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.16_SECURITY_FIXES_SUMMARY.md](releases/2026/versions/v0.4/v0.4.16_SECURITY_FIXES_SUMMARY.md) | — |
+| [releases/2026/versions/v0.4/v0.4.16_changelog.md](releases/2026/versions/v0.4/v0.4.16_changelog.md) | [releases/README.md](releases/README.md) |
+| [releases/2026/versions/v0.4/v0.4.19_TYPE_CHECKING_GUIDE.md](releases/2026/versions/v0.4/v0.4.19_TYPE_CHECKING_GUIDE.md) | — |
+| [releases/2026/versions/v0.4/v0.4.22_BLOCKCHAIN_NODE_MYPY_FIXES.md](releases/2026/versions/v0.4/v0.4.22_BLOCKCHAIN_NODE_MYPY_FIXES.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_EXTENDED_MYPY_COMPLIANCE.md](releases/2026/versions/v0.4/v0.4.22_EXTENDED_MYPY_COMPLIANCE.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_PRE_COMMIT_HOOKS.md](releases/2026/versions/v0.4/v0.4.22_PRE_COMMIT_HOOKS.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_PRE_COMMIT_HOOKS_GUIDE.md](releases/2026/versions/v0.4/v0.4.22_PRE_COMMIT_HOOKS_GUIDE.md) | — |
+| [releases/2026/versions/v0.4/v0.4.22_RUNTIME_ERROR_FIXES.md](releases/2026/versions/v0.4/v0.4.22_RUNTIME_ERROR_FIXES.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_SERVICE_CONFIGURATION_DRIFT.md](releases/2026/versions/v0.4/v0.4.22_SERVICE_CONFIGURATION_DRIFT.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_STRICT_MYPY_OPTIONS.md](releases/2026/versions/v0.4/v0.4.22_STRICT_MYPY_OPTIONS.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_SYS_PATH_REMOVAL.md](releases/2026/versions/v0.4/v0.4.22_SYS_PATH_REMOVAL.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_TEST_COVERAGE_IMPROVEMENTS.md](releases/2026/versions/v0.4/v0.4.22_TEST_COVERAGE_IMPROVEMENTS.md) | [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.22_changelog.md](releases/2026/versions/v0.4/v0.4.22_changelog.md) | — |
+| [releases/2026/versions/v0.4/v0.4.23_ARCHITECTURE_REFACTORING.md](releases/2026/versions/v0.4/v0.4.23_ARCHITECTURE_REFACTORING.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_B008_LINT_REFACTOR.md](releases/2026/versions/v0.4/v0.4.23_B008_LINT_REFACTOR.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_CI_CD_IMPROVEMENTS.md](releases/2026/versions/v0.4/v0.4.23_CI_CD_IMPROVEMENTS.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_DOCUMENTATION_VALIDATION.md](releases/2026/versions/v0.4/v0.4.23_DOCUMENTATION_VALIDATION.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_INTEGRATION_TEST_DB_SETUP.md](releases/2026/versions/v0.4/v0.4.23_INTEGRATION_TEST_DB_SETUP.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_LOGGING_STANDARDIZATION.md](releases/2026/versions/v0.4/v0.4.23_LOGGING_STANDARDIZATION.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_OBSERVABILITY_ENHANCEMENT.md](releases/2026/versions/v0.4/v0.4.23_OBSERVABILITY_ENHANCEMENT.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_OPENAPI_SPEC_GENERATION.md](releases/2026/versions/v0.4/v0.4.23_OPENAPI_SPEC_GENERATION.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_OPENTELEMETRY_COLLECTOR.md](releases/2026/versions/v0.4/v0.4.23_OPENTELEMETRY_COLLECTOR.md) | [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_SECURITY_HARDENING.md](releases/2026/versions/v0.4/v0.4.23_SECURITY_HARDENING.md) | [infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md](infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md), [infrastructure/README.md](infrastructure/README.md), [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.23_changelog.md](releases/2026/versions/v0.4/v0.4.23_changelog.md) | — |
+| [releases/2026/versions/v0.4/v0.4.24_REFACTORING_PLAN.md](releases/2026/versions/v0.4/v0.4.24_REFACTORING_PLAN.md) | — |
+| [releases/2026/versions/v0.4/v0.4.25_EVENT_DRIVEN_CACHE_STRATEGY.md](releases/2026/versions/v0.4/v0.4.25_EVENT_DRIVEN_CACHE_STRATEGY.md) | — |
+| [releases/2026/versions/v0.4/v0.4.25_SYSPATH_DEBT.md](releases/2026/versions/v0.4/v0.4.25_SYSPATH_DEBT.md) | — |
+| [releases/2026/versions/v0.4/v0.4.25_logging-patterns.md](releases/2026/versions/v0.4/v0.4.25_logging-patterns.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_AGENT_A.md](releases/2026/versions/v0.4/v0.4.26_AGENT_A.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_AGENT_A_COMPLETED.md](releases/2026/versions/v0.4/v0.4.26_AGENT_A_COMPLETED.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_AGENT_B.md](releases/2026/versions/v0.4/v0.4.26_AGENT_B.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_AGENT_B_COMPLETED.md](releases/2026/versions/v0.4/v0.4.26_AGENT_B_COMPLETED.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_AUTH_MIGRATION_GUIDE.md](releases/2026/versions/v0.4/v0.4.26_AUTH_MIGRATION_GUIDE.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_AUTH_MIGRATION_SPLIT_PLAN.md](releases/2026/versions/v0.4/v0.4.26_AUTH_MIGRATION_SPLIT_PLAN.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_DEPENDENCIES.md](releases/2026/versions/v0.4/v0.4.26_DEPENDENCIES.md) | [deployment/DEPENDENCIES.md](deployment/DEPENDENCIES.md) |
+| [releases/2026/versions/v0.4/v0.4.26_GOAL_23_LIFECYCLE_IMPLEMENTATION.md](releases/2026/versions/v0.4/v0.4.26_GOAL_23_LIFECYCLE_IMPLEMENTATION.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_GOAL_36_AUTH_PLAN.md](releases/2026/versions/v0.4/v0.4.26_GOAL_36_AUTH_PLAN.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_REFACTORING_PLANS.md](releases/2026/versions/v0.4/v0.4.26_REFACTORING_PLANS.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_SERVICE_WRAPPERS.md](releases/2026/versions/v0.4/v0.4.26_SERVICE_WRAPPERS.md) | — |
+| [releases/2026/versions/v0.4/v0.4.26_issue.md](releases/2026/versions/v0.4/v0.4.26_issue.md) | — |
+| [releases/2026/versions/v0.4/v0.4.27_AGENT_A.md](releases/2026/versions/v0.4/v0.4.27_AGENT_A.md) | — |
+| [releases/2026/versions/v0.4/v0.4.27_AGENT_B.md](releases/2026/versions/v0.4/v0.4.27_AGENT_B.md) | — |
+| [releases/2026/versions/v0.4/v0.4.2_zk-circuits.md](releases/2026/versions/v0.4/v0.4.2_zk-circuits.md) | [architecture/2_components-overview.md](architecture/2_components-overview.md) |
+| [releases/2026/versions/v0.4/v0.4.4_AGENT_COORDINATOR.md](releases/2026/versions/v0.4/v0.4.4_AGENT_COORDINATOR.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_BLOCKCHAIN_RPC.md](releases/2026/versions/v0.4/v0.4.4_BLOCKCHAIN_RPC.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_ENVIRONMENT_CONFIG.md](releases/2026/versions/v0.4/v0.4.4_ENVIRONMENT_CONFIG.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_HERMES_MESSAGING.md](releases/2026/versions/v0.4/v0.4.4_HERMES_MESSAGING.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_MICROSERVICES_CONSOLIDATION.md](releases/2026/versions/v0.4/v0.4.4_MICROSERVICES_CONSOLIDATION.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_PORT_ARCHITECTURE.md](releases/2026/versions/v0.4/v0.4.4_PORT_ARCHITECTURE.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_WALLET_DAEMON.md](releases/2026/versions/v0.4/v0.4.4_WALLET_DAEMON.md) | [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.4_changelog.md](releases/2026/versions/v0.4/v0.4.4_changelog.md) | [releases/README.md](releases/README.md) |
+| [releases/2026/versions/v0.4/v0.4.6_ADVANCED_AGENT_COMMUNICATION.md](releases/2026/versions/v0.4/v0.4.6_ADVANCED_AGENT_COMMUNICATION.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_AGENT_COMMUNICATION_API.md](releases/2026/versions/v0.4/v0.4.6_AGENT_COMMUNICATION_API.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_BUG_FIXES.md](releases/2026/versions/v0.4/v0.4.6_BUG_FIXES.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_CLI_ENHANCEMENTS.md](releases/2026/versions/v0.4/v0.4.6_CLI_ENHANCEMENTS.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_DATA_PERSISTENCE.md](releases/2026/versions/v0.4/v0.4.6_DATA_PERSISTENCE.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_REPUTATION_BLOCKCHAIN_INTEGRATION.md](releases/2026/versions/v0.4/v0.4.6_REPUTATION_BLOCKCHAIN_INTEGRATION.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_SERVICE_REPUTATION_SYSTEM.md](releases/2026/versions/v0.4/v0.4.6_SERVICE_REPUTATION_SYSTEM.md) | [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.6_changelog.md](releases/2026/versions/v0.4/v0.4.6_changelog.md) | [releases/README.md](releases/README.md) |
+| [releases/2026/versions/v0.4/v0.4.7_CROSS_NODE_MESSAGING.md](releases/2026/versions/v0.4/v0.4.7_CROSS_NODE_MESSAGING.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_CROSS_NODE_RATING_SYNC.md](releases/2026/versions/v0.4/v0.4.7_CROSS_NODE_RATING_SYNC.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_FFMPEG_SERVICE.md](releases/2026/versions/v0.4/v0.4.7_FFMPEG_SERVICE.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_HARDWARE_SOFTWARE_BUNDLES.md](releases/2026/versions/v0.4/v0.4.7_HARDWARE_SOFTWARE_BUNDLES.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_MULTI_GPU_SUPPORT.md](releases/2026/versions/v0.4/v0.4.7_MULTI_GPU_SUPPORT.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_MULTI_MODEL_OLLAMA.md](releases/2026/versions/v0.4/v0.4.7_MULTI_MODEL_OLLAMA.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_PLUGIN_SERVICE_MIGRATION.md](releases/2026/versions/v0.4/v0.4.7_PLUGIN_SERVICE_MIGRATION.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_SERVICE_REPUTATION.md](releases/2026/versions/v0.4/v0.4.7_SERVICE_REPUTATION.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_SERVICE_STABILITY_FIXES.md](releases/2026/versions/v0.4/v0.4.7_SERVICE_STABILITY_FIXES.md) | [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) |
+| [releases/2026/versions/v0.4/v0.4.7_changelog.md](releases/2026/versions/v0.4/v0.4.7_changelog.md) | [releases/README.md](releases/README.md) |
+| [releases/2026/versions/v0.5/v0.5.0_systemd-hardening-report.md](releases/2026/versions/v0.5/v0.5.0_systemd-hardening-report.md) | — |
+| [releases/2026/versions/v0.5/v0.5.10_follower-instructions.md](releases/2026/versions/v0.5/v0.5.10_follower-instructions.md) | [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md), [releases/2026/versions/v0.5/v0.5.10_migration-steps.md](releases/2026/versions/v0.5/v0.5.10_migration-steps.md), [releases/2026/versions/v0.5/v0.5.10_overview.md](releases/2026/versions/v0.5/v0.5.10_overview.md), +1 more |
+| [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md) | — |
+| [releases/2026/versions/v0.5/v0.5.10_migration-steps.md](releases/2026/versions/v0.5/v0.5.10_migration-steps.md) | [releases/2026/versions/v0.5/v0.5.10_follower-instructions.md](releases/2026/versions/v0.5/v0.5.10_follower-instructions.md), [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md), [releases/2026/versions/v0.5/v0.5.10_overview.md](releases/2026/versions/v0.5/v0.5.10_overview.md), +3 more |
+| [releases/2026/versions/v0.5/v0.5.10_overview.md](releases/2026/versions/v0.5/v0.5.10_overview.md) | [releases/2026/versions/v0.5/v0.5.10_follower-instructions.md](releases/2026/versions/v0.5/v0.5.10_follower-instructions.md), [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md), [releases/2026/versions/v0.5/v0.5.10_migration-steps.md](releases/2026/versions/v0.5/v0.5.10_migration-steps.md), +3 more |
+| [releases/2026/versions/v0.5/v0.5.10_pre-flight-checks.md](releases/2026/versions/v0.5/v0.5.10_pre-flight-checks.md) | [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md), [releases/2026/versions/v0.5/v0.5.10_migration-steps.md](releases/2026/versions/v0.5/v0.5.10_migration-steps.md), [releases/2026/versions/v0.5/v0.5.10_overview.md](releases/2026/versions/v0.5/v0.5.10_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.10_rollback.md](releases/2026/versions/v0.5/v0.5.10_rollback.md) | [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md), [releases/2026/versions/v0.5/v0.5.10_migration-steps.md](releases/2026/versions/v0.5/v0.5.10_migration-steps.md), [releases/2026/versions/v0.5/v0.5.10_overview.md](releases/2026/versions/v0.5/v0.5.10_overview.md), +1 more |
+| [releases/2026/versions/v0.5/v0.5.10_troubleshooting.md](releases/2026/versions/v0.5/v0.5.10_troubleshooting.md) | [releases/2026/versions/v0.5/v0.5.10_follower-instructions.md](releases/2026/versions/v0.5/v0.5.10_follower-instructions.md), [releases/2026/versions/v0.5/v0.5.10_migrate-hub.md](releases/2026/versions/v0.5/v0.5.10_migrate-hub.md), [releases/2026/versions/v0.5/v0.5.10_migration-steps.md](releases/2026/versions/v0.5/v0.5.10_migration-steps.md), +2 more |
+| [releases/2026/versions/v0.5/v0.5.11_AGENTS.md](releases/2026/versions/v0.5/v0.5.11_AGENTS.md) | — |
+| [releases/2026/versions/v0.5/v0.5.11_agent-a.md](releases/2026/versions/v0.5/v0.5.11_agent-a.md) | [releases/2026/versions/v0.5/v0.5.11_AGENTS.md](releases/2026/versions/v0.5/v0.5.11_AGENTS.md), [releases/2026/versions/v0.5/v0.5.11_agent-b.md](releases/2026/versions/v0.5/v0.5.11_agent-b.md), [releases/2026/versions/v0.5/v0.5.11_overview.md](releases/2026/versions/v0.5/v0.5.11_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.11_agent-b.md](releases/2026/versions/v0.5/v0.5.11_agent-b.md) | [releases/2026/versions/v0.5/v0.5.11_AGENTS.md](releases/2026/versions/v0.5/v0.5.11_AGENTS.md), [releases/2026/versions/v0.5/v0.5.11_agent-a.md](releases/2026/versions/v0.5/v0.5.11_agent-a.md), [releases/2026/versions/v0.5/v0.5.11_overview.md](releases/2026/versions/v0.5/v0.5.11_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.11_overview.md](releases/2026/versions/v0.5/v0.5.11_overview.md) | [releases/2026/versions/v0.5/v0.5.11_AGENTS.md](releases/2026/versions/v0.5/v0.5.11_AGENTS.md), [releases/2026/versions/v0.5/v0.5.11_agent-a.md](releases/2026/versions/v0.5/v0.5.11_agent-a.md), [releases/2026/versions/v0.5/v0.5.11_agent-b.md](releases/2026/versions/v0.5/v0.5.11_agent-b.md) |
+| [releases/2026/versions/v0.5/v0.5.12_p2_cross_context_import_audit.md](releases/2026/versions/v0.5/v0.5.12_p2_cross_context_import_audit.md) | — |
+| [releases/2026/versions/v0.5/v0.5.12_p4_agent_coordinator_boundary_decision.md](releases/2026/versions/v0.5/v0.5.12_p4_agent_coordinator_boundary_decision.md) | — |
+| [releases/2026/versions/v0.5/v0.5.13_agent_coordinator_boundary.md](releases/2026/versions/v0.5/v0.5.13_agent_coordinator_boundary.md) | — |
+| [releases/2026/versions/v0.5/v0.5.13_context_import_audit.md](releases/2026/versions/v0.5/v0.5.13_context_import_audit.md) | — |
+| [releases/2026/versions/v0.5/v0.5.13_orphan_models_audit.md](releases/2026/versions/v0.5/v0.5.13_orphan_models_audit.md) | — |
+| [releases/2026/versions/v0.5/v0.5.16_suggestions.md](releases/2026/versions/v0.5/v0.5.16_suggestions.md) | — |
+| [releases/2026/versions/v0.5/v0.5.16_tasks.md](releases/2026/versions/v0.5/v0.5.16_tasks.md) | — |
+| [releases/2026/versions/v0.5/v0.5.17_AGENTS.md](releases/2026/versions/v0.5/v0.5.17_AGENTS.md) | — |
+| [releases/2026/versions/v0.5/v0.5.17_agent-a.md](releases/2026/versions/v0.5/v0.5.17_agent-a.md) | [releases/2026/versions/v0.5/v0.5.17_AGENTS.md](releases/2026/versions/v0.5/v0.5.17_AGENTS.md), [releases/2026/versions/v0.5/v0.5.17_agent-b.md](releases/2026/versions/v0.5/v0.5.17_agent-b.md), [releases/2026/versions/v0.5/v0.5.17_overview.md](releases/2026/versions/v0.5/v0.5.17_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.17_agent-b.md](releases/2026/versions/v0.5/v0.5.17_agent-b.md) | [releases/2026/versions/v0.5/v0.5.17_AGENTS.md](releases/2026/versions/v0.5/v0.5.17_AGENTS.md), [releases/2026/versions/v0.5/v0.5.17_agent-a.md](releases/2026/versions/v0.5/v0.5.17_agent-a.md), [releases/2026/versions/v0.5/v0.5.17_overview.md](releases/2026/versions/v0.5/v0.5.17_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.17_overview.md](releases/2026/versions/v0.5/v0.5.17_overview.md) | [releases/2026/versions/v0.5/v0.5.17_AGENTS.md](releases/2026/versions/v0.5/v0.5.17_AGENTS.md), [releases/2026/versions/v0.5/v0.5.17_agent-a.md](releases/2026/versions/v0.5/v0.5.17_agent-a.md), [releases/2026/versions/v0.5/v0.5.17_agent-b.md](releases/2026/versions/v0.5/v0.5.17_agent-b.md) |
+| [releases/2026/versions/v0.5/v0.5.17_suggestions.md](releases/2026/versions/v0.5/v0.5.17_suggestions.md) | — |
+| [releases/2026/versions/v0.5/v0.5.18_AGENTS.md](releases/2026/versions/v0.5/v0.5.18_AGENTS.md) | — |
+| [releases/2026/versions/v0.5/v0.5.18_agent-a.md](releases/2026/versions/v0.5/v0.5.18_agent-a.md) | [releases/2026/versions/v0.5/v0.5.18_AGENTS.md](releases/2026/versions/v0.5/v0.5.18_AGENTS.md), [releases/2026/versions/v0.5/v0.5.18_agent-b.md](releases/2026/versions/v0.5/v0.5.18_agent-b.md), [releases/2026/versions/v0.5/v0.5.18_overview.md](releases/2026/versions/v0.5/v0.5.18_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.18_agent-b.md](releases/2026/versions/v0.5/v0.5.18_agent-b.md) | [releases/2026/versions/v0.5/v0.5.18_AGENTS.md](releases/2026/versions/v0.5/v0.5.18_AGENTS.md), [releases/2026/versions/v0.5/v0.5.18_agent-a.md](releases/2026/versions/v0.5/v0.5.18_agent-a.md), [releases/2026/versions/v0.5/v0.5.18_overview.md](releases/2026/versions/v0.5/v0.5.18_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.18_overview.md](releases/2026/versions/v0.5/v0.5.18_overview.md) | [releases/2026/versions/v0.5/v0.5.18_AGENTS.md](releases/2026/versions/v0.5/v0.5.18_AGENTS.md), [releases/2026/versions/v0.5/v0.5.18_agent-a.md](releases/2026/versions/v0.5/v0.5.18_agent-a.md), [releases/2026/versions/v0.5/v0.5.18_agent-b.md](releases/2026/versions/v0.5/v0.5.18_agent-b.md) |
+| [releases/2026/versions/v0.5/v0.5.18_suggestions.md](releases/2026/versions/v0.5/v0.5.18_suggestions.md) | — |
+| [releases/2026/versions/v0.5/v0.5.19_AGENTS.md](releases/2026/versions/v0.5/v0.5.19_AGENTS.md) | — |
+| [releases/2026/versions/v0.5/v0.5.19_agent-a.md](releases/2026/versions/v0.5/v0.5.19_agent-a.md) | [releases/2026/versions/v0.5/v0.5.19_AGENTS.md](releases/2026/versions/v0.5/v0.5.19_AGENTS.md), [releases/2026/versions/v0.5/v0.5.19_agent-b.md](releases/2026/versions/v0.5/v0.5.19_agent-b.md), [releases/2026/versions/v0.5/v0.5.19_overview.md](releases/2026/versions/v0.5/v0.5.19_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.19_agent-b.md](releases/2026/versions/v0.5/v0.5.19_agent-b.md) | [releases/2026/versions/v0.5/v0.5.19_AGENTS.md](releases/2026/versions/v0.5/v0.5.19_AGENTS.md), [releases/2026/versions/v0.5/v0.5.19_agent-a.md](releases/2026/versions/v0.5/v0.5.19_agent-a.md), [releases/2026/versions/v0.5/v0.5.19_overview.md](releases/2026/versions/v0.5/v0.5.19_overview.md) |
+| [releases/2026/versions/v0.5/v0.5.19_overview.md](releases/2026/versions/v0.5/v0.5.19_overview.md) | [releases/2026/versions/v0.5/v0.5.19_AGENTS.md](releases/2026/versions/v0.5/v0.5.19_AGENTS.md), [releases/2026/versions/v0.5/v0.5.19_agent-a.md](releases/2026/versions/v0.5/v0.5.19_agent-a.md), [releases/2026/versions/v0.5/v0.5.19_agent-b.md](releases/2026/versions/v0.5/v0.5.19_agent-b.md) |
+| [releases/2026/versions/v0.5/v0.5.19_suggestions.md](releases/2026/versions/v0.5/v0.5.19_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.0_AGENTS.md](releases/2026/versions/v0.6/v0.6.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.0_agent-a.md](releases/2026/versions/v0.6/v0.6.0_agent-a.md) | [releases/2026/versions/v0.6/v0.6.0_AGENTS.md](releases/2026/versions/v0.6/v0.6.0_AGENTS.md), [releases/2026/versions/v0.6/v0.6.0_agent-b.md](releases/2026/versions/v0.6/v0.6.0_agent-b.md), [releases/2026/versions/v0.6/v0.6.0_overview.md](releases/2026/versions/v0.6/v0.6.0_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.0_agent-b.md](releases/2026/versions/v0.6/v0.6.0_agent-b.md) | [releases/2026/versions/v0.6/v0.6.0_AGENTS.md](releases/2026/versions/v0.6/v0.6.0_AGENTS.md), [releases/2026/versions/v0.6/v0.6.0_agent-a.md](releases/2026/versions/v0.6/v0.6.0_agent-a.md), [releases/2026/versions/v0.6/v0.6.0_overview.md](releases/2026/versions/v0.6/v0.6.0_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.0_overview.md](releases/2026/versions/v0.6/v0.6.0_overview.md) | [releases/2026/versions/v0.6/v0.6.0_AGENTS.md](releases/2026/versions/v0.6/v0.6.0_AGENTS.md), [releases/2026/versions/v0.6/v0.6.0_agent-a.md](releases/2026/versions/v0.6/v0.6.0_agent-a.md), [releases/2026/versions/v0.6/v0.6.0_agent-b.md](releases/2026/versions/v0.6/v0.6.0_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.0_suggestions.md](releases/2026/versions/v0.6/v0.6.0_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.1_AGENTS.md](releases/2026/versions/v0.6/v0.6.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.1_agent-a.md](releases/2026/versions/v0.6/v0.6.1_agent-a.md) | [releases/2026/versions/v0.6/v0.6.1_AGENTS.md](releases/2026/versions/v0.6/v0.6.1_AGENTS.md), [releases/2026/versions/v0.6/v0.6.1_agent-b.md](releases/2026/versions/v0.6/v0.6.1_agent-b.md), [releases/2026/versions/v0.6/v0.6.1_overview.md](releases/2026/versions/v0.6/v0.6.1_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.1_agent-b.md](releases/2026/versions/v0.6/v0.6.1_agent-b.md) | [releases/2026/versions/v0.6/v0.6.1_AGENTS.md](releases/2026/versions/v0.6/v0.6.1_AGENTS.md), [releases/2026/versions/v0.6/v0.6.1_agent-a.md](releases/2026/versions/v0.6/v0.6.1_agent-a.md), [releases/2026/versions/v0.6/v0.6.1_overview.md](releases/2026/versions/v0.6/v0.6.1_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.1_overview.md](releases/2026/versions/v0.6/v0.6.1_overview.md) | [releases/2026/versions/v0.6/v0.6.1_AGENTS.md](releases/2026/versions/v0.6/v0.6.1_AGENTS.md), [releases/2026/versions/v0.6/v0.6.1_agent-a.md](releases/2026/versions/v0.6/v0.6.1_agent-a.md), [releases/2026/versions/v0.6/v0.6.1_agent-b.md](releases/2026/versions/v0.6/v0.6.1_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.1_suggestions.md](releases/2026/versions/v0.6/v0.6.1_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.2_AGENTS.md](releases/2026/versions/v0.6/v0.6.2_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.2_agent-a.md](releases/2026/versions/v0.6/v0.6.2_agent-a.md) | [releases/2026/versions/v0.6/v0.6.2_AGENTS.md](releases/2026/versions/v0.6/v0.6.2_AGENTS.md), [releases/2026/versions/v0.6/v0.6.2_agent-b.md](releases/2026/versions/v0.6/v0.6.2_agent-b.md), [releases/2026/versions/v0.6/v0.6.2_overview.md](releases/2026/versions/v0.6/v0.6.2_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.2_agent-b.md](releases/2026/versions/v0.6/v0.6.2_agent-b.md) | [releases/2026/versions/v0.6/v0.6.2_AGENTS.md](releases/2026/versions/v0.6/v0.6.2_AGENTS.md), [releases/2026/versions/v0.6/v0.6.2_agent-a.md](releases/2026/versions/v0.6/v0.6.2_agent-a.md), [releases/2026/versions/v0.6/v0.6.2_overview.md](releases/2026/versions/v0.6/v0.6.2_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.2_overview.md](releases/2026/versions/v0.6/v0.6.2_overview.md) | [releases/2026/versions/v0.6/v0.6.2_AGENTS.md](releases/2026/versions/v0.6/v0.6.2_AGENTS.md), [releases/2026/versions/v0.6/v0.6.2_agent-a.md](releases/2026/versions/v0.6/v0.6.2_agent-a.md), [releases/2026/versions/v0.6/v0.6.2_agent-b.md](releases/2026/versions/v0.6/v0.6.2_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.2_suggestions.md](releases/2026/versions/v0.6/v0.6.2_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.3_AGENTS.md](releases/2026/versions/v0.6/v0.6.3_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.3_agent-a.md](releases/2026/versions/v0.6/v0.6.3_agent-a.md) | [releases/2026/versions/v0.6/v0.6.3_AGENTS.md](releases/2026/versions/v0.6/v0.6.3_AGENTS.md), [releases/2026/versions/v0.6/v0.6.3_agent-b.md](releases/2026/versions/v0.6/v0.6.3_agent-b.md), [releases/2026/versions/v0.6/v0.6.3_overview.md](releases/2026/versions/v0.6/v0.6.3_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.3_agent-b.md](releases/2026/versions/v0.6/v0.6.3_agent-b.md) | [releases/2026/versions/v0.6/v0.6.3_AGENTS.md](releases/2026/versions/v0.6/v0.6.3_AGENTS.md), [releases/2026/versions/v0.6/v0.6.3_agent-a.md](releases/2026/versions/v0.6/v0.6.3_agent-a.md), [releases/2026/versions/v0.6/v0.6.3_overview.md](releases/2026/versions/v0.6/v0.6.3_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.3_overview.md](releases/2026/versions/v0.6/v0.6.3_overview.md) | [releases/2026/versions/v0.6/v0.6.3_AGENTS.md](releases/2026/versions/v0.6/v0.6.3_AGENTS.md), [releases/2026/versions/v0.6/v0.6.3_agent-a.md](releases/2026/versions/v0.6/v0.6.3_agent-a.md), [releases/2026/versions/v0.6/v0.6.3_agent-b.md](releases/2026/versions/v0.6/v0.6.3_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.3_suggestions.md](releases/2026/versions/v0.6/v0.6.3_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.4_AGENTS.md](releases/2026/versions/v0.6/v0.6.4_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.4_agent-a.md](releases/2026/versions/v0.6/v0.6.4_agent-a.md) | [releases/2026/versions/v0.6/v0.6.4_AGENTS.md](releases/2026/versions/v0.6/v0.6.4_AGENTS.md), [releases/2026/versions/v0.6/v0.6.4_agent-b.md](releases/2026/versions/v0.6/v0.6.4_agent-b.md), [releases/2026/versions/v0.6/v0.6.4_overview.md](releases/2026/versions/v0.6/v0.6.4_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.4_agent-b.md](releases/2026/versions/v0.6/v0.6.4_agent-b.md) | [releases/2026/versions/v0.6/v0.6.4_AGENTS.md](releases/2026/versions/v0.6/v0.6.4_AGENTS.md), [releases/2026/versions/v0.6/v0.6.4_agent-a.md](releases/2026/versions/v0.6/v0.6.4_agent-a.md), [releases/2026/versions/v0.6/v0.6.4_overview.md](releases/2026/versions/v0.6/v0.6.4_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.4_overview.md](releases/2026/versions/v0.6/v0.6.4_overview.md) | [releases/2026/versions/v0.6/v0.6.4_AGENTS.md](releases/2026/versions/v0.6/v0.6.4_AGENTS.md), [releases/2026/versions/v0.6/v0.6.4_agent-a.md](releases/2026/versions/v0.6/v0.6.4_agent-a.md), [releases/2026/versions/v0.6/v0.6.4_agent-b.md](releases/2026/versions/v0.6/v0.6.4_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.4_suggestions.md](releases/2026/versions/v0.6/v0.6.4_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.5_AGENTS.md](releases/2026/versions/v0.6/v0.6.5_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.5_agent-a.md](releases/2026/versions/v0.6/v0.6.5_agent-a.md) | [releases/2026/versions/v0.6/v0.6.5_AGENTS.md](releases/2026/versions/v0.6/v0.6.5_AGENTS.md), [releases/2026/versions/v0.6/v0.6.5_agent-b.md](releases/2026/versions/v0.6/v0.6.5_agent-b.md), [releases/2026/versions/v0.6/v0.6.5_overview.md](releases/2026/versions/v0.6/v0.6.5_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.5_agent-b.md](releases/2026/versions/v0.6/v0.6.5_agent-b.md) | [releases/2026/versions/v0.6/v0.6.5_AGENTS.md](releases/2026/versions/v0.6/v0.6.5_AGENTS.md), [releases/2026/versions/v0.6/v0.6.5_agent-a.md](releases/2026/versions/v0.6/v0.6.5_agent-a.md), [releases/2026/versions/v0.6/v0.6.5_overview.md](releases/2026/versions/v0.6/v0.6.5_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.5_overview.md](releases/2026/versions/v0.6/v0.6.5_overview.md) | [releases/2026/versions/v0.6/v0.6.5_AGENTS.md](releases/2026/versions/v0.6/v0.6.5_AGENTS.md), [releases/2026/versions/v0.6/v0.6.5_agent-a.md](releases/2026/versions/v0.6/v0.6.5_agent-a.md), [releases/2026/versions/v0.6/v0.6.5_agent-b.md](releases/2026/versions/v0.6/v0.6.5_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.5_suggestions.md](releases/2026/versions/v0.6/v0.6.5_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.6_AGENTS.md](releases/2026/versions/v0.6/v0.6.6_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.6_agent-a.md](releases/2026/versions/v0.6/v0.6.6_agent-a.md) | [releases/2026/versions/v0.6/v0.6.6_AGENTS.md](releases/2026/versions/v0.6/v0.6.6_AGENTS.md), [releases/2026/versions/v0.6/v0.6.6_agent-b.md](releases/2026/versions/v0.6/v0.6.6_agent-b.md), [releases/2026/versions/v0.6/v0.6.6_overview.md](releases/2026/versions/v0.6/v0.6.6_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.6_agent-b.md](releases/2026/versions/v0.6/v0.6.6_agent-b.md) | [releases/2026/versions/v0.6/v0.6.6_AGENTS.md](releases/2026/versions/v0.6/v0.6.6_AGENTS.md), [releases/2026/versions/v0.6/v0.6.6_agent-a.md](releases/2026/versions/v0.6/v0.6.6_agent-a.md), [releases/2026/versions/v0.6/v0.6.6_overview.md](releases/2026/versions/v0.6/v0.6.6_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.6_overview.md](releases/2026/versions/v0.6/v0.6.6_overview.md) | [releases/2026/versions/v0.6/v0.6.6_AGENTS.md](releases/2026/versions/v0.6/v0.6.6_AGENTS.md), [releases/2026/versions/v0.6/v0.6.6_agent-a.md](releases/2026/versions/v0.6/v0.6.6_agent-a.md), [releases/2026/versions/v0.6/v0.6.6_agent-b.md](releases/2026/versions/v0.6/v0.6.6_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.6_suggestions.md](releases/2026/versions/v0.6/v0.6.6_suggestions.md) | — |
+| [releases/2026/versions/v0.6/v0.6.7_AGENTS.md](releases/2026/versions/v0.6/v0.6.7_AGENTS.md) | — |
+| [releases/2026/versions/v0.6/v0.6.7_agent-a.md](releases/2026/versions/v0.6/v0.6.7_agent-a.md) | [releases/2026/versions/v0.6/v0.6.7_AGENTS.md](releases/2026/versions/v0.6/v0.6.7_AGENTS.md), [releases/2026/versions/v0.6/v0.6.7_agent-b.md](releases/2026/versions/v0.6/v0.6.7_agent-b.md), [releases/2026/versions/v0.6/v0.6.7_overview.md](releases/2026/versions/v0.6/v0.6.7_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.7_agent-b.md](releases/2026/versions/v0.6/v0.6.7_agent-b.md) | [releases/2026/versions/v0.6/v0.6.7_AGENTS.md](releases/2026/versions/v0.6/v0.6.7_AGENTS.md), [releases/2026/versions/v0.6/v0.6.7_agent-a.md](releases/2026/versions/v0.6/v0.6.7_agent-a.md), [releases/2026/versions/v0.6/v0.6.7_overview.md](releases/2026/versions/v0.6/v0.6.7_overview.md) |
+| [releases/2026/versions/v0.6/v0.6.7_overview.md](releases/2026/versions/v0.6/v0.6.7_overview.md) | [releases/2026/versions/v0.6/v0.6.7_AGENTS.md](releases/2026/versions/v0.6/v0.6.7_AGENTS.md), [releases/2026/versions/v0.6/v0.6.7_agent-a.md](releases/2026/versions/v0.6/v0.6.7_agent-a.md), [releases/2026/versions/v0.6/v0.6.7_agent-b.md](releases/2026/versions/v0.6/v0.6.7_agent-b.md) |
+| [releases/2026/versions/v0.6/v0.6.7_suggestions.md](releases/2026/versions/v0.6/v0.6.7_suggestions.md) | — |
+| [releases/2026/versions/v0.7/v0.7.0_AGENTS.md](releases/2026/versions/v0.7/v0.7.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.7/v0.7.0_agent-a.md](releases/2026/versions/v0.7/v0.7.0_agent-a.md) | [releases/2026/versions/v0.7/v0.7.0_AGENTS.md](releases/2026/versions/v0.7/v0.7.0_AGENTS.md), [releases/2026/versions/v0.7/v0.7.0_agent-b.md](releases/2026/versions/v0.7/v0.7.0_agent-b.md), [releases/2026/versions/v0.7/v0.7.0_overview.md](releases/2026/versions/v0.7/v0.7.0_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.0_agent-b.md](releases/2026/versions/v0.7/v0.7.0_agent-b.md) | [releases/2026/versions/v0.7/v0.7.0_AGENTS.md](releases/2026/versions/v0.7/v0.7.0_AGENTS.md), [releases/2026/versions/v0.7/v0.7.0_agent-a.md](releases/2026/versions/v0.7/v0.7.0_agent-a.md), [releases/2026/versions/v0.7/v0.7.0_overview.md](releases/2026/versions/v0.7/v0.7.0_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.0_overview.md](releases/2026/versions/v0.7/v0.7.0_overview.md) | [releases/2026/versions/v0.7/v0.7.0_AGENTS.md](releases/2026/versions/v0.7/v0.7.0_AGENTS.md), [releases/2026/versions/v0.7/v0.7.0_agent-a.md](releases/2026/versions/v0.7/v0.7.0_agent-a.md), [releases/2026/versions/v0.7/v0.7.0_agent-b.md](releases/2026/versions/v0.7/v0.7.0_agent-b.md) |
+| [releases/2026/versions/v0.7/v0.7.0_suggestions.md](releases/2026/versions/v0.7/v0.7.0_suggestions.md) | — |
+| [releases/2026/versions/v0.7/v0.7.1_AGENTS.md](releases/2026/versions/v0.7/v0.7.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.7/v0.7.1_agent-a.md](releases/2026/versions/v0.7/v0.7.1_agent-a.md) | [releases/2026/versions/v0.7/v0.7.1_AGENTS.md](releases/2026/versions/v0.7/v0.7.1_AGENTS.md), [releases/2026/versions/v0.7/v0.7.1_agent-b.md](releases/2026/versions/v0.7/v0.7.1_agent-b.md), [releases/2026/versions/v0.7/v0.7.1_overview.md](releases/2026/versions/v0.7/v0.7.1_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.1_agent-b.md](releases/2026/versions/v0.7/v0.7.1_agent-b.md) | [releases/2026/versions/v0.7/v0.7.1_AGENTS.md](releases/2026/versions/v0.7/v0.7.1_AGENTS.md), [releases/2026/versions/v0.7/v0.7.1_agent-a.md](releases/2026/versions/v0.7/v0.7.1_agent-a.md), [releases/2026/versions/v0.7/v0.7.1_overview.md](releases/2026/versions/v0.7/v0.7.1_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.1_overview.md](releases/2026/versions/v0.7/v0.7.1_overview.md) | [releases/2026/versions/v0.7/v0.7.1_AGENTS.md](releases/2026/versions/v0.7/v0.7.1_AGENTS.md), [releases/2026/versions/v0.7/v0.7.1_agent-a.md](releases/2026/versions/v0.7/v0.7.1_agent-a.md), [releases/2026/versions/v0.7/v0.7.1_agent-b.md](releases/2026/versions/v0.7/v0.7.1_agent-b.md) |
+| [releases/2026/versions/v0.7/v0.7.1_suggestions.md](releases/2026/versions/v0.7/v0.7.1_suggestions.md) | — |
+| [releases/2026/versions/v0.7/v0.7.2_AGENTS.md](releases/2026/versions/v0.7/v0.7.2_AGENTS.md) | — |
+| [releases/2026/versions/v0.7/v0.7.2_agent-a.md](releases/2026/versions/v0.7/v0.7.2_agent-a.md) | [releases/2026/versions/v0.7/v0.7.2_AGENTS.md](releases/2026/versions/v0.7/v0.7.2_AGENTS.md), [releases/2026/versions/v0.7/v0.7.2_agent-b.md](releases/2026/versions/v0.7/v0.7.2_agent-b.md), [releases/2026/versions/v0.7/v0.7.2_overview.md](releases/2026/versions/v0.7/v0.7.2_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.2_agent-b.md](releases/2026/versions/v0.7/v0.7.2_agent-b.md) | [releases/2026/versions/v0.7/v0.7.2_AGENTS.md](releases/2026/versions/v0.7/v0.7.2_AGENTS.md), [releases/2026/versions/v0.7/v0.7.2_agent-a.md](releases/2026/versions/v0.7/v0.7.2_agent-a.md), [releases/2026/versions/v0.7/v0.7.2_overview.md](releases/2026/versions/v0.7/v0.7.2_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.2_overview.md](releases/2026/versions/v0.7/v0.7.2_overview.md) | [releases/2026/versions/v0.7/v0.7.2_AGENTS.md](releases/2026/versions/v0.7/v0.7.2_AGENTS.md), [releases/2026/versions/v0.7/v0.7.2_agent-a.md](releases/2026/versions/v0.7/v0.7.2_agent-a.md), [releases/2026/versions/v0.7/v0.7.2_agent-b.md](releases/2026/versions/v0.7/v0.7.2_agent-b.md) |
+| [releases/2026/versions/v0.7/v0.7.2_suggestions.md](releases/2026/versions/v0.7/v0.7.2_suggestions.md) | — |
+| [releases/2026/versions/v0.7/v0.7.3_AGENTS.md](releases/2026/versions/v0.7/v0.7.3_AGENTS.md) | — |
+| [releases/2026/versions/v0.7/v0.7.3_agent-a.md](releases/2026/versions/v0.7/v0.7.3_agent-a.md) | [releases/2026/versions/v0.7/v0.7.3_AGENTS.md](releases/2026/versions/v0.7/v0.7.3_AGENTS.md), [releases/2026/versions/v0.7/v0.7.3_agent-b.md](releases/2026/versions/v0.7/v0.7.3_agent-b.md), [releases/2026/versions/v0.7/v0.7.3_overview.md](releases/2026/versions/v0.7/v0.7.3_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.3_agent-b.md](releases/2026/versions/v0.7/v0.7.3_agent-b.md) | [releases/2026/versions/v0.7/v0.7.3_AGENTS.md](releases/2026/versions/v0.7/v0.7.3_AGENTS.md), [releases/2026/versions/v0.7/v0.7.3_agent-a.md](releases/2026/versions/v0.7/v0.7.3_agent-a.md), [releases/2026/versions/v0.7/v0.7.3_overview.md](releases/2026/versions/v0.7/v0.7.3_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.3_overview.md](releases/2026/versions/v0.7/v0.7.3_overview.md) | [releases/2026/versions/v0.7/v0.7.3_AGENTS.md](releases/2026/versions/v0.7/v0.7.3_AGENTS.md), [releases/2026/versions/v0.7/v0.7.3_agent-a.md](releases/2026/versions/v0.7/v0.7.3_agent-a.md), [releases/2026/versions/v0.7/v0.7.3_agent-b.md](releases/2026/versions/v0.7/v0.7.3_agent-b.md) |
+| [releases/2026/versions/v0.7/v0.7.3_suggestions.md](releases/2026/versions/v0.7/v0.7.3_suggestions.md) | — |
+| [releases/2026/versions/v0.7/v0.7.4_AGENTS.md](releases/2026/versions/v0.7/v0.7.4_AGENTS.md) | — |
+| [releases/2026/versions/v0.7/v0.7.4_agent-a.md](releases/2026/versions/v0.7/v0.7.4_agent-a.md) | [releases/2026/versions/v0.7/v0.7.4_AGENTS.md](releases/2026/versions/v0.7/v0.7.4_AGENTS.md), [releases/2026/versions/v0.7/v0.7.4_agent-b.md](releases/2026/versions/v0.7/v0.7.4_agent-b.md), [releases/2026/versions/v0.7/v0.7.4_overview.md](releases/2026/versions/v0.7/v0.7.4_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.4_agent-b.md](releases/2026/versions/v0.7/v0.7.4_agent-b.md) | [releases/2026/versions/v0.7/v0.7.4_AGENTS.md](releases/2026/versions/v0.7/v0.7.4_AGENTS.md), [releases/2026/versions/v0.7/v0.7.4_agent-a.md](releases/2026/versions/v0.7/v0.7.4_agent-a.md), [releases/2026/versions/v0.7/v0.7.4_overview.md](releases/2026/versions/v0.7/v0.7.4_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.4_overview.md](releases/2026/versions/v0.7/v0.7.4_overview.md) | [releases/2026/versions/v0.7/v0.7.4_AGENTS.md](releases/2026/versions/v0.7/v0.7.4_AGENTS.md), [releases/2026/versions/v0.7/v0.7.4_agent-a.md](releases/2026/versions/v0.7/v0.7.4_agent-a.md), [releases/2026/versions/v0.7/v0.7.4_agent-b.md](releases/2026/versions/v0.7/v0.7.4_agent-b.md) |
+| [releases/2026/versions/v0.7/v0.7.4_security-review-multivalidator-poa.md](releases/2026/versions/v0.7/v0.7.4_security-review-multivalidator-poa.md) | [releases/2026/versions/v0.7/v0.7.4_AGENTS.md](releases/2026/versions/v0.7/v0.7.4_AGENTS.md), [releases/2026/versions/v0.7/v0.7.5_AGENTS.md](releases/2026/versions/v0.7/v0.7.5_AGENTS.md), [releases/2026/versions/v0.7/v0.7.5_overview.md](releases/2026/versions/v0.7/v0.7.5_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.4_suggestions.md](releases/2026/versions/v0.7/v0.7.4_suggestions.md) | — |
+| [releases/2026/versions/v0.7/v0.7.5_AGENTS.md](releases/2026/versions/v0.7/v0.7.5_AGENTS.md) | — |
+| [releases/2026/versions/v0.7/v0.7.5_agent-a.md](releases/2026/versions/v0.7/v0.7.5_agent-a.md) | [releases/2026/versions/v0.7/v0.7.5_AGENTS.md](releases/2026/versions/v0.7/v0.7.5_AGENTS.md), [releases/2026/versions/v0.7/v0.7.5_agent-b.md](releases/2026/versions/v0.7/v0.7.5_agent-b.md), [releases/2026/versions/v0.7/v0.7.5_overview.md](releases/2026/versions/v0.7/v0.7.5_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.5_agent-b.md](releases/2026/versions/v0.7/v0.7.5_agent-b.md) | [releases/2026/versions/v0.7/v0.7.5_AGENTS.md](releases/2026/versions/v0.7/v0.7.5_AGENTS.md), [releases/2026/versions/v0.7/v0.7.5_agent-a.md](releases/2026/versions/v0.7/v0.7.5_agent-a.md), [releases/2026/versions/v0.7/v0.7.5_overview.md](releases/2026/versions/v0.7/v0.7.5_overview.md) |
+| [releases/2026/versions/v0.7/v0.7.5_overview.md](releases/2026/versions/v0.7/v0.7.5_overview.md) | [releases/2026/versions/v0.7/v0.7.5_AGENTS.md](releases/2026/versions/v0.7/v0.7.5_AGENTS.md), [releases/2026/versions/v0.7/v0.7.5_agent-a.md](releases/2026/versions/v0.7/v0.7.5_agent-a.md), [releases/2026/versions/v0.7/v0.7.5_agent-b.md](releases/2026/versions/v0.7/v0.7.5_agent-b.md) |
+| [releases/2026/versions/v0.8/v0.8.0_AGENTS.md](releases/2026/versions/v0.8/v0.8.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.8/v0.8.0_agent-a.md](releases/2026/versions/v0.8/v0.8.0_agent-a.md) | [releases/2026/versions/v0.8/v0.8.0_AGENTS.md](releases/2026/versions/v0.8/v0.8.0_AGENTS.md), [releases/2026/versions/v0.8/v0.8.0_agent-b.md](releases/2026/versions/v0.8/v0.8.0_agent-b.md), [releases/2026/versions/v0.8/v0.8.0_overview.md](releases/2026/versions/v0.8/v0.8.0_overview.md) |
+| [releases/2026/versions/v0.8/v0.8.0_agent-b.md](releases/2026/versions/v0.8/v0.8.0_agent-b.md) | [releases/2026/versions/v0.8/v0.8.0_AGENTS.md](releases/2026/versions/v0.8/v0.8.0_AGENTS.md), [releases/2026/versions/v0.8/v0.8.0_agent-a.md](releases/2026/versions/v0.8/v0.8.0_agent-a.md), [releases/2026/versions/v0.8/v0.8.0_overview.md](releases/2026/versions/v0.8/v0.8.0_overview.md) |
+| [releases/2026/versions/v0.8/v0.8.0_overview.md](releases/2026/versions/v0.8/v0.8.0_overview.md) | [releases/2026/versions/v0.8/v0.8.0_AGENTS.md](releases/2026/versions/v0.8/v0.8.0_AGENTS.md), [releases/2026/versions/v0.8/v0.8.0_agent-a.md](releases/2026/versions/v0.8/v0.8.0_agent-a.md), [releases/2026/versions/v0.8/v0.8.0_agent-b.md](releases/2026/versions/v0.8/v0.8.0_agent-b.md) |
+| [releases/2026/versions/v0.8/v0.8.0_suggestions.md](releases/2026/versions/v0.8/v0.8.0_suggestions.md) | — |
+| [releases/2026/versions/v0.8/v0.8.1_AGENTS.md](releases/2026/versions/v0.8/v0.8.1_AGENTS.md) | — |
+| [releases/2026/versions/v0.8/v0.8.1_agent-a.md](releases/2026/versions/v0.8/v0.8.1_agent-a.md) | [releases/2026/versions/v0.8/v0.8.1_AGENTS.md](releases/2026/versions/v0.8/v0.8.1_AGENTS.md), [releases/2026/versions/v0.8/v0.8.1_agent-b.md](releases/2026/versions/v0.8/v0.8.1_agent-b.md), [releases/2026/versions/v0.8/v0.8.1_overview.md](releases/2026/versions/v0.8/v0.8.1_overview.md) |
+| [releases/2026/versions/v0.8/v0.8.1_agent-b.md](releases/2026/versions/v0.8/v0.8.1_agent-b.md) | [releases/2026/versions/v0.8/v0.8.1_AGENTS.md](releases/2026/versions/v0.8/v0.8.1_AGENTS.md), [releases/2026/versions/v0.8/v0.8.1_agent-a.md](releases/2026/versions/v0.8/v0.8.1_agent-a.md), [releases/2026/versions/v0.8/v0.8.1_overview.md](releases/2026/versions/v0.8/v0.8.1_overview.md) |
+| [releases/2026/versions/v0.8/v0.8.1_overview.md](releases/2026/versions/v0.8/v0.8.1_overview.md) | [releases/2026/versions/v0.8/v0.8.1_AGENTS.md](releases/2026/versions/v0.8/v0.8.1_AGENTS.md), [releases/2026/versions/v0.8/v0.8.1_agent-a.md](releases/2026/versions/v0.8/v0.8.1_agent-a.md), [releases/2026/versions/v0.8/v0.8.1_agent-b.md](releases/2026/versions/v0.8/v0.8.1_agent-b.md) |
+| [releases/2026/versions/v0.8/v0.8.1_suggestions.md](releases/2026/versions/v0.8/v0.8.1_suggestions.md) | — |
+| [releases/2026/versions/v0.8/v0.8.2_AGENTS.md](releases/2026/versions/v0.8/v0.8.2_AGENTS.md) | — |
+| [releases/2026/versions/v0.8/v0.8.2_agent-a.md](releases/2026/versions/v0.8/v0.8.2_agent-a.md) | [releases/2026/versions/v0.8/v0.8.2_AGENTS.md](releases/2026/versions/v0.8/v0.8.2_AGENTS.md), [releases/2026/versions/v0.8/v0.8.2_agent-b.md](releases/2026/versions/v0.8/v0.8.2_agent-b.md), [releases/2026/versions/v0.8/v0.8.2_overview.md](releases/2026/versions/v0.8/v0.8.2_overview.md) |
+| [releases/2026/versions/v0.8/v0.8.2_agent-b.md](releases/2026/versions/v0.8/v0.8.2_agent-b.md) | [releases/2026/versions/v0.8/v0.8.2_AGENTS.md](releases/2026/versions/v0.8/v0.8.2_AGENTS.md), [releases/2026/versions/v0.8/v0.8.2_agent-a.md](releases/2026/versions/v0.8/v0.8.2_agent-a.md), [releases/2026/versions/v0.8/v0.8.2_overview.md](releases/2026/versions/v0.8/v0.8.2_overview.md) |
+| [releases/2026/versions/v0.8/v0.8.2_overview.md](releases/2026/versions/v0.8/v0.8.2_overview.md) | [releases/2026/versions/v0.8/v0.8.2_AGENTS.md](releases/2026/versions/v0.8/v0.8.2_AGENTS.md), [releases/2026/versions/v0.8/v0.8.2_agent-a.md](releases/2026/versions/v0.8/v0.8.2_agent-a.md), [releases/2026/versions/v0.8/v0.8.2_agent-b.md](releases/2026/versions/v0.8/v0.8.2_agent-b.md) |
+| [releases/2026/versions/v0.8/v0.8.2_suggestions.md](releases/2026/versions/v0.8/v0.8.2_suggestions.md) | — |
+| [releases/2026/versions/v0.9/v0.9.0_AGENTS.md](releases/2026/versions/v0.9/v0.9.0_AGENTS.md) | — |
+| [releases/2026/versions/v0.9/v0.9.0_agent-a.md](releases/2026/versions/v0.9/v0.9.0_agent-a.md) | [releases/2026/versions/v0.9/v0.9.0_AGENTS.md](releases/2026/versions/v0.9/v0.9.0_AGENTS.md), [releases/2026/versions/v0.9/v0.9.0_agent-b.md](releases/2026/versions/v0.9/v0.9.0_agent-b.md), [releases/2026/versions/v0.9/v0.9.0_overview.md](releases/2026/versions/v0.9/v0.9.0_overview.md) |
+| [releases/2026/versions/v0.9/v0.9.0_agent-b.md](releases/2026/versions/v0.9/v0.9.0_agent-b.md) | [releases/2026/versions/v0.9/v0.9.0_AGENTS.md](releases/2026/versions/v0.9/v0.9.0_AGENTS.md), [releases/2026/versions/v0.9/v0.9.0_agent-a.md](releases/2026/versions/v0.9/v0.9.0_agent-a.md), [releases/2026/versions/v0.9/v0.9.0_overview.md](releases/2026/versions/v0.9/v0.9.0_overview.md) |
+| [releases/2026/versions/v0.9/v0.9.0_overview.md](releases/2026/versions/v0.9/v0.9.0_overview.md) | [releases/2026/versions/v0.9/v0.9.0_AGENTS.md](releases/2026/versions/v0.9/v0.9.0_AGENTS.md), [releases/2026/versions/v0.9/v0.9.0_agent-a.md](releases/2026/versions/v0.9/v0.9.0_agent-a.md), [releases/2026/versions/v0.9/v0.9.0_agent-b.md](releases/2026/versions/v0.9/v0.9.0_agent-b.md) |
+| [releases/2026/versions/v0.9/v0.9.0_suggestions.md](releases/2026/versions/v0.9/v0.9.0_suggestions.md) | — |
+| [releases/2026/versions/v1.0/v1.0.0_suggestions.md](releases/2026/versions/v1.0/v1.0.0_suggestions.md) | — |
 | [releases/MAINTENANCE.md](releases/MAINTENANCE.md) | — |
-| [releases/README.md](releases/README.md) | [development/TYPE_CHECKING.md](development/TYPE_CHECKING.md), [getting-started/free-ait.md](getting-started/free-ait.md), [reference/README.md](reference/README.md), +1 more |
+| [releases/README.md](releases/README.md) | [development/TYPE_CHECKING.md](development/TYPE_CHECKING.md), [getting-started/free-ait.md](getting-started/free-ait.md), [reference/README.md](reference/README.md) |
 | [releases/RELEASE_PREP.md](releases/RELEASE_PREP.md) | — |
 | [releases/STATUS.md](releases/STATUS.md) | [README.md](README.md), [apps/README.md](apps/README.md), [architecture/bridge-threat-model.md](architecture/bridge-threat-model.md), +4 more |
-| [releases/archive/README.md](releases/archive/README.md) | [releases/README.md](releases/README.md) |
-| [releases/v0.10/v0.10.10_AGENTS.md](releases/v0.10/v0.10.10_AGENTS.md) | — |
-| [releases/v0.10/v0.10.11_AGENTS.md](releases/v0.10/v0.10.11_AGENTS.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_PHASE1_COMPLETED.md](releases/v0.10/v0.10.11_BUG_HUNT_PHASE1_COMPLETED.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_PHASE2_FINDINGS.md](releases/v0.10/v0.10.11_BUG_HUNT_PHASE2_FINDINGS.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_PHASE2_FIXES_APPLIED.md](releases/v0.10/v0.10.11_BUG_HUNT_PHASE2_FIXES_APPLIED.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_PHASE2_MEDIUM_LOW_FIXES.md](releases/v0.10/v0.10.11_BUG_HUNT_PHASE2_MEDIUM_LOW_FIXES.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_PHASE3_5_COMPLETE.md](releases/v0.10/v0.10.11_BUG_HUNT_PHASE3_5_COMPLETE.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_PHASE3_COMPLETE.md](releases/v0.10/v0.10.11_BUG_HUNT_PHASE3_COMPLETE.md) | — |
-| [releases/v0.10/v0.10.11_BUG_HUNT_SUMMARY.md](releases/v0.10/v0.10.11_BUG_HUNT_SUMMARY.md) | — |
-| [releases/v0.10/v0.10.12_AGENTS.md](releases/v0.10/v0.10.12_AGENTS.md) | — |
-| [releases/v0.10/v0.10.13_AGENTS.md](releases/v0.10/v0.10.13_AGENTS.md) | — |
-| [releases/v0.10/v0.10.14_AGENTS.md](releases/v0.10/v0.10.14_AGENTS.md) | — |
-| [releases/v0.10/v0.10.14_router_refactoring_plan.md](releases/v0.10/v0.10.14_router_refactoring_plan.md) | — |
-| [releases/v0.10/v0.10.15_AGENTS.md](releases/v0.10/v0.10.15_AGENTS.md) | — |
-| [releases/v0.10/v0.10.16_AGENTS.md](releases/v0.10/v0.10.16_AGENTS.md) | — |
-| [releases/v0.10/v0.10.17_AGENTS.md](releases/v0.10/v0.10.17_AGENTS.md) | — |
-| [releases/v0.10/v0.10.18_AGENTS.md](releases/v0.10/v0.10.18_AGENTS.md) | — |
-| [releases/v0.10/v0.10.1_AGENTS.md](releases/v0.10/v0.10.1_AGENTS.md) | — |
-| [releases/v0.10/v0.10.3_AGENTS.md](releases/v0.10/v0.10.3_AGENTS.md) | — |
-| [releases/v0.10/v0.10.3_suggestions.md](releases/v0.10/v0.10.3_suggestions.md) | [releases/v0.10/v0.10.3_AGENTS.md](releases/v0.10/v0.10.3_AGENTS.md) |
-| [releases/v0.10/v0.10.4_AGENTS.md](releases/v0.10/v0.10.4_AGENTS.md) | — |
-| [releases/v0.10/v0.10.4_suggestions.md](releases/v0.10/v0.10.4_suggestions.md) | — |
-| [releases/v0.10/v0.10.6_AGENTS.md](releases/v0.10/v0.10.6_AGENTS.md) | — |
-| [releases/v0.10/v0.10.7_AGENTS.md](releases/v0.10/v0.10.7_AGENTS.md) | — |
-| [releases/v0.10/v0.10.8_AGENTS.md](releases/v0.10/v0.10.8_AGENTS.md) | — |
-| [releases/v0.10/v0.10.9_AGENTS.md](releases/v0.10/v0.10.9_AGENTS.md) | — |
-| [releases/v0.11/v0.11.0_AGENTS.md](releases/v0.11/v0.11.0_AGENTS.md) | — |
-| [releases/v0.11/v0.11.0_capability_verification.md](releases/v0.11/v0.11.0_capability_verification.md) | — |
-| [releases/v0.11/v0.11.0_decentralized_memory_plan.md](releases/v0.11/v0.11.0_decentralized_memory_plan.md) | — |
-| [releases/v0.12/v0.12.0_AGENTS.md](releases/v0.12/v0.12.0_AGENTS.md) | — |
-| [releases/v0.13/v0.13.0_AGENTS.md](releases/v0.13/v0.13.0_AGENTS.md) | — |
-| [releases/v0.13/v0.13.0_autonomous_economics_plan.md](releases/v0.13/v0.13.0_autonomous_economics_plan.md) | — |
-| [releases/v0.14/v0.14.1_AGENTS.md](releases/v0.14/v0.14.1_AGENTS.md) | — |
-| [releases/v0.14/v0.14.1_tee_implementation_strategy.md](releases/v0.14/v0.14.1_tee_implementation_strategy.md) | — |
-| [releases/v0.14/v0.14.2_AGENTS.md](releases/v0.14/v0.14.2_AGENTS.md) | — |
-| [releases/v0.15/v0.15.1_AGENTS.md](releases/v0.15/v0.15.1_AGENTS.md) | — |
-| [releases/v0.15/v0.15.1_compliance_technical_plan.md](releases/v0.15/v0.15.1_compliance_technical_plan.md) | — |
-| [releases/v0.15/v0.15.2_AGENTS.md](releases/v0.15/v0.15.2_AGENTS.md) | — |
-| [releases/v0.16/v0.16.1_AGENTS.md](releases/v0.16/v0.16.1_AGENTS.md) | — |
-| [releases/v0.16/v0.16.2_AGENTS.md](releases/v0.16/v0.16.2_AGENTS.md) | — |
-| [releases/v0.16/v0.16.2_white_label_sdk_plan.md](releases/v0.16/v0.16.2_white_label_sdk_plan.md) | — |
-| [releases/v0.17/v0.17.0_AGENTS.md](releases/v0.17/v0.17.0_AGENTS.md) | — |
-| [releases/v0.17/v0.17.0_accessibility-checklist.md](releases/v0.17/v0.17.0_accessibility-checklist.md) | — |
-| [releases/v0.17/v0.17.0_accessibility_theme_plan.md](releases/v0.17/v0.17.0_accessibility_theme_plan.md) | [releases/v0.17/v0.17.0_AGENTS.md](releases/v0.17/v0.17.0_AGENTS.md) |
-| [releases/v0.18/v0.18.0_AGENTS.md](releases/v0.18/v0.18.0_AGENTS.md) | — |
-| [releases/v0.19/RELEASE_v0.19.0.md](releases/v0.19/RELEASE_v0.19.0.md) | [releases/v0.19/v0.19.0_AGENTS.md](releases/v0.19/v0.19.0_AGENTS.md) |
-| [releases/v0.19/v0.19.0_AGENTS.md](releases/v0.19/v0.19.0_AGENTS.md) | — |
-| [releases/v0.20/RELEASE_v0.20.0.md](releases/v0.20/RELEASE_v0.20.0.md) | — |
-| [releases/v0.20/RELEASE_v0.20.4.md](releases/v0.20/RELEASE_v0.20.4.md) | — |
-| [releases/v0.20/v0.20.0_AGENTS.md](releases/v0.20/v0.20.0_AGENTS.md) | — |
-| [releases/v0.22/AGENTS.md](releases/v0.22/AGENTS.md) | — |
-| [releases/v0.3/RELEASE_v0.3.7.md](releases/v0.3/RELEASE_v0.3.7.md) | — |
-| [releases/v0.3/RELEASE_v0.3.8.md](releases/v0.3/RELEASE_v0.3.8.md) | — |
-| [releases/v0.3/RELEASE_v0.3.9.md](releases/v0.3/RELEASE_v0.3.9.md) | — |
-| [releases/v0.4/RELEASE_v0.4.0.md](releases/v0.4/RELEASE_v0.4.0.md) | — |
-| [releases/v0.4/RELEASE_v0.4.1.md](releases/v0.4/RELEASE_v0.4.1.md) | — |
-| [releases/v0.4/RELEASE_v0.4.10.md](releases/v0.4/RELEASE_v0.4.10.md) | — |
-| [releases/v0.4/RELEASE_v0.4.11.md](releases/v0.4/RELEASE_v0.4.11.md) | — |
-| [releases/v0.4/RELEASE_v0.4.13.md](releases/v0.4/RELEASE_v0.4.13.md) | — |
-| [releases/v0.4/RELEASE_v0.4.14.md](releases/v0.4/RELEASE_v0.4.14.md) | — |
-| [releases/v0.4/RELEASE_v0.4.15.md](releases/v0.4/RELEASE_v0.4.15.md) | — |
-| [releases/v0.4/RELEASE_v0.4.17.md](releases/v0.4/RELEASE_v0.4.17.md) | — |
-| [releases/v0.4/RELEASE_v0.4.18.md](releases/v0.4/RELEASE_v0.4.18.md) | — |
-| [releases/v0.4/RELEASE_v0.4.19.md](releases/v0.4/RELEASE_v0.4.19.md) | — |
-| [releases/v0.4/RELEASE_v0.4.2.md](releases/v0.4/RELEASE_v0.4.2.md) | — |
-| [releases/v0.4/RELEASE_v0.4.20.md](releases/v0.4/RELEASE_v0.4.20.md) | — |
-| [releases/v0.4/RELEASE_v0.4.21.md](releases/v0.4/RELEASE_v0.4.21.md) | — |
-| [releases/v0.4/RELEASE_v0.4.24.md](releases/v0.4/RELEASE_v0.4.24.md) | — |
-| [releases/v0.4/RELEASE_v0.4.3.md](releases/v0.4/RELEASE_v0.4.3.md) | — |
-| [releases/v0.4/RELEASE_v0.4.5.md](releases/v0.4/RELEASE_v0.4.5.md) | — |
-| [releases/v0.4/RELEASE_v0.4.8.md](releases/v0.4/RELEASE_v0.4.8.md) | — |
-| [releases/v0.4/RELEASE_v0.4.9.md](releases/v0.4/RELEASE_v0.4.9.md) | — |
-| [releases/v0.4/mypy-investigation-v0.4.19.md](releases/v0.4/mypy-investigation-v0.4.19.md) | — |
-| [releases/v0.4/v0.4.0_10_implementation-complete-summary.md](releases/v0.4/v0.4.0_10_implementation-complete-summary.md) | [reference/README.md](reference/README.md) |
-| [releases/v0.4/v0.4.0_11_integration-test-fixes.md](releases/v0.4/v0.4.0_11_integration-test-fixes.md) | — |
-| [releases/v0.4/v0.4.0_12_integration-test-updates.md](releases/v0.4/v0.4.0_12_integration-test-updates.md) | — |
-| [releases/v0.4/v0.4.0_13_test-fixes-complete.md](releases/v0.4/v0.4.0_13_test-fixes-complete.md) | — |
-| [releases/v0.4/v0.4.0_14_testing-status-report.md](releases/v0.4/v0.4.0_14_testing-status-report.md) | — |
-| [releases/v0.4/v0.4.0_15_skipped-tests-roadmap.md](releases/v0.4/v0.4.0_15_skipped-tests-roadmap.md) | [reference/README.md](reference/README.md) |
-| [releases/v0.4/v0.4.0_16_security-audit-2026-02-13.md](releases/v0.4/v0.4.0_16_security-audit-2026-02-13.md) | [reference/README.md](reference/README.md) |
-| [releases/v0.4/v0.4.0_17_docs-gaps.md](releases/v0.4/v0.4.0_17_docs-gaps.md) | [reference/README.md](reference/README.md) |
-| [releases/v0.4/v0.4.0_compliance-matrix.md](releases/v0.4/v0.4.0_compliance-matrix.md) | [reference/4_confidential-transactions.md](reference/4_confidential-transactions.md) |
-| [releases/v0.4/v0.4.10_security-scanning.md](releases/v0.4/v0.4.10_security-scanning.md) | — |
-| [releases/v0.4/v0.4.12_CLI_COMMANDS.md](releases/v0.4/v0.4.12_CLI_COMMANDS.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_DAO_PROPOSAL_SYSTEM.md](releases/v0.4/v0.4.12_DAO_PROPOSAL_SYSTEM.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_DATABASE_SCHEMA.md](releases/v0.4/v0.4.12_DATABASE_SCHEMA.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_GOVERNANCE_API.md](releases/v0.4/v0.4.12_GOVERNANCE_API.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_GOVERNANCE_TOKEN_SYSTEM.md](releases/v0.4/v0.4.12_GOVERNANCE_TOKEN_SYSTEM.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_MARKETPLACE_GOVERNANCE.md](releases/v0.4/v0.4.12_MARKETPLACE_GOVERNANCE.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_RISK_ASSESSMENT.md](releases/v0.4/v0.4.12_RISK_ASSESSMENT.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_ROLLBACK_PLAN.md](releases/v0.4/v0.4.12_ROLLBACK_PLAN.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_SECURITY.md](releases/v0.4/v0.4.12_SECURITY.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_SMART_CONTRACTS.md](releases/v0.4/v0.4.12_SMART_CONTRACTS.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_TOKENOMICS.md](releases/v0.4/v0.4.12_TOKENOMICS.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_VOTING_MECHANISMS.md](releases/v0.4/v0.4.12_VOTING_MECHANISMS.md) | [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) |
-| [releases/v0.4/v0.4.12_changelog.md](releases/v0.4/v0.4.12_changelog.md) | — |
-| [releases/v0.4/v0.4.13_17_windsurf-testing.md](releases/v0.4/v0.4.13_17_windsurf-testing.md) | — |
-| [releases/v0.4/v0.4.13_MAINTENANCE_FIXES_2026-06-07.md](releases/v0.4/v0.4.13_MAINTENANCE_FIXES_2026-06-07.md) | — |
-| [releases/v0.4/v0.4.13_PYENV_MIGRATION_2026-06-07.md](releases/v0.4/v0.4.13_PYENV_MIGRATION_2026-06-07.md) | — |
-| [releases/v0.4/v0.4.13_SECURITY_VULNERABILITIES_2026-06-07.md](releases/v0.4/v0.4.13_SECURITY_VULNERABILITIES_2026-06-07.md) | — |
-| [releases/v0.4/v0.4.15_REQUIREMENTS.md](releases/v0.4/v0.4.15_REQUIREMENTS.md) | — |
-| [releases/v0.4/v0.4.16_CACHE_CONSOLIDATION.md](releases/v0.4/v0.4.16_CACHE_CONSOLIDATION.md) | [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) |
-| [releases/v0.4/v0.4.16_CACHE_CONSOLIDATION_SUMMARY.md](releases/v0.4/v0.4.16_CACHE_CONSOLIDATION_SUMMARY.md) | — |
-| [releases/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION.md](releases/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION.md) | [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) |
-| [releases/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION_SUMMARY.md](releases/v0.4/v0.4.16_HTTP_CLIENT_CONSOLIDATION_SUMMARY.md) | — |
-| [releases/v0.4/v0.4.16_MIGRATION_GUIDE.md](releases/v0.4/v0.4.16_MIGRATION_GUIDE.md) | [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) |
-| [releases/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN.md](releases/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN.md) | [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) |
-| [releases/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN_PLAN.md](releases/v0.4/v0.4.16_MONOLITHIC_FILES_BREAKDOWN_PLAN.md) | — |
-| [releases/v0.4/v0.4.16_MONOLITHIC_FILES_FINAL_REPORT.md](releases/v0.4/v0.4.16_MONOLITHIC_FILES_FINAL_REPORT.md) | — |
-| [releases/v0.4/v0.4.16_MONOLITHIC_FILES_PROGRESS_REPORT.md](releases/v0.4/v0.4.16_MONOLITHIC_FILES_PROGRESS_REPORT.md) | — |
-| [releases/v0.4/v0.4.16_OPERATIONAL_FIXES.md](releases/v0.4/v0.4.16_OPERATIONAL_FIXES.md) | [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) |
-| [releases/v0.4/v0.4.16_REFACTORING_COMPLETION_REPORT.md](releases/v0.4/v0.4.16_REFACTORING_COMPLETION_REPORT.md) | — |
-| [releases/v0.4/v0.4.16_REFACTORING_PLAN.md](releases/v0.4/v0.4.16_REFACTORING_PLAN.md) | — |
-| [releases/v0.4/v0.4.16_SECURITY_FIXES.md](releases/v0.4/v0.4.16_SECURITY_FIXES.md) | [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) |
-| [releases/v0.4/v0.4.16_SECURITY_FIXES_SUMMARY.md](releases/v0.4/v0.4.16_SECURITY_FIXES_SUMMARY.md) | — |
-| [releases/v0.4/v0.4.16_changelog.md](releases/v0.4/v0.4.16_changelog.md) | [releases/README.md](releases/README.md) |
-| [releases/v0.4/v0.4.19_TYPE_CHECKING_GUIDE.md](releases/v0.4/v0.4.19_TYPE_CHECKING_GUIDE.md) | — |
-| [releases/v0.4/v0.4.22_BLOCKCHAIN_NODE_MYPY_FIXES.md](releases/v0.4/v0.4.22_BLOCKCHAIN_NODE_MYPY_FIXES.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_EXTENDED_MYPY_COMPLIANCE.md](releases/v0.4/v0.4.22_EXTENDED_MYPY_COMPLIANCE.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_PRE_COMMIT_HOOKS.md](releases/v0.4/v0.4.22_PRE_COMMIT_HOOKS.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_PRE_COMMIT_HOOKS_GUIDE.md](releases/v0.4/v0.4.22_PRE_COMMIT_HOOKS_GUIDE.md) | — |
-| [releases/v0.4/v0.4.22_RUNTIME_ERROR_FIXES.md](releases/v0.4/v0.4.22_RUNTIME_ERROR_FIXES.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_SERVICE_CONFIGURATION_DRIFT.md](releases/v0.4/v0.4.22_SERVICE_CONFIGURATION_DRIFT.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_STRICT_MYPY_OPTIONS.md](releases/v0.4/v0.4.22_STRICT_MYPY_OPTIONS.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_SYS_PATH_REMOVAL.md](releases/v0.4/v0.4.22_SYS_PATH_REMOVAL.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_TEST_COVERAGE_IMPROVEMENTS.md](releases/v0.4/v0.4.22_TEST_COVERAGE_IMPROVEMENTS.md) | [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) |
-| [releases/v0.4/v0.4.22_changelog.md](releases/v0.4/v0.4.22_changelog.md) | — |
-| [releases/v0.4/v0.4.23_ARCHITECTURE_REFACTORING.md](releases/v0.4/v0.4.23_ARCHITECTURE_REFACTORING.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_B008_LINT_REFACTOR.md](releases/v0.4/v0.4.23_B008_LINT_REFACTOR.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_CI_CD_IMPROVEMENTS.md](releases/v0.4/v0.4.23_CI_CD_IMPROVEMENTS.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_DOCUMENTATION_VALIDATION.md](releases/v0.4/v0.4.23_DOCUMENTATION_VALIDATION.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_INTEGRATION_TEST_DB_SETUP.md](releases/v0.4/v0.4.23_INTEGRATION_TEST_DB_SETUP.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_LOGGING_STANDARDIZATION.md](releases/v0.4/v0.4.23_LOGGING_STANDARDIZATION.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_OBSERVABILITY_ENHANCEMENT.md](releases/v0.4/v0.4.23_OBSERVABILITY_ENHANCEMENT.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_OPENAPI_SPEC_GENERATION.md](releases/v0.4/v0.4.23_OPENAPI_SPEC_GENERATION.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_OPENTELEMETRY_COLLECTOR.md](releases/v0.4/v0.4.23_OPENTELEMETRY_COLLECTOR.md) | [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_SECURITY_HARDENING.md](releases/v0.4/v0.4.23_SECURITY_HARDENING.md) | [infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md](infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md), [infrastructure/README.md](infrastructure/README.md), [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) |
-| [releases/v0.4/v0.4.23_changelog.md](releases/v0.4/v0.4.23_changelog.md) | — |
-| [releases/v0.4/v0.4.24_REFACTORING_PLAN.md](releases/v0.4/v0.4.24_REFACTORING_PLAN.md) | — |
-| [releases/v0.4/v0.4.25_EVENT_DRIVEN_CACHE_STRATEGY.md](releases/v0.4/v0.4.25_EVENT_DRIVEN_CACHE_STRATEGY.md) | — |
-| [releases/v0.4/v0.4.25_SYSPATH_DEBT.md](releases/v0.4/v0.4.25_SYSPATH_DEBT.md) | — |
-| [releases/v0.4/v0.4.25_logging-patterns.md](releases/v0.4/v0.4.25_logging-patterns.md) | — |
-| [releases/v0.4/v0.4.26_AGENT_A.md](releases/v0.4/v0.4.26_AGENT_A.md) | — |
-| [releases/v0.4/v0.4.26_AGENT_A_COMPLETED.md](releases/v0.4/v0.4.26_AGENT_A_COMPLETED.md) | — |
-| [releases/v0.4/v0.4.26_AGENT_B.md](releases/v0.4/v0.4.26_AGENT_B.md) | — |
-| [releases/v0.4/v0.4.26_AGENT_B_COMPLETED.md](releases/v0.4/v0.4.26_AGENT_B_COMPLETED.md) | — |
-| [releases/v0.4/v0.4.26_AUTH_MIGRATION_GUIDE.md](releases/v0.4/v0.4.26_AUTH_MIGRATION_GUIDE.md) | — |
-| [releases/v0.4/v0.4.26_AUTH_MIGRATION_SPLIT_PLAN.md](releases/v0.4/v0.4.26_AUTH_MIGRATION_SPLIT_PLAN.md) | — |
-| [releases/v0.4/v0.4.26_DEPENDENCIES.md](releases/v0.4/v0.4.26_DEPENDENCIES.md) | [deployment/DEPENDENCIES.md](deployment/DEPENDENCIES.md) |
-| [releases/v0.4/v0.4.26_GOAL_23_LIFECYCLE_IMPLEMENTATION.md](releases/v0.4/v0.4.26_GOAL_23_LIFECYCLE_IMPLEMENTATION.md) | — |
-| [releases/v0.4/v0.4.26_GOAL_36_AUTH_PLAN.md](releases/v0.4/v0.4.26_GOAL_36_AUTH_PLAN.md) | — |
-| [releases/v0.4/v0.4.26_REFACTORING_PLANS.md](releases/v0.4/v0.4.26_REFACTORING_PLANS.md) | — |
-| [releases/v0.4/v0.4.26_SERVICE_WRAPPERS.md](releases/v0.4/v0.4.26_SERVICE_WRAPPERS.md) | — |
-| [releases/v0.4/v0.4.26_issue.md](releases/v0.4/v0.4.26_issue.md) | — |
-| [releases/v0.4/v0.4.27_AGENT_A.md](releases/v0.4/v0.4.27_AGENT_A.md) | — |
-| [releases/v0.4/v0.4.27_AGENT_B.md](releases/v0.4/v0.4.27_AGENT_B.md) | — |
-| [releases/v0.4/v0.4.2_zk-circuits.md](releases/v0.4/v0.4.2_zk-circuits.md) | [architecture/2_components-overview.md](architecture/2_components-overview.md) |
-| [releases/v0.4/v0.4.4_AGENT_COORDINATOR.md](releases/v0.4/v0.4.4_AGENT_COORDINATOR.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_BLOCKCHAIN_RPC.md](releases/v0.4/v0.4.4_BLOCKCHAIN_RPC.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_ENVIRONMENT_CONFIG.md](releases/v0.4/v0.4.4_ENVIRONMENT_CONFIG.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_HERMES_MESSAGING.md](releases/v0.4/v0.4.4_HERMES_MESSAGING.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_MICROSERVICES_CONSOLIDATION.md](releases/v0.4/v0.4.4_MICROSERVICES_CONSOLIDATION.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_PORT_ARCHITECTURE.md](releases/v0.4/v0.4.4_PORT_ARCHITECTURE.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_WALLET_DAEMON.md](releases/v0.4/v0.4.4_WALLET_DAEMON.md) | [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) |
-| [releases/v0.4/v0.4.4_changelog.md](releases/v0.4/v0.4.4_changelog.md) | [releases/README.md](releases/README.md) |
-| [releases/v0.4/v0.4.6_ADVANCED_AGENT_COMMUNICATION.md](releases/v0.4/v0.4.6_ADVANCED_AGENT_COMMUNICATION.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_AGENT_COMMUNICATION_API.md](releases/v0.4/v0.4.6_AGENT_COMMUNICATION_API.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_BUG_FIXES.md](releases/v0.4/v0.4.6_BUG_FIXES.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_CLI_ENHANCEMENTS.md](releases/v0.4/v0.4.6_CLI_ENHANCEMENTS.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_DATA_PERSISTENCE.md](releases/v0.4/v0.4.6_DATA_PERSISTENCE.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_REPUTATION_BLOCKCHAIN_INTEGRATION.md](releases/v0.4/v0.4.6_REPUTATION_BLOCKCHAIN_INTEGRATION.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_SERVICE_REPUTATION_SYSTEM.md](releases/v0.4/v0.4.6_SERVICE_REPUTATION_SYSTEM.md) | [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) |
-| [releases/v0.4/v0.4.6_changelog.md](releases/v0.4/v0.4.6_changelog.md) | [releases/README.md](releases/README.md) |
-| [releases/v0.4/v0.4.7_CROSS_NODE_MESSAGING.md](releases/v0.4/v0.4.7_CROSS_NODE_MESSAGING.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_CROSS_NODE_RATING_SYNC.md](releases/v0.4/v0.4.7_CROSS_NODE_RATING_SYNC.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_FFMPEG_SERVICE.md](releases/v0.4/v0.4.7_FFMPEG_SERVICE.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_HARDWARE_SOFTWARE_BUNDLES.md](releases/v0.4/v0.4.7_HARDWARE_SOFTWARE_BUNDLES.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_MULTI_GPU_SUPPORT.md](releases/v0.4/v0.4.7_MULTI_GPU_SUPPORT.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_MULTI_MODEL_OLLAMA.md](releases/v0.4/v0.4.7_MULTI_MODEL_OLLAMA.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_PLUGIN_SERVICE_MIGRATION.md](releases/v0.4/v0.4.7_PLUGIN_SERVICE_MIGRATION.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_SERVICE_REPUTATION.md](releases/v0.4/v0.4.7_SERVICE_REPUTATION.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_SERVICE_STABILITY_FIXES.md](releases/v0.4/v0.4.7_SERVICE_STABILITY_FIXES.md) | [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) |
-| [releases/v0.4/v0.4.7_changelog.md](releases/v0.4/v0.4.7_changelog.md) | [releases/README.md](releases/README.md) |
-| [releases/v0.5/v0.5.0_systemd-hardening-report.md](releases/v0.5/v0.5.0_systemd-hardening-report.md) | — |
-| [releases/v0.5/v0.5.10_follower-instructions.md](releases/v0.5/v0.5.10_follower-instructions.md) | [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md), [releases/v0.5/v0.5.10_migration-steps.md](releases/v0.5/v0.5.10_migration-steps.md), [releases/v0.5/v0.5.10_overview.md](releases/v0.5/v0.5.10_overview.md), +1 more |
-| [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md) | — |
-| [releases/v0.5/v0.5.10_migration-steps.md](releases/v0.5/v0.5.10_migration-steps.md) | [releases/v0.5/v0.5.10_follower-instructions.md](releases/v0.5/v0.5.10_follower-instructions.md), [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md), [releases/v0.5/v0.5.10_overview.md](releases/v0.5/v0.5.10_overview.md), +3 more |
-| [releases/v0.5/v0.5.10_overview.md](releases/v0.5/v0.5.10_overview.md) | [releases/v0.5/v0.5.10_follower-instructions.md](releases/v0.5/v0.5.10_follower-instructions.md), [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md), [releases/v0.5/v0.5.10_migration-steps.md](releases/v0.5/v0.5.10_migration-steps.md), +3 more |
-| [releases/v0.5/v0.5.10_pre-flight-checks.md](releases/v0.5/v0.5.10_pre-flight-checks.md) | [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md), [releases/v0.5/v0.5.10_migration-steps.md](releases/v0.5/v0.5.10_migration-steps.md), [releases/v0.5/v0.5.10_overview.md](releases/v0.5/v0.5.10_overview.md) |
-| [releases/v0.5/v0.5.10_rollback.md](releases/v0.5/v0.5.10_rollback.md) | [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md), [releases/v0.5/v0.5.10_migration-steps.md](releases/v0.5/v0.5.10_migration-steps.md), [releases/v0.5/v0.5.10_overview.md](releases/v0.5/v0.5.10_overview.md), +1 more |
-| [releases/v0.5/v0.5.10_troubleshooting.md](releases/v0.5/v0.5.10_troubleshooting.md) | [releases/v0.5/v0.5.10_follower-instructions.md](releases/v0.5/v0.5.10_follower-instructions.md), [releases/v0.5/v0.5.10_migrate-hub.md](releases/v0.5/v0.5.10_migrate-hub.md), [releases/v0.5/v0.5.10_migration-steps.md](releases/v0.5/v0.5.10_migration-steps.md), +2 more |
-| [releases/v0.5/v0.5.11_AGENTS.md](releases/v0.5/v0.5.11_AGENTS.md) | — |
-| [releases/v0.5/v0.5.11_agent-a.md](releases/v0.5/v0.5.11_agent-a.md) | [releases/v0.5/v0.5.11_AGENTS.md](releases/v0.5/v0.5.11_AGENTS.md), [releases/v0.5/v0.5.11_agent-b.md](releases/v0.5/v0.5.11_agent-b.md), [releases/v0.5/v0.5.11_overview.md](releases/v0.5/v0.5.11_overview.md) |
-| [releases/v0.5/v0.5.11_agent-b.md](releases/v0.5/v0.5.11_agent-b.md) | [releases/v0.5/v0.5.11_AGENTS.md](releases/v0.5/v0.5.11_AGENTS.md), [releases/v0.5/v0.5.11_agent-a.md](releases/v0.5/v0.5.11_agent-a.md), [releases/v0.5/v0.5.11_overview.md](releases/v0.5/v0.5.11_overview.md) |
-| [releases/v0.5/v0.5.11_overview.md](releases/v0.5/v0.5.11_overview.md) | [releases/v0.5/v0.5.11_AGENTS.md](releases/v0.5/v0.5.11_AGENTS.md), [releases/v0.5/v0.5.11_agent-a.md](releases/v0.5/v0.5.11_agent-a.md), [releases/v0.5/v0.5.11_agent-b.md](releases/v0.5/v0.5.11_agent-b.md) |
-| [releases/v0.5/v0.5.12_p2_cross_context_import_audit.md](releases/v0.5/v0.5.12_p2_cross_context_import_audit.md) | — |
-| [releases/v0.5/v0.5.12_p4_agent_coordinator_boundary_decision.md](releases/v0.5/v0.5.12_p4_agent_coordinator_boundary_decision.md) | — |
-| [releases/v0.5/v0.5.13_agent_coordinator_boundary.md](releases/v0.5/v0.5.13_agent_coordinator_boundary.md) | — |
-| [releases/v0.5/v0.5.13_context_import_audit.md](releases/v0.5/v0.5.13_context_import_audit.md) | — |
-| [releases/v0.5/v0.5.13_orphan_models_audit.md](releases/v0.5/v0.5.13_orphan_models_audit.md) | — |
-| [releases/v0.5/v0.5.16_suggestions.md](releases/v0.5/v0.5.16_suggestions.md) | — |
-| [releases/v0.5/v0.5.16_tasks.md](releases/v0.5/v0.5.16_tasks.md) | — |
-| [releases/v0.5/v0.5.17_AGENTS.md](releases/v0.5/v0.5.17_AGENTS.md) | — |
-| [releases/v0.5/v0.5.17_agent-a.md](releases/v0.5/v0.5.17_agent-a.md) | [releases/v0.5/v0.5.17_AGENTS.md](releases/v0.5/v0.5.17_AGENTS.md), [releases/v0.5/v0.5.17_agent-b.md](releases/v0.5/v0.5.17_agent-b.md), [releases/v0.5/v0.5.17_overview.md](releases/v0.5/v0.5.17_overview.md) |
-| [releases/v0.5/v0.5.17_agent-b.md](releases/v0.5/v0.5.17_agent-b.md) | [releases/v0.5/v0.5.17_AGENTS.md](releases/v0.5/v0.5.17_AGENTS.md), [releases/v0.5/v0.5.17_agent-a.md](releases/v0.5/v0.5.17_agent-a.md), [releases/v0.5/v0.5.17_overview.md](releases/v0.5/v0.5.17_overview.md) |
-| [releases/v0.5/v0.5.17_overview.md](releases/v0.5/v0.5.17_overview.md) | [releases/v0.5/v0.5.17_AGENTS.md](releases/v0.5/v0.5.17_AGENTS.md), [releases/v0.5/v0.5.17_agent-a.md](releases/v0.5/v0.5.17_agent-a.md), [releases/v0.5/v0.5.17_agent-b.md](releases/v0.5/v0.5.17_agent-b.md) |
-| [releases/v0.5/v0.5.17_suggestions.md](releases/v0.5/v0.5.17_suggestions.md) | — |
-| [releases/v0.5/v0.5.18_AGENTS.md](releases/v0.5/v0.5.18_AGENTS.md) | — |
-| [releases/v0.5/v0.5.18_agent-a.md](releases/v0.5/v0.5.18_agent-a.md) | [releases/v0.5/v0.5.18_AGENTS.md](releases/v0.5/v0.5.18_AGENTS.md), [releases/v0.5/v0.5.18_agent-b.md](releases/v0.5/v0.5.18_agent-b.md), [releases/v0.5/v0.5.18_overview.md](releases/v0.5/v0.5.18_overview.md) |
-| [releases/v0.5/v0.5.18_agent-b.md](releases/v0.5/v0.5.18_agent-b.md) | [releases/v0.5/v0.5.18_AGENTS.md](releases/v0.5/v0.5.18_AGENTS.md), [releases/v0.5/v0.5.18_agent-a.md](releases/v0.5/v0.5.18_agent-a.md), [releases/v0.5/v0.5.18_overview.md](releases/v0.5/v0.5.18_overview.md) |
-| [releases/v0.5/v0.5.18_overview.md](releases/v0.5/v0.5.18_overview.md) | [releases/v0.5/v0.5.18_AGENTS.md](releases/v0.5/v0.5.18_AGENTS.md), [releases/v0.5/v0.5.18_agent-a.md](releases/v0.5/v0.5.18_agent-a.md), [releases/v0.5/v0.5.18_agent-b.md](releases/v0.5/v0.5.18_agent-b.md) |
-| [releases/v0.5/v0.5.18_suggestions.md](releases/v0.5/v0.5.18_suggestions.md) | — |
-| [releases/v0.5/v0.5.19_AGENTS.md](releases/v0.5/v0.5.19_AGENTS.md) | — |
-| [releases/v0.5/v0.5.19_agent-a.md](releases/v0.5/v0.5.19_agent-a.md) | [releases/v0.5/v0.5.19_AGENTS.md](releases/v0.5/v0.5.19_AGENTS.md), [releases/v0.5/v0.5.19_agent-b.md](releases/v0.5/v0.5.19_agent-b.md), [releases/v0.5/v0.5.19_overview.md](releases/v0.5/v0.5.19_overview.md) |
-| [releases/v0.5/v0.5.19_agent-b.md](releases/v0.5/v0.5.19_agent-b.md) | [releases/v0.5/v0.5.19_AGENTS.md](releases/v0.5/v0.5.19_AGENTS.md), [releases/v0.5/v0.5.19_agent-a.md](releases/v0.5/v0.5.19_agent-a.md), [releases/v0.5/v0.5.19_overview.md](releases/v0.5/v0.5.19_overview.md) |
-| [releases/v0.5/v0.5.19_overview.md](releases/v0.5/v0.5.19_overview.md) | [releases/v0.5/v0.5.19_AGENTS.md](releases/v0.5/v0.5.19_AGENTS.md), [releases/v0.5/v0.5.19_agent-a.md](releases/v0.5/v0.5.19_agent-a.md), [releases/v0.5/v0.5.19_agent-b.md](releases/v0.5/v0.5.19_agent-b.md) |
-| [releases/v0.5/v0.5.19_suggestions.md](releases/v0.5/v0.5.19_suggestions.md) | — |
-| [releases/v0.6/v0.6.0_AGENTS.md](releases/v0.6/v0.6.0_AGENTS.md) | — |
-| [releases/v0.6/v0.6.0_agent-a.md](releases/v0.6/v0.6.0_agent-a.md) | [releases/v0.6/v0.6.0_AGENTS.md](releases/v0.6/v0.6.0_AGENTS.md), [releases/v0.6/v0.6.0_agent-b.md](releases/v0.6/v0.6.0_agent-b.md), [releases/v0.6/v0.6.0_overview.md](releases/v0.6/v0.6.0_overview.md) |
-| [releases/v0.6/v0.6.0_agent-b.md](releases/v0.6/v0.6.0_agent-b.md) | [releases/v0.6/v0.6.0_AGENTS.md](releases/v0.6/v0.6.0_AGENTS.md), [releases/v0.6/v0.6.0_agent-a.md](releases/v0.6/v0.6.0_agent-a.md), [releases/v0.6/v0.6.0_overview.md](releases/v0.6/v0.6.0_overview.md) |
-| [releases/v0.6/v0.6.0_overview.md](releases/v0.6/v0.6.0_overview.md) | [releases/v0.6/v0.6.0_AGENTS.md](releases/v0.6/v0.6.0_AGENTS.md), [releases/v0.6/v0.6.0_agent-a.md](releases/v0.6/v0.6.0_agent-a.md), [releases/v0.6/v0.6.0_agent-b.md](releases/v0.6/v0.6.0_agent-b.md) |
-| [releases/v0.6/v0.6.0_suggestions.md](releases/v0.6/v0.6.0_suggestions.md) | — |
-| [releases/v0.6/v0.6.1_AGENTS.md](releases/v0.6/v0.6.1_AGENTS.md) | — |
-| [releases/v0.6/v0.6.1_agent-a.md](releases/v0.6/v0.6.1_agent-a.md) | [releases/v0.6/v0.6.1_AGENTS.md](releases/v0.6/v0.6.1_AGENTS.md), [releases/v0.6/v0.6.1_agent-b.md](releases/v0.6/v0.6.1_agent-b.md), [releases/v0.6/v0.6.1_overview.md](releases/v0.6/v0.6.1_overview.md) |
-| [releases/v0.6/v0.6.1_agent-b.md](releases/v0.6/v0.6.1_agent-b.md) | [releases/v0.6/v0.6.1_AGENTS.md](releases/v0.6/v0.6.1_AGENTS.md), [releases/v0.6/v0.6.1_agent-a.md](releases/v0.6/v0.6.1_agent-a.md), [releases/v0.6/v0.6.1_overview.md](releases/v0.6/v0.6.1_overview.md) |
-| [releases/v0.6/v0.6.1_overview.md](releases/v0.6/v0.6.1_overview.md) | [releases/v0.6/v0.6.1_AGENTS.md](releases/v0.6/v0.6.1_AGENTS.md), [releases/v0.6/v0.6.1_agent-a.md](releases/v0.6/v0.6.1_agent-a.md), [releases/v0.6/v0.6.1_agent-b.md](releases/v0.6/v0.6.1_agent-b.md) |
-| [releases/v0.6/v0.6.1_suggestions.md](releases/v0.6/v0.6.1_suggestions.md) | — |
-| [releases/v0.6/v0.6.2_AGENTS.md](releases/v0.6/v0.6.2_AGENTS.md) | — |
-| [releases/v0.6/v0.6.2_agent-a.md](releases/v0.6/v0.6.2_agent-a.md) | [releases/v0.6/v0.6.2_AGENTS.md](releases/v0.6/v0.6.2_AGENTS.md), [releases/v0.6/v0.6.2_agent-b.md](releases/v0.6/v0.6.2_agent-b.md), [releases/v0.6/v0.6.2_overview.md](releases/v0.6/v0.6.2_overview.md) |
-| [releases/v0.6/v0.6.2_agent-b.md](releases/v0.6/v0.6.2_agent-b.md) | [releases/v0.6/v0.6.2_AGENTS.md](releases/v0.6/v0.6.2_AGENTS.md), [releases/v0.6/v0.6.2_agent-a.md](releases/v0.6/v0.6.2_agent-a.md), [releases/v0.6/v0.6.2_overview.md](releases/v0.6/v0.6.2_overview.md) |
-| [releases/v0.6/v0.6.2_overview.md](releases/v0.6/v0.6.2_overview.md) | [releases/v0.6/v0.6.2_AGENTS.md](releases/v0.6/v0.6.2_AGENTS.md), [releases/v0.6/v0.6.2_agent-a.md](releases/v0.6/v0.6.2_agent-a.md), [releases/v0.6/v0.6.2_agent-b.md](releases/v0.6/v0.6.2_agent-b.md) |
-| [releases/v0.6/v0.6.2_suggestions.md](releases/v0.6/v0.6.2_suggestions.md) | — |
-| [releases/v0.6/v0.6.3_AGENTS.md](releases/v0.6/v0.6.3_AGENTS.md) | — |
-| [releases/v0.6/v0.6.3_agent-a.md](releases/v0.6/v0.6.3_agent-a.md) | [releases/v0.6/v0.6.3_AGENTS.md](releases/v0.6/v0.6.3_AGENTS.md), [releases/v0.6/v0.6.3_agent-b.md](releases/v0.6/v0.6.3_agent-b.md), [releases/v0.6/v0.6.3_overview.md](releases/v0.6/v0.6.3_overview.md) |
-| [releases/v0.6/v0.6.3_agent-b.md](releases/v0.6/v0.6.3_agent-b.md) | [releases/v0.6/v0.6.3_AGENTS.md](releases/v0.6/v0.6.3_AGENTS.md), [releases/v0.6/v0.6.3_agent-a.md](releases/v0.6/v0.6.3_agent-a.md), [releases/v0.6/v0.6.3_overview.md](releases/v0.6/v0.6.3_overview.md) |
-| [releases/v0.6/v0.6.3_overview.md](releases/v0.6/v0.6.3_overview.md) | [releases/v0.6/v0.6.3_AGENTS.md](releases/v0.6/v0.6.3_AGENTS.md), [releases/v0.6/v0.6.3_agent-a.md](releases/v0.6/v0.6.3_agent-a.md), [releases/v0.6/v0.6.3_agent-b.md](releases/v0.6/v0.6.3_agent-b.md) |
-| [releases/v0.6/v0.6.3_suggestions.md](releases/v0.6/v0.6.3_suggestions.md) | — |
-| [releases/v0.6/v0.6.4_AGENTS.md](releases/v0.6/v0.6.4_AGENTS.md) | — |
-| [releases/v0.6/v0.6.4_agent-a.md](releases/v0.6/v0.6.4_agent-a.md) | [releases/v0.6/v0.6.4_AGENTS.md](releases/v0.6/v0.6.4_AGENTS.md), [releases/v0.6/v0.6.4_agent-b.md](releases/v0.6/v0.6.4_agent-b.md), [releases/v0.6/v0.6.4_overview.md](releases/v0.6/v0.6.4_overview.md) |
-| [releases/v0.6/v0.6.4_agent-b.md](releases/v0.6/v0.6.4_agent-b.md) | [releases/v0.6/v0.6.4_AGENTS.md](releases/v0.6/v0.6.4_AGENTS.md), [releases/v0.6/v0.6.4_agent-a.md](releases/v0.6/v0.6.4_agent-a.md), [releases/v0.6/v0.6.4_overview.md](releases/v0.6/v0.6.4_overview.md) |
-| [releases/v0.6/v0.6.4_overview.md](releases/v0.6/v0.6.4_overview.md) | [releases/v0.6/v0.6.4_AGENTS.md](releases/v0.6/v0.6.4_AGENTS.md), [releases/v0.6/v0.6.4_agent-a.md](releases/v0.6/v0.6.4_agent-a.md), [releases/v0.6/v0.6.4_agent-b.md](releases/v0.6/v0.6.4_agent-b.md) |
-| [releases/v0.6/v0.6.4_suggestions.md](releases/v0.6/v0.6.4_suggestions.md) | — |
-| [releases/v0.6/v0.6.5_AGENTS.md](releases/v0.6/v0.6.5_AGENTS.md) | — |
-| [releases/v0.6/v0.6.5_agent-a.md](releases/v0.6/v0.6.5_agent-a.md) | [releases/v0.6/v0.6.5_AGENTS.md](releases/v0.6/v0.6.5_AGENTS.md), [releases/v0.6/v0.6.5_agent-b.md](releases/v0.6/v0.6.5_agent-b.md), [releases/v0.6/v0.6.5_overview.md](releases/v0.6/v0.6.5_overview.md) |
-| [releases/v0.6/v0.6.5_agent-b.md](releases/v0.6/v0.6.5_agent-b.md) | [releases/v0.6/v0.6.5_AGENTS.md](releases/v0.6/v0.6.5_AGENTS.md), [releases/v0.6/v0.6.5_agent-a.md](releases/v0.6/v0.6.5_agent-a.md), [releases/v0.6/v0.6.5_overview.md](releases/v0.6/v0.6.5_overview.md) |
-| [releases/v0.6/v0.6.5_overview.md](releases/v0.6/v0.6.5_overview.md) | [releases/v0.6/v0.6.5_AGENTS.md](releases/v0.6/v0.6.5_AGENTS.md), [releases/v0.6/v0.6.5_agent-a.md](releases/v0.6/v0.6.5_agent-a.md), [releases/v0.6/v0.6.5_agent-b.md](releases/v0.6/v0.6.5_agent-b.md) |
-| [releases/v0.6/v0.6.5_suggestions.md](releases/v0.6/v0.6.5_suggestions.md) | — |
-| [releases/v0.6/v0.6.6_AGENTS.md](releases/v0.6/v0.6.6_AGENTS.md) | — |
-| [releases/v0.6/v0.6.6_agent-a.md](releases/v0.6/v0.6.6_agent-a.md) | [releases/v0.6/v0.6.6_AGENTS.md](releases/v0.6/v0.6.6_AGENTS.md), [releases/v0.6/v0.6.6_agent-b.md](releases/v0.6/v0.6.6_agent-b.md), [releases/v0.6/v0.6.6_overview.md](releases/v0.6/v0.6.6_overview.md) |
-| [releases/v0.6/v0.6.6_agent-b.md](releases/v0.6/v0.6.6_agent-b.md) | [releases/v0.6/v0.6.6_AGENTS.md](releases/v0.6/v0.6.6_AGENTS.md), [releases/v0.6/v0.6.6_agent-a.md](releases/v0.6/v0.6.6_agent-a.md), [releases/v0.6/v0.6.6_overview.md](releases/v0.6/v0.6.6_overview.md) |
-| [releases/v0.6/v0.6.6_overview.md](releases/v0.6/v0.6.6_overview.md) | [releases/v0.6/v0.6.6_AGENTS.md](releases/v0.6/v0.6.6_AGENTS.md), [releases/v0.6/v0.6.6_agent-a.md](releases/v0.6/v0.6.6_agent-a.md), [releases/v0.6/v0.6.6_agent-b.md](releases/v0.6/v0.6.6_agent-b.md) |
-| [releases/v0.6/v0.6.6_suggestions.md](releases/v0.6/v0.6.6_suggestions.md) | — |
-| [releases/v0.6/v0.6.7_AGENTS.md](releases/v0.6/v0.6.7_AGENTS.md) | — |
-| [releases/v0.6/v0.6.7_agent-a.md](releases/v0.6/v0.6.7_agent-a.md) | [releases/v0.6/v0.6.7_AGENTS.md](releases/v0.6/v0.6.7_AGENTS.md), [releases/v0.6/v0.6.7_agent-b.md](releases/v0.6/v0.6.7_agent-b.md), [releases/v0.6/v0.6.7_overview.md](releases/v0.6/v0.6.7_overview.md) |
-| [releases/v0.6/v0.6.7_agent-b.md](releases/v0.6/v0.6.7_agent-b.md) | [releases/v0.6/v0.6.7_AGENTS.md](releases/v0.6/v0.6.7_AGENTS.md), [releases/v0.6/v0.6.7_agent-a.md](releases/v0.6/v0.6.7_agent-a.md), [releases/v0.6/v0.6.7_overview.md](releases/v0.6/v0.6.7_overview.md) |
-| [releases/v0.6/v0.6.7_overview.md](releases/v0.6/v0.6.7_overview.md) | [releases/v0.6/v0.6.7_AGENTS.md](releases/v0.6/v0.6.7_AGENTS.md), [releases/v0.6/v0.6.7_agent-a.md](releases/v0.6/v0.6.7_agent-a.md), [releases/v0.6/v0.6.7_agent-b.md](releases/v0.6/v0.6.7_agent-b.md) |
-| [releases/v0.6/v0.6.7_suggestions.md](releases/v0.6/v0.6.7_suggestions.md) | — |
-| [releases/v0.7/v0.7.0_AGENTS.md](releases/v0.7/v0.7.0_AGENTS.md) | — |
-| [releases/v0.7/v0.7.0_agent-a.md](releases/v0.7/v0.7.0_agent-a.md) | [releases/v0.7/v0.7.0_AGENTS.md](releases/v0.7/v0.7.0_AGENTS.md), [releases/v0.7/v0.7.0_agent-b.md](releases/v0.7/v0.7.0_agent-b.md), [releases/v0.7/v0.7.0_overview.md](releases/v0.7/v0.7.0_overview.md) |
-| [releases/v0.7/v0.7.0_agent-b.md](releases/v0.7/v0.7.0_agent-b.md) | [releases/v0.7/v0.7.0_AGENTS.md](releases/v0.7/v0.7.0_AGENTS.md), [releases/v0.7/v0.7.0_agent-a.md](releases/v0.7/v0.7.0_agent-a.md), [releases/v0.7/v0.7.0_overview.md](releases/v0.7/v0.7.0_overview.md) |
-| [releases/v0.7/v0.7.0_overview.md](releases/v0.7/v0.7.0_overview.md) | [releases/v0.7/v0.7.0_AGENTS.md](releases/v0.7/v0.7.0_AGENTS.md), [releases/v0.7/v0.7.0_agent-a.md](releases/v0.7/v0.7.0_agent-a.md), [releases/v0.7/v0.7.0_agent-b.md](releases/v0.7/v0.7.0_agent-b.md) |
-| [releases/v0.7/v0.7.0_suggestions.md](releases/v0.7/v0.7.0_suggestions.md) | — |
-| [releases/v0.7/v0.7.1_AGENTS.md](releases/v0.7/v0.7.1_AGENTS.md) | — |
-| [releases/v0.7/v0.7.1_agent-a.md](releases/v0.7/v0.7.1_agent-a.md) | [releases/v0.7/v0.7.1_AGENTS.md](releases/v0.7/v0.7.1_AGENTS.md), [releases/v0.7/v0.7.1_agent-b.md](releases/v0.7/v0.7.1_agent-b.md), [releases/v0.7/v0.7.1_overview.md](releases/v0.7/v0.7.1_overview.md) |
-| [releases/v0.7/v0.7.1_agent-b.md](releases/v0.7/v0.7.1_agent-b.md) | [releases/v0.7/v0.7.1_AGENTS.md](releases/v0.7/v0.7.1_AGENTS.md), [releases/v0.7/v0.7.1_agent-a.md](releases/v0.7/v0.7.1_agent-a.md), [releases/v0.7/v0.7.1_overview.md](releases/v0.7/v0.7.1_overview.md) |
-| [releases/v0.7/v0.7.1_overview.md](releases/v0.7/v0.7.1_overview.md) | [releases/v0.7/v0.7.1_AGENTS.md](releases/v0.7/v0.7.1_AGENTS.md), [releases/v0.7/v0.7.1_agent-a.md](releases/v0.7/v0.7.1_agent-a.md), [releases/v0.7/v0.7.1_agent-b.md](releases/v0.7/v0.7.1_agent-b.md) |
-| [releases/v0.7/v0.7.1_suggestions.md](releases/v0.7/v0.7.1_suggestions.md) | — |
-| [releases/v0.7/v0.7.2_AGENTS.md](releases/v0.7/v0.7.2_AGENTS.md) | — |
-| [releases/v0.7/v0.7.2_agent-a.md](releases/v0.7/v0.7.2_agent-a.md) | [releases/v0.7/v0.7.2_AGENTS.md](releases/v0.7/v0.7.2_AGENTS.md), [releases/v0.7/v0.7.2_agent-b.md](releases/v0.7/v0.7.2_agent-b.md), [releases/v0.7/v0.7.2_overview.md](releases/v0.7/v0.7.2_overview.md) |
-| [releases/v0.7/v0.7.2_agent-b.md](releases/v0.7/v0.7.2_agent-b.md) | [releases/v0.7/v0.7.2_AGENTS.md](releases/v0.7/v0.7.2_AGENTS.md), [releases/v0.7/v0.7.2_agent-a.md](releases/v0.7/v0.7.2_agent-a.md), [releases/v0.7/v0.7.2_overview.md](releases/v0.7/v0.7.2_overview.md) |
-| [releases/v0.7/v0.7.2_overview.md](releases/v0.7/v0.7.2_overview.md) | [releases/v0.7/v0.7.2_AGENTS.md](releases/v0.7/v0.7.2_AGENTS.md), [releases/v0.7/v0.7.2_agent-a.md](releases/v0.7/v0.7.2_agent-a.md), [releases/v0.7/v0.7.2_agent-b.md](releases/v0.7/v0.7.2_agent-b.md) |
-| [releases/v0.7/v0.7.2_suggestions.md](releases/v0.7/v0.7.2_suggestions.md) | — |
-| [releases/v0.7/v0.7.3_AGENTS.md](releases/v0.7/v0.7.3_AGENTS.md) | — |
-| [releases/v0.7/v0.7.3_agent-a.md](releases/v0.7/v0.7.3_agent-a.md) | [releases/v0.7/v0.7.3_AGENTS.md](releases/v0.7/v0.7.3_AGENTS.md), [releases/v0.7/v0.7.3_agent-b.md](releases/v0.7/v0.7.3_agent-b.md), [releases/v0.7/v0.7.3_overview.md](releases/v0.7/v0.7.3_overview.md) |
-| [releases/v0.7/v0.7.3_agent-b.md](releases/v0.7/v0.7.3_agent-b.md) | [releases/v0.7/v0.7.3_AGENTS.md](releases/v0.7/v0.7.3_AGENTS.md), [releases/v0.7/v0.7.3_agent-a.md](releases/v0.7/v0.7.3_agent-a.md), [releases/v0.7/v0.7.3_overview.md](releases/v0.7/v0.7.3_overview.md) |
-| [releases/v0.7/v0.7.3_overview.md](releases/v0.7/v0.7.3_overview.md) | [releases/v0.7/v0.7.3_AGENTS.md](releases/v0.7/v0.7.3_AGENTS.md), [releases/v0.7/v0.7.3_agent-a.md](releases/v0.7/v0.7.3_agent-a.md), [releases/v0.7/v0.7.3_agent-b.md](releases/v0.7/v0.7.3_agent-b.md) |
-| [releases/v0.7/v0.7.3_suggestions.md](releases/v0.7/v0.7.3_suggestions.md) | — |
-| [releases/v0.7/v0.7.4_AGENTS.md](releases/v0.7/v0.7.4_AGENTS.md) | — |
-| [releases/v0.7/v0.7.4_agent-a.md](releases/v0.7/v0.7.4_agent-a.md) | [releases/v0.7/v0.7.4_AGENTS.md](releases/v0.7/v0.7.4_AGENTS.md), [releases/v0.7/v0.7.4_agent-b.md](releases/v0.7/v0.7.4_agent-b.md), [releases/v0.7/v0.7.4_overview.md](releases/v0.7/v0.7.4_overview.md) |
-| [releases/v0.7/v0.7.4_agent-b.md](releases/v0.7/v0.7.4_agent-b.md) | [releases/v0.7/v0.7.4_AGENTS.md](releases/v0.7/v0.7.4_AGENTS.md), [releases/v0.7/v0.7.4_agent-a.md](releases/v0.7/v0.7.4_agent-a.md), [releases/v0.7/v0.7.4_overview.md](releases/v0.7/v0.7.4_overview.md) |
-| [releases/v0.7/v0.7.4_overview.md](releases/v0.7/v0.7.4_overview.md) | [releases/v0.7/v0.7.4_AGENTS.md](releases/v0.7/v0.7.4_AGENTS.md), [releases/v0.7/v0.7.4_agent-a.md](releases/v0.7/v0.7.4_agent-a.md), [releases/v0.7/v0.7.4_agent-b.md](releases/v0.7/v0.7.4_agent-b.md) |
-| [releases/v0.7/v0.7.4_security-review-multivalidator-poa.md](releases/v0.7/v0.7.4_security-review-multivalidator-poa.md) | [releases/v0.7/v0.7.4_AGENTS.md](releases/v0.7/v0.7.4_AGENTS.md), [releases/v0.7/v0.7.5_AGENTS.md](releases/v0.7/v0.7.5_AGENTS.md), [releases/v0.7/v0.7.5_overview.md](releases/v0.7/v0.7.5_overview.md) |
-| [releases/v0.7/v0.7.4_suggestions.md](releases/v0.7/v0.7.4_suggestions.md) | — |
-| [releases/v0.7/v0.7.5_AGENTS.md](releases/v0.7/v0.7.5_AGENTS.md) | — |
-| [releases/v0.7/v0.7.5_agent-a.md](releases/v0.7/v0.7.5_agent-a.md) | [releases/v0.7/v0.7.5_AGENTS.md](releases/v0.7/v0.7.5_AGENTS.md), [releases/v0.7/v0.7.5_agent-b.md](releases/v0.7/v0.7.5_agent-b.md), [releases/v0.7/v0.7.5_overview.md](releases/v0.7/v0.7.5_overview.md) |
-| [releases/v0.7/v0.7.5_agent-b.md](releases/v0.7/v0.7.5_agent-b.md) | [releases/v0.7/v0.7.5_AGENTS.md](releases/v0.7/v0.7.5_AGENTS.md), [releases/v0.7/v0.7.5_agent-a.md](releases/v0.7/v0.7.5_agent-a.md), [releases/v0.7/v0.7.5_overview.md](releases/v0.7/v0.7.5_overview.md) |
-| [releases/v0.7/v0.7.5_overview.md](releases/v0.7/v0.7.5_overview.md) | [releases/v0.7/v0.7.5_AGENTS.md](releases/v0.7/v0.7.5_AGENTS.md), [releases/v0.7/v0.7.5_agent-a.md](releases/v0.7/v0.7.5_agent-a.md), [releases/v0.7/v0.7.5_agent-b.md](releases/v0.7/v0.7.5_agent-b.md) |
-| [releases/v0.8/v0.8.0_AGENTS.md](releases/v0.8/v0.8.0_AGENTS.md) | — |
-| [releases/v0.8/v0.8.0_agent-a.md](releases/v0.8/v0.8.0_agent-a.md) | [releases/v0.8/v0.8.0_AGENTS.md](releases/v0.8/v0.8.0_AGENTS.md), [releases/v0.8/v0.8.0_agent-b.md](releases/v0.8/v0.8.0_agent-b.md), [releases/v0.8/v0.8.0_overview.md](releases/v0.8/v0.8.0_overview.md) |
-| [releases/v0.8/v0.8.0_agent-b.md](releases/v0.8/v0.8.0_agent-b.md) | [releases/v0.8/v0.8.0_AGENTS.md](releases/v0.8/v0.8.0_AGENTS.md), [releases/v0.8/v0.8.0_agent-a.md](releases/v0.8/v0.8.0_agent-a.md), [releases/v0.8/v0.8.0_overview.md](releases/v0.8/v0.8.0_overview.md) |
-| [releases/v0.8/v0.8.0_overview.md](releases/v0.8/v0.8.0_overview.md) | [releases/v0.8/v0.8.0_AGENTS.md](releases/v0.8/v0.8.0_AGENTS.md), [releases/v0.8/v0.8.0_agent-a.md](releases/v0.8/v0.8.0_agent-a.md), [releases/v0.8/v0.8.0_agent-b.md](releases/v0.8/v0.8.0_agent-b.md) |
-| [releases/v0.8/v0.8.0_suggestions.md](releases/v0.8/v0.8.0_suggestions.md) | — |
-| [releases/v0.8/v0.8.1_AGENTS.md](releases/v0.8/v0.8.1_AGENTS.md) | — |
-| [releases/v0.8/v0.8.1_agent-a.md](releases/v0.8/v0.8.1_agent-a.md) | [releases/v0.8/v0.8.1_AGENTS.md](releases/v0.8/v0.8.1_AGENTS.md), [releases/v0.8/v0.8.1_agent-b.md](releases/v0.8/v0.8.1_agent-b.md), [releases/v0.8/v0.8.1_overview.md](releases/v0.8/v0.8.1_overview.md) |
-| [releases/v0.8/v0.8.1_agent-b.md](releases/v0.8/v0.8.1_agent-b.md) | [releases/v0.8/v0.8.1_AGENTS.md](releases/v0.8/v0.8.1_AGENTS.md), [releases/v0.8/v0.8.1_agent-a.md](releases/v0.8/v0.8.1_agent-a.md), [releases/v0.8/v0.8.1_overview.md](releases/v0.8/v0.8.1_overview.md) |
-| [releases/v0.8/v0.8.1_overview.md](releases/v0.8/v0.8.1_overview.md) | [releases/v0.8/v0.8.1_AGENTS.md](releases/v0.8/v0.8.1_AGENTS.md), [releases/v0.8/v0.8.1_agent-a.md](releases/v0.8/v0.8.1_agent-a.md), [releases/v0.8/v0.8.1_agent-b.md](releases/v0.8/v0.8.1_agent-b.md) |
-| [releases/v0.8/v0.8.1_suggestions.md](releases/v0.8/v0.8.1_suggestions.md) | — |
-| [releases/v0.8/v0.8.2_AGENTS.md](releases/v0.8/v0.8.2_AGENTS.md) | — |
-| [releases/v0.8/v0.8.2_agent-a.md](releases/v0.8/v0.8.2_agent-a.md) | [releases/v0.8/v0.8.2_AGENTS.md](releases/v0.8/v0.8.2_AGENTS.md), [releases/v0.8/v0.8.2_agent-b.md](releases/v0.8/v0.8.2_agent-b.md), [releases/v0.8/v0.8.2_overview.md](releases/v0.8/v0.8.2_overview.md) |
-| [releases/v0.8/v0.8.2_agent-b.md](releases/v0.8/v0.8.2_agent-b.md) | [releases/v0.8/v0.8.2_AGENTS.md](releases/v0.8/v0.8.2_AGENTS.md), [releases/v0.8/v0.8.2_agent-a.md](releases/v0.8/v0.8.2_agent-a.md), [releases/v0.8/v0.8.2_overview.md](releases/v0.8/v0.8.2_overview.md) |
-| [releases/v0.8/v0.8.2_overview.md](releases/v0.8/v0.8.2_overview.md) | [releases/v0.8/v0.8.2_AGENTS.md](releases/v0.8/v0.8.2_AGENTS.md), [releases/v0.8/v0.8.2_agent-a.md](releases/v0.8/v0.8.2_agent-a.md), [releases/v0.8/v0.8.2_agent-b.md](releases/v0.8/v0.8.2_agent-b.md) |
-| [releases/v0.8/v0.8.2_suggestions.md](releases/v0.8/v0.8.2_suggestions.md) | — |
-| [releases/v0.9/v0.9.0_AGENTS.md](releases/v0.9/v0.9.0_AGENTS.md) | — |
-| [releases/v0.9/v0.9.0_agent-a.md](releases/v0.9/v0.9.0_agent-a.md) | [releases/v0.9/v0.9.0_AGENTS.md](releases/v0.9/v0.9.0_AGENTS.md), [releases/v0.9/v0.9.0_agent-b.md](releases/v0.9/v0.9.0_agent-b.md), [releases/v0.9/v0.9.0_overview.md](releases/v0.9/v0.9.0_overview.md) |
-| [releases/v0.9/v0.9.0_agent-b.md](releases/v0.9/v0.9.0_agent-b.md) | [releases/v0.9/v0.9.0_AGENTS.md](releases/v0.9/v0.9.0_AGENTS.md), [releases/v0.9/v0.9.0_agent-a.md](releases/v0.9/v0.9.0_agent-a.md), [releases/v0.9/v0.9.0_overview.md](releases/v0.9/v0.9.0_overview.md) |
-| [releases/v0.9/v0.9.0_overview.md](releases/v0.9/v0.9.0_overview.md) | [releases/v0.9/v0.9.0_AGENTS.md](releases/v0.9/v0.9.0_AGENTS.md), [releases/v0.9/v0.9.0_agent-a.md](releases/v0.9/v0.9.0_agent-a.md), [releases/v0.9/v0.9.0_agent-b.md](releases/v0.9/v0.9.0_agent-b.md) |
-| [releases/v0.9/v0.9.0_suggestions.md](releases/v0.9/v0.9.0_suggestions.md) | — |
-| [releases/v1.0/v1.0.0_suggestions.md](releases/v1.0/v1.0.0_suggestions.md) | — |
 | [scenarios/01_wallet_basics.md](scenarios/01_wallet_basics.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +22 more |
 | [scenarios/02_transaction_sending.md](scenarios/02_transaction_sending.md) | [cli/commands/transactions-send.md](cli/commands/transactions-send.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [reference/record-types.md](reference/record-types.md), +4 more |
 | [scenarios/03_genesis_deployment.md](scenarios/03_genesis_deployment.md) | [scenarios/02_transaction_sending.md](scenarios/02_transaction_sending.md), [scenarios/04_messaging_basics.md](scenarios/04_messaging_basics.md), [scenarios/05_island_creation.md](scenarios/05_island_creation.md), +1 more |
@@ -1553,7 +1529,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/30_secret_manager_thread_safety.md](scenarios/30_secret_manager_thread_safety.md) | [scenarios/29_database_connection_leak.md](scenarios/29_database_connection_leak.md), [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md) | [scenarios/30_secret_manager_thread_safety.md](scenarios/30_secret_manager_thread_safety.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md) | [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md), [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md) | [releases/v0.10/v0.10.3_AGENTS.md](releases/v0.10/v0.10.3_AGENTS.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), +1 more |
+| [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md) | [releases/2026/versions/v0.10/v0.10.3_AGENTS.md](releases/2026/versions/v0.10/v0.10.3_AGENTS.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), +1 more |
 | [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md) | [architecture/1_system-flow.md](architecture/1_system-flow.md), [archive/apps-clients/README.md](archive/apps-clients/README.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), +50 more |
 | [scenarios/35_fire_and_forget_logging_b10_b11.md](scenarios/35_fire_and_forget_logging_b10_b11.md) | [scenarios/24_task_error_logging.md](scenarios/24_task_error_logging.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md), +1 more |
 | [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md) | [scenarios/35_fire_and_forget_logging_b10_b11.md](scenarios/35_fire_and_forget_logging_b10_b11.md), [scenarios/README.md](scenarios/README.md) |
@@ -1607,7 +1583,7 @@ Inbound markdown links per document (top referrers).
 | [security/2_security-architecture.md](security/2_security-architecture.md) | [features/10-security.md](features/10-security.md), [security/README.md](security/README.md), [security/api-key-management.md](security/api-key-management.md), +2 more |
 | [security/3_chaos-testing.md](security/3_chaos-testing.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
 | [security/4_security-audit-framework.md](security/4_security-audit-framework.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
-| [security/DEPENDENCY_MONITORING.md](security/DEPENDENCY_MONITORING.md) | [releases/v0.4/v0.4.15_REQUIREMENTS.md](releases/v0.4/v0.4.15_REQUIREMENTS.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
+| [security/DEPENDENCY_MONITORING.md](security/DEPENDENCY_MONITORING.md) | [releases/2026/versions/v0.4/v0.4.15_REQUIREMENTS.md](releases/2026/versions/v0.4/v0.4.15_REQUIREMENTS.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
 | [security/KEY-ESCROW-THRESHOLD.md](security/KEY-ESCROW-THRESHOLD.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
 | [security/README.md](security/README.md) | [contracts/README.md](contracts/README.md), [scenarios/19_security_setup.md](scenarios/19_security_setup.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), +2 more |
 | [security/SECURITY.md](security/SECURITY.md) | [README.md](README.md), [features/10-security.md](features/10-security.md), [getting-started/reference/security-notes.md](getting-started/reference/security-notes.md), +7 more |

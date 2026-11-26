@@ -129,6 +129,6 @@ protocol change**, not adjusted to pass.
 
 ## Related
 
-- `docs/releases/v0.23/release.log` — V23-36 (the finding), V23-45 (this record)
+- `docs/releases/2026/versions/v0.23/release.log` — V23-36 (the finding), V23-45 (this record)
 - `scripts/lint/no_float_money.py` — the guard, and its `# not-money:` marker convention
 - `aitbc/utils/units.py` — the AIT ↔ compute-second conversion the chain settles in

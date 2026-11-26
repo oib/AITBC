@@ -83,34 +83,34 @@ the same values.
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Bridge Lock (`BRIDGE_LOCK`) | Lock funds for cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Bridge Confirm (`BRIDGE_CONFIRMATIONS`) | Confirm and release cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Bridge Unlock — CLI `unlock`, on-chain `BRIDGE_REFUND` (`refund_transfer`) | Refund a pending bridge transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Get Transfer (`get_transfer`) | Get transfer status by ID | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| List Pending Transfers (`list_pending_transfers`) | List pending bridge transfers | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Bridge Balance (`get_bridge_balance`) | Get bridge balance for a chain | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Bridge Health (`bridge_health`) | Bridge health check | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Batch Confirm (`batch_confirm`) | Confirm multiple transfers (per-item confirmer signatures) | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
+| Bridge Lock (`BRIDGE_LOCK`) | Lock funds for cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| Bridge Confirm (`BRIDGE_CONFIRMATIONS`) | Confirm and release cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| Bridge Unlock — CLI `unlock`, on-chain `BRIDGE_REFUND` (`refund_transfer`) | Refund a pending bridge transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| Get Transfer (`get_transfer`) | Get transfer status by ID | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| List Pending Transfers (`list_pending_transfers`) | List pending bridge transfers | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| Bridge Balance (`get_bridge_balance`) | Get bridge balance for a chain | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| Bridge Health (`bridge_health`) | Bridge health check | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
+| Batch Confirm (`batch_confirm`) | Confirm multiple transfers (per-item confirmer signatures) | [docs/releases/v0.7/v0.7.0_change.log](../releases/2026/README.md#v070) | ✅ | v0.7.0 |
 
 ### Bridge Security
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Register Validator (`register_validator`) | Register a bridge validator | [docs/releases/v0.7/v0.7.1_change.log](../releases/v0.7/v0.7.1_change.log) | ✅ | v0.7.1 |
-| Get Validator Set (`get_validator_set`) | Get validator set for a chain | [docs/releases/v0.7/v0.7.1_change.log](../releases/v0.7/v0.7.1_change.log) | ✅ | v0.7.1 |
-| Multi-Sig Verification (`bridge_multisig_enabled`) | Multi-signature verification for transfers (opt-in; `bridge_multisig_enabled` default `False`) | [docs/releases/v0.7/v0.7.1_change.log](../releases/v0.7/v0.7.1_change.log) | ✅ | v0.7.1 |
-| Time-Locks (`timelock`) | Time-locked transfers with refund windows | [docs/releases/v0.7/v0.7.1_change.log](../releases/v0.7/v0.7.1_change.log) | ✅ | v0.7.1 |
-| Bridge Security Status (`bridge_security_status`) | Bridge security status check | [docs/releases/v0.7/v0.7.1_change.log](../releases/v0.7/v0.7.1_change.log) | ✅ | v0.7.1 |
+| Register Validator (`register_validator`) | Register a bridge validator | [docs/releases/v0.7/v0.7.1_change.log](../releases/2026/README.md#v071) | ✅ | v0.7.1 |
+| Get Validator Set (`get_validator_set`) | Get validator set for a chain | [docs/releases/v0.7/v0.7.1_change.log](../releases/2026/README.md#v071) | ✅ | v0.7.1 |
+| Multi-Sig Verification (`bridge_multisig_enabled`) | Multi-signature verification for transfers (opt-in; `bridge_multisig_enabled` default `False`) | [docs/releases/v0.7/v0.7.1_change.log](../releases/2026/README.md#v071) | ✅ | v0.7.1 |
+| Time-Locks (`timelock`) | Time-locked transfers with refund windows | [docs/releases/v0.7/v0.7.1_change.log](../releases/2026/README.md#v071) | ✅ | v0.7.1 |
+| Bridge Security Status (`bridge_security_status`) | Bridge security status check | [docs/releases/v0.7/v0.7.1_change.log](../releases/2026/README.md#v071) | ✅ | v0.7.1 |
 | Bridge Threat Model | Threat modeling for bridge security | [docs/architecture/bridge-threat-model.md](../architecture/bridge-threat-model.md) | 📄 doc | — |
 
 ### Bridge Verification
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Store Block Header (`store_block_header`) | Store a remote chain block header | [docs/releases/v0.7/v0.7.2_change.log](../releases/v0.7/v0.7.2_change.log) | ✅ | v0.7.2 |
-| Get Block Header (`get_block_header`) | Get a block header with finality status | [docs/releases/v0.7/v0.7.2_change.log](../releases/v0.7/v0.7.2_change.log) | ✅ | v0.7.2 |
-| Merkle Proof Verification (`verify_merkle_proof`, `bridge_require_merkle_proof`) | In-process Merkle proof verification (opt-in; `bridge_require_merkle_proof` default `False`) | [docs/releases/v0.7/v0.7.2_change.log](../releases/v0.7/v0.7.2_change.log) | ✅ | v0.7.2 |
-| Bridge Oracle Status (`oracle_status`) | Bridge oracle/verification status | [docs/releases/v0.7/v0.7.2_change.log](../releases/v0.7/v0.7.2_change.log) | ✅ | v0.7.2 |
+| Store Block Header (`store_block_header`) | Store a remote chain block header | [docs/releases/v0.7/v0.7.2_change.log](../releases/2026/README.md#v072) | ✅ | v0.7.2 |
+| Get Block Header (`get_block_header`) | Get a block header with finality status | [docs/releases/v0.7/v0.7.2_change.log](../releases/2026/README.md#v072) | ✅ | v0.7.2 |
+| Merkle Proof Verification (`verify_merkle_proof`, `bridge_require_merkle_proof`) | In-process Merkle proof verification (opt-in; `bridge_require_merkle_proof` default `False`) | [docs/releases/v0.7/v0.7.2_change.log](../releases/2026/README.md#v072) | ✅ | v0.7.2 |
+| Bridge Oracle Status (`oracle_status`) | Bridge oracle/verification status | [docs/releases/v0.7/v0.7.2_change.log](../releases/2026/README.md#v072) | ✅ | v0.7.2 |
 
 ### Native HTLC Settlement (Retired)
 

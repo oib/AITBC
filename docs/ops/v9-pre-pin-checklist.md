@@ -110,7 +110,7 @@ restart by construction. PASS requires all of:
 - [ ] **Documentation gate** — both must hold before the pin commit:
       the v9 authorization policy is described in a tracked doc (the
       "v9 transaction authorization" section of
-      `docs/releases/v0.25/v0.25.8_change.log` plus
+      `docs/releases/2026/README.md` plus
       `state/v9_policy.py`); and the changelog carries an entry for every
       commit in the pin range — mechanically verified by the fleet check's
       "changelog coverage" section, which must report zero uncovered
@@ -196,5 +196,5 @@ restart by construction. PASS requires all of:
 - Alert rules tested: `aitbc-ops:scripts/monitoring/aitbc_rules_test.yml`
   (`promtool test rules`) — V9ShadowRejection, V9AttestationRefusal,
   AttestationLagRefusal (#1294 liveness/rule split)
-- Phase-2 description: `docs/releases/v0.25/v0.25.8_change.log`
+- Phase-2 description: `docs/releases/2026/README.md`
   "v9 transaction authorization" section

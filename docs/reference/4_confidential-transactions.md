@@ -203,7 +203,7 @@ Successfully implemented a comprehensive confidential transaction system for AIT
 - [Architecture Design](./4_confidential-transactions.md)
 - [API Documentation](../architecture/3_coordinator-api.md)
 - [Security Guide](../archive/security/1_security-cleanup-guide.md)
-- [Compliance Matrix](../releases/v0.4/v0.4.0_compliance-matrix.md)
+- [Compliance Matrix](../releases/2026/versions/v0.4/v0.4.0_compliance-matrix.md)
 
 ## Conclusion
 

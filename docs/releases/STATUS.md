@@ -60,7 +60,7 @@
 | v0.17.0 | Accessibility & Theme Engine | 🚧 Planned | Light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Hardware-backed TEE/FHE attestation and confidential compute | 🚧 Planned (no date) | Holds the deferred v0.14.1/v0.14.2 scope. Cannot start until SGX/TDX and FHE-capable hardware is available to the fleet. |
-| v0.24.0 | Hub node development special | ✅ Complete | See [v0.24.0 overview](v0.24/v0.24.0_change.log); details split into v0.24.1–v0.24.18 |
+| v0.24.0 | Hub node development special | ✅ Complete | See [v0.24.0 overview](2026/versions/v0.24/v0.24.0_change.log); details split into v0.24.1–v0.24.18 |
 | v0.25.0 | On-chain liquidity, sync consolidation and MCP expansion | ✅ Complete | AIT-only on-chain liquidity pool, MCP server expansion; see v0.25.0_change.log |
 | v0.25.1 | Open follow-ups and design notes | ✅ Complete | Post-v0.25.0 live-validation gaps and operational tasks; see v0.25.1_change.log |
 | v0.25.2 | CLI, docs, and test surface cleanup | ✅ Complete | See v0.25.2_change.log |
@@ -563,7 +563,7 @@ All five nodes converged at height **3183** and continued producing new blocks. 
 - Investigate and clean historical `chain.db.pre*` and `predeploy` backups.
 - Continue watching the stale <node1> worker process (`aitbc_chain.main` / `uvicorn` hanging in `deactivating`).
 - Consider reducing the 300-second round timeout after safety testing.
-- Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/v0.25/v0.25.7_change.log` on the shop node.
+- Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/2026/README.md` on the shop node.
 
 ## 2026-09-25 — v5 fail-closed gates, bridge-credit signature binding, and market-offer signing
 

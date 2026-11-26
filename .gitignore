@@ -96,6 +96,10 @@ apps/edge/var/
 !docs/releases/*/*_release.log
 !docs/releases/*/change.log
 !docs/releases/*/release.log
+!docs/releases/2026/versions/*/*_change.log
+!docs/releases/2026/versions/*/*_release.log
+!docs/releases/2026/versions/*/change.log
+!docs/releases/2026/versions/*/release.log
 logs/
 *.pid
 *.seed

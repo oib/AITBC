@@ -1,0 +1,1061 @@
+# CLI — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of cli changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.28.0
+
+### CLI exit-code and error-path sweeps (CLI-EXIT-1/2/3, CLI-READBACK-1, CLI-EXIT-4)
+
+- `4efe5674d` — `fix(cli): error paths exit non-zero via abort()` (CLI-EXIT-1).
+- `696ff8b31` — `fix(cli): second exit-code sweep — abort() at error();return sites, except-handler AST guard` (CLI-EXIT-2); plus `da60a063d` letting `CLIError` pass `sync_db`'s broad `except`.
+- `d36909da1` — `fix(cli): edge.py except-tail error() sites now abort` (CLI-EXIT-3).
+- `1356f02d3` — `fix(cli): third exit-code sweep — helper and facade error();return sites abort` (CLI-EXIT-4, ~35 sites, 103 aborts).
+- `error()`+`return` sites across ~40 CLI files now exit non-zero
+  instead of rc=0 on failure; the corpus AST test guards regression.
+  Read-back audit CLI-READBACK-1 (#446) verified `0439846b8` +
+  `4efe5674d` with mutation runs — closed as audit, no commits.
+
+
+### CLI error detail and polish (CLI-ERR-DETAIL-1, CLI-POLISH-2, CLI-POLISH-3)
+
+- `f0cacedd7` — `fix(cli): carry response detail in NetworkError messages`: a refused transaction's RPC 400 detail body is echoed in the CLI error line instead of being hidden (Refs #581).
+- `1cc20fc70` — `fix(cli): single refund error line + daemon-down warning without traceback`: removes the empty second error line on escrow refund and the wallet-list daemon-down traceback; shared `run_cli` test helper (Refs #582).
+- `52ab53c14` — `fix(cli): no double Error prefix on nested aborts; credential abort carries full text`: ~15 nested sites fixed, the credential abort message in `market/__init__.py` made whole (Refs #590).
+
+
+## v0.26.0
+
+### CLI-EXIT-1 — error paths exit non-zero instead of printing and returning (CLI; #423)
+
+- 44+ read-only commands exited 0 while printing an error (SP-13), so
+  scripted plays and the MCP result field could not tell failure from
+  success. The swallowed paths now route through the shared ``abort()``
+  helper (printed message unchanged, exit non-zero):
+  ``transactions status``, ``explorer`` (all read commands), ``governance``
+  (all commands), ``crosschain`` (all commands; the status poll helper keeps
+  its transient-tolerant return, now labelled ``warning``), ``gpu discover``
+  and the rest of ``gpu_market``, ``monitor alerts/webhooks/campaign/
+  sweepers``, ``agent-msg peers``, ``agent discover agents`` (coordinator
+  down), ``wallet`` in ``basic.py`` (not-found and error paths), and
+  ``coin-requests show/approve/reject/execute/reopen`` refusals.
+- Deliberately unchanged: empty-list results (``market list``, alert lists),
+  the ``monitor dashboard`` live TUI error rows, ``transactions send``'s
+  post-send explorer check, and wallet warnings (daemon fallback, integrity
+  mismatch) — those are informational, not failures.
+- Tests: ``cli/tests/test_cli_exit_codes.py`` — stubbed-failure invocations
+  per command group asserting non-zero exit plus an AST guard that fails on
+  any ``error(...)`` immediately followed by ``return`` in the fixed files.
+
+### CLI-HEIGHT-1 — head-reading blockchain commands name their source (CLI; #434)
+
+- ``aitbc blockchain height`` and ``block`` add a ``source`` field to the
+  output naming the rpc endpoint the answer came from (default is the node's
+  own ``127.0.0.1:8202`` — unchanged).
+- ``aitbc blockchain height --db`` reads the local ``chain.db`` directly,
+  opened ``mode=ro`` — a heads-equal check that works when the rpc unit is
+  down, and never creates the file. Ambiguous or missing stores fail with a
+  clear message (``--chain-id`` disambiguates).
+- ``aitbc blockchain status`` and ``info`` show a ``Source`` column naming
+  the endpoints queried, and accept ``--local`` (this node's rpc) and
+  ``--node-url`` (repeatable). ``info`` previously found no chain off the hub
+  (empty multichain registry); it now gets the same ``blockchain_rpc_url``
+  fallback as ``status``. Defaults are unchanged: plain ``status`` still
+  shows the hub view by design.
+
+
+### CLI-ARRAY-1
+
+- `governance get --proposal-id` and `reputation leaderboard` printed
+  "returned a JSON array, not an object" when the service answered a
+  bare array. Both callers now use `get_json` and accept either shape:
+  `get` selects the matching `proposal_id` from a list (clear not-found
+  when absent) and the leaderboard renders the list; dict handling is
+  unchanged. Missing-id cases exit non-zero via the shared abort path.
+
+
+### CLI-AUTHHINT-1
+
+- Commands needing a login printed "No stored credential found for
+  'client' in 'default'" and then a raw 401. Credential lookups in
+  `ai`/`tee` are now quiet, and a 401 aborts with one line: "No login
+  for this environment. Run: aitbc auth login --wallet <name>"
+  (shared `LOGIN_HINT` + `is_unauthorized` in `utils/error_handling`).
+  `zk health`/`zk circuits` are unchanged: their coordinator endpoints
+  answer 401 without a login — auth is genuinely required there.
+
+### CLI-NODEREG-1
+
+- `analytics *`, `blockchain status` and `node chains` printed
+  "Authentication failed for node aitbc-primary" on hosts whose
+  multichain registry still names the retired aitbc-primary/secondary
+  entries on a dead port, even though the local RPC was healthy.
+  `load_multichain_config` now always offers the configured
+  `blockchain_rpc_url` (default 127.0.0.1:8202) as a `local-rpc`
+  fallback node, so a stale registry no longer blinds read commands.
+
+
+### CLI-LOOPBACK-1
+
+- `gpu discover`/`gpu list-gpus` on customer nodes failed on the
+  loopback `gpu_service_url` default with a bare network error. GPU
+  failures now append a hint naming the loopback URL and the fix
+  (set the service URL — the hub gateway has no `/v1/gpu/` mount).
+  Market commands already try the hub before the local service
+  (`_candidate_bases`), and `agent-msg peers` honours the explicit
+  `--coordinator-url` before the hub-resolved default.
+
+### CLI-POLISH-1
+
+- `brand show` with a missing `AITBC_ACTIVE_PLUGIN` printed a raw
+  FileNotFoundError traceback; `_get_brand` now raises a ClickException
+  that names the plugin and `aitbc plugin create <name>`.
+- `genesis info` printed all-null `genesis_block` fields when the
+  genesis file carries no block record; it now reads block 0 from the
+  chain DB (read-only) and falls back to a note when it is not sealed.
+
+### CLI-EXIT-2
+
+- Second exit-code sweep (CLI-EXIT-1 residual): ~120 more
+  `error()`-then-return sites across 14 command files
+  (agent, chain, config, edge, energy, genesis, ipfs, market/gpu,
+  market/offers, mining, operations, system, transactions, update,
+  wallet/{misc,multisig,staking,bridge}, workflow) now raise through
+  `abort()` so the CLI exits non-zero. The AST corpus guard now also
+  walks `except` handlers — the shape it previously missed — and covers
+  18 more files. `edge.py`'s 30 helper sites are deferred: they mix
+  deliberate retry-swallows with real exit-0 paths and need per-site
+  classification.
+
+
+
+### CLI-EXIT-3
+
+- Third exit-code sweep: edge.py's 29 except-tail `error()` sites and
+  103 more helper/facade `error();return` sites across 18 files
+  (agent_task, auth, control, developer, eth, exchange/{bridge,payments,
+  trading,wallet}, exchange_island, grant, market/{init,escrow,
+  payments,ratings}, prometheus, trade) now `abort()`, so no
+  error-print path can exit 0. The AST guard now covers 35 files and
+  walks `except` handlers; the whole commands/ tree reports zero
+  remaining sites.
+
+
+
+### CLI-ISLAND-LEAVE-STUB-1
+
+- `node island leave` was a no-op stub that printed success but never
+  called the node. It now posts to `/rpc/islands/leave` with the RPC
+  API key, matching `island join`'s client wiring; error paths abort.
+
+### CLI-HARDEN-DRYRUN-1 (#550)
+
+- `f46b9f6fa` — `service harden --dry-run` existed but was undocumented
+  in the row's premise — pinned with a test proving it writes zero files
+  (no .bak, no unit change) while a real run still writes the backup.
+
+
+
+### CLI-REINVEST-LOAD-1 (#555)
+
+- `66cfe3cbc` — `reinvest` failed `No module named 'miner_app'`:
+  `parents[4]` overshot the repo root and the path lacked `src`. Now
+  `parents[3]` + `apps/miner/src`; a scrubbed-path test pins the import.
+
+### CLI-EXIT-TRUTH-1 (#558)
+
+- `d3d266f6e`, `83af2af03` — `blockchain list` printed connect errors for
+  every configured node then an empty table with exit 0.
+  `chain_manager.list_chains` now re-raises the last node error when all
+  nodes fail and no chains were returned — the CLI aborts non-zero.
+  The raise is scoped to all-nodes-fail (empty list from a live node is
+  not an error) and chains `RuntimeError from exc`.
+
+### CLI-HELP-LINT-1 (#560)
+
+- `a56907191` — All 566 leaves pass `--help` (exit 0, fast). The two
+  help-less options are fixed: shared `--wait-timeout` on messaging
+  (hide/lock/mod-grant/mod-revoke/pin/unhide/unlock/unpin/vote) and
+  `simulate blockchain --output`. Lint test asserts every leaf's
+  --help exits 0 and every option has non-empty help.
+
+### CLI-OPERATIONS-FORMAT-1 (#556)
+
+- `aa6db8265`, `2fa4af5cd`, `0bece1720`, `eafe8ee24` — `operations`
+  group already routes through `resolve_output_format` on main — the
+  table-despite-json repro was node2's stale checkout. Pinned with
+  tests asserting `--format json` emits parseable JSON for all seven
+  operations commands (voting-power, vote, proposal, get-proposal,
+  stake, delegate, execute).
+
+### CLI-UPDATE-NODEPLOY-1 (#531)
+
+- `8e41951ed` — `update --no-deploy` no longer pulls: it routes through
+  the same fetch-and-report path as `--check`, so the worktree is
+  untouched.
+- `d8c70aad4` — help text corrected from "fetch and fast-forward only"
+  to fetch+report.
+
+
+### CLI-ARRAY-SWEEP-1 (#552)
+
+- `2d7b4a8f5` — `grant list` now uses `get_json` for an endpoint that
+  can return a bare array.
+- `332d12acb` — `developer list` same fix.
+- `3caa421d4` — `dispute votes`/`dispute evidence` same fix.
+- `3f17e7262` — `governance list` same fix.
+- `22af0deb4` — pool-hub SLA list endpoints same fix.
+- `4144d73cc` — error-stub test clients gain `get_json` for the
+  array-endpoint commands. Six further candidates read live return
+  objects — no fix needed.
+
+
+### CLI-JSON-CLEAN-1 (#562)
+
+- `03220b936`, `e18c7d9e3` — status labels move to stderr and empty
+  results emit `[]` under `--output json`, so stdout stays a single
+  JSON document.
+- `81d6421e5` — `exchange list` emits `[]` only; leaf `--format`
+  honoured; coin-requests list fixed.
+- `e96cf34e0` — `_status_stderr` checks `output_format` too.
+- `e9d3f30a6` — `market list` prints `[]` only when the answer is
+  genuinely empty; an all-fail still aborts.
+- `1bb16b36c` — `analytics summary` emits one JSON document.
+- `1782cd41f` — `market list` abort prints once and the exit code
+  matches the payload. Live rows (market list, analytics summary,
+  exchange list, coin-requests list, predict, alerts) emit single valid
+  JSON rc 0; the analytics-monitor/sync-status residuals moved to
+  CLI-JSON-CLEAN-2 (#564).
+
+
+### CLI-JSON-CLEAN-2 (#564)
+
+- `a5b300031` — `sync status` emits one JSON doc under `--output json`.
+- `812b5ddd3` — `crosschain rates`/`pools` emit one JSON doc.
+- `3e42ff4e3` — pair-rate emit extracted to satisfy C901.
+- `a5e65a00a` — analytics monitor/predict/optimize/alerts emit a single
+  doc, with `except CLIError: raise` guards against the double-abort.
+  Live: all judged commands emit one valid JSON doc rc 0.
+
+
+### CLI-AGENTCOMM-RC0-1 (#565)
+
+- `127834d2f` — `agent-comm receive` printed the wallet-unlock refusal
+  and exited 0; the refusal path now aborts (rc 4 live) and seven
+  `except CLIError: raise` guards stop error renders swallowing exit
+  codes across the group. The mining-401/coin-requests/agent.py
+  swallow candidates moved to CLI-SWALLOW-SWEEP-1 (#566).
+
+
+### CLI-SWALLOW-SWEEP-1 (#566)
+
+- `00a5bef1f` — mining commands abort on 401/503 and network failures
+  (`is_unauthorized` → `abort(ctx)`) instead of printing and returning
+  rc 0.
+- `7177a6a22` — coin-requests write/auth refusal paths abort non-zero;
+  `CLIError` re-raise guards added. By-design rc 0 rows
+  (pending-approval registration, notifications, reconcile, empty
+  list) listed in the ledger; the `agent.py:91` API-key fallback was
+  judged by-design.
+
+
+## v0.25.13
+
+### MCP-GROUPS-1 — MCP CLI pivot allow-list derived from the generated group list
+
+- `02f0da5e5` — `aitbc_dispute_*`/`aitbc_energy_*` read tools and the generic
+  `run_aitbc_cli`/`read_aitbc_cli`/`list_aitbc_cli_group` pivots answered
+  `unknown aitbc group` for ten real CLI groups (`agent-task`, `dispute`,
+  `energy`, `eth`, `health`, `liquidity-stake`, `operations`, `service`,
+  `stake`, `unstake`): `ALL_AITBC_GROUPS` was a hand-maintained literal
+  frozen ten groups behind the generated tool modules (SM-06). The
+  generator now emits `aitbc_mcp_cli_tools_generated_groups.py`
+  (`GENERATED_AITBC_GROUPS`) in the same `--split-by-group` run — covered
+  by the existing `mcp-cli-drift` gate — and the server derives the
+  allow-list from it plus a curated-only set (`update`, covered by the
+  hand-written `aitbc_update` tool). Destructive-leaf gating is unchanged:
+  every mutating leaf in the newly allowed groups was already classified
+  by `DESTRUCTIVE_AITBC_SUBCOMMANDS`/`DESTRUCTIVE_AITBC_PATHS`. New tests
+  pin three-way consistency (emitted tool modules == group list ⊆
+  allow-list == live CLI tree) so a future group cannot silently drift.
+
+
+## v0.25.12
+
+### Config/CLI: hub-ward URLs resolve locally on the hub; explicit schemes honored
+
+`aitbc.config.hub` detects when the node *is* the hub (`BLOCKCHAIN_MODE=hub`,
+or `NODE_ID`/`AITBC_HOSTNAME`/`P2P_NODE_ID` matching the discovery host) and
+resolves the hub origin to `HUB_LOCAL_URL` or local nginx `http://127.0.0.1`
+— the public name cannot hairpin back there. `hub_origin()`/`hub_service_url()`
+now honor explicit `http://` schemes instead of always upgrading to https;
+new `normalize_hub_base()`/`is_hub_self()` helpers back every naive call site
+(market offers/jobs/escrow/ratings/status/match, network, ipfs, dashboard,
+transactions, gpu-onchain, island join). `CLIConfig.hub_blockchain_rpc_url`
+derives via `hub_service_url("rpc")` and covers `HUB_P2P_HOST`-only nodes.
+Fixes hub-local `market list`/`providers`, `escrow`, `status`, `match` and the
+fleet-wide-dead `gpu-onchain`/`island join` hub fallbacks; followers unchanged.
+
+
+### CLI: aitbc pool-hub on followers used http://{hub}/pool-hub — plain HTTP against a TLS-only edge. Resolved via normalize_hub_base() → https on followers, http://127.0.0.1 on hub. The nginx /pool-hub/ mount already existed; only the scheme was wrong. Also: test_find_service_by_type_and_name now sets API_KEY_STORAGE_PATH → tmp so importing the services router no longer requires /var/lib/aitbc.
+
+
+### Ops: bridge_wallet_rotation_report analyze() now normalizes withdrawal_by_hash/sell_release_by_hash keys through _norm() — direct callers passing 0x-prefixed/mixed-case eth_tx_hash no longer get unattributed outbound legs (CLI path was already consistent via _load_ledger). ENG-2.
+
+
+## v0.25.11
+
+### CLI: prepay deposit hardening — zero-wei refuse, malformed chain id, loop close (PREPAY-1b)
+
+Three small guards in `aitbc exchange prepay deposit`, none changing the
+accepted path:
+
+- `6f5baac4a` — an `--amount-eth` that floors to 0 wei (e.g. 1e-19) is refused in
+  both `--print` and `--send` instead of silently building a zero-value
+  transaction.
+- `6f5baac4a` — a malformed `eth_chainId` result takes the same clean path as a
+  missing one (`chain_id_verified: false` under `--print`; the "cannot
+  verify the RPC chain id" abort under `--send`) instead of a raw
+  ValueError.
+- `6f5baac4a` — `_broadcast_raw` now uses `asyncio.run`, so the broadcast event
+  loop is closed after the single send instead of being leaked.
+
+
+
+### CLI-5: cheap read-only CLI adds from the 15 Oct gap-log triage
+
+- `dae139a62` — `aitbc wallet inspect --path <file> --field <name>` prints public wallet metadata fields only (address, wallet_id, public_key, type) and refuses private field names (private_key, encrypted, seed, mnemonic, …) with a clear error — never dumps the file.
+- `5f7cb0d20` — `aitbc system logs --priority/-p <level>` maps to `journalctl -p` with validation against journal priority names/numbers/ranges; `--severity-pattern` appends a fixed internal application-severity regex (WARN|WARNING|ERROR|CRITICAL|FATAL) that never travels through user input, so the MCP `get_service_logs` blocklist stays untouched; mutually exclusive with `--grep`. MCP exposes `severity_pattern: bool`.
+- `65d628b9b` — `exchange_verify.py --db` is now optional: it defaults to the service exchange DB path (EXCHANGE_DATABASE_URL / AITBC_DATA_DIR / /var/lib/aitbc) resolved read-only without creating directories; when AIT-chain args are absent the report names the flags that enable those checks. `aitbc exchange verify --db` follows.
+- `cb6dd5ee2` — `GET /v1/bridge/float` (admin-keyed) reports the bridge wallet ETH balance, pending reserve across all three release lanes, and today/rolling-24h release aggregates from new committed-since ledger helpers; CLI gains `aitbc wallet bridge float` and `aitbc wallet bridge status --today/--24h` over the same route, with `--ait-tx-hash` kept as the single-withdrawal lookup.
+- `86f52fb03` — sell lane readable without journald: `sell_status_document()` publishes enabled/reason plus non-secret config (key slots as configured booleans) behind `GET /v1/bridge/sell/config-status` (admin-keyed), the `sell_admin status` verb (env-only, runs before the ledger gate), and `aitbc exchange sell_admin status` over the same route.
+- item 8 (`exchange order my --wallet` password-free resolution) was already fixed at `983fd1c3c` (CLEAN-1) and is dropped from this batch.
+
+
+### CLI-6: every `--fee` default tracks `DEFAULT_TX_FEE_AIT`
+
+- REPO-2 (`a0b3dd3c1`) moved `send`/`subscribe`/`batch` onto the shared constant; the remaining `default="0.01"` literals in `aitbc liquidity-stake`, `aitbc wallet send`, and the three `wallet staking` commands now point at `aitbc.utils.units.DEFAULT_TX_FEE_AIT` (0.01 AIT, the CLI-3 decision). The dead `LIQUIDITY_FEE_DEFAULT_AIT` literal in `wallet/staking.py` becomes an alias of the shared constant. Values are unchanged — this is drift-proofing, not a fee change.
+- `tests/cli/test_commands_transactions.py::test_batch_default_fee_matches_send` pinned `Decimal("0.001")` — a stale expectation from before `send` moved to the constant; it now asserts the shared constant, so the test passes unweakened. New `tests/cli/test_fee_defaults.py` walks the whole lazy command tree and fails if any `--fee` option defaults to anything else — the drift the batch/send mismatch was.
+
+
+### CLI-7: mechanical CLI/MCP fixes — ClickException handler, sell names, sell error detail, file-info epilog, MCP logs blocklist
+
+- `c03066a79` — `main()` now catches a plain `click.ClickException` (60 raise sites across 7 files) with `e.show()` + the exception's exit code, so `aitbc http call` non-2xx paths and zero-match `system logs --grep` end in a clean error line instead of a traceback. `Abort`/`UsageError`/`NoArgsIsHelpError` handling is unchanged, and Click's own `Exit` already returns its code under `standalone_mode=False`. This clears the traceback facet of gap rows 17/21; structured non-2xx status/body output for `call_aitbc_http` remains TOOL-1 scope.
+- `c03066a79` — `wallet bridge sell` registers its subcommands as `quote`/`lock`/`status`: click had derived `sell-quote`/`sell-lock`/`sell-status` from the function names while every epilog and printed `next` hint named the short forms, so the documented commands did not exist. The generated wallet MCP module re-derives the nested `["bridge","sell","quote|lock|status"]` paths (row 63).
+- `c03066a79` — all five sell-lane HTTP error paths (quote POST, lock's quote fetch + nonce fetch, lock submit, status GET) now report `http_error_detail(e)`, so a non-2xx JSON `detail` reaches the error line instead of the bare exception text (row 64).
+- `c03066a79` — `aitbc system file-info --help` epilog is generated from the `_FIELD_DENY_*` constants, so the documented refused names cannot drift from the code (row 37).
+- `c03066a79` — MCP `get_service_logs` narrows its `since`/`grep` rejection to newline/CR/NUL plus the 200-char limit, mirroring the CLI's own logs validation — `a|b` alternation now reaches `journalctl --grep` (every value is `shlex.quote`d into `--opt=<v>`, so shell metacharacters are inert). The `service` name keeps its strict blocklist since it feeds `journalctl -u` (row 20).
+
+
+### TOOL-1: MCP/CLI wrapper gaps — nested subcommands, destructive audit, structured http non-2xx, read-only fixes
+
+- `09bd58d10` — `run_aitbc_cli` accepts `subcommand` as `str | list[str]` (a whitespace string is `shlex.split` into argv tokens, so `"exchange node list"` and `["node","list"]` reach the same leaf); `options`/`group_options` accept list values for repeated flags. Closes gap row 28.
+- `09bd58d10` — Phase-0 audit of all 543 Click leaves: every mutating or mixed-action leaf is now classified — `DESTRUCTIVE_AITBC_SUBCOMMANDS`/`DESTRUCTIVE_AITBC_PATHS` gained `set-payout`, `sell lock|quote`, `sync`, `sweep`, `rekey`, `http call`, `monitor alerts|webhooks`, `deploy deploy-brand`, `migrate`, and bare top-level `start|stop|restart|stake|update`. A structural test walks the command tree and fails when a handler carrying mutation signals is unclassified; `read_aitbc_cli` rejects destructive paths for nested/list forms (previously `http call` was reachable through the read-only tool).
+- `09bd58d10` — `aitbc http call` gains repeatable `--expect-status N`: an expected non-2xx prints `{"status": N, "detail": …}` and exits 0; other non-2xx exits non-zero with one line (`HTTP <status> from <service>/<path>: <detail>`). `RateLimitError`/`CircuitBreakerOpenError` (re-raised unwrapped by the client) render as ClickExceptions. Exposed on MCP `call_aitbc_http` as `expect_status`. Closes the row-17 remainder; deterministic 4xx are already not retried (`retry_policy.py` raises 4xx immediately), no client change needed.
+- `09bd58d10` — `system logs --grep`: journalctl rc=1 with "-- No entries --" is success (the line is printed); every other non-zero exit stays an error. Closes row 21.
+- `09bd58d10` — `monitor campaigns` (and `campaign_stats`) compute expired/ended status in memory: listing no longer creates or rewrites `~/.aitbc/campaigns/campaigns.json`, so the MCP read-only annotation is now true. Closes row 33.
+- `09bd58d10` — `generate_mcp_cli_tools.py`: `("dispute","file")` added to `FORCE_DESTRUCTIVE_PATHS` — its leaf token `file` landed in the safe-token set and the generated `aitbc_dispute_file` was emitted read-only while filing disputes; regenerated modules gate it behind dry_run+confirm. Row 23 re-run: connected MCP server still predates the `= None` optional-param fix (`4b214fdb2`) — 12 "Field required" errors; row stays open.
+
+
+### MSG-CLI-WAIT
+- `messaging send`/action commands: the default `--wait` seal poll moved off the generic `/rpc/transaction/{hash}` route (which 404s for MESSAGE txs even sealed — tripped the client circuit breaker live in MSG-3d) onto messaging read routes via plain `requests`: posts/replies detected at `/rpc/messaging/messages/{hash}`, actions via the topic moderation `actions` list. Timeout now prints a "submitted, verify with …" hint and exits 0; a silent RPC is distinguished from a 404 storm. 5 new tests in `test_messaging_wait.py`. MCP messaging wrappers regenerated (help text only).
+
+
+### MSG-CLI-WAIT (fix 2)
+- vote/mod_grant/mod_revoke never appear in the moderation `actions` list, so the fix-1 wait polled the full timeout and hinted the wrong route. They now detect by *state* — vote via the target's `/votes` route (signer+value), grant/revoke via the topic `moderators` list — and report "reads as expected" rather than "sealed". A pre-send probe reports "already reads as expected" instead of claiming a seal when state predates submission; unknown kinds print a verify-hint immediately without waiting. 8 new tests (per-kind routes, wrong-value/still-present keep polling, unknown kind, pre-send probe, command-level pre-match).
+
+
+### MSG-CLI-WAITc
+- Retract (`vote` value 0): matched by the signer's *absence* from the target's standing votes ("vote retracted — signer absent"), so it no longer burns the full --wait-timeout; a retract with no standing vote is pre-matched and reports "nothing to retract" instead of claiming a seal.
+- Non-moderator moderation sends: `_presend_expectations` reads the topic moderators once before submit; a non-moderator signer gets "submitted; recorded but not effective for a non-moderator" at once — no 180 s hash wait (the `actions` list only ever holds moderator-signed rows). Applies to all eight moderator-gated kinds.
+- Moderation hash waits now cap at 30 s when the `actions` list reads at its 100-entry cap (a fresh hash can have scrolled out). `--wait` help names each detection route. 6 new tests; `_wait_confirmed`/`_poll_read` helpers keep C901 flat.
+
+
+### MSG-CLI-HASH-1
+- fix(cli): all `aitbc messaging` commands accept bare or 0x-prefixed 64-hex tx hashes — normalized once to bare at parse; read routes use the 0x-prefixed form
+
+
+### CLI-SENDER-1 — sender/recipient filters on /rpc/transactions + aitbc transactions search
+
+- `/rpc/transactions` accepts `sender` and `recipient` parameters —
+  same spelling handling as `address` (checksum + lowercase), combinable;
+  all supplied filters hold. `address` semantics unchanged.
+- `aitbc transactions search` now works over RPC (was explorer-only):
+  `--sender`, `--recipient`, `--address` (at least one required),
+  `--rpc-url`. The explorer path refuses `--sender/--recipient` with a
+  clear message rather than returning either-side rows.
+- MCP wrapper regenerated (`aitbc_transactions_search`); the published
+  blockchain-node OpenAPI spec updated.
+- Live caveat: the new RPC parameters reach nodes only at the next
+  aitbc-blockchain-rpc restart — until then `--sender/--recipient` are
+  sent but ignored server-side.
+
+
+### CLI-SENDER-1b — search verifies sender/recipient rows client-side
+
+- `transactions search` checks every returned row against --sender/--recipient
+  after the RPC call. Rows a pre-restart node sends back unmatched are dropped
+  with a one-line note that `limit` applied before the filter and the list may
+  be incomplete. No node change; server-side params unchanged.
+
+
+### DEPS-2: venv-pinned pip in update.sh, copied-venv shebang repair, CLI version source (2026-10-14)
+
+`update.sh`'s four bare `pip` sites now run `"$VENV_DIR/bin/python" -m
+pip` with stderr visible, and a post-install assert proves pip resolves
+inside the venv (`command -v`, `pip -V`, and the `bin/pip` shebang).
+`setup-python-venv.sh --mode copy` repoints `bin/*` shebangs, the
+`activate*` files' `VIRTUAL_ENV`/`VIRTUAL_ENV_PROMPT`, and `pyvenv.cfg`'s
+`command =` line to the destination, then fails if any script's shebang
+escapes its own venv; the CLI's stray version literals collapse onto
+`aitbc_cli/__init__.py`. The new `update.sh` venv check fails on a venv
+whose `bin/*` shebangs still name `/var/cache/aitbc/python-venvs` (hub
+and hub1 today), so such a host needs the SEC-15 venv repair before
+`update.sh` will run there.
+
+
+## v0.25.6
+
+### MCP server typed CLI wrappers
+
+- Add 28 dedicated, read-only MCP tools in `mcp-server/aitbc_mcp_cli_tools.py` that wrap common `aitbc` CLI subcommands for explorer, governance, crosschain, AI services, system, node, blockchain, monitor, analytics, bridge, and reputation. The tools are generated from the live CLI click objects, reuse the existing `_aitbc_cli_read_tool` helper, and pass `ruff`, `mypy`, and `pytest`.
+
+
+### CLI-to-MCP generator and full command coverage
+
+- Add scripts/dev/generate_mcp_cli_tools.py, a generator that walks the aitbc
+  Click command tree and emits typed MCP tools.
+- Generate mcp-server/aitbc_mcp_cli_tools_generated.py with 468 typed wrappers
+  covering the full safe + safeguarded CLI tree (2f557e277).
+- Add a generic read_aitbc_cli MCP tool for the long tail of read-only commands
+  (1b0bc1c1e).
+- Split the generated tools into 69 group-specific modules in
+  mcp-server/aitbc_mcp_cli_tools_generated_GROUP.py, imported by the master
+  module, and keep them in sync with the mcp-cli-drift guard (c1e811728).
+- The aitbc MCP server now exposes 712 tools (496 aitbc_* CLI-backed tools).
+
+
+## v0.25.5
+
+### CLI & API
+
+- GPU marketplace commands use `/v1/` prefix and Authorization headers
+  (`9879293c18`).
+- Paid submits abort when provider missing or escrow unsecured
+  (`f8a09b547c`, `4eee07d529`).
+- `X-API-Key` auth on escrow endpoints (`20dcbfdb19`, `a1d1a1a286`,
+  `5b1e699321`, `1613abf3e3`).
+- `docs/api/` OpenAPI specs regenerated (`4a5cc7b8df`, `41c1506e69`,
+  `3e5da1d898`).
+- `introduction.md` defers to SERVICE_PORTS, corrects feature status
+  (`7a53a6a1c9`).
+- `coordinator-context-map.md` written (`6ee9e5c74`): 36 contexts, 48
+  mounts, 72 routers, flag-gated surface, duplication clusters, two API-dead
+  contexts.
+
+
+## v0.24.1
+
+### Scenarios are CLI-first plays of the live software (2026-08-21)
+
+`docs/scenarios/` is now the operator manual for the software **as it runs**, not a mix of curl tickets and planned features. `aitbc` is the primary tool in every play. Curl / `journalctl` / `pytest` are validation only.
+
+- Added `docs/DESIGN_CYCLE.md`: current closed economic loop, maturity map, gaps, and P0-P2 wish list.
+- Intermediate scenarios 21-36 rewritten onto real CLI groups (`start`, `system`, `bridge`, `ai`, `gpu`, `market`, `transactions`, `exchange-island`, `pool-hub`, …).
+- Beginner 06 uses `AIT/ETH` only (`exchange-island` does not accept `AIT/BTC`). Beginner 11 leads with `aitbc ipfs` / `aitbc oracle`. Beginner 17 distinguishes `aitbc governance` (port 8105) from `aitbc operations governance` (RPC).
+- CLI gap closed: `aitbc ai submit --currency` so scenario 25 can force `payment_status=skipped` without raw HTTP.
+
+
+### CLI — raw JSON, `balance_ait`, and `aitbc update`
+
+- `aitbc account get` now shows `balance_ait` alongside the raw compute-seconds balance.
+- `aitbc wallet balance` preserves the daemon's `balance`/`balance_ait` fields.
+- `aitbc --output json` returns unwrapped machine-readable JSON.
+- `aitbc update` pulls the latest `main` and runs `scripts/deployment/update.sh` in one command.
+
+
+## v0.23.24
+
+### V23-38 — the CLI's 11 violations, and a blind spot they exposed · CONFIRMED → RESOLVED
+
+**`cli` 11 → 0. The repo baseline is now 13**, spread across `packages/py` (4), `gpu` (3),
+`aitbc` (2), `agent-coordinator` (2), `edge` (1) and `pool-hub` (1).
+
+The CLI is the *producer* of the payloads V23-36 declined to change, so the same line falls
+in the same place — three sites keep `float` with a `# not-money:` marker: the
+`GPU_MARKETPLACE` payload in `commands/market/offers.py`, and the transaction bodies POSTed
+by `commands/marketplace_cmd.py` and `commands/exchange_island.py`. Converting the client
+half while the node half stays fixed would produce payloads the node rejects, which is
+worse than either state.
+
+The rest were genuine, and one of them was hidden by the guard itself.
+
+**`amount = float(tx_data["amount"])`** in `utils/crypto_utils.py` is inside
+`validate_transaction` — the function that decides whether an amount is acceptable. Rounding
+a value *in order to check it* is backwards: the check no longer applies to what the caller
+sent. Now `Decimal`.
+
+**`WalletBalance.balance: float`** — a wallet balance dataclass. Converting it pulled four
+more declarations with it, because `dual_mode_wallet_adapter` returned `float | None` on
+both its daemon and file-backed paths, and the file path did `float(balance)` on a value
+read from JSON on disk.
+
+**`_escrow_create` sent `float(amount)`** to `/rpc/escrow/create`, and the node parses it
+straight back with `Decimal(str(amount))` (`escrow_routes.create_escrow`). The receiver was
+faithfully preserving a value the sender had already rounded. Now sent as a string.
+
+That last one is the blind spot. The guard walked past it because the expression is
+
+```python
+"amount": float(amount) if amount else 0
+```
+
+an `ast.IfExp`, not an `ast.Call` — so the `{"money_key": float(...)}` rule never fired.
+`_is_float_call` now recurses into both branches of a conditional expression. **That change
+alone found four more**, all in coordinator-api, which V23-34 had reported as zero:
+
+- `dynamic_pricing.py` wrote `min_price=float(...)` and `max_price=float(...)` into
+  `ProviderPricingStrategy`, whose columns are `Numeric(20, 8)` — the same defect V23-36
+  found two lines away in the same file, in a form the guard could not see.
+- `settlement/storage.py` rendered `AVG(payment_amount)` and `SUM(payment_amount)` as floats
+  in a statistics payload.
+
+Both are fixed here, so coordinator-api is at zero again — but the lesson is the one this
+whole sequence keeps repeating in a new costume: **"zero violations" means zero of what the
+checker can currently see.** Each widening of the guard so far — annotations (V23-33),
+`per`/`target`/camelCase (V23-34), conditional expressions (V23-38) — has found real defects
+in code that had already been declared clean.
+
+One thing recorded, not fixed: **`cli/utils/` is a stale parallel copy of `cli/aitbc_cli/utils/`.**
+`crypto_utils.py` and `wallet_daemon_client.py` exist in both and have diverged (158 and 300
+differing lines); `setup.py` packages only `aitbc_cli`, and every import in the tree is
+`aitbc_cli.utils.*`. But `cli/__init__.py` exists and CI puts the repo root on `PYTHONPATH`,
+so `cli.utils.crypto_utils` — a stale copy of wallet and signing code — is importable. Three
+files there (`kyc_aml_providers.py`, `secure_audit.py`, `security.py`) have no counterpart,
+so the tree cannot simply be deleted. Both duplicated files got the same fix as their live
+counterparts; deciding the tree's fate is separate work.
+
+---
+
+
+### V23-40 — 131 float money parameters, and the compute-second the CLI kept losing · CONFIRMED → RESOLVED
+
+V23-39 measured the last blind spot at 126 sites and left it. This closes it. The rule as
+implemented reports **131** sites (the earlier figure checked suppression per *function*,
+which over-counted five as already marked); `_is_narrowed_float` then took that to **119**,
+and the rest were converted or marked here. The baseline is still 0.
+
+#### The defect the rule was hiding
+
+```python
+def ait_to_seconds(ait: float) -> int:
+    return int(ait * SECONDS_PER_AIT)   # SECONDS_PER_AIT = 3600
+```
+
+This is the function that turns a user's `--amount` into the integer number of
+compute-seconds the chain settles. Computing the product in float truncates on the low side
+whenever it lands just under an integer:
+
+```
+aitbc wallet send ... 0.5025    ->  1808 seconds   (0.5025 * 3600 == 1808.9999999999998)
+                                ->  1809 seconds   exact
+```
+
+**1402 of the million four-decimal inputs between 0.0001 and 100.0000 lose a compute-second
+that way** — always in the same direction, always the sender's. `seconds_to_ait` returns
+`Decimal` now, `ait_to_seconds` converts before multiplying, and
+`tests/unit/test_ait_unit_conversion.py` pins both the fix and the old behaviour so the
+regression is recognisable if it returns.
+
+#### `type=float` made the CLI annotations unenforceable
+
+42 of the 131 were CLI handlers, and annotating them `Decimal` alone would have been a lie:
+
+```python
+@click.option("--amount", type=float)   # click converts before the function is called
+def send(amount: Decimal, ...)          # ...so this holds a float regardless
+```
+
+So `cli/aitbc_cli/utils/money.py` adds a `DecimalParamType` (`type=DECIMAL`) that parses the
+user's own digits, rejects non-finite input, and leaves bad input failing as a Click usage
+error rather than a traceback. Every money option and argument in the CLI now uses it.
+
+That composes with the agent SDK, which shells out to this CLI: `Decimal` → `str(...)` →
+argv → `DECIMAL.convert` → `Decimal`, with no float anywhere in the path.
+
+**Honest scope note on the JSON boundary.** Money leaving the CLI is sent as a decimal
+string, and for these endpoints that is *not* mainly about the wire. Checked rather than
+assumed: Pydantic v2 parses the JSON literal `0.1` straight into `Decimal("0.1")`, so a
+plain float body was already exact for ordinary prices. The string only matters past ~17
+significant digits. What the conversion actually buys is everything **before** serialisation
+— `ait_to_seconds`, `btc_amount = aitbc_amount / rate`, `quote_liquidity + amount`,
+`balance - amount` — where float error accumulates.
+
+#### Local wallet files now store money as decimal strings
+
+`json.dump` cannot serialise a `Decimal`, and writing `float(amount)` back would restore
+exactly the rounding the `Decimal` was for. So `~/.aitbc/wallets/*.json`,
+`*_multisig.json` and `exchanges.json` hold decimal strings, and every reader goes through
+`utils.money.wallet_amount()`, which accepts both those and the JSON numbers older builds
+wrote. Six assertions in `tests/cli/test_wallet.py` were updated to compare values rather
+than spellings.
+
+#### Two latent crashes, found only because the types moved
+
+- `RewardCalculator.calculate_milestone_bonus` did `total_bonus = 0.0` then
+  `total_bonus += milestone.reward_amount`, and `RewardMilestone.reward_amount` is
+  `Decimal`. **That raises `TypeError` the moment an agent actually has a completed
+  milestone.** All five reward calculators return `Decimal` now — every one of them feeds a
+  `Decimal` column on `RewardCalculation`, so returning float had been narrowing them on the
+  way in.
+- `ComputeProvider._execute_job` (fixed in V23-39) was the same shape. Third occurrence.
+
+The mypy ratchet caught both, which is the payoff from V23-35 — the hook that used to report
+success while checking zero files.
+
+#### What kept `float`, with a marker and a reason
+
+Reinforcement-learning returns in `adaptive_learning.py` (five sites); `_calculate_rsi` and
+`_calculate_price_trend`, which are numpy statistics over a price *series* returning an index
+and a slope — numpy has no `Decimal` dtype; `MetricsRegistry.increment`; and
+`TEEBenchmarkResult.run(cost_units)`.
+
+Marking the RL ones exposed the fifth property of the suppression marker: **a comment above
+`def` does not cover parameters on continuation lines**, because the walk starts at the
+parameter's own line. Wrapped signatures need the marker on the parameter.
+
+#### A refinement, not just a widening
+
+`_is_narrowed_float` exempts any annotation that also admits `Decimal`. `amount: float`
+narrows — the caller cannot pass an exact value at all. `amount: Decimal | float | str` is a
+coercion boundary, and this repo has a dozen on purpose (`money.to_atomic_units`,
+`grant_service.create_grant`, `capacity_publisher.publish_capacity`), each normalising on the
+first line. Reporting those would be telling the code to stop accepting the type it exists to
+accept. Whether such a boundary then *keeps* the value exact is a separate question the body
+rules already answer.
+
+`blockchain-node`'s economics constructors were rewritten to that shape rather than to bare
+`Decimal`: `GasManager`, `StakingManager`, `stake()` and `add_reward_event()` already did
+`Decimal(str(x))` internally, so widening the door beats breaking every caller.
+
+#### One more vocabulary gap
+
+`funding` was not a money word, which hid `InnovationLab.funding_goal` and
+`current_funding` — and `fund_lab` does `current_funding += amount` then compares
+`current_funding >= funding_goal` to decide whether a lab is fully funded. A threshold
+comparison on a binary float is how a lab gets funded at 999.9999999999999 out of 1000. Both
+convert in `a3e7c15b8d94`; the table is empty in the deployed database. Verified both
+directions against a copy.
+
+#### Recorded, not fixed
+
+- **`wallet stats` and `wallet info` format the balance as compute-seconds**, while `earn`,
+  `spend` and `liquidity-stake` store it in AIT — a 3600x display error. Pre-existing, a unit
+  bug rather than a rounding one, and orthogonal to this pass.
+- **`transactions send` truncates with `int(amount)`** while `wallet send` goes through
+  `ait_to_seconds`. Two unit conventions for the same operation in one CLI.
+- **`mint_tokens` posts to `/admin/mintFaucet`, which is not implemented in this repo** (only
+  a test fixture and a docs entry, at a different path). The string boundary there could not
+  be verified against a receiver.
+- `exchange/payments.py` and `exchange/trading.py` define command functions that are **never
+  wired to Click**. Converted for consistency; unreachable either way.
+
+**Six widenings, six times the same result.** The baseline is zero against the rules that
+exist today, and that remains the only claim it supports.
+
+---
+
+## v0.23
+
+### Medium — one CLI, two units for the same quantity
+
+### V23-41 — the AIT/compute-second confusion V23-40 recorded but did not fix · CONFIRMED → RESOLVED
+
+V23-40 found two unit bugs while converting the CLI's parameters and deliberately left
+them: they are unit errors, not rounding errors, and mixing them into a `Decimal` migration
+would have made both harder to review. This is that fix.
+
+**The unit is not ambiguous.** `apps/blockchain-node/src/aitbc_chain/base_models.py`:
+
+```python
+value: int = Field(default=0)   # in compute-seconds (1 AIT = 3600)
+fee: int = Field(default=0)     # in compute-seconds (1 AIT = 3600)
+```
+
+and `rpc/ai_services.py` defaults the fee to `36` — which is 0.01 AIT, only if the field is
+seconds. `wallet send` has always converted with `ait_to_seconds()`. Everything that
+disagreed with that was wrong.
+
+#### `transactions send` sent the wrong number, and its own default fee was zero
+
+```python
+"amount": int(amount),
+"fee": int(fee),
+```
+
+`int()` on an AIT figure reads it as though it were already compute-seconds — 3600x low —
+and truncates every fraction to nothing:
+
+```
+--amount    int() sent   ait_to_seconds() sends
+   0.001             0                        3     <- the default --fee
+     0.5             0                     1800
+     1.5             1                     5400
+  0.5025             0                     1809
+      10            10                    36000
+```
+
+The default `--fee 0.001` became **0** on every invocation. Both commands POST to the same
+`/rpc/transaction` on port 8202, so the CLI has been offering two contradictory readings of
+`--amount` for the same operation against the same endpoint.
+
+#### `wallet stats` and `wallet info` displayed balances 3600x small
+
+`format_ait()` takes compute-seconds. The local wallet file holds AIT — `earn` and `spend`
+wrap their writes in `ait_to_seconds()`, so that much was already established in the same
+file. Four sites did not:
+
+```
+wallet file holds 100 AIT
+  format_ait(100)                  ->   0.0278 AIT
+  format_ait(ait_to_seconds(100))  ->   100 AIT
+```
+
+`wallet balance` and `wallet history` were **not** touched: those values come from the
+service already denominated in seconds, and wrapping them would have introduced the same
+bug in the opposite direction. The distinction is which side of the boundary the number
+arrived from, not which function is being called.
+
+#### `estimate-fee` printed compute-seconds with an "AIT" label
+
+```
+old:  Estimated fee: 36.0 AIT (default)
+new:  Estimated fee: 0.0100 AIT (default)
+```
+
+The 36 was correct as a wire value and wrong as a display. It now goes through
+`format_ait()` like everything else, and the literal is named `DEFAULT_FEE_SECONDS` so the
+next reader does not have to work the unit out from the magnitude.
+
+#### Four tests pinned the wrong behaviour
+
+`tests/cli/test_wallet.py` asserted `format_ait(100.0)` for a 100-AIT balance, and
+`tests/cli/test_commands_transactions.py` asserted `"36.0" in result.output`. Both now
+assert the AIT figure and, for the estimate, that the value reaching the node is
+`100 * 3600` — the conversion, not just its formatting.
+
+**A test that pins the output of the code under test pins whatever that code does**,
+including its bugs. These four passed continuously while the CLI showed balances off by a
+factor of 3600.
+
+---
+
+
+### Medium — the second CLI, and what was actually in it
+
+### V23-43 — `cli/utils/` deleted; one module survived the audit · CONFIRMED → RESOLVED
+
+V23-39 recorded this and declined to act: "`cli/utils/` is a stale parallel copy of
+`cli/aitbc_cli/utils/` … Three files there have no counterpart, so the tree cannot simply be
+deleted. Deciding the tree's fate is separate work." This is that work. The three files were
+checked individually rather than treated as one block, and only one of them turned out to be
+unique.
+
+| file | verdict |
+|---|---|
+| `__init__.py` | diverged copy of the live one (370 differing lines) — **deleted** |
+| `crypto_utils.py` | diverged copy (158) — **deleted** |
+| `subprocess.py` | byte-identical copy — **deleted** |
+| `wallet_daemon_client.py` | diverged copy (312) — **deleted** |
+| `security.py` | its own docstring says "backward-compatibility shim" onto `aitbc.security.encryption` — **deleted** |
+| `kyc_aml_providers.py` | superseded copy of coordinator-api's, 303 differing lines — **deleted** |
+| `secure_audit.py` | no equivalent anywhere — **moved** to `cli/aitbc_cli/utils/` |
+
+#### Why it was a hazard rather than clutter
+
+`setup.py` packages only `aitbc_cli` and every production import is `aitbc_cli.utils.*`, so
+none of this shipped. But `cli/__init__.py` made `cli` a real package and the repo root is on
+`sys.path` under pytest, so `from cli.utils.crypto_utils import sign_challenge` resolved — to
+**wallet-signing code 158 lines diverged from the copy the CLI actually runs**, next to an
+`encrypt_value` that was a different implementation from the shipped one. A single import
+written from muscle memory would have picked up the wrong signing path with nothing to
+indicate it.
+
+Its only importers were its own three test files.
+
+#### The two tests that were kept, and the one that was not
+
+- `tests/cli/test_security.py` — 238 lines exercising real key derivation, encryption and
+  password rules **through the shim**. Repointed at `aitbc.security.encryption` directly: the
+  coverage was of shared-core code all along, and only the import went through `cli.utils`.
+- `tests/cli/test_secure_audit.py` — repointed at the relocated module, `patch()` targets
+  included.
+- `tests/cli/test_kyc_aml_providers.py` — **deleted with its module.** It tests
+  `SimpleKYCProvider` and `SimpleAMLProvider`, simulation stubs that coordinator-api replaced
+  with `RealKYCProvider`/`RealAMLProvider`. The test cannot be ported because the classes it
+  names no longer exist on the surviving copy — this was a test of a superseded
+  implementation, not coverage that moved.
+
+  Worth noting separately: **coordinator-api's `kyc_aml_providers.py` has no tests at all.**
+  Deleting this file does not change that; it only stops it looking otherwise.
+
+#### `secure_audit.py`
+
+The one module with no equivalent: a hash-chained tamper-evident audit log with
+`verify_integrity`, `export_audit_report` and `get_chain_info`. `aitbc/security/audit.py` has
+`SecurityAuditor`, which is a different thing. It has no production caller either — its only
+non-test consumer was the stale `__init__.py`'s `AuditLogger` wrapper, which nothing imported
+— but unique working code with a passing suite is worth relocating rather than discarding, so
+it now lives in the tree that ships.
+
+#### What stops it returning
+
+`tests/unit/test_no_shadow_cli_package.py` asserts there is no `cli/__init__.py`, no
+`cli/utils/`, and no importable `cli.utils`. A deleted directory does not stay deleted on its
+own. Verified non-vacuous by recreating both and watching each assertion fail by name.
+
+`cli/` still resolves as a *namespace* package, because any directory on `sys.path` does; the
+test allows that and checks for a real one (`spec.loader is not None`).
+
+Test count: 2672 → 2658 — the 17 KYC cases removed, the 3 new guards added.
+
+---
+
+
+## v0.22
+
+### CLI — `cli/`
+
+- **CLI-01** *(High, closed)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:92-97` —
+  `_create_wallet_file()` now calls `generate_ethereum_private_key()` and derives the address
+  from the resulting real secp256k1 key. The private key is encrypted with PBKDF2+Fernet when a
+  password is supplied (`_save_wallet` in `aitbc_cli/commands/wallet/__init__.py`). Verified by
+  `cli/tests/test_wallet_creation.py`; no predictable `simple_key_...` strings are written.
+- **CLI-02** *(High)* `aitbc_cli/utils/wallet_daemon_client.py:440-452` —
+  `get_wallet_balance_in_chain` always returns `balance=0.0` ("For now, return a placeholder
+  balance"), handing callers fabricated financial data instead of an error.
+- **CLI-03** *(High)* `aitbc_cli/auth/__init__.py:7-23` — credential storage silently regressed
+  from the OS keyring (still used by the legacy `cli/auth/__init__.py`) to a module-level
+  `_CREDENTIAL_STORE: dict[...] = {}` — plaintext, in-process only, and gone on the next CLI
+  invocation since each call is a fresh process. Currently dead code, dangerous if wired up.
+- **CLI-04** *(Medium, closed for the install shadowing)* `cli/setup.py` now uses
+  `find_packages(include=["aitbc_cli", "aitbc_cli.*"])`, so the legacy `cli/utils/`, `cli/auth/`,
+  and `cli/models/` directories are no longer installed into site-packages as the generic
+  top-level packages `utils`, `auth`, `models`, `config_data`. All `aitbc_cli` imports of these
+  modules now use package-relative paths (`..models`, `..utils.output`) instead of the
+  top-level names. The legacy source trees are still present on disk (used by `tests/cli`), but
+  the shadowing hazard for installed CLI users is gone.
+- **CLI-05** *(Medium)* `aitbc_cli/utils/crypto_utils.py:150-183` — multisig challenges live in
+  a process-local dict on a module singleton, so a challenge from `create_signing_request` can
+  never be found by a later `verify_and_add_signature` (separate processes). Line 182 also sets
+  `"created_at": secrets.token_hex(8)` — random hex, not a timestamp — so expiry cannot be computed.
+- **CLI-06** *(Medium)* `cli/utils/secure_audit.py:21-24,87-119` — the tamper-evident audit log
+  under `~/.aitbc/audit` is created with default permissions (no `chmod`), the singleton does
+  disk I/O at import (line 317), and there is no file locking, so concurrent writers can
+  interleave and break the hash chain.
+- **CLI-07** *(Medium)* `aitbc_cli/services/env_validator.py:22-48,70-77` — `_looks_like_secret`
+  only flags 32+ alnum, `sk-…`, or 64-hex values, so any shorter or differently formatted
+  secret in a `*_API_KEY`/`*_TOKEN` key is stored **unredacted** in `result.present[key]`,
+  which callers may print or log.
+- **CLI-08** *(Medium)* `aitbc_cli/core/main.py:80-84` — the `aitbc list` alias calls
+  `wallet.main(args=["list"], standalone_mode=False)`, starting a fresh Click invocation
+  instead of forwarding the context, so global flags (`--url`, `--api-key`, `--output`,
+  `--chain-id`) are silently dropped.
+- **CLI-09** *(Medium)* `aitbc_cli/core/chain_manager.py:349,447,462-463` — chain
+  migration/replication reports fabricated statistics (`available_space_mb=10000`,
+  `blocks_transferred=1000`, `transfer_time_seconds=300`) with no dry-run gate.
+- **CLI-10** *(Low-Medium)* `aitbc_cli/commands/config.py:415-427` — `set_secret` writes
+  `secrets.json` with default umask and only then `chmod(0o600)`, leaving a TOCTOU window
+  where the file is world-readable.
+- **CLI-11** *(Medium)* Test coverage: 6 test files (~107 test functions) against 50+ command
+  groups and 142 source files. No dedicated tests for `agent`, `bridge`, `chain`, `compliance`,
+  `contract`, `deploy`, `governance`, `mining`, `node/*`, `pool_hub`, `security`, `tee`,
+  `wallet/*`, or `workflow`.
+- **CLI-12** *(Low, closed)* `aitbc_cli/utils/dual_mode_wallet_adapter.py` no longer generates
+  underscore-containing `aitbc1...` addresses; it derives real `0x...` addresses. The hardcoded
+  `sys.path.insert(0, "/opt/aitbc/cli")` has been removed from `dual_mode_wallet_adapter.py` and
+  `wallet_daemon_client.py`; both now import through the `aitbc_cli.utils.output` helper instead of
+  the legacy top-level `utils` package.
+- **CLI-13** *(Low)* `aitbc_cli/commands/client.py` is an unregistered empty stub group; three
+  differently-purposed "agent" groups (`agent_sdk.py`→`agent`, `agent.py`→`agent-msg`,
+  `agent_comm.py`) are disambiguated only by import aliases.
+
+---
+
+
+## v0.9.0
+
+### 🖥️ CLI Commands
+
+### New Commands (extends `trade` group)
+- `aitbc trade lock-escrow` — Lock funds in escrow for a trade
+- `aitbc trade settle` — Settle a completed trade
+- Implementation: Add subcommands to `cli/aitbc_cli/commands/trade.py`
+
+
+## v0.8.2
+
+### 🖥️ CLI Commands
+
+### New Commands (extends `trade` group from v0.8.1)
+- `aitbc trade watch` — Watch for offer changes matching a query (WebSocket stream)
+- `aitbc trade subscription-status` — Show subscription health per chain
+- Implementation: Add subcommands to `cli/aitbc_cli/commands/trade.py`
+
+
+## v0.8.1
+
+### 🖥️ CLI Commands
+
+### New Commands (extends `trade` group from v0.8.0)
+- `aitbc trade discover` — Discover available trade opportunities across chains
+- `aitbc trade sync` — Synchronize trade state across chains
+- `aitbc trade sync-status` — Show trade synchronization status
+- Implementation: Add subcommands to `cli/aitbc_cli/commands/trade.py`
+
+
+## v0.8.0
+
+### 🖥️ CLI Commands
+
+### New Command Group: `trade`
+The entire `trade` command group does not exist yet. This release creates it:
+- `aitbc trade create` — Create a new cross-chain trade
+- `aitbc trade list` — List active trades
+- `aitbc trade chains` — List chains available for trading
+- `aitbc trade get <trade_id>` — Get trade details
+- `aitbc trade status <trade_id>` — Get trade status
+- Implementation: Create `cli/aitbc_cli/commands/trade.py` and register in `cli/aitbc_cli/core/main.py`
+
+
+## v0.7.4
+
+### 🖥️ CLI Commands
+
+### New Commands
+- `aitbc governance propagate --proposal-id <id>` — Propagate proposal to all chains
+- `aitbc governance aggregate-votes --proposal-id <id>` — Aggregate votes from all chains
+- `aitbc bridge oracle-status` — Show oracle health and fallback status
+- `aitbc consensus validators` — List active validators (MultiValidatorPoA)
+- `aitbc consensus status` — Show consensus mode (single vs multi-validator)
+
+
+## v0.7.2
+
+### 🖥️ CLI Commands
+
+### New Commands
+- `aitbc bridge oracle-status` — Show bridge verification status (verification mode, finality config, validator set status)
+  - Currently missing: `bridge` group lacks this subcommand
+  - Implementation: Add `oracle-status` subcommand to `cli/aitbc_cli/commands/bridge.py`
+  - Note: Despite the name, this reports in-process verification status (no external oracle required)
+
+
+## v0.7.1
+
+### 🖥️ CLI Commands
+
+### New Commands
+- `aitbc bridge security-status` — Show bridge security status (multi-sig config, signature verification status)
+  - Currently missing: `bridge` group only has `start`, `status`, `stop`
+  - Implementation: Add `security-status` subcommand to `cli/aitbc_cli/commands/bridge.py`
+- `aitbc bridge register-validator` — Register a validator for bridge operations
+  - Currently missing: `bridge` group lacks this subcommand
+  - Implementation: Add `register-validator` subcommand to `cli/aitbc_cli/commands/bridge.py`
+
+
+## v0.6.4
+
+### 🖥️ CLI Commands
+
+### New Commands
+- `aitbc chain start` — Start a chain (currently only exists as `aitbc node chain start`)
+  - Add `start` subcommand to `cli/aitbc_cli/commands/chain.py` as alias/wrapper for `node chain start`
+- `aitbc chain stop` — Stop a chain (currently only exists as `aitbc node chain stop`)
+  - Add `stop` subcommand to `cli/aitbc_cli/commands/chain.py` as alias/wrapper for `node chain stop`
+- `aitbc chain list --island <island_id>` — List chains filtered by island
+  - Currently `chain list` exists but lacks `--island` flag
+  - Implementation: Add `--island` option to existing `chain list` command
+
+### CLI Command Routing
+
+**Current state** (verified):
+- `cli/aitbc_cli/commands/chain.py` — top-level `chain` group with `list`, `status`, `info`, `create`, `delete`, `add`, `remove`, `migrate`, `monitor` subcommands
+- `cli/aitbc_cli/commands/node/chain.py` — `node chain` group with `start`, `stop`, `list_chains` subcommands (implementations: `start_chain_command`, `stop_chain_command`, `list_chains_command`)
+- `cli/aitbc_cli/commands/node/__init__.py` — `node chain` group registered at line 173-176, with `start`, `stop`, `list_chains` subcommands at lines 179-200
+
+**Routing design**: `aitbc chain start/stop` should delegate to the same logic as `aitbc node chain start/stop` — single source of truth in `node/chain.py`. Avoid duplicating command logic:
+
+```python
+# cli/aitbc_cli/commands/chain.py — add start/stop as wrappers
+from .node.chain import start_chain_command, stop_chain_command
+
+@chain.command(name="start")
+@click.argument("chain_id")
+@click.option("--chain-type", type=click.Choice(["bilateral", "micro"]), default="micro")
+@click.pass_context
+def start(ctx, chain_id, chain_type):
+    """Start a chain (delegates to node chain start)."""
+    start_chain_command(ctx, chain_id, chain_type)
+
+@chain.command(name="stop")
+@click.argument("chain_id")
+@click.pass_context
+def stop(ctx, chain_id):
+    """Stop a chain (delegates to node chain stop)."""
+    stop_chain_command(ctx, chain_id)
+```
+
+**`--island` flag for `chain list`**: Add to existing `chain list` command in `chain.py`. When `--island <island_id>` is provided, filter results to chains on that island (query node's `/rpc/islands` or `/network-info` for island→chain mapping).
+
+
+## v0.6.3
+
+### 🖥️ CLI Commands
+
+### New Commands
+- `aitbc chain sync-status` — Show chain synchronization status per chain
+  - Currently missing: `chain` group lacks `sync-status` subcommand
+  - Implementation: Add `sync-status` subcommand to `cli/aitbc_cli/commands/chain.py`
+- `aitbc node island health` — Show health status of an island
+  - Currently missing: `node island` group lacks `health` subcommand
+  - Implementation: Add `health` subcommand to island command group in `cli/aitbc_cli/commands/node/__init__.py`
+- `aitbc node island list` — Alias for existing `list_islands` (standardize naming)
+  - Currently exists as `list_islands`, add `list` as alias
+
+
+## v0.6.2
+
+### 🖥️ CLI Commands
+
+### New Commands
+- `aitbc sync status` — Show synchronization status (current block, peer count, sync progress)
+  - Currently missing: `sync` group only has `sync bulk`
+  - Implementation: Add `status` subcommand to `cli/aitbc_cli/commands/sync.py`
+
+
+## v0.4.1
+
+### 🔧 CLI Improvements
+
+### GPU Marketplace
+
+- **Simplified List**: Simplified gpu_marketplace list command
+- **Better Output**: Improved command output formatting
+- **Error Handling**: Enhanced error handling and validation
+
+### Missing Subcommands
+
+- **36 Subcommands**: Implemented 36 missing CLI subcommands
+- **Scenario Coverage**: Added CLI scenario coverage for crosschain, monitor, resource, simulate commands
+- **Advanced Subcommands**: Updated existing scenarios with advanced subcommands
+
+### Configuration Standardization
+
+- **blockchain.env**: Standardized blockchain configuration
+- **node.env**: Standardized node configuration
+- **Consistent Paths**: All config files use consistent paths

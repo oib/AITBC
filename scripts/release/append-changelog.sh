@@ -8,8 +8,8 @@
 # impossible — it is always a mistake.
 #
 # Usage:
-#   scripts/release/append-changelog.sh docs/releases/v0.25/v0.25.2_change.log < entry.txt
-#   cat entry.txt | ssh node2 'cd /opt/aitbc && scripts/release/append-changelog.sh docs/releases/v0.25/v0.25.2_change.log'
+#   scripts/release/append-changelog.sh docs/releases/2026/consensus_release.log < entry.txt
+#   cat entry.txt | ssh node2 'cd /opt/aitbc && scripts/release/append-changelog.sh docs/releases/2026/consensus_release.log'
 
 set -euo pipefail
 

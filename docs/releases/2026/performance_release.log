@@ -1,0 +1,888 @@
+# Performance — consolidated release log
+
+> Reorganized 2026-11-26 under DOCS-RELEASES-TOPIC-REORG-1 (#2974).
+> Running history of performance changes across
+> releases; versions are sections, newest first. Section bodies are
+> verbatim from the pre-reorg tree except markdown link targets,
+> which were rewritten for the new paths (git history preserves
+> the old layout).
+
+## v0.27.0
+
+### SSH session footprint — `5ab6e0753` (23 Oct, SSH-MUX-1)
+
+Reuse ssh connections across MCP tool calls — fewer per-call ssh session scopes on hub;
+the kills observed earlier were hitting session cgroups.
+
+
+## v0.25.11
+
+### WEB-FIX-1: 375px layout fixes, tap targets, input fonts, cache stamping, layout guard
+
+- `cb4263ad3` (W1/W2) — two real overflow mechanisms fixed: `.visually-hidden` clipped spans inside scrolled tables carried `left:-10000px` positioning that pushed `documentElement.scrollWidth` out to 734px on the customer dashboard (now `left:0`), and `.journal-controls` was a nowrap flex row letting the alerts selects overflow to 401px (now `flex-wrap: wrap` + `max-width: min(18rem, 100%)`).
+- `0be1d7138` — the W2 defect class closed fleet-wide: every control-bearing row-direction flex container (`blocks-header`, `.flex-row`, `.search-header`, `.search-row`, `.status-filter`, `.wallet-row`) now wraps.
+- `daa3d3246` (W3/W4/W12) — one media block under `(pointer: coarse), (max-width: 640px)`: `min-height:44px` on status-strip links, footer links, marketplace filter buttons, explorer block rows, alert selects, and in-table links (padding + compensating margin so row heights do not grow); `font-size:16px` on phone-breakpoint form controls to stop iOS zoom-on-focus. Dead `--primary-dark` hover rule and dead `renderBlockTransactions`/`toggleBlockDetail` removed. Desktop rendering unchanged.
+- `f5751fe53` — browser test found two more members of the same families: `block.html`/`tx.html` rendered full hashes in unconstrained inline spans (539px overflow — now break-word/break-all), and `follower-api-key-announcement.html` links no shared stylesheet so its local `.site-footer` links stayed under 44px (local rule added).
+- `14230d75a` + `8458e575e` (W6) — `scripts/ops/stamp-website-assets.py` stamps every local CSS/JS/favicon reference with one common content-hash `?v=` value (idempotent, `--check` for drift); all 12 shared-stylesheet pages carry `v=10e1ab48beb73a98`. `test_website_asset_stamp.py` pins uniformity and hash sensitivity. Navigation/API links stay unstamped.
+- `64c45f29f` (W5) — `tests/unit/test_website_layout_375.py`: heuristic layer always on (tables inside overflow wrappers, control flex rows wrap, 16px form fonts, W1/W2 mechanisms pinned — it cannot measure scrollWidth and says so) plus `TestLayout375Browser`, which detects a Chromium binary + `websockets` and skips cleanly with "skipped: no browser" otherwise — not enforced in CI until a browser host exists. `scripts/ops/website-375-check.js` is the same check as a pasteable devtools snippet for live pages.
+
+
+## v0.24.11
+
+### P1 Phase 3 — Follower state-root validation and replay cache (2026-08-23)
+
+- fix(state): `compute_state_root_full` now reads account rows with raw SQL
+  instead of the ORM identity map, so blocks that update account balances via
+  `session.execute(text(...))` are validated against the real DB state.
+- fix(sync): `import_block` resets the in-memory `StateTransition` replay
+  cache per block, so a rejected transaction no longer poisons the next import
+  attempt with a false "replay attack" warning.
+- fix(consensus): `PoAProposer` also resets the replay cache at the start of
+  each block proposal.
+- fix(consensus): `FAUCET`, `BRIDGE_REFUND` and `BRIDGE_LOCK` transactions
+  are now recorded in a block the same way as `MESSAGE`/`BRIDGE_RELEASE`: the
+  pre-registered transaction already updated the account state, so the proposer
+  just sets `block_height` instead of re-running the state transition. This
+  stops the repeated "sender account not found for ..." warnings and anchors
+  the funding/bridge records on-chain.
+- fix(sync): WebSocket/push block imports on follower nodes now skip
+  state-root validation, matching the bulk pull path. The hub proposer still
+  computes state roots from stale in-memory state and needs a restart to use
+  the corrected `compute_state_root_full` path; until then, validation would
+  reject every push block.
+- fix(consensus): the pre-registered transaction query in `PoAProposer` now
+  uses `Transaction.block_height.is_(None)` to correctly select records with a
+  NULL `block_height`. The previous `Transaction.block_height is None` was a
+  Python `True` literal, so the query never returned any pre-registered
+  `FAUCET`/`BRIDGE_REFUND`/`BRIDGE_LOCK` records and they were never anchored.
+- fix(state): `StateTransition` now treats `FAUCET`, `BRIDGE_RELEASE`, and
+  `BRIDGE_REFUND` as pre-registered credit transactions: they do not require a
+  sender account, do not debit a sender, and only credit the recipient. This
+  allows follower nodes to apply the same state change the hub RPC made when the
+  transaction was created.
+- fix(sync): `sync_block_import` no longer creates a zero-balance sender account
+- perf(sync): initial resync bulk batch size now uses the full gap up to the
+  configured `initial_sync_max_batch_size` instead of a conservative 500 + gap/20
+  formula. This roughly halves resync time for large gaps.
+  for `FAUCET`/`BRIDGE_RELEASE`/`BRIDGE_REFUND` before applying them, preventing
+  extra `faucet`/`bridge_*` accounts from polluting the follower state trie.
+- Quality gates: mypy clean, no float money, OpenAPI drift check, and
+  `pytest apps/blockchain-node/tests` all pass.
+- fix(database): switch blockchain chain database from StaticPool to NullPool
+  - Each Session now opens and closes a fresh SQLite connection, preventing long-lived read transactions from holding stale WAL snapshots across proposer/RPC processes.
+  - Consolidated SQLite pragma setup into _set_sqlite_pragmas() so all new connections get WAL, tuning and busy_timeout settings.
+- fix(cli): `aitbc node island join` now chowns `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` mode 0600 after writing, matching `aitbc node join`.
+- fix(cli): `aitbc market offer` error now points to `aitbc node island join` instead of the non-writing `aitbc edge island join`.
+- docs(design): mark P1.6 and operations gap #11 (island credential ownership) as fixed in `DESIGN_CYCLE.md`.
+- docs(architecture): rewrite `docs/architecture/1_system-flow.md` to the live v0.10.18 flow
+  - Documents `aitbc auth login`, `aitbc ai submit --wait`, reputation-aware dispatch, and the `ESCROW_RELEASE_PRIVATE_KEY` signer.
+  - Removes stale "not yet" notes for shipped P0.1, P0.6, P1.1, P1.5, and P0.3.
+  - Closes `DESIGN_CYCLE.md` P1.8 and operations gap #13.
+- docs(bridge): reconcile `STATUS.md` with live trusted-custodian bridge defaults
+  - `v0.7.1` and `v0.7.2` rows now note multi-sig/Merkle are implemented but disabled by default.
+  - Closes `DESIGN_CYCLE.md` P1.3.
+- docs(scenarios): canonicalize `aitbc auth login` for coordinator authentication
+  - Updated `docs/scenarios/README.md`, `07_ai_job_submission.md`, `25_job_payment_failure.md`, `35_fire_and_forget_logging_b10_b11.md`, `46_tee_confidential_jobs.md`, `47_zk_high_value_jobs.md`, `48_performance_bonds_high_value.md`, `49_auto_reinvest_escrow.md` to use `aitbc auth login` instead of scraping `JWT_SECRET` from `/etc/aitbc/*.env`.
+  - Closes `DESIGN_CYCLE.md` operations gap #10.
+- docs(design): close operations gap #8 — follower divergence handling now has bulk resync, regression tests, and Prometheus metrics/alerting.
+- fix(cli): collapse legacy command groups to reduce operator confusion
+  - `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`.
+  - Group docstrings and `cli/README.md` clarify that `aitbc market`, `aitbc ai`, `aitbc agent`, and `aitbc governance` are the preferred command groups.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #15.
+- feat(ops): `aitbc-ipfs` now uses a Python wrapper (`apps/ipfs/ipfs-daemon.py`)
+  that runs `ipfs daemon` and reformats Kubo/go-log and logfmt output to the
+  AITBC journal style (`[LEVEL] [component] caller: message: key=value`). This
+  makes the IPFS service consistent with every other AITBC service.
+
+- docs(scenarios): add live-vs-simulated CLI output table and scenario notes
+  - `docs/scenarios/README.md` now lists which CLI groups can fall back to simulated output and why.
+  - Scenarios 04, 06, 11, 12, 27, 33, 34, and 42 include a `> **Live vs. simulated:**` note explaining live and simulated behavior.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #16.
+- fix(state,sync): handle FAUCET/BRIDGE_* as pre-registered credit transactions on followers
+- fix(state): BRIDGE_LOCK is now a pre-registered debit transaction on
+  followers. The sender is debited and the nonce is incremented, but no
+  bridge_lock account is created, and the tx nonce is not checked against the
+  current sender nonce. This prevents the extra bridge_lock account that caused
+  the resynced <node2> state root to diverge from the hub.
+- fix(sync): re-enable state-root validation for push imports in
+  `subscription_client.py` now that the hub proposer computes correct roots and
+  pre-registered transactions are handled consistently.
+- docs(monitoring): update `scripts/monitoring/monitoring-setup.md` to match shop-node-only `prometheus.yml`
+  - Clarifies that the sample Prometheus config scrapes only the local node by default.
+  - Comments out hub and shop coordinator/marketplace targets that are not reachable from a follower.
+- fix(sync): re-enable state-root validation for push imports
+- fix(sync): state snapshots are now skipped when the follower is more
+  than `state_sync_max_gap` (default 10) blocks behind the peer. This prevents
+  the account/nonce snapshot from making old transactions fail their nonce
+  checks and producing thousands of misleading warnings during initial resyncs.
+- docs(scenarios): reframe intermediate scenarios 21–35 as operator plays
+  - `docs/scenarios/README.md` now calls them "operator hardening plays" and clarifies A/B ids are change-log cross-references.
+  - Added a `> **Operator play:**` note to scenarios 21–35.
+  - Renamed a few scenario titles to remove "Fix" framing.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #17.
+- feat(metrics): add mempool, bridge, subscription and sync lag/failure metrics to blockchain node
+  - `metrics.py` now exports `mempool_pending_count/size/added/drained/evicted`, `bridge_*`, `subscription_*`, `sync_lag_blocks`, `sync_failures_total`.
+  - `mempool.py` and `subscription_client.py` now increment the new Prometheus counters/gauges.
+  - `observability/exporters.py` now uses a `ThreadingHTTPServer` `_MetricsHandler` that merges `prometheus_client` default and legacy `metrics_registry` output on `AITBC_NODE_METRICS_PORT` (default 9009).
+- feat(metrics): wire bridge and sync failure metrics
+  - `rpc/bridge.py` now sets `bridge_initialized`, `bridge_pending_transfers`, `bridge_release_enabled`, and `bridge_total_locked_amount` when `bridge_health` and `bridge_security_status` are called.
+  - `sync_block_import.py` increments `sync_failures_total` with a short reason label for every rejected block.
+- fix(sync): skip state sync when follower is far behind peer
+- fix(consensus): `BROADCAST SKIPPED` warning in `poa.py` now includes the
+  chain_id, so it is clear which chain has no subscribers when a node supports
+  multiple chains.
+- feat(monitoring): update `scripts/monitoring/aitbc_rules.yml` with recording rules and new alerts
+  - Adds `aitbc:block_interval_seconds:rate5m`, `aitbc:rpc_requests_per_second:rate5m`, `aitbc:rpc_error_rate:ratio5m`, and `aitbc:bridge_locked_amount` recording rules.
+  - Adds `SyncLagHigh` and `MempoolFull` alerts.
+  - Updates `RpcErrorsSpiking` to use the combined client/server error rate.
+- fix(metrics): remove stray `import re` that broke Python `from __future__` import ordering in `metrics.py`
+- fix(metrics): import subscription_messages_received_total in subscription_client
+- fix(metrics): add missing `re` import to `metrics.py` so the legacy
+  `MetricsRegistry.render_prometheus()` path does not raise `NameError` when
+  `/metrics` is scraped.
+- docs(scenarios): add Scenario 51 — Multi-Validator PoA Soak
+  - Documents how to configure `VALIDATOR_SET`/`VALIDATOR_KEYS`, run the consensus unit and soak tests, and observe proposer rotation locally before enabling `MULTI_VALIDATOR_CONSENSUS_ENABLED` in production.
+  - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.4 to reflect that the implementation is shipped and live enablement is operator-gated.
+- docs(scenarios): add Scenario 52 — Wallet Key Mismatch Recovery
+  - Documents the operator recovery path for a wallet whose stored key does not match the expected address.
+  - Closes `DESIGN_CYCLE.md` operations gap #12.
+- docs(scenarios): add Scenario 53 — Customer and Shop Dashboards
+  - Documents the live `aitbc dashboard customer` and `aitbc dashboard shop` paths, the required `aitbc auth login` roles, and service health checks for empty sections.
+  - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.2 to reflect that the CLI dashboard is live and the web UI mock is out-of-repo.
+
+- feat(bridge): P1.3 cross-chain bridge with block-anchored Merkle proofs
+  - Add `bridge_state_root` to `Block` and `BridgeBlockHeader` models and SDK types.
+  - Block hash commits to both account `state_root` and `bridge_state_root`.
+  - Block proposer signs the canonical block header JSON, matching the bridge verifier.
+  - Bridge state root is computed from `BRIDGE_LOCK` events during block production.
+  - `build_proof` rebuilds the bridge event trie from the source block and verifies it matches the committed `bridge_state_root`.
+  - `_validate_proof` verifies the Merkle proof against `BridgeBlockHeader.bridge_state_root`.
+  - Block header and validator attestations are verified as M-of-N signatures over the canonical header message.
+  - Bridge locks are added to the mempool so the next produced block anchors them.
+  - Closes `DESIGN_CYCLE.md` P1.3 bridge multi-signature and Merkle-proof verification.
+
+- fix(bridge): live ait-hub -> ait-shop-island transfer succeeded
+  - build_proof now returns the real account state_root in proof.state_root
+    and the bridge event trie root in proof.bridge_state_root.
+  - _validate_proof checks the proof bridge_state_root against the stored
+    BridgeBlockHeader bridge root, preserving account state root in the
+    canonical block-header signature.
+  - Validated end-to-end: lock on hub, block inclusion at height 12493,
+    Merkle proof, block header + validator signature verification, and
+    release on <node2>.
+
+2026-08-24 — Multi-validator / multi-key consensus
+- Activated `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` on `<hub-node>` with a two-validator set and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`.
+- Verified both `VALIDATOR_KEYS` derive to their declared `ait1` addresses before activation.
+- Observed round-robin proposer rotation from height 13282 and one attestation per block.
+- Fixed `bridge_state_root` and `chain_id` serialization in `poa.py` broadcast and `rpc/blocks.py` so followers can verify multi-validator blocks.
+- Restored `<node2>` follower sync to the hub chain.
+- Documented honest assessment: this is local multi-key rotation, not independent distributed consensus.
+- Fixed coordinator nonce routes in `payments.py` and `bond_slashing.py` to use `/rpc/accounts/{address}`.
+
+## v0.9.0
+
+### 📈 Performance Targets
+
+- Escrow lock time: <30 seconds (including cross-chain verification)
+- Atomic settlement time: <5 minutes (including both chains)
+- Timeout refund time: <10 minutes (including cross-chain verification)
+- Settlement success rate: >99.5%
+- No funds stuck rate: 100% (atomicity guarantee)
+
+
+## v0.8.2
+
+### 📈 Performance Targets
+
+- Offer notification latency: <1s (subscription) vs <60s (polling)
+- Subscription reconnection: <5s
+- Gossip propagation: <500ms cross-island
+- Search index query: <100ms (if enabled)
+- Subscription bandwidth: <10KB/minute per chain (event-based)
+
+
+## v0.8.1
+
+### 📈 Performance Targets
+
+- Offer discovery latency: <200ms (cached), <2s (uncached)
+- Offer sync latency: <60s for incremental sync
+- Offer staleness: <5 minutes (95th percentile)
+- Sync bandwidth: <100KB/minute per chain (incremental)
+
+
+## v0.8.0
+
+### 📈 Performance Targets
+
+- Trade request creation: <50ms
+- Matching latency: <100ms (spot)
+- Agreement creation: <200ms
+- Trade history query: <100ms
+
+
+## v0.7.4
+
+### 📈 Performance Targets
+
+- Oracle proof verification: <500ms (external API call)
+- Cross-chain proposal propagation: <30s to all islands
+- Vote aggregation: <60s for all chains
+- Parameter application: <5s after execution
+- MultiValidatorPoA block production: <2s (same as single-validator)
+
+
+## v0.7.3
+
+### 📈 Performance Targets
+
+- Proposal creation: <1s (blockchain transaction)
+- Vote submission: <1s (blockchain transaction)
+- Vote counting: <100ms (read from blockchain)
+- Parameter execution: <1s after timelock expires
+- Cross-chain propagation: <30s (bridge transfer)
+
+
+## v0.7.0
+
+### 📈 Performance Targets
+
+- Cross-chain transaction time: <5 minutes
+- Bridge throughput: >100 TPS
+- Bridge confirmation time: <2 minutes
+- Bridge success rate: >99.5%
+- Bridge latency: <500ms
+
+
+## v0.6.7
+
+### 📈 Performance Targets
+
+- Miner registration: <100ms
+- Job assignment: <200ms
+- Scoring update: <50ms
+- Reward distribution: <1s per miner (blockchain transaction)
+- Job queue throughput: >100 jobs/second
+
+
+## v0.6.6
+
+### 📈 Performance Targets
+
+- Offer registration: <1s (blockchain transaction)
+- Offer discovery: <100ms (RPC query)
+- Match: <200ms
+- Edge node serving start: <500ms (after payment confirmation)
+- Payment confirmation: <2s (block inclusion)
+
+
+## v0.6.5
+
+### 📈 Performance Targets
+
+- Agent registration: <100ms
+- Task submission: <50ms
+- Task assignment: <200ms
+- Swarm formation: <500ms
+- Workflow step execution: <100ms
+- Payment lock/release: <1s (blockchain transaction)
+
+
+## v0.6.4
+
+### 📈 Performance Targets
+
+- Multi-chain overhead: <10% per additional chain (vs. single-chain baseline)
+- Block production independence: no cross-chain blocking
+- MultiChainManager memory: <5MB per additional chain
+- Chain health check interval: 60s (configurable via `MULTI_CHAIN_HEALTH_INTERVAL=60`)
+- Dynamic chain start time: <5 seconds
+- Chain shutdown timeout: 10s graceful wait (configurable via `CHAIN_SHUTDOWN_TIMEOUT=10`)
+
+
+## v0.6.3
+
+### 📈 Performance Targets
+
+- Multi-chain sync overhead: <5% per additional chain (vs. single-chain baseline)
+- Subscription client memory: <10MB per additional chain
+- Island health check interval: 30s (configurable)
+- Sync RPC chain_id parameter overhead: negligible (query parameter)
+
+
+## v0.6.2
+
+### 📈 Performance Targets
+
+### Synchronization
+- Initial sync time: <10 minutes for 100K blocks (with parallel sync)
+- Block propagation: <500ms across network
+- Sync bandwidth: <1MB/second (with compression)
+- Delta sync: <5 seconds for 100 block delta
+
+### Gossip
+- Message propagation: <100ms
+- Gossip overhead: <10% of bandwidth (with compression + dedup)
+
+
+## v0.6.1
+
+### 📈 Performance Targets
+
+### Block Processing
+- Block validation time: <100ms (with parallelism)
+- Block import rate: >500 blocks/second (interim) → >1000 blocks/second (full parallelism)
+- Block processing latency: <200ms (interim) → <100ms (full parallelism)
+- State root calculation: <50ms (incremental updates, from v0.6.0 B5)
+- Block propagation latency: <200ms
+
+### Transaction Handling
+- Transaction validation: <10ms (parallel)
+- Transaction throughput: >10,000 TPS
+- Mempool processing: >5,000 transactions/second
+- Transaction confirmation: <1 second
+
+**Note**: The block import rate (>500 blocks/sec) and block processing latency (<200ms) targets were originally in v0.6.0 but moved here because they require parallel processing, not just DB/caching optimization. The sequential transaction loop in `poa.py` (lines 308-404) and the impure `state_transition.apply_transaction` (SQL UPDATEs at state_transition.py:170-181) are the bottlenecks that this release addresses.
+
+
+## v0.6.0
+
+### 📈 Performance Targets
+
+### Database
+- Query latency: <5ms for 95th percentile
+- Database throughput: >10,000 queries/second
+- Connection pool efficiency: >95%
+- Cache hit rate: >80%
+
+### Network
+- P2P connection latency: <50ms
+- Network bandwidth efficiency: >90%
+- Compression ratio: >50%
+
+### Block Processing (Caching)
+- Block header cache hit rate: >90%
+- Block import DB write overhead: <50% of import time (via batching)
+
+### Transaction Handling (Storage)
+- Mempool query latency: <5ms
+- Transaction batch write throughput: >5,000 writes/second
+
+**Note**: Block import rate, block processing latency, transaction validation latency, and transaction confirmation time targets require parallel processing and are in [v0.6.1](README.md#v061). The current sequential processing in `poa.py` (lines 239-327) and full state root recomputation in `merkle_patricia_trie.py` (lines 402-419) are architectural bottlenecks that caching alone cannot solve.
+
+
+## v0.5.17
+
+### 📈 Performance Targets
+
+- Multi-chain fixture startup: <5 seconds (in-memory DBs)
+- Multi-node harness startup (3 nodes): <10 seconds
+- Full test suite runtime: <60 seconds (with parallel execution)
+- Bridge test suite: <10 seconds
+
+
+## v0.5.16
+
+### 📈 Performance Targets
+
+- Signature verification: <5ms per transaction (ed25519)
+- chain_id query param overhead: negligible
+- Bridge proof verification: <10ms (signature + block anchor check)
+- No measurable impact on sync throughput
+
+
+## v0.5.0
+
+### P1: Performance Baseline
+
+### Problem
+No load tests exist. Unknown capacity limits.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Add `tests/load/test_coordinator.py` (k6 or locust) | ✅ Complete | Agent B |
+| Test job submit endpoint at 100 req/s | ✅ Complete (load test configured) | Agent B |
+| Test miner heartbeat at 1000 req/s | ✅ Complete (load test configured) | Agent B |
+| Profile DB queries for N+1 issues | ✅ Complete (profiling script created) | Agent B |
+| Add DB connection pool limits | ✅ Complete (added to DatabaseConfig) | Agent B |
+| Document baseline capacity | ✅ Complete (implementation documented) | Agent B |
+| Load tests run in CI (nightly) | ✅ Complete (GitHub Actions workflow created) | Agent B |
+| Create performance baseline documentation | ✅ Complete | Agent B |
+| Actual RPS measurements recorded | ✅ Complete (192 req/s peak measured) | Agent B |
+
+### Implementation Details
+
+**New Files:**
+- `tests/load/test_coordinator_api.py` — Locust load tests for coordinator API
+  - CoordinatorAPIUser: Normal load test (100 req/s job submit, 1000 req/s heartbeat)
+  - CoordinatorAPIStressUser: Stress test (500 users, rapid load)
+  - Tests: job submit, miner heartbeat, health check, list jobs, list miners
+- `scripts/performance/run_load_tests.sh` — Automated load test runner
+  - Normal load test (100 users, 60s)
+  - Stress test (500 users, 30s)
+  - Spike test (1000 users, 20s)
+  - Generates HTML reports and CSV metrics
+- `scripts/performance/profile_db_queries.py` — DB query profiling script
+  - Analyzes routers and services for session.execute/session.query patterns
+  - Detects potential N+1 issues (queries inside loops)
+  - Provides line-by-line query location
+
+**Updated Files:**
+- `pyproject.toml` — Added locust dependency for load testing
+- `apps/coordinator-api/src/app/config.py` — Added DB connection pool limits
+  - pool_recycle: 3600s (recycle connections after 1 hour)
+  - pool_timeout: 30s (connection timeout)
+- `.github/workflows/ci.yml` — Added load test job with nightly schedule
+- `docs/operations/PERFORMANCE_BASELINE.md` — Complete performance baseline documentation
+
+### Files
+- `tests/load/test_coordinator_api.py` — Locust load tests for coordinator API
+- `scripts/performance/run_load_tests.sh` — Automated load test runner
+- `scripts/performance/profile_db_queries.py` — DB query profiling script
+- `docs/operations/PERFORMANCE_BASELINE.md` — Performance baseline guide
+
+**Load Test Configuration:**
+- Normal load: 100 users, 10 spawn rate, 60s duration
+- Stress load: 500 users, 50 spawn rate, 30s duration
+- Spike load: 1000 users, 100 spawn rate, 20s duration
+- Weighted tasks: heartbeat (10x), job submit (3x), health check (1x)
+
+**DB Query Profiling:**
+- Scans all router and service files for session.execute/session.query
+- Detects queries inside loops (potential N+1 issues)
+- Reports total query counts and line numbers
+- Current findings: 2 files with DB queries (admin.py, users.py)
+  - admin.py: 8 session.execute calls (stats, list jobs)
+  - users.py: 4 session.execute calls (register, login, profile)
+  - No N+1 issues detected in current codebase
+
+**CI Integration:**
+- Added load test job to GitHub Actions CI workflow
+- Scheduled to run nightly at 2 AM UTC
+- Can be triggered manually via workflow_dispatch
+- Starts coordinator API in test mode
+- Runs locust load tests for 60 seconds
+- Generates HTML reports with 30-day retention
+- Uploads reports as CI artifacts
+
+**Performance Baseline Documentation:**
+- Created comprehensive performance baseline guide
+- Documents target metrics for all endpoints
+- Provides measurement procedures and troubleshooting
+- Includes load test profiles (normal, stress, spike)
+- Covers database optimization and API optimization
+- Provides performance targets and acceptance criteria
+
+**Baseline Capacity (To be measured):**
+- Job submit endpoint: Target 100 req/s (test configured)
+- Miner heartbeat: Target 1000 req/s (test configured)
+- Health check: Target 500 req/s (test configured)
+- DB connection pool: 10 base + 20 overflow (configured)
+
+### Acceptance Criteria
+- [x] Load tests created and configured
+- [x] Load test targets defined (100 req/s job submit, 1000 req/s heartbeat)
+- [x] DB query profiling script created
+- [x] DB connection pool limits added (pool_recycle, pool_timeout)
+- [x] Baseline capacity documented
+- [x] Load tests integrated into CI (nightly schedule)
+- [x] Performance baseline documentation created
+- [x] Actual RPS measurements recorded (v0.5.0 baseline documented below)
+
+**Actual RPS Measurements (v0.5.0 baseline):**
+- Health check endpoint: 192 req/s peak (100 users, 30s test)
+- Average response time: 3ms
+- Max response time: 34ms
+- Failure rate: 0.26%
+- Total requests: 4,433
+- Note: Only health endpoint tested (other endpoints not configured in running API)
+
+**CI Configuration:**
+- Created `.github/workflows/load-tests.yml` for nightly load tests
+- Scheduled to run daily at 2 AM UTC
+- Manual trigger available via workflow_dispatch
+- Uploads HTML reports and CSV metrics as artifacts (30-day retention)
+
+---
+
+
+## v0.4.17
+
+### 📊 Performance Impact
+
+### Expected Improvements
+
+- ✅ No performance impact (static analysis only)
+- ✅ Better IDE performance with type hints
+- ✅ Reduced runtime type errors
+- ✅ Faster development with better autocomplete
+
+### Monitoring
+
+- 📊 Monitor MyPy error counts
+- 📊 Track per-file ignore usage
+- 📊 Measure type coverage over time
+- 📊 Monitor runtime type errors
+
+
+## v0.4.15
+
+### 📈 Performance Metrics
+
+### Package Directory Size Reduction
+
+- **Before**: ~2.5MB (packages/github, packages/js, packages/solidity)
+- **After**: ~100KB (packages/py only)
+- **Reduction**: ~96% size reduction
+
+### Website Cleanup
+
+- **Before**: Complex website structure with legacy code (22,179 lines of old code)
+- **After**: Simplified structure with only essential files
+- **Reduction**: ~98% reduction in website codebase
+
+### Codebase Changes Summary
+
+- **Total files changed**: 281 files across 3 commits
+- **Lines added**: 1,695 insertions
+- **Lines deleted**: 44,031 deletions
+- **Net reduction**: ~42,336 lines of code
+
+### Documentation Clarity
+
+- **Before**: Confusion between multiple contract directories and package purposes
+- **After**: Clear single source of truth for contracts (contracts/) and packages (py/ only)
+
+### API Improvements
+
+- **Coordinator API**: Port updated to 8203 for better infrastructure standardization
+- **Wallet CLI**: Now uses wallet service API instead of local files (more reliable)
+- **Bridge API**: Enhanced with price endpoint, deposit validation, improved security
+
+---
+
+**Release Status**: ✅ Released
+**Implementation Date**: June 9, 2026
+**Next Release**: v0.4.16
+
+## v0.4.14
+
+### 📈 Performance Metrics
+
+### Cache Performance
+
+- **Account balance lookup (DB)**: ~61ms
+- **Account balance lookup (cached)**: ~39ms
+- **Cache speedup**: ~36% improvement
+
+### Service Workers (corrected for 2-core VPS)
+
+| Service | Before | After |
+|---------|--------|-------|
+| blockchain-rpc | 4 workers | 1 worker |
+| coordinator-api | 4 workers | 1 worker |
+| api-gateway | 4 workers | 1 worker |
+| governance | 2 workers | 1 worker |
+
+---
+
+**Release Status**: ✅ Released
+**Implementation Date**: June 8, 2026
+**Next Release**: v0.4.15
+
+## v0.4.13
+
+### 🚀 Optimization Roadmap
+
+### Phase 6: Performance Optimizations (Planned)
+
+**Database Optimization**
+
+- Enable WAL mode for SQLite blockchain database
+- Implement connection pooling for PostgreSQL services
+- Add database indexes for frequently queried fields
+- Optimize slow queries identified through profiling
+
+**Caching Layer**
+
+- Implement Redis caching for:
+  - Block headers and recent blocks
+  - Account balances
+  - Service discovery information
+  - API responses
+- Configure cache invalidation strategies
+- Set up cache monitoring
+
+**Service Configuration Tuning**
+
+- Increase worker count for high-traffic services:
+  - API Gateway: 4-8 workers
+  - Coordinator API: 2-4 workers
+  - Blockchain RPC: 2-4 workers
+- Configure connection timeouts and retry policies
+- Optimize Uvicorn configuration for each service
+
+### Phase 7: Resource Optimizations (Planned)
+
+**Memory Management**
+
+- Set memory limits for all services (currently some have 2GB limits)
+- Implement memory monitoring and alerting
+- Profile memory-intensive services (Whisper, GPU service)
+- Implement memory pressure detection and auto-scaling
+
+**GPU Optimization**
+
+- Implement GPU scheduling and prioritization
+- Add batch processing for GPU-intensive tasks
+- Monitor GPU utilization more granularly
+- Implement GPU memory management
+- Add GPU load balancing for multiple GPU systems
+
+### Phase 8: Monitoring & Observability (Planned)
+
+**Centralized Logging**
+
+- Implement ELK stack (Elasticsearch, Logstash, Kibana)
+- Configure log aggregation from all services
+- Set up log retention policies
+- Implement log parsing and alerting
+
+**Health Check Automation**
+
+- Set up automated health monitoring with alerts
+- Configure PagerDuty or similar for critical alerts
+- Implement health check dashboards
+- Set up synthetic transaction monitoring
+
+**Metrics Collection**
+
+- Implement Prometheus metrics collection
+- Configure Grafana dashboards for:
+  - Service health and performance
+  - Resource utilization
+  - Blockchain metrics
+  - GPU utilization
+  - Transaction throughput
+- Set up alerting rules for metrics thresholds
+
+### Phase 9: Security Hardening (Planned)
+
+**Service Isolation**
+
+- Create dedicated service users with minimal permissions
+- Implement service-specific resource limits
+- Configure filesystem permissions
+- Set up service-level security policies
+
+**Network Security**
+
+- Configure firewall rules to restrict access
+- Implement rate limiting on all public endpoints
+- Set up IP whitelisting for sensitive services
+- Implement TLS/SSL for all external communications
+- Configure network segmentation
+
+### Phase 10: Operational Improvements (Planned)
+
+**Backup Strategy**
+
+- Implement automated backups for:
+  - Blockchain database
+  - Wallet files and keystore
+  - Service configurations
+  - PostgreSQL databases
+- Set up backup retention policies
+- Implement backup verification and testing
+- Configure disaster recovery procedures
+
+**Service Dependencies**
+
+- Implement proper dependency management in systemd
+- Configure service startup order
+- Add health check dependencies
+- Implement graceful shutdown procedures
+
+### Phase 11: Code-Level Optimizations (Planned)
+
+**Query Optimization**
+
+- Add database indexes for frequently queried fields
+- Optimize slow queries identified through profiling
+- Implement query result caching
+- Add query performance monitoring
+
+**Async Operations**
+
+- Ensure all I/O operations are async
+- Implement async database operations
+- Add async HTTP client operations
+- Implement async file I/O where beneficial
+
+
+### 📈 Performance Metrics
+
+### Current Performance
+
+- **Service Uptime**: 100% (24/24 services running)
+- **Health Check Success Rate**: 100% (13/13 services)
+- **Blockchain Height**: 11632 (syncing actively)
+- **GPU Utilization**: 7-31% (variable)
+- **Memory Usage**: 52% (8.3GB/16GB)
+- **Disk Usage**: 55% (8.9TB/17TB)
+
+### Target Performance (Post-Optimization)
+
+- **Service Response Time**: < 100ms (current: varies)
+- **Blockchain Query Time**: < 50ms (current: varies)
+- **GPU Utilization**: 60-80% (current: 7-31%)
+- **Memory Efficiency**: < 70% (current: 52%)
+
+
+## v0.4.11
+
+### Performance Improvements
+
+### System Performance (Post-Fixes)
+
+- **Services**: 18/18 running (100% uptime)
+- **Error Rate**: 0 errors in last 10 minutes
+- **Memory Usage**: 3.2GB/8GB (40%)
+- **Disk Usage**: 8.9TB/17TB (54%)
+- **Load Average**: 1.87 (normal range)
+
+### Service-Specific Improvements
+
+- **Blockchain Sync**: Broadcasting blocks every minute successfully
+- **Blockchain RPC**: Handling requests with 200 OK responses
+- **Hermes Service**: Clean logs, no duplicate timestamps
+- **All Services**: Zero error rate, stable operation
+
+
+## v0.4.10
+
+### 📊 Performance Impact
+
+### Expected Improvements
+
+- **Database Load**: 60-80% reduction for blockchain queries with caching
+- **Response Time**: 50-70% improvement for cached operations
+- **Connection Efficiency**: 30-50% improvement from connection pooling
+- **Monitoring Overhead**: <5% (optional feature)
+
+### Resource Requirements
+
+- **Redis**: Optional for distributed caching (can use in-memory)
+- **Read Replicas**: Optional for PostgreSQL scaling (can use single instance)
+- **Monitoring**: Minimal memory overhead (<10MB)
+- **Security Scanning**: CI/CD only, no runtime impact
+
+
+## v0.4.9
+
+### 📈 Performance Improvements
+
+- **ETH-AIT trading**: Access to Ethereum liquidity
+- **Atomic swaps**: Trustless cross-chain transactions
+- **Price discovery**: Oracle-based ETH-AIT pricing
+- **Bridge optimization**: Minimized bridge fees
+- **Website performance**: Static site with CDN, <1s load time
+- **Real-time updates**: WebSocket for live data
+
+### Performance Metrics
+
+- Swap latency: <30s (ETH → AIT)
+- Bridge transaction: <2min confirmation
+- API response: <100ms
+- WebSocket latency: <50ms
+- Website load time: <1s
+- Website LCP: <2.5s
+
+
+## v0.4.8
+
+### 📈 Performance Improvements
+
+- **Service startup**: Faster due to centralized secrets loading
+- **Log readability**: Text format is easier to read and debug
+- **Subscription management**: CLI tools for easier operation
+- **WebSocket**: Direct connection to Agent Coordinator reduces latency
+
+### Performance Metrics
+
+- Service startup time: <5s
+- Log parsing: Human-readable, no JSON parsing overhead
+- Subscription registration: <100ms
+- WebSocket latency: <50ms
+
+
+## v0.4.5
+
+### 📈 Performance Improvements
+
+- **Metered pricing**: Pay only for actual usage
+- **On-chain proof**: No need for trusted intermediaries
+- **Push-based discovery**: Plugin registry for fast agent lookup
+- **Public endpoints**: Direct access without hub proxy
+
+### Performance Metrics
+
+- Transcription latency: <1s for 10s audio (RTX 4000)
+- Escrow locking: <100ms
+- Job TX posting: <500ms
+- Plugin registry lookup: <50ms
+
+
+## v0.4.3
+
+### 📈 Performance Improvements
+
+- **Reduced network load**: Push sync eliminates periodic polling
+- **Lower latency**: Blocks pushed immediately vs 30-second polling interval
+- **Efficient propagation**: Redis pub/sub for fast block distribution
+- **Automatic fallback**: Pull sync ensures reliability
+
+### Performance Metrics
+
+- Push sync latency: <100ms vs 30s polling interval
+- Network bandwidth: Reduced by ~90% for block propagation
+- Lease overhead: Minimal (1 heartbeat per minute per subscriber)
+
+
+## v0.3.9
+
+### 📊 Performance Metrics
+
+- **Query Performance**: <100ms for typical queries
+- **Booking Creation**: <200ms for booking creation
+- **Review Submission**: <150ms for review submission
+- **Database Size**: <1GB for typical deployment
+- **Concurrent Users**: Supports 100+ concurrent users
+- **Data Integrity**: 100% data integrity guaranteed
+
+
+## v0.3.8
+
+### 📊 Performance Metrics
+
+- **File Organization**: 60+ files properly organized
+- **Documentation Size**: 45-66% reduction in file sizes
+- **Navigation Speed**: 40% improvement in navigation speed
+- **Maintenance Time**: 30% reduction in maintenance time
+- **Onboarding Time**: 50% reduction in onboarding time
+- **Code Clarity**: 35% improvement in code clarity
+
+
+## v0.3.7
+
+### 📊 Performance Metrics
+
+- **Inference Time**: 11.12 seconds for 218 token test job
+- **GPU Utilization**: >80% GPU utilization during inference
+- **Throughput**: 20+ jobs per minute per GPU
+- **Accuracy**: 94%+ inference accuracy
+- **Memory Usage**: <8GB GPU memory for typical models
+- **Service Uptime**: 99.5% availability
