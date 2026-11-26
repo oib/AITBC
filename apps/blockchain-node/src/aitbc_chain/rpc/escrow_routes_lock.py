@@ -7,6 +7,10 @@ monkeypatching ``escrow_routes.<name>`` stays visible."""
 
 from __future__ import annotations
 
+import asyncio
+
+import httpx
+
 from . import escrow_routes as _er
 
 
@@ -105,6 +109,43 @@ async def _submit_lock_tx(signed_lock_tx: dict[str, _er.Any]) -> str:
         "ESCROW_LOCK TX submitted: hash=%s from=%s to=%s amount=%s", tx_hash, tx.get("from"), tx.get("to"), tx.get("amount")
     )
     return str(tx_hash)
+
+
+# A lost submit response is ambiguous: /transactions/market can legitimately
+# outlive the client timeout (its bounded peer-fanout wait alone is ~8s), so a
+# ReadTimeout does not prove the lock was rejected — the tx may already sit in
+# the hub mempool or have sealed while only the response was lost. These bound
+# the post-timeout adoption probes; each underlying probe carries its own
+# short timeout and answers "unknown" rather than blocking.
+_LOCK_ADOPT_ATTEMPTS = 2
+_LOCK_ADOPT_DELAY_SECONDS = 1.0
+
+
+async def _submit_or_adopt_lock(signed_lock_tx: dict[str, _er.Any], job_id: str) -> str:
+    """Submit the ESCROW_LOCK, adopting the admitted tx when the reply is lost.
+
+    On ``httpx.TimeoutException`` the create probes the mempool and the sealed
+    set for this job's lock before failing — the same adoption the pre-submit
+    ``_pending_identical_lock_hash``/``_find_existing_lock`` checks perform,
+    repeated because the timed-out request may have been admitted in the
+    interim. A hit funds the contract instead of orphaning the lock behind a
+    502 (#2986); a miss re-raises so the create fails exactly as before.
+    """
+    try:
+        return await _er._submit_lock_tx(signed_lock_tx)
+    except httpx.TimeoutException:
+        for attempt in range(_LOCK_ADOPT_ATTEMPTS):
+            if attempt:
+                await asyncio.sleep(_LOCK_ADOPT_DELAY_SECONDS)
+            adopted = await _er._pending_identical_lock_hash(signed_lock_tx, job_id) or await _er._find_existing_lock(job_id)
+            if adopted:
+                _er._logger.warning(
+                    "ESCROW_LOCK submit timed out for job_id=%s; adopted admitted lock %s",
+                    job_id,
+                    adopted,
+                )
+                return adopted
+        raise
 
 
 def _canonical_lock_fields(lock_tx: dict[str, _er.Any]) -> dict[str, _er.Any]:

@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from fastapi import HTTPException
 from sqlmodel import Session
@@ -412,4 +413,76 @@ async def test_create_submits_when_no_identical_lock_pending(patched, monkeypatc
 
     assert result["success"] is True
     assert result["lock_tx_hash"] == "0xlockhash"
+    assert submit.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_lock_submit_timeout_adopts_mempool_lock(patched, engine, monkeypatch):
+    """#2986: a ReadTimeout on /transactions/market does not prove rejection.
+
+    The endpoint's bounded peer-fanout wait can outlive the 10s client timeout,
+    so the lock may sit in the hub mempool with only the response lost. The
+    create must adopt it — exactly like the pre-submit pending probe — and
+    still fund the contract instead of orphaning the lock behind a 502.
+    """
+    mgr = patched
+    submit = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    # First call is the pre-submit probe (None); the post-timeout adoption
+    # probe finds the admitted lock.
+    monkeypatch.setattr(
+        escrow_routes,
+        "_pending_identical_lock_hash",
+        AsyncMock(side_effect=[None, "0xadoptedhash"]),
+    )
+
+    result = await escrow_routes.create_escrow(_lock_body())
+
+    assert result["success"] is True
+    assert result["lock_tx_hash"] == "0xadoptedhash"
+    assert submit.await_count == 1
+    contract = next(c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID)
+    assert contract.state is EscrowState.FUNDED
+    with Session(engine) as session:
+        row = session.get(Escrow, JOB_ID)
+        assert row is not None
+        assert row.status == "locked"
+        assert row.lock_tx_hash == "0xadoptedhash"
+
+
+@pytest.mark.asyncio
+async def test_lock_submit_timeout_adopts_sealed_lock(patched, engine, monkeypatch):
+    """#2986: the timed-out lock may already be sealed — adopt via the chain probe."""
+    mgr = patched
+    submit = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    monkeypatch.setattr(escrow_routes, "_pending_identical_lock_hash", AsyncMock(return_value=None))
+    # Initial _find_existing_lock probe (None) then the post-timeout probe finds it sealed.
+    monkeypatch.setattr(
+        escrow_routes,
+        "_find_existing_lock",
+        AsyncMock(side_effect=[None, "0xsealedhash"]),
+    )
+
+    result = await escrow_routes.create_escrow(_lock_body())
+
+    assert result["success"] is True
+    assert result["lock_tx_hash"] == "0xsealedhash"
+    assert submit.await_count == 1
+    contract = next(c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID)
+    assert contract.state is EscrowState.FUNDED
+
+
+@pytest.mark.asyncio
+async def test_lock_submit_timeout_without_admitted_lock_still_fails(patched, monkeypatch):
+    """#2986: when no lock was admitted the timeout must still fail the create —
+    adoption is not a blanket retry that hides a genuinely dead submit."""
+    submit = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+    monkeypatch.setattr(escrow_routes, "_pending_identical_lock_hash", AsyncMock(return_value=None))
+    monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value=None))
+
+    with pytest.raises(httpx.ReadTimeout):
+        await escrow_routes.create_escrow(_lock_body())
+
     assert submit.await_count == 1

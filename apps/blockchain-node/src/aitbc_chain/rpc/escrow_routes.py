@@ -163,6 +163,7 @@ from .escrow_routes_lock import (
     _refuse_v2_lock as _refuse_v2_lock,
     _same_lock_binding as _same_lock_binding,
     _submit_lock_tx as _submit_lock_tx,
+    _submit_or_adopt_lock as _submit_or_adopt_lock,
     _verify_funding_lock as _verify_funding_lock,
 )
 from .escrow_routes_submit import (
@@ -810,7 +811,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     # put two payload-equal locks in flight and both could seal,
     # double-funding the escrow (#2673). The pending hash flows into
     # ``_verify_funding_lock`` exactly like a submitted one.
-    lock_tx_hash = await _pending_identical_lock_hash(tx_to_submit, job_id) or await _submit_lock_tx(tx_to_submit)
+    lock_tx_hash = await _pending_identical_lock_hash(tx_to_submit, job_id) or await _submit_or_adopt_lock(
+        tx_to_submit, job_id
+    )
 
     success, message, contract_id = await mgr.create_contract(
         job_id=job_id,
