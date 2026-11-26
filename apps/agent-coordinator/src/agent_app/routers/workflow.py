@@ -7,14 +7,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
 
+from ..services.agent_auth import authorize_admin_scope, optional_agent
 from ..workflow import get_orchestrator
-
-from .coin_requests import _require_api_key
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/workflows", tags=["workflows"])
@@ -62,12 +61,28 @@ class ExecutionResponse(BaseModel):
     steps: list[dict[str, Any]]
 
 
-def _require_workflow_key(x_api_key: str | None = Header(default=None)) -> str | None:
-    _require_api_key(x_api_key)
-    return x_api_key
+async def _require_workflow_admin(request: Request) -> None:
+    """Admin/operator gate for the workflow surface (#3003).
+
+    These routes briefly reused the coin-request ``_require_api_key``
+    pass-through, which accepts ``FOLLOWER_API_KEY`` — a credential the
+    fleet provisions to *every* follower because it is designed to be
+    widely distributed. That is safe for ``/register`` + ``/execute``
+    coin requests; it is not safe for workflow create/execute/cancel.
+
+    The correct credential is operator-grade, resolved through the shared
+    principal machinery: ``COORDINATOR_API_KEY`` (``X-Api-Key`` or Bearer)
+    or an admin/operator JWT yields an ``is_admin`` principal;
+    ``FOLLOWER_API_KEY``, agent JWTs, and scoped API keys do not. Mode
+    semantics match every other admin surface — ``authorize_admin_scope``
+    rejects anonymous callers in advisory/enforce and 403s non-admin
+    principals in enforce.
+    """
+    principal = await optional_agent(request)
+    authorize_admin_scope(principal, "workflow_admin")
 
 
-@router.post("", summary="Create workflow", response_model=WorkflowResponse, dependencies=[Depends(_require_workflow_key)])
+@router.post("", summary="Create workflow", response_model=WorkflowResponse, dependencies=[Depends(_require_workflow_admin)])
 async def create_workflow(request: Request, req: CreateWorkflowRequest) -> dict[str, Any]:
     """Create a new workflow definition"""
     try:
@@ -87,7 +102,7 @@ async def create_workflow(request: Request, req: CreateWorkflowRequest) -> dict[
     "/{workflow_id}/execute",
     summary="Execute workflow",
     response_model=ExecutionResponse,
-    dependencies=[Depends(_require_workflow_key)],
+    dependencies=[Depends(_require_workflow_admin)],
 )
 async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkflowRequest) -> dict[str, Any]:
     """Execute a workflow"""
@@ -108,7 +123,7 @@ async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkf
 @router.get(
     "/{workflow_id}/status",
     summary="Get workflow status",
-    dependencies=[Depends(_require_workflow_key)],
+    dependencies=[Depends(_require_workflow_admin)],
 )
 async def get_workflow_status(request: Request, workflow_id: str) -> dict[str, Any]:
     """Get workflow execution status"""
@@ -128,7 +143,7 @@ async def get_workflow_status(request: Request, workflow_id: str) -> dict[str, A
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("", summary="List workflows", dependencies=[Depends(_require_workflow_key)])
+@router.get("", summary="List workflows", dependencies=[Depends(_require_workflow_admin)])
 async def list_workflows(request: Request) -> dict[str, Any]:
     """List all workflow definitions"""
     try:
@@ -142,7 +157,7 @@ async def list_workflows(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/executions", summary="List executions", dependencies=[Depends(_require_workflow_key)])
+@router.get("/executions", summary="List executions", dependencies=[Depends(_require_workflow_admin)])
 async def list_executions(request: Request, workflow_id: str | None = None) -> dict[str, Any]:
     """List workflow executions"""
     try:
@@ -156,7 +171,7 @@ async def list_executions(request: Request, workflow_id: str | None = None) -> d
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/executions/{execution_id}/cancel", summary="Cancel execution", dependencies=[Depends(_require_workflow_key)])
+@router.post("/executions/{execution_id}/cancel", summary="Cancel execution", dependencies=[Depends(_require_workflow_admin)])
 async def cancel_execution(request: Request, execution_id: str) -> dict[str, Any]:
     """Cancel a workflow execution"""
     try:
