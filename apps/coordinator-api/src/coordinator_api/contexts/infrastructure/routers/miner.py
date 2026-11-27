@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from starlette.concurrency import run_in_threadpool
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select, update
 from aitbc_shared import JobPayment
 
 from aitbc.aitbc_logging import get_logger
@@ -356,6 +356,36 @@ async def _retry_completed_settlement(session: Session, job: Job) -> dict[str, A
     return {"status": "settlement_pending", "receipt": job.receipt}
 
 
+async def _completion_claim_lost(session: Session, job_service: JobService, job_id: str) -> dict[str, Any]:
+    """#3067: a lost RUNNING→COMPLETED CAS means the job moved while the
+    receipt was being built — almost always a refund cancel. Same narrow
+    retry as the top gate: a job that completed but whose settlement failed
+    keeps its escrow — offer the resubmit path; anything else is a 409."""
+    await run_in_threadpool(session.rollback)
+    job = await run_in_threadpool(job_service.get_job, job_id)
+    if job.state == JobState.completed and job.payment_id:
+        held = await run_in_threadpool(session.get, JobPayment, job.payment_id)
+        if held is not None and held.status == "escrowed":
+            return await _retry_completed_settlement(session, job)
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"job is {job.state}, not running")
+
+
+async def _build_result_receipt(
+    receipt_service: ReceiptService,
+    job: Job,
+    miner_sub: str,
+    result_payload: dict[str, Any],
+    metrics: dict[str, Any],
+    payment_amount: Decimal | None,
+) -> dict[str, Any] | None:
+    """Create, ZK-attach and sign the receipt for a submitted result."""
+    receipt = await run_in_threadpool(receipt_service.create_receipt, job, miner_sub, result_payload, metrics)
+    receipt = await _attach_zk_proof(receipt, job, result_payload, payment_amount=payment_amount)
+    if receipt:
+        receipt = await run_in_threadpool(receipt_service.sign_receipt, receipt)
+    return receipt
+
+
 async def _settle_completed_job(session: Session, payment_service: Any, job: Job) -> bool:
     """Open the customer's acceptance window, or pay the provider now (G3).
 
@@ -616,19 +646,31 @@ async def submit_result(
     is_shadow = _is_shadow_mode(job)
     result_payload = req.result.model_dump(mode="json", exclude_none=True)
     metrics = req.metrics.model_dump(mode="json", exclude_none=True)
-    job.result = result_payload
-    job.state = JobState.completed
-    job.error = None
     duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
-    receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], result_payload, metrics)
-    receipt = await _attach_zk_proof(receipt, job, result_payload, payment_amount=payment_amount)
-    if receipt:
-        receipt = await run_in_threadpool(receipt_service.sign_receipt, receipt)
-    job.receipt = receipt
-    job.receipt_id = receipt["receipt_id"] if receipt else None
-    job.completed_at = datetime.now(UTC)
-    session.add(job)
-    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+    receipt = await _build_result_receipt(receipt_service, job, user["sub"], result_payload, metrics, payment_amount)
+    # #3067: the RUNNING check at the top is stale by now — receipt and ZK
+    # proof generation take seconds and a refund can cancel the job
+    # mid-flight. Completion is a conditional RUNNING→COMPLETED update, not
+    # a read-check-write: a job canceled while the receipt was built loses
+    # the CAS and delivers nothing.
+    claimed = await run_in_threadpool(
+        session.execute,
+        update(Job)
+        .where(col(Job.id) == job_id, col(Job.state) == JobState.running)
+        .values(
+            result=result_payload,
+            state=JobState.completed,
+            error=None,
+            receipt=receipt,
+            receipt_id=receipt["receipt_id"] if receipt else None,
+            completed_at=datetime.now(UTC),
+        )
+        .execution_options(synchronize_session=False),
+    )
+    if getattr(claimed, "rowcount", 0) != 1:
+        return await _completion_claim_lost(session, job_service, job_id)
+    await run_in_threadpool(session.commit)  # noqa: unawaited-async — sync Session (sqlmodel)
+    await run_in_threadpool(session.refresh, job)
     # Keep the JobReceipt row in sync with the final receipt (after ZK
     # attachments) so downstream consumers use the authoritative payload.
     await _sync_receipt_row(session, job, receipt)

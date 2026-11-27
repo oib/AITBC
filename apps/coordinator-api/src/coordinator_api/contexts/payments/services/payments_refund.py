@@ -9,7 +9,10 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from starlette.concurrency import run_in_threadpool
-from sqlmodel import select
+from sqlmodel import col, select, update
+from sqlalchemy import func
+from sqlalchemy.engine import Engine
+from typing import cast
 
 
 from aitbc.aitbc_logging import get_logger
@@ -92,6 +95,41 @@ def _upstream_error_detail(status_error: httpx.HTTPStatusError) -> str | None:
 
 class PaymentRefundMixin(PaymentCoreMixin):
     """Mixin: payment service methods (split from payments.py; pure code motion)."""
+
+    def _cancel_live_job_for_refund(self, job: Job, *, allow_completed: bool) -> None:
+        """#3067: transition a live job terminal BEFORE the chain refund.
+
+        The chain refund is irreversible; the local cancel must land first so
+        a miner result submission that already passed its RUNNING check loses
+        its completion CAS instead of overwriting CANCELED back to COMPLETED
+        and delivering unpaid work. QUEUED/RUNNING → CANCELED is a conditional
+        UPDATE — the same discipline the miner side now uses, so exactly one
+        of {refund, completion} wins. A job that completed with delivered
+        output in the gap closes the self-serve refund window; admin refunds
+        are deliberate and proceed.
+        """
+        # Independent commit on its own connection: the cancel must be durable
+        # BEFORE the chain refund, and it must not fold into a later session
+        # commit that could carry unrelated writes.
+        engine = cast(Engine, self.session.get_bind())
+        with engine.begin() as conn:
+            conn.execute(
+                update(Job)
+                .where(
+                    col(Job.id) == job.id,
+                    col(Job.state).in_((JobState.queued.value, JobState.running.value)),
+                )
+                .values(
+                    state=JobState.canceled.value,
+                    error=func.coalesce(col(Job.error), "job canceled: escrow refunded"),
+                )
+            )
+        self.session.refresh(job)
+        if job.state == JobState.completed and _result_is_delivered(job) and not allow_completed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="the result has been delivered or is under dispute; refunds at this stage need an operator",
+            )
 
     def _mark_refunded(
         self,
@@ -307,6 +345,10 @@ class PaymentRefundMixin(PaymentCoreMixin):
                 detail="the result has been delivered or is under dispute; refunds at this stage need an operator",
             )
         try:
+            # #3067: cancel a live job BEFORE any chain refund — the refund is
+            # irreversible and a miner completion that already passed its
+            # state check must lose its CAS, not overwrite CANCELED.
+            await run_in_threadpool(self._cancel_live_job_for_refund, job, allow_completed=is_admin)
             # Resolve via the facade module: tests patch ``payments.AsyncAITBCHTTPClient``.
             from . import payments as _pm
 

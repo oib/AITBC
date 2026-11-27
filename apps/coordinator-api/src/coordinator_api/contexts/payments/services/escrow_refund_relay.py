@@ -28,19 +28,22 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from starlette.concurrency import run_in_threadpool
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select, update
 
 from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_shared import JobPayment
 
+from ....custom_types import JobState
 from ....storage import get_session
 from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
+from ..acceptance import REFUNDABLE_STATES
 from ..domain.escrow_refund_relay import EscrowRefundRelay
 from .escrow_relay import EscrowRelayService
 from .payments import _find_http_status_error
@@ -388,6 +391,12 @@ class EscrowRefundRelayService(EscrowRelayService):
         await run_in_threadpool(self._check_job_refundable, canonical_client_id, is_admin, job_id)
         await self._check_no_completed_job_record(client, job_id)
 
+        # #3067: share refund_payment's transition discipline — cancel a live
+        # job BEFORE the irreversible chain refund so a miner completion that
+        # already passed its state check loses its CAS. The gate above admits
+        # expired QUEUED/RUNNING jobs; canceling them is the point.
+        await run_in_threadpool(self._cancel_live_job_for_refund, job_id)
+
         chain_response = await self._post_refund(client, job_id, {"reason": reason})
         return await self._finish_refund(client, client_id, job_id, reason, chain_response, existing)
 
@@ -531,6 +540,71 @@ class EscrowRefundRelayService(EscrowRelayService):
         failure["duplicate"] = False
         return failure
 
+    def _cancel_live_job_for_refund(self, job_id: str) -> None:
+        """#3067: terminal-transition a live job before the chain refund.
+
+        The relay refunds escrows for expired QUEUED/RUNNING jobs; without the
+        cancel a miner could still complete the job afterwards and the client
+        would hold both the refund and the delivered work. Conditional UPDATE —
+        the same discipline as ``PaymentService._cancel_live_job_for_refund``.
+        A job that completed in the gap is refused exactly like the gate's
+        COMPLETED check.
+        """
+        # Independent commit on its own connection: durable before the chain
+        # POST, and decoupled from the request session's later commits.
+        engine = cast(Engine, self.session.get_bind())
+        with engine.begin() as conn:
+            conn.execute(
+                update(Job)
+                .where(
+                    col(Job.id) == job_id,
+                    col(Job.state).in_((JobState.queued.value, JobState.running.value)),
+                )
+                .values(state=JobState.canceled.value)
+            )
+            state = conn.execute(select(col(Job.state)).where(col(Job.id) == job_id)).scalar_one_or_none()
+        if state == JobState.completed.value:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"job_id={job_id} is COMPLETED; a completed job is released, not refunded",
+            )
+
+    def _mark_job_payment_refunded(self, job_id: str, refund_tx_hash: Any) -> None:
+        """#3067: record the settled refund on the job's live payment row.
+
+        The relay previously left ``JobPayment.status`` untouched, so the
+        coordinator ledger kept claiming escrowed funds the chain had already
+        returned. CAS from the refundable states — same guard as
+        ``_mark_refunded``.
+        """
+        engine = cast(Engine, self.session.get_bind())
+        with engine.begin() as conn:
+            payment_id = conn.execute(
+                select(col(JobPayment.id))
+                .where(
+                    col(JobPayment.job_id) == job_id,
+                    col(JobPayment.status).in_(tuple(REFUNDABLE_STATES | {"refunded"})),
+                )
+                .order_by(col(JobPayment.created_at).desc(), col(JobPayment.id).desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if payment_id is None:
+                return
+            now = datetime.now(UTC)
+            conn.execute(
+                update(JobPayment)
+                .where(
+                    col(JobPayment.id) == payment_id,
+                    col(JobPayment.status).in_(tuple(REFUNDABLE_STATES | {"refunded"})),
+                )
+                .values(
+                    status="refunded",
+                    refunded_at=now,
+                    updated_at=now,
+                    refund_transaction_hash=refund_tx_hash,
+                )
+            )
+
     async def _finish_refund(
         self,
         client: AsyncAITBCHTTPClient,
@@ -551,6 +625,7 @@ class EscrowRefundRelayService(EscrowRelayService):
 
         refund_tx_hash = chain_response["refund_tx_hash"]
         contract_id = chain_response.get("contract_id")
+        await run_in_threadpool(self._mark_job_payment_refunded, job_id, refund_tx_hash)
         row = EscrowRefundRelay(client_id=client_id, job_id=job_id, tx_hash=refund_tx_hash, contract_id=contract_id)
         stored = await run_in_threadpool(self._insert_or_existing, row)
         if stored is not None:
