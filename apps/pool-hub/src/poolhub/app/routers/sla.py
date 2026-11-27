@@ -1,15 +1,14 @@
 """
-SLA and Billing API Endpoints for Pool-Hub
-Provides endpoints for SLA metrics, capacity planning, and billing integration.
+SLA API Endpoints for Pool-Hub
+Provides endpoints for SLA metrics and capacity planning.
 """
 
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
@@ -17,7 +16,6 @@ from aitbc.aitbc_logging import get_logger
 
 from ...database import get_session as get_db
 from ...models import CapacitySnapshot
-from ...services.billing_integration import BillingIntegration
 from ...services.sla_collector import SLACollector
 
 logger = get_logger(__name__)
@@ -71,41 +69,8 @@ class CapacitySnapshotResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UsageSyncRequest(BaseModel):
-    miner_id: str | None = None
-    hours_back: int = Field(default=24, ge=1, le=168)
-
-
-class UsageRecordRequest(BaseModel):
-    tenant_id: str
-    resource_type: str
-    quantity: Decimal = Field(ge=0)
-    unit_price: Decimal | None = Field(default=None, ge=0)
-    job_id: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("quantity", "unit_price")
-    @classmethod
-    def _finite_decimals(cls, v: Decimal | None) -> Decimal | None:
-        # Decimal("NaN")/Infinity survive pydantic's ge check path unreliably;
-        # billing must never see a non-finite amount (#1400).
-        if v is not None and not v.is_finite():
-            raise ValueError("must be a finite Decimal")
-        return v
-
-
-class InvoiceGenerationRequest(BaseModel):
-    tenant_id: str
-    period_start: datetime
-    period_end: datetime
-
-
 def get_sla_collector(db: Annotated[AsyncSession, Depends(get_db)]) -> SLACollector:
     return SLACollector(db)
-
-
-def get_billing_integration(db: Annotated[AsyncSession, Depends(get_db)]) -> BillingIntegration:
-    return BillingIntegration(db)
 
 
 @router.get("/metrics/{miner_id}", response_model=list[SLAMetricResponse])
@@ -242,97 +207,6 @@ def configure_capacity_alerts(
 ) -> dict[str, Any]:
     """Configure capacity alerts — not implemented (see _ALERTS_NOT_IMPLEMENTED)."""
     raise HTTPException(status_code=501, detail=_ALERTS_NOT_IMPLEMENTED)
-
-
-@router.get("/billing/usage")
-async def get_billing_usage(
-    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
-    tenant_id: str | None = None,
-    hours: Annotated[int, Query(ge=1, le=168)] = 24,
-) -> dict[str, Any]:
-    """Get billing usage data from coordinator-api"""
-    try:
-        metrics = await billing_integration.get_billing_metrics(tenant_id=tenant_id, hours=hours)
-        return metrics
-    except Exception as e:
-        logger.error("Error getting billing usage: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/billing/sync")
-async def sync_billing_usage(
-    request: UsageSyncRequest,
-    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
-    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
-) -> dict[str, Any]:
-    """Trigger billing sync with coordinator-api"""
-    try:
-        if request.miner_id:
-            end_date = datetime.now(UTC)
-            start_date = end_date - timedelta(hours=request.hours_back)
-            result = await billing_integration.sync_miner_usage(
-                miner_id=request.miner_id, start_date=start_date, end_date=end_date
-            )
-        else:
-            result = await billing_integration.sync_all_miners_usage(hours_back=request.hours_back)
-        return result
-    except Exception as e:
-        logger.error("Error syncing billing usage: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/billing/usage/record")
-async def record_usage(
-    request: UsageRecordRequest,
-    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
-    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
-) -> dict[str, Any]:
-    """Record a single usage event to coordinator-api billing"""
-    try:
-        result = await billing_integration.record_usage(
-            tenant_id=request.tenant_id,
-            resource_type=request.resource_type,
-            quantity=request.quantity,
-            unit_price=request.unit_price,
-            job_id=request.job_id,
-            metadata=request.metadata,
-        )
-        # record_usage reports send failures in-band as {"status": "failed"};
-        # returning that with HTTP 200 let callers count dropped billing
-        # events as recorded (#1400).
-        if result.get("status") == "failed":
-            raise HTTPException(status_code=502, detail=result.get("error", "billing event was not delivered"))
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error recording usage: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/billing/invoice/generate")
-async def generate_invoice(
-    request: InvoiceGenerationRequest,
-    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
-    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
-) -> dict[str, Any]:
-    """Trigger invoice generation in coordinator-api"""
-    try:
-        result = await billing_integration.trigger_invoice_generation(
-            tenant_id=request.tenant_id, period_start=request.period_start, period_end=request.period_end
-        )
-        return result
-    except Exception as e:
-        logger.error("Error generating invoice: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/status")

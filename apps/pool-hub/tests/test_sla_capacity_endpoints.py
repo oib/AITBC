@@ -1,8 +1,8 @@
 """SLA capacity endpoint pins — #1395 (POOLHUB-FAB-1), now regression tests.
 
 routers/sla.py forecast/recommendations/alerts endpoints used to return
-hardcoded constants labeled ``source: coordinator_api`` without calling the
-injected BillingIntegration, and the alerts-configure endpoint reported
+hardcoded constants labeled ``source: coordinator_api`` without calling any
+backend, and the alerts-configure endpoint reported
 "configured" while persisting nothing. With no forecast engine, no
 coordinator-api forecast route and no alert-config store, the honest contract
 is HTTP 501 — the same stub convention edge/gpu use. Real capacity data lives

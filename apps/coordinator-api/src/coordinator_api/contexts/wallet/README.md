@@ -15,4 +15,3 @@ Wallet — multi-chain custody, signing, and secure key services.
 - money.py
 - secure_wallet_service.py
 - wallet_crypto.py
-- wallet_service.py

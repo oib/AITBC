@@ -1,6 +1,6 @@
-"""V23-97 — Pool Hub's SLA-violation and billing-usage queries never built.
+"""V23-97 — Pool Hub's SLA-violation query never built.
 
-Three call sites spelled the SQLAlchemy operator ``isnot_``.  There is no such
+Two call sites spelled the SQLAlchemy operator ``isnot_``.  There is no such
 operator: a column offers ``is_``, ``is_not``, and the legacy alias ``isnot``.
 The trailing underscore turned every one of those lines into an
 ``AttributeError`` raised while *constructing* the statement — before any
@@ -9,10 +9,11 @@ database was touched, so no query ever ran and no connection error was logged.
 What that reached:
 
 * ``GET /v1/sla/violations?resolved=true`` — 500, every time.
-* ``POST /v1/sla/billing/sync`` — 500 for one miner and for all miners, which is
-  the whole of Pool Hub's billing export.
 
-The tests that covered these two services were deleted in ``ea97ba9aa``
+(The billing-sync call sites this file also covered were removed in #3077
+along with the whole billing surface.)
+
+The tests that covered these services were deleted in ``ea97ba9aa``
 ("delete skipped integration tests"), leaving only stale ``__pycache__``
 bytecode behind, which is why a typo in a query filter survived unnoticed.
 
@@ -22,15 +23,12 @@ they fail on the construction of the statement exactly as production did.
 
 from __future__ import annotations
 
-import datetime as dt
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from poolhub.models import MatchResult, SLAViolation
-from poolhub.services.billing_integration import BillingIntegration
 from poolhub.services.sla_collector import SLACollector
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -155,50 +153,6 @@ async def test_a_resolved_query_can_also_be_narrowed_to_one_miner() -> None:
     sql = _sql(session.statements[0])
     assert "resolved_at IS NOT NULL" in sql
     assert "miner_id =" in sql
-
-
-# --- billing sync ---------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_collecting_one_miners_usage_builds_its_query() -> None:
-    """``sync_miner_usage`` -> ``_collect_miner_usage`` raised on the eta_ms filter."""
-    session = RecordingSession([_StubResult(scalar_value=0), _StubResult(rows=[])])
-    start = dt.datetime(2026, 8, 17, tzinfo=dt.UTC)
-
-    usage = await BillingIntegration(session)._collect_miner_usage("miner-1", start, start + dt.timedelta(hours=1))
-
-    assert set(usage) == {"gpu_hours", "api_calls", "compute_hours"}
-    assert "eta_ms IS NOT NULL" in _sql(session.statements[1])
-
-
-@pytest.mark.asyncio
-async def test_syncing_all_miners_usage_builds_its_query() -> None:
-    """The batched path raised inside its transaction, so the whole sync 500'd."""
-    session = RecordingSession(
-        [
-            _StubResult(rows=[SimpleNamespace(miner_id="miner-1")]),
-            _StubResult(scalar_value=0),
-            _StubResult(rows=[]),
-        ]
-    )
-
-    result = await BillingIntegration(session).sync_all_miners_usage(hours_back=1)
-
-    assert result["miners_processed"] == 1
-    assert result["miners_failed"] == 0
-    assert "eta_ms IS NOT NULL" in _sql(session.statements[2])
-
-
-@pytest.mark.asyncio
-async def test_a_sync_with_no_miners_never_reaches_the_usage_query() -> None:
-    """Guards the early return, so the query assertions above are about real work."""
-    session = RecordingSession([_StubResult(rows=[])])
-
-    result = await BillingIntegration(session).sync_all_miners_usage(hours_back=1)
-
-    assert result["miners_processed"] == 0
-    assert len(session.statements) == 1
 
 
 if __name__ == "__main__":

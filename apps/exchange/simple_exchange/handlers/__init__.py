@@ -6,7 +6,6 @@ from .base import BaseHandler
 from .bridge import BridgeMixin
 from .exchange import ExchangeMixin
 from .market import MarketMixin
-from .wallet import WalletAPIHandler
 
 
 class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
@@ -164,4 +163,4 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
             self.send_error(404, "Not Found")
 
 
-__all__ = ["BaseHandler", "ExchangeAPIHandler", "WalletAPIHandler"]
+__all__ = ["BaseHandler", "ExchangeAPIHandler"]

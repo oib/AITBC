@@ -7286,34 +7286,6 @@
           ]
         },
         {
-          "public": "/api/v2/pool-hub/v1/sla/billing/invoice/generate",
-          "upstream": "/v1/sla/billing/invoice/generate",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/pool-hub/v1/sla/billing/sync",
-          "upstream": "/v1/sla/billing/sync",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/pool-hub/v1/sla/billing/usage",
-          "upstream": "/v1/sla/billing/usage",
-          "methods": [
-            "GET"
-          ]
-        },
-        {
-          "public": "/api/v2/pool-hub/v1/sla/billing/usage/record",
-          "upstream": "/v1/sla/billing/usage/record",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/pool-hub/v1/sla/capacity/alerts/configure",
           "upstream": "/v1/sla/capacity/alerts/configure",
           "methods": [

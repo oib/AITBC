@@ -82,9 +82,8 @@ class Settings(ServiceSettings):
 
     prometheus_namespace: str = Field(default="poolhub")
 
-    # Coordinator-API Billing Integration
+    # Coordinator API (registry lookups in services/validation.py)
     coordinator_billing_url: str = Field(default="http://127.0.0.1:8203")
-    coordinator_api_key: str | None = Field(default=None)
 
     # Blockchain integration (v0.6.7)
     blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
@@ -121,31 +120,28 @@ class Settings(ServiceSettings):
     capacity_forecast_hours: int = Field(default=168)
     capacity_alert_threshold_pct: float = Field(default=80.0)
 
-    # Billing Sync Configuration
-    billing_sync_interval_hours: int = Field(default=1)
-
     # SLA Collection Configuration
     sla_collection_interval_seconds: int = Field(default=300)
 
-    # V23-101: the two intervals above configure BillingIntegrationScheduler and
-    # SLACollectorScheduler, and until now nothing constructed either one -- so
-    # neither field was ever read and neither loop had ever run on any deployment.
-    # The schedulers are started from the app lifespan when these flags are set.
+    # V23-101: the interval above configures SLACollectorScheduler, and until
+    # now nothing constructed it -- so the field was never read and the loop
+    # had never run on any deployment.  The scheduler is started from the app
+    # lifespan when this flag is set.
     #
-    # Both default off, deliberately.  Enabling billing sync makes pool-hub POST
-    # to {coordinator_billing_url}/api/billing/usage every hour, and no such route
-    # exists in coordinator-api -- not in its source and not in any of the 272
-    # paths of docs/api/coordinator/openapi.json -- so today it can only produce
-    # hourly failures.  Enabling SLA collection starts writing sla_metrics and
-    # sla_violations rows to the operator's database on a cadence they have never
-    # had; that is their call to make, not a default to inherit from an upgrade.
+    # It defaults off, deliberately.  Enabling SLA collection starts writing
+    # sla_metrics and sla_violations rows to the operator's database on a
+    # cadence they have never had; that is their call to make, not a default
+    # to inherit from an upgrade.
+    #
+    # (#3077 removed the billing-sync flag and the whole
+    # BillingIntegrationScheduler: it POSTed usage to
+    # {coordinator_billing_url}/api/billing/* routes that coordinator-api
+    # does not serve, so enabling it could only produce hourly failures that
+    # looked like billing records.  The endpoints and the integration
+    # service were removed with it.)
     enable_sla_collection: bool = Field(
         default=False,
         description="Start SLACollectorScheduler at app startup (POOLHUB_ENABLE_SLA_COLLECTION=true)",
-    )
-    enable_billing_sync: bool = Field(
-        default=False,
-        description="Start BillingIntegrationScheduler at app startup (POOLHUB_ENABLE_BILLING_SYNC=true)",
     )
 
     # Rate limiting (#1544): per-client-IP limit on mutating endpoints, applied

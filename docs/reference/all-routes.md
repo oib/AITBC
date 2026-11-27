@@ -1190,10 +1190,6 @@
 | `GET` | `/v1/services/{service_type}` | Get Service Config |
 | `PATCH` | `/v1/services/{service_type}` | Patch Service Config |
 | `POST` | `/v1/services/{service_type}` | Create Or Update Service Config |
-| `POST` | `/v1/sla/billing/invoice/generate` | Generate Invoice |
-| `POST` | `/v1/sla/billing/sync` | Sync Billing Usage |
-| `GET` | `/v1/sla/billing/usage` | Get Billing Usage |
-| `POST` | `/v1/sla/billing/usage/record` | Record Usage |
 | `POST` | `/v1/sla/capacity/alerts/configure` | Configure Capacity Alerts |
 | `GET` | `/v1/sla/capacity/forecast` | Get Capacity Forecast |
 | `GET` | `/v1/sla/capacity/recommendations` | Get Scaling Recommendations |
