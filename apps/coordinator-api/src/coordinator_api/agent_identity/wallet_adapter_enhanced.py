@@ -23,6 +23,7 @@ _brand = get_active_brand()
 
 from ..contexts.agent_identity.domain.agent_identity import ChainType
 from ..contexts.wallet.services.money import from_atomic_units, to_atomic_units, validate_positive_amount
+from ..utils.rpc_parse import parse_account_nonce
 
 logger = get_logger(__name__)
 
@@ -734,12 +735,17 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             payload = dict(data.get("payload") or {}) if data else {}
             payload.setdefault("to", to_address)
             payload.setdefault("amount", amount_int)
+            nonce = await self._get_nonce(from_address)
+            if nonce is None:
+                # #3075: definite pre-send failure — ValueError lets the
+                # caller release the spend claim; nothing was signed.
+                raise ValueError("Account nonce unavailable — refusing to sign at a fabricated nonce")
             transaction_data = {
                 "from": from_address,
                 "to": to_address,
                 "amount": amount_int,
                 "fee": gas_price or 36,
-                "nonce": await self._get_nonce(from_address),
+                "nonce": nonce,
                 "payload": payload,
                 "type": (data or {}).get("type", "TRANSFER"),
                 "chain_id": (data or {}).get("chain_id") or self.aitbc_chain_id,
@@ -815,13 +821,24 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         except _OPS_ERRORS:
             return False
 
-    async def _get_nonce(self, address: str) -> int:
+    async def _get_nonce(self, address: str) -> int | None:
+        """Account nonce, or ``None`` when no chain nonce truth exists (#3075).
+
+        Only a real non-negative int counts — explicit ``0`` included (the
+        #3015 genus). A missing/null/string/bool/float/negative nonce and
+        any probe failure are all "no source": the old shape returned ``0``
+        for every one of them, which signed envelopes at a fabricated
+        nonce — doomed at admission, inside the spend-session claim window.
+        """
         try:
             response = self._http_client.get(f"rpc/account/{address}", params=self._chain_params())
-            return response.get("nonce", 0)  # type: ignore[no-any-return]
         except _OPS_ERRORS as e:
             logger.error("Error getting nonce for %s: %s", address, e)
-            return 0
+            return None
+        nonce = parse_account_nonce(response)
+        if nonce is None:
+            logger.warning("Account nonce response for %s carried no valid nonce", address)
+        return nonce
 
     async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
         try:
