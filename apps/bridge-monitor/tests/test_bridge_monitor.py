@@ -598,6 +598,136 @@ class TestWriteOffAndAbandon:
         ):
             assert monitor._triage_submitted_deposit(d, 600) is True  # resolved: no rebroadcast churn
 
+    def test_abandon_consumes_one_budget_unit(self, monitor):
+        """#3039: a proven-dead envelope is a spent payout attempt — the
+        abandon write must increment retry_count toward the shared budget."""
+        envelope, _ = self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=[_slot_row(envelope)]),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert ok, msg
+        from bridge_monitor.storage import get_deposit
+
+        d = get_deposit("0xabn")
+        assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert int(d["retry_count"]) == 1
+
+    def test_abandon_at_budget_boundary_fails_terminal(self, monitor, caplog):
+        """#3039: retry_count=4 + one more spent attempt = terminal FAILED
+        with an alert — the same resolution _mark_for_retry uses."""
+        import logging
+
+        from bridge_monitor.storage import get_deposit, update_deposit
+
+        envelope, _ = self._submitted_for_abandon(monitor)
+        update_deposit("0xabn", retry_count=4)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=[_slot_row(envelope)]),
+            caplog.at_level(logging.CRITICAL),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert ok, msg
+        assert "FAILED" in msg
+        d = get_deposit("0xabn")
+        assert d["status"] == BridgeDepositStatus.FAILED.value
+        assert int(d["retry_count"]) == 5
+        assert d["next_retry_at"] is None
+        assert not d["signed_tx"] and not d["envelope_hash"] and not d["ait_tx_hash"]
+        alerts = [r for r in caplog.records if "budget exhausted" in r.message]
+        assert alerts and "0xabn" in alerts[0].message
+
+    def test_abandon_refusal_spends_no_budget(self, monitor):
+        """#3039: a refused abandon (proof does not hold) must not touch
+        retry_count — only a proven-dead envelope spends an attempt."""
+        self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=7),  # nonce not passed
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+        ):
+            ok, _ = monitor.abandon_payout("0xabn")
+        assert not ok
+        from bridge_monitor.storage import get_deposit
+
+        d = get_deposit("0xabn")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert int(d["retry_count"] or 0) == 0
+
+    def test_resign_cycle_reaches_terminal_failed(self, monitor, caplog):
+        """#3039 end-to-end pin: abandon→requeue→re-sign→(apply fails)→
+        abandon must terminate at FAILED after the shared 5-attempt budget,
+        not loop forever head-of-line blocking the payout queue."""
+        import logging
+        from decimal import Decimal as _D
+
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "nonce": 7,
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 1,
+            "fee": 1,
+            "payload": {"amount": 1},
+            "signature": "0xab",
+        }
+        create_deposit("0xloop", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit("0xloop", ait_amount="1", status=BridgeDepositStatus.PENDING_RETRY)
+
+        abandons = 0
+        with caplog.at_level(logging.CRITICAL):
+            for _ in range(10):  # bound far above the budget — must stop at 5
+                d = get_deposit("0xloop")
+                if d["status"] == BridgeDepositStatus.FAILED.value:
+                    break
+                # Re-sign: PENDING_RETRY → SUBMITTED carrying the dead
+                # envelope again — the apply then "fails" (nonce-slot proof
+                # below stands in for the sealed-failed verdict).
+                with (
+                    patch.object(monitor, "_build_signed_transfer", return_value=dict(envelope)),
+                    patch.object(monitor, "_post_signed_tx", return_value=None),
+                    patch.object(monitor, "_head_height", return_value=100),
+                ):
+                    monitor._submit_retry_payout(d, "0xloop", d["ait_recipient"], _D("1"))
+                with (
+                    patch.object(monitor, "_account_nonce", return_value=9),
+                    patch.object(monitor, "_tx_on_chain", return_value=False),
+                    patch.object(monitor, "_payout_account_txs", return_value=[_slot_row(envelope)]),
+                ):
+                    ok, _ = monitor.abandon_payout("0xloop")
+                assert ok
+                abandons += 1
+
+        d = get_deposit("0xloop")
+        assert abandons == 5  # exactly the shared budget — no sixth attempt
+        assert d["status"] == BridgeDepositStatus.FAILED.value
+        assert int(d["retry_count"]) == 5
+        assert any("budget exhausted" in r.message for r in caplog.records)
+        # Terminal: a further abandon refuses — the row no longer owns an envelope.
+        ok, _ = monitor.abandon_payout("0xloop")
+        assert not ok
+
+    def test_mark_for_retry_shares_the_same_budget(self, monitor, caplog):
+        """#3039: the abandon budget IS the retry budget — a row at
+        retry_count=4 fails terminal on the next _mark_for_retry too."""
+        import logging
+
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xbud", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit("0xbud", retry_count=4, status=BridgeDepositStatus.PENDING_RETRY)
+        with caplog.at_level(logging.CRITICAL):
+            monitor._mark_for_retry("0xbud", "another failure")
+        d = get_deposit("0xbud")
+        assert d["status"] == BridgeDepositStatus.FAILED.value
+        assert int(d["retry_count"]) == 5
+        assert any("exhausted" in r.message for r in caplog.records)
+
 
 class TestCursorSafety:
     """Cursor advances even if one deposit crashes, because each is wrapped."""

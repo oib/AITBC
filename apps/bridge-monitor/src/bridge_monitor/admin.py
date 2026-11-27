@@ -25,6 +25,10 @@ Commands:
                                      hash is not sealed on chain. The row
                                      then goes to PENDING_RETRY and a
                                      fresh payout is built ledger-first.
+                                     Each abandon spends one unit of the
+                                     shared 5-attempt payout budget —
+                                     at the limit the row goes terminal
+                                     FAILED with an alert (#3039).
     manual-payout <to> <amount_ait>  send a manual payout through the same
                                      ledger-first path as monitor payouts
                                      (synthetic row, SUBMITTED, sweep

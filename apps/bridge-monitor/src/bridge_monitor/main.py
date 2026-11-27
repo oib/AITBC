@@ -32,6 +32,13 @@ from .storage import (
 configure_logging(level="INFO", service_name="bridge-monitor", to_file=True)
 logger = get_logger(__name__)
 
+# Shared payout-attempt budget (#3039): _mark_for_retry spends one unit per
+# retryable failure and abandon_payout spends one per proven-dead envelope.
+# Every path that consumed a payout attempt counts toward the same limit, so
+# the abandon→requeue→re-sign→sealed-failed loop reaches terminal FAILED
+# instead of stalling the serialized payout queue forever.
+_MAX_PAYOUT_ATTEMPTS = 5
+
 
 def _parse_payout_caps() -> tuple[Decimal, Decimal | None]:
     """Read the per-deposit payout caps from the environment.
@@ -779,7 +786,7 @@ class BridgeMonitor(BridgeMonitorRuntime):
 
         deposit = get_deposit(tx_hash)
         retry_count = (deposit.get("retry_count", 0) if deposit else 0) + 1
-        max_retries = 5
+        max_retries = _MAX_PAYOUT_ATTEMPTS
         if retry_count >= max_retries:
             # Retries exhausted = funds received but not paid — alert, don't
             # let it disappear.
@@ -1465,21 +1472,61 @@ class BridgeMonitor(BridgeMonitorRuntime):
         # envelope fields are cleared (empty string = falsy) so no path
         # hands the dead envelope back to the sweep. The SUBMITTED CAS
         # (#1839) arbitrates a writer that moved the row since the read.
+        return self._abandon_outcome_write(tx_hash, payout_hash, chain_nonce, env_nonce, d)
+
+    def _abandon_outcome_write(
+        self, tx_hash: str, payout_hash: str, chain_nonce: int, env_nonce: int, d: dict
+    ) -> tuple[bool, str]:
+        """Persist a proven-dead abandon: PENDING_RETRY, or terminal FAILED
+        once the shared payout-attempt budget is spent (#3039).
+
+        A successful abandon is a spent payout attempt — the dead envelope
+        consumed a nonce (and, when it sealed-failed at apply, a fee)
+        without paying. Spending one unit of the retry budget per abandon
+        makes the abandon→requeue→re-sign→fail cycle terminate at FAILED +
+        alert instead of looping forever and head-of-line blocking every
+        payout queued behind it. The SUBMITTED CAS (#1839) arbitrates a
+        writer that moved the row since the proof read.
+        """
+        retry_count = int(d.get("retry_count") or 0) + 1
+        budget_exhausted = retry_count >= _MAX_PAYOUT_ATTEMPTS
+        if budget_exhausted:
+            error_message = (
+                f"Payout attempt budget exhausted ({retry_count}/{_MAX_PAYOUT_ATTEMPTS}) — "
+                f"abandoned payout {payout_hash} (account nonce {chain_nonce} > envelope nonce "
+                f"{env_nonce}); funds received but not paid — resolve via write-off/manual-payout"
+            )
+        else:
+            error_message = (
+                f"Abandoned payout {payout_hash}: account nonce {chain_nonce} > envelope nonce {env_nonce}, "
+                "envelope not sealed — safe to re-sign"
+            )
         if not update_deposit(
             tx_hash,
             signed_tx="",
             envelope_hash="",
             ait_tx_hash="",
-            status=BridgeDepositStatus.PENDING_RETRY,
+            status=BridgeDepositStatus.FAILED if budget_exhausted else BridgeDepositStatus.PENDING_RETRY,
             expected_statuses={BridgeDepositStatus.SUBMITTED},
-            error_message=(
-                f"Abandoned payout {payout_hash}: account nonce {chain_nonce} > envelope nonce {env_nonce}, "
-                "envelope not sealed — safe to re-sign"
-            ),
+            error_message=error_message,
+            retry_count=retry_count,
             clear_fields=["next_retry_at"],
         ):
             return False, f"deposit {tx_hash} left SUBMITTED before the abandon write — refusing"
-        return True, f"payout {payout_hash} abandoned; deposit {tx_hash} queued for a fresh payout"
+        if budget_exhausted:
+            logger.critical(
+                "ALERT: deposit %s payout attempt budget exhausted (%s/%s) — funds received but not paid: %s",
+                tx_hash,
+                retry_count,
+                _MAX_PAYOUT_ATTEMPTS,
+                error_message,
+            )
+            return True, f"payout {payout_hash} abandoned; deposit {tx_hash} FAILED — retry budget exhausted"
+        return (
+            True,
+            f"payout {payout_hash} abandoned (attempt {retry_count}/{_MAX_PAYOUT_ATTEMPTS}); "
+            f"deposit {tx_hash} queued for a fresh payout",
+        )
 
 
 def main() -> None:
