@@ -38,14 +38,22 @@ async def test_generate_and_verify_receipt_public_proof(monkeypatch):
     assert result["computation_correct"] is False
 
 
-def test_zk_threshold_enabled_for_high_value():
-    from coordinator_api.contexts.infrastructure.routers.miner import _zk_required_for
+def test_zk_threshold_disabled_by_default_for_high_value(monkeypatch):
+    """#3079: the decorative gate must not carry value by default — the
+    threshold defaults to -1, so even a 10-AIT job is not gated by price."""
+    from coordinator_api.contexts.infrastructure.routers import miner
 
     class FakeJob:
         constraints = {}
         payload = {"model": "linear-1"}
 
-    assert _zk_required_for(FakeJob(), payment_amount=Decimal("10.0")) is True
+    monkeypatch.setattr(miner, "_ZK_THRESHOLD_AIT", Decimal("-1"))
+    monkeypatch.setattr(miner, "_ZK_REQUIRE_PROOF", False)
+    assert miner._zk_required_for(FakeJob(), payment_amount=Decimal("10.0")) is False
+
+    # An operator who configures a threshold still gets the gate.
+    monkeypatch.setattr(miner, "_ZK_THRESHOLD_AIT", Decimal("10"))
+    assert miner._zk_required_for(FakeJob(), payment_amount=Decimal("10.0")) is True
 
 
 def test_zk_require_proof_env_forces_zk_for_every_job(monkeypatch):

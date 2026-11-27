@@ -44,7 +44,14 @@ from .payments_release import PaymentReleaseMixin
 # three leaves keeps the MRO consistent.
 
 # P2.1: high-value jobs require a verified ZK receipt proof before escrow release.
-_ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
+# #3079: the only shipped circuit is a toy and the proof binds nothing
+# job-specific, so the gate is decorative — it must not carry value by
+# default. The default is -1, the codebase's disabled convention for the
+# *automatic* high-value trigger: explicit requirements
+# (COORDINATOR_ZK_REQUIRE, per-job zk_proof_required) still gate, but no job
+# is gated by price alone. Deployments that deliberately opted in keep their
+# configured value; set a non-negative AIT amount to re-enable the threshold.
+_ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "-1"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
@@ -56,13 +63,19 @@ def _zk_required_for_constraints(constraints: dict[str, Any] | None, payment_amo
     threshold. Whether the requested model actually has a registered circuit
     is decided by the caller; the gate must not silently downgrade a required
     proof just because the model is missing.
+
+    #3079: a negative threshold disables only the *automatic* amount trigger —
+    explicit requirements above still apply, matching the documented "-1
+    disables the automatic high-value gate" contract. Previously the early
+    return made -1 a silent master-off that ignored even an explicit
+    zk_proof_required.
     """
-    if _ZK_THRESHOLD_AIT < 0:
-        return False
     if _ZK_REQUIRE_PROOF:
         return True
     if constraints and constraints.get("zk_proof_required"):
         return True
+    if _ZK_THRESHOLD_AIT < 0:
+        return False
     amount = payment_amount or Decimal("0")
     return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
 

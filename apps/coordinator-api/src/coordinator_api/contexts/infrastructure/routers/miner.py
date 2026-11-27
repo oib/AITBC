@@ -46,8 +46,12 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
 
 # P2.1: high-value jobs require a ZK receipt proof before escrow release.
-# -1 disables the threshold, 0 always requires a proof, default 10 AIT.
-_ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
+# #3079: the gate is decorative (toy circuit, proof binds nothing
+# job-specific) and must not carry value by default — the default is -1, the
+# codebase's disabled convention for the *automatic* high-value trigger.
+# Explicit requirements (COORDINATOR_ZK_REQUIRE, per-job zk_proof_required)
+# still gate; deployments that opted in keep their configured threshold.
+_ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "-1"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
@@ -59,13 +63,16 @@ def _zk_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
     threshold. Whether the requested model actually has a registered circuit
     is decided later in the prover; the gate must not silently downgrade a
     required proof just because the model is missing.
+
+    #3079: a negative threshold disables only the *automatic* amount trigger —
+    explicit requirements still apply (same contract as payments.py).
     """
-    if _ZK_THRESHOLD_AIT < 0:
-        return False
     if _ZK_REQUIRE_PROOF:
         return True
     if job.constraints and job.constraints.get("zk_proof_required"):
         return True
+    if _ZK_THRESHOLD_AIT < 0:
+        return False
     amount = payment_amount or Decimal("0")
     return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
 
@@ -91,6 +98,15 @@ def _job_output(result: dict[str, Any] | None) -> str:
 # receipt_model proof commits to the coordinator-computed output, so without
 # this check a miner could return arbitrary output and still collect.
 _CIRCUIT_OUTPUT_FAILURE_STATUSES = frozenset({"output_mismatch", "output_unparseable", "output_check_error"})
+
+# #3079: of the gate-failure statuses, only these two are attributable to the
+# provider — the miner returned output that is not the deterministic circuit
+# result (wrong values, or not a field array at all). Every other zk_status
+# (unsupported_model, service_unavailable, generation_failed,
+# computation_incorrect, "error: …", output_check_error) is the decorative
+# gate's own incoherence: the provider did nothing wrong, so the bond must
+# not be slashed for it.
+_ZK_PROVIDER_FAULT_STATUSES = frozenset({"output_mismatch", "output_unparseable"})
 
 
 def _parse_circuit_output(raw: Any) -> list[int] | None:
@@ -459,7 +475,17 @@ async def _zk_gate_failure(session: Session, job: Job, zk_status: Any) -> None:
     job.error = f"ZK proof required before escrow release (status: {zk_status})"
     session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
     logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
-    await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
+    if zk_status in _ZK_PROVIDER_FAULT_STATUSES:
+        await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
+    else:
+        # #3079: platform-side gate incoherence is not provider fault — the
+        # escrow stays held for operator review (the ZK sweeper parks it as
+        # settlement_failed) and the bond is untouched.
+        logger.warning(
+            "ZK gate failure for job %s is not provider-attributable (status=%s); bond not slashed",
+            job.id,
+            zk_status,
+        )
 
 
 async def _settle_escrowed_payment(
@@ -568,7 +594,8 @@ async def _submit_failed_result(
     state). A self-reported failure never slashes the bond (#2278): it proves
     nothing about the provider and the customer picks the input that made it
     fail. Bond slashes stay on verified faults — FRAUD on an operator-ruled
-    refund, the ZK gate, and the downtime sweeper.
+    refund, provider-attributable ZK output failures (#3079), and the
+    downtime sweeper.
     """
     metrics = req.metrics.model_dump(mode="json", exclude_none=True)
     duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
@@ -710,8 +737,9 @@ async def submit_failure(
         # #2278: no bond slash here. A miner-reported failure is unverified and
         # the customer chooses the input, so slashing on it let a customer burn
         # a provider's bond for free (the escrow stays refundable). Verified
-        # faults still slash: FRAUD on an operator-ruled refund, the ZK gate
-        # and the downtime sweeper.
+        # faults still slash: FRAUD on an operator-ruled refund,
+        # provider-attributable ZK output failures (#3079) and the downtime
+        # sweeper.
 
         # Record the failure in the reputation service.
         try:

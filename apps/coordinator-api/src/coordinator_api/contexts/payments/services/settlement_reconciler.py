@@ -403,9 +403,12 @@ class SettlementReconciler:
     # release audit above: it proves the recorded ``refund_transaction_hash``
     # sealed, adopts the real sealed hash when the recorded envelope died but
     # another refund landed, and — when the chain proves no refund exists —
-    # reverts the row to ``settlement_failed`` so the stuck-escrow and ZK
-    # refund sweepers (both scan REFUNDABLE_STATES for retryable rows) submit
-    # a fresh refund on their next pass. ``settlement_failed`` is the honest
+    # reverts the row to ``settlement_failed`` so the refund sweeper that
+    # owns the row's job state (stuck-escrow for terminal jobs, the stranded
+    # pass for late-lock recoveries) can submit a fresh refund on its next
+    # pass. The ZK escrow sweep never refunds — since #3079 it only *parks*
+    # held rows into ``settlement_failed``, so a row already there is outside
+    # its candidate set and stays an operator decision. ``settlement_failed`` is the honest
     # state: a settlement leg failed terminally at this layer while the
     # funds remain escrowed and refundable; it is outside HELD_STATES so no
     # release path can pick the row up in the meantime.

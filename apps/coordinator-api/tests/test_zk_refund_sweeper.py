@@ -1,4 +1,11 @@
-"""Tests for the ZK-failure auto-refund sweeper."""
+"""Tests for the ZK-gate escrow sweep (#3079: park for review, never auto-refund).
+
+Every candidate is delivered work — a COMPLETED job whose escrow cannot be
+released because the decorative ZK gate failed. Auto-refunding it paid the
+buyer for work the provider delivered and left the provider unpaid (the
+#3067 forensics). The sweep now marks the payment ``settlement_failed`` —
+the operator-review state — and never calls ``PaymentService.refund_payment``.
+"""
 
 from __future__ import annotations
 
@@ -7,15 +14,19 @@ import os
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from sqlmodel import Session, select
 
 from aitbc_shared import JobPayment, PaymentEscrow
 from coordinator_api.contexts.infrastructure.domain.job import Job
-from coordinator_api.contexts.payments.acceptance import DISPUTED
-from coordinator_api.contexts.payments.services.zk_refund_sweeper import ZkRefundSweeper
+from coordinator_api.contexts.payments.acceptance import DISPUTED, SETTLEMENT_FAILED
+from coordinator_api.contexts.payments.services.zk_refund_sweeper import (
+    META_ZK_GATE_REVIEW,
+    META_ZK_GATE_REVIEW_STATUS,
+    ZkRefundSweeper,
+)
 
 
 @pytest.fixture
@@ -91,35 +102,12 @@ def _make_job_and_payment(
     return job, payment
 
 
-def _fake_refund_success(session: Session, tx_hash: str = "0xdeadbeef"):
-    """Return an async callable that simulates a real, on-chain refund."""
-
-    async def _refund(client_id: str, job_id: str, payment_id: str, reason: str, *, is_admin: bool = False) -> bool:
-        payment = session.get(JobPayment, payment_id)
-        payment.status = "refunded"
-        payment.refund_transaction_hash = tx_hash
-        payment.refunded_at = datetime.now(UTC)
-        payment.updated_at = datetime.now(UTC)
-        session.add(payment)
-        escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).first()
-        if escrow:
-            escrow.is_refunded = True
-            escrow.is_active = False
-            escrow.refunded_at = datetime.now(UTC)
-            session.add(escrow)
-        session.commit()
-        return True
-
-    return _refund
-
-
 @pytest.mark.unit
-class TestZkRefundSweeper:
-    """ZkRefundSweeper finds and refunds jobs whose ZK receipt did not verify."""
+class TestZkEscrowSweepParksForReview:
+    """ZkRefundSweeper parks gate-failed escrows; it never moves money."""
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_refunds_failed_zk_escrowed_job(self, mock_service_cls, sweep_session):
-        """An escrowed, completed job with a failed ZK receipt is refunded."""
+    def test_sweeper_parks_failed_zk_escrowed_job_without_refunding(self, sweep_session):
+        """An escrowed, completed job with a failed ZK receipt is parked, not refunded."""
         job_id = "job-zk-fail-1"
         payment_id = "pay-zk-fail-1"
         _make_job_and_payment(
@@ -129,26 +117,111 @@ class TestZkRefundSweeper:
             receipt={"zk_status": "unsupported_model", "computation_correct": False},
         )
 
-        mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(side_effect=_fake_refund_success(sweep_session))
-        mock_service_cls.return_value = mock_service
+        # Mutation guard: the sweeper module must not even import the refund path.
+        import coordinator_api.contexts.payments.services.zk_refund_sweeper as sweeper_module
+
+        assert not hasattr(sweeper_module, "PaymentService")
 
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 1
-        assert counts["refunded"] == 1
+        assert counts["parked"] == 1
         assert counts["failed"] == 0
-        mock_service.refund_payment.assert_called_once()
 
         job = sweep_session.get(Job, job_id)
-        assert job.payment_status == "refunded"
+        assert job.payment_status == SETTLEMENT_FAILED
         payment = sweep_session.get(JobPayment, payment_id)
-        assert payment.status == "refunded"
-        assert payment.refund_transaction_hash == "0xdeadbeef"
+        assert payment.status == SETTLEMENT_FAILED
+        assert payment.refund_transaction_hash is None
+        assert payment.meta_data[META_ZK_GATE_REVIEW] is True
+        assert payment.meta_data[META_ZK_GATE_REVIEW_STATUS] == "unsupported_model"
+        # The escrow stays locked on-chain for the operator to resolve.
+        escrow = sweep_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).first()
+        assert escrow.is_active is True
+        assert escrow.is_refunded is False
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_skips_valid_zk_receipt(self, mock_service_cls, sweep_session):
-        """A job with a valid ZK receipt is not refunded."""
+    def test_park_preserves_concurrent_meta_keys(self, sweep_session):
+        """The park merges meta_data — a key written between selection and
+        park (e.g. dispute_reason) must survive, not be erased."""
+        job_id = "job-zk-meta-1"
+        payment_id = "pay-zk-meta-1"
+        _make_job_and_payment(
+            sweep_session,
+            job_id,
+            payment_id,
+            receipt={"zk_status": "unsupported_model", "computation_correct": False},
+        )
+        payment = sweep_session.get(JobPayment, payment_id)
+        payment.meta_data = {"dispute_reason": "customer rejected output"}
+        sweep_session.add(payment)
+        sweep_session.commit()
+
+        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["parked"] == 1
+        payment = sweep_session.get(JobPayment, payment_id)
+        assert payment.status == SETTLEMENT_FAILED
+        assert payment.meta_data["dispute_reason"] == "customer rejected output"
+        assert payment.meta_data[META_ZK_GATE_REVIEW] is True
+
+    def test_park_loses_cas_when_payment_moved_to_disputed(self, sweep_session, db_engine):
+        """Lost-race pin: a payment moved to DISPUTED between candidate
+        selection and the park write must NOT be overwritten — the
+        conditional UPDATE arbitrates, same as the refund/release CAS paths."""
+        job_id = "job-zk-race-1"
+        payment_id = "pay-zk-race-1"
+        job, stale_payment = _make_job_and_payment(
+            sweep_session,
+            job_id,
+            payment_id,
+            receipt={"zk_status": "unsupported_model", "computation_correct": False},
+        )
+        # Load the attributes into the identity map NOW (the creation commit
+        # expired them): from here on stale_payment reads "escrowed" without
+        # touching the DB — exactly what _find_candidates hands the park.
+        assert stale_payment.status == "escrowed"
+        # A second session — the concurrent writer — disputes the payment in
+        # the window between _find_candidates and the park commit.
+        with Session(db_engine) as other:
+            moved = other.get(JobPayment, payment_id)
+            moved.status = DISPUTED
+            moved.meta_data = {"dispute_reason": "operator reviewing"}
+            other.add(moved)
+            other.commit()
+        assert stale_payment.status == "escrowed"  # identity map never saw the move
+
+        won = ZkRefundSweeper(session_factory=lambda: sweep_session)._park_for_operator_review(
+            sweep_session, job, stale_payment
+        )
+
+        assert won is False
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, payment_id)
+        assert payment.status == DISPUTED
+        assert payment.meta_data == {"dispute_reason": "operator reviewing"}
+        job = sweep_session.get(Job, job_id)
+        assert job.payment_status == "escrowed"
+
+    def test_parked_payment_is_not_a_candidate_again(self, sweep_session):
+        """settlement_failed rows leave the candidate set — one park, no loop."""
+        job_id = "job-zk-parked-1"
+        payment_id = "pay-zk-parked-1"
+        _make_job_and_payment(
+            sweep_session,
+            job_id,
+            payment_id,
+            receipt={"zk_status": "unsupported_model", "computation_correct": False},
+        )
+
+        first = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
+        assert first["parked"] == 1
+
+        second = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
+        assert second["candidates"] == 0
+        assert second["parked"] == 0
+
+    def test_sweeper_skips_valid_zk_receipt(self, sweep_session):
+        """A job with a valid ZK receipt is not parked."""
         job_id = "job-zk-ok-1"
         payment_id = "pay-zk-ok-1"
         _make_job_and_payment(
@@ -158,18 +231,14 @@ class TestZkRefundSweeper:
             receipt={"zk_status": "verified", "computation_correct": True},
         )
 
-        mock_service = MagicMock()
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 0
-        assert counts["refunded"] == 0
-        mock_service.refund_payment.assert_not_called()
+        payment = sweep_session.get(JobPayment, payment_id)
+        assert payment.status == "escrowed"
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_respects_open_acceptance_window(self, mock_service_cls, sweep_session):
-        """A pending_acceptance job inside its acceptance window is not refunded yet."""
+    def test_sweeper_respects_open_acceptance_window(self, sweep_session):
+        """A pending_acceptance job inside its acceptance window is not parked yet."""
         job_id = "job-zk-window-1"
         payment_id = "pay-zk-window-1"
         future = datetime.now(UTC) + timedelta(seconds=300)
@@ -183,17 +252,14 @@ class TestZkRefundSweeper:
             completed_at=future - timedelta(seconds=300),
         )
 
-        mock_service = MagicMock()
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 0
-        mock_service.refund_payment.assert_not_called()
+        payment = sweep_session.get(JobPayment, payment_id)
+        assert payment.status == "pending_acceptance"
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_refunds_after_acceptance_window_expires(self, mock_service_cls, sweep_session):
-        """A pending_acceptance job whose window has expired and has bad ZK is refunded."""
+    def test_sweeper_parks_after_acceptance_window_expires(self, sweep_session):
+        """A pending_acceptance job whose window expired and has bad ZK is parked."""
         job_id = "job-zk-expired-1"
         payment_id = "pay-zk-expired-1"
         completed_at = datetime.now(UTC) - timedelta(seconds=4000)
@@ -207,25 +273,16 @@ class TestZkRefundSweeper:
             completed_at=completed_at,
         )
 
-        mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(side_effect=_fake_refund_success(sweep_session, "0xcafebabe"))
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 1
-        assert counts["refunded"] == 1
-        mock_service.refund_payment.assert_called_once()
-
-        job = sweep_session.get(Job, job_id)
-        assert job.payment_status == "refunded"
+        assert counts["parked"] == 1
         payment = sweep_session.get(JobPayment, payment_id)
-        assert payment.status == "refunded"
-        assert payment.refund_transaction_hash == "0xcafebabe"
+        assert payment.status == SETTLEMENT_FAILED
+        assert payment.refund_transaction_hash is None
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_skips_jobs_not_completed_long_enough(self, mock_service_cls, sweep_session):
-        """A job completed inside the min-age grace period is not refunded."""
+    def test_sweeper_skips_jobs_not_completed_long_enough(self, sweep_session):
+        """A job completed inside the min-age grace period is not parked."""
         job_id = "job-zk-recent-1"
         payment_id = "pay-zk-recent-1"
         _make_job_and_payment(
@@ -236,9 +293,6 @@ class TestZkRefundSweeper:
             completed_at=datetime.now(UTC) - timedelta(seconds=10),
         )
 
-        mock_service = MagicMock()
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(
             ZkRefundSweeper(
                 session_factory=lambda: sweep_session,
@@ -247,44 +301,10 @@ class TestZkRefundSweeper:
         )
 
         assert counts["candidates"] == 0
-        mock_service.refund_payment.assert_not_called()
-
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_treats_refund_without_hash_as_failed(self, mock_service_cls, sweep_session):
-        """A PaymentService that returns True without an on-chain hash is treated as failed."""
-        job_id = "job-zk-unbacked-1"
-        payment_id = "pay-zk-unbacked-1"
-        _make_job_and_payment(
-            sweep_session,
-            job_id,
-            payment_id,
-            receipt={"zk_status": "unsupported_model", "computation_correct": False},
-        )
-
-        mock_service = MagicMock()
-        # PaymentService says it refunded, but it did not leave an on-chain record.
-        mock_service.refund_payment = AsyncMock(return_value=True)
-        mock_service_cls.return_value = mock_service
-
-        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
-
-        assert counts["candidates"] == 1
-        assert counts["refunded"] == 0
-        assert counts["failed"] == 1
-        mock_service.refund_payment.assert_called_once()
-
-        job = sweep_session.get(Job, job_id)
-        assert job.payment_status == "failed"
         payment = sweep_session.get(JobPayment, payment_id)
-        assert payment.status == "failed"
-        assert payment.refund_transaction_hash is None
-        assert payment.refunded_at is None
-        escrow = sweep_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).first()
-        assert escrow.is_refunded is False
-        assert escrow.is_active is False
+        assert payment.status == "escrowed"
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_skips_payment_with_refund_hash(self, mock_service_cls, sweep_session):
+    def test_sweeper_skips_payment_with_refund_hash(self, sweep_session):
         """A payment that already has a refund hash is not processed again."""
         job_id = "job-zk-dedup-hash-1"
         payment_id = "pay-zk-dedup-hash-1"
@@ -299,19 +319,14 @@ class TestZkRefundSweeper:
         sweep_session.add(payment)
         sweep_session.commit()
 
-        mock_service = MagicMock()
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 0
-        assert counts["refunded"] == 0
+        assert counts["parked"] == 0
         assert counts["failed"] == 0
-        mock_service.refund_payment.assert_not_called()
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_skips_unbacked_payment(self, mock_service_cls, sweep_session):
-        """A payment that was never backed by an on-chain escrow lock is not refunded."""
+    def test_sweeper_skips_unbacked_payment(self, sweep_session):
+        """A payment that was never backed by an on-chain escrow lock is not parked."""
         job_id = "job-zk-unbacked-2"
         payment_id = "pay-zk-unbacked-2"
         _make_job_and_payment(
@@ -325,94 +340,13 @@ class TestZkRefundSweeper:
         sweep_session.add(payment)
         sweep_session.commit()
 
-        mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(return_value=False)
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 0
-        assert counts["refunded"] == 0
-        mock_service.refund_payment.assert_not_called()
-
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_downgrades_stale_refunded_without_hash(self, mock_service_cls, sweep_session):
-        """A payment marked refunded but with no on-chain hash is downgraded to failed."""
-        job_id = "job-zk-stale-1"
-        payment_id = "pay-zk-stale-1"
-        _make_job_and_payment(
-            sweep_session,
-            job_id,
-            payment_id,
-            payment_status="refunded",
-            receipt={"zk_status": "unsupported_model", "computation_correct": False},
-        )
-        payment = sweep_session.get(JobPayment, payment_id)
-        payment.refund_transaction_hash = None
-        payment.refunded_at = None
-        sweep_session.add(payment)
-        escrow = sweep_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).first()
-        escrow.is_refunded = True
-        escrow.is_active = False
-        sweep_session.add(escrow)
-        sweep_session.commit()
-
-        mock_service = MagicMock()
-        # PaymentService could not refund (e.g., escrow not found on chain).
-        mock_service.refund_payment = AsyncMock(return_value=False)
-        mock_service_cls.return_value = mock_service
-
-        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
-
-        assert counts["candidates"] == 1
-        assert counts["refunded"] == 0
-        assert counts["failed"] == 1
-        mock_service.refund_payment.assert_called_once()
-
-        job = sweep_session.get(Job, job_id)
-        payment = sweep_session.get(JobPayment, payment_id)
-        escrow = sweep_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).first()
-        assert job.payment_status == "failed"
-        assert payment.status == "failed"
-        assert payment.refund_transaction_hash is None
-        assert escrow.is_refunded is False
-        assert escrow.is_active is False
-
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_backfills_stale_refunded_from_chain_hash(self, mock_service_cls, sweep_session):
-        """A stale refunded row can be reconciled when PaymentService supplies a hash."""
-        job_id = "job-zk-stale-2"
-        payment_id = "pay-zk-stale-2"
-        _make_job_and_payment(
-            sweep_session,
-            job_id,
-            payment_id,
-            payment_status="refunded",
-            receipt={"zk_status": "unsupported_model", "computation_correct": False},
-        )
-        payment = sweep_session.get(JobPayment, payment_id)
-        payment.refund_transaction_hash = None
-        payment.refunded_at = None
-        sweep_session.add(payment)
-        sweep_session.commit()
-
-        mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(side_effect=_fake_refund_success(sweep_session, "0xrestored"))
-        mock_service_cls.return_value = mock_service
-
-        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
-
-        assert counts["candidates"] == 1
-        assert counts["refunded"] == 1
-        assert counts["failed"] == 0
-
-        job = sweep_session.get(Job, job_id)
-        payment = sweep_session.get(JobPayment, payment_id)
-        assert job.payment_status == "refunded"
-        assert payment.refund_transaction_hash == "0xrestored"
+        assert counts["parked"] == 0
 
     def test_zk_refund_sweeper_enabled_default(self):
-        """The sweeper is enabled by default."""
+        """The sweeper is enabled by default (it parks; it does not refund)."""
         from coordinator_api.contexts.payments.services.zk_refund_sweeper import (
             zk_refund_sweeper_enabled,
         )
@@ -424,9 +358,8 @@ class TestZkRefundSweeper:
             if old is not None:
                 os.environ["COORDINATOR_ZK_REFUND_SWEEP_ENABLED"] = old
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweeper_skips_disputed_payment(self, mock_service_cls, sweep_session):
-        """A disputed payment is not refunded by the ZK sweeper."""
+    def test_sweeper_skips_disputed_payment(self, sweep_session):
+        """A disputed payment stays with the dispute flow, not the ZK sweep."""
         job_id = "job-zk-disputed-1"
         payment_id = "pay-zk-disputed-1"
         _make_job_and_payment(
@@ -437,18 +370,13 @@ class TestZkRefundSweeper:
             receipt={"zk_status": "unsupported_model", "computation_correct": False},
         )
 
-        mock_service = MagicMock()
-        mock_service_cls.return_value = mock_service
-
         counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
 
         assert counts["candidates"] == 0
-        assert counts["refunded"] == 0
+        assert counts["parked"] == 0
         assert counts["failed"] == 0
-        mock_service.refund_payment.assert_not_called()
 
-    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweep_skips_when_another_worker_holds_the_lock(self, mock_service_cls, sweep_session, tmp_path):
+    def test_sweep_skips_when_another_worker_holds_the_lock(self, sweep_session, tmp_path):
         """The sweep lock is what replaces ``--workers 1``: a second worker skips."""
         import filelock
 
@@ -461,5 +389,24 @@ class TestZkRefundSweeper:
         finally:
             held.release()
 
-        assert counts == {"candidates": 0, "refunded": 0, "failed": 0, "skipped": 1}
-        mock_service_cls.assert_not_called()
+        assert counts == {"candidates": 0, "parked": 0, "failed": 0, "skipped": 1}
+
+    @patch.object(ZkRefundSweeper, "_park_for_operator_review", side_effect=RuntimeError("db exploded"))
+    def test_park_failure_counts_failed_and_continues(self, _mock_park, sweep_session):
+        """A row that fails to park is counted failed and does not abort the sweep."""
+        job_id = "job-zk-failpark-1"
+        payment_id = "pay-zk-failpark-1"
+        _make_job_and_payment(
+            sweep_session,
+            job_id,
+            payment_id,
+            receipt={"zk_status": "unsupported_model", "computation_correct": False},
+        )
+
+        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 1
+        assert counts["parked"] == 0
+        assert counts["failed"] == 1
+        payment = sweep_session.get(JobPayment, payment_id)
+        assert payment.status == "escrowed"

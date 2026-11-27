@@ -272,9 +272,37 @@ async def _open_purchase_job(
         )
         job = await run_in_threadpool(job_service.create_job, client_id=request.buyer_id, req=job_create)
         job_id = job.id
+    _refuse_zk_gated_gpu_rental(job, total_cost)
     job_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
     logger.info("Using job %s for GPU purchase %s", job_id, booking.id)
     return job, job_id, total_cost, duration_hours, end_time
+
+
+def _refuse_zk_gated_gpu_rental(job: Job, total_cost: Decimal) -> None:
+    """#3079: refuse a GPU rental the ZK escrow gate can never satisfy.
+
+    ``gpu_compute`` jobs name a GPU, not a circuit model, so
+    ``model_registry.resolve_model_id`` finds nothing and any ZK requirement —
+    the high-value threshold or ``COORDINATOR_ZK_REQUIRE`` — could only fail
+    ``zk_status=unsupported_model`` after the provider ran the rental, leaving
+    the escrow parked for operator review and the provider unpaid. The #2951
+    submit/dispatch guards never saw this path because the purchase builds its
+    ``JobCreate`` (or binds a quote-prepared job) directly. Refusing here is
+    the same fail-closed contract the client submit route applies; with the
+    gate disabled by default (#3079) this check passes for normal purchases.
+    """
+    from ...payments.services.payments import _zk_required_for_constraints
+
+    constraints = job.constraints if isinstance(job.constraints, dict) else None
+    if _zk_required_for_constraints(constraints, total_cost):
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "ZK proof is required for this rental but gpu_compute jobs have no "
+                "registered circuit; disable the ZK gate (negative "
+                "COORDINATOR_ZK_HIGH_VALUE_THRESHOLD) or use a circuit-capable job type"
+            ),
+        )
 
 
 async def _create_purchase_payment(

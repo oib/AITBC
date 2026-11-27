@@ -572,7 +572,7 @@ def _sweeper_specs() -> list[tuple[str, Any, Any, str]]:
             "zk_refund_sweeper",
             zk_refund_sweeper_enabled,
             ZkRefundSweeper,
-            "Refund escrow for jobs whose ZK receipt could not be verified",
+            "Park escrow for jobs whose ZK receipt could not be verified (operator review, no auto-refund)",
         ),
         (
             "acceptance_window_sweeper",
@@ -638,7 +638,7 @@ def _sweeper_config(factory: Any) -> dict[str, Any]:
     public attributes, so constructing one is how you learn what the running
     task is actually using. Construction is side-effect free - it reads the
     environment and builds a session factory; it opens no session and, in the
-    zk refund case, creates the file lock object without acquiring it.
+    zk escrow case, creates the file lock object without acquiring it.
     """
     try:
         instance = factory()

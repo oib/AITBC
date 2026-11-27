@@ -213,9 +213,9 @@ async def _start_sweepers(task_manager) -> None:
 
     # Retry escrow releases that completed but never settled on-chain. Off by
     # default: it re-drives real payouts, so it is opted into per deployment.
-    # P2.1 zk_refund_sweeper: refund escrows for jobs whose ZK receipt could
-    # not be verified — breaks the steady-state loop where a failed proof
-    # leaves funds escrowed forever because release_payment keeps refusing.
+    # P2.1 zk_refund_sweeper: park escrows for jobs whose ZK receipt could
+    # not be verified — since #3079 it marks them settlement_failed for
+    # operator review instead of auto-refunding delivered work.
     # AcceptanceSweeper (G3): release escrow once a customer's acceptance
     # window expires — performs the release the window deferred.
     # StuckEscrowSweeper: refund escrows stuck in canceled/failed/expired/
@@ -274,8 +274,8 @@ async def _start_sweepers(task_manager) -> None:
         "zk_refund_sweeper",
         zk_refund_sweeper_enabled,
         ZkRefundSweeper,
-        "ZK refund sweeper enabled",
-        "ZK refund sweeper disabled (set COORDINATOR_ZK_REFUND_SWEEP_ENABLED=true to enable)",
+        "ZK escrow sweeper enabled (parks gate-failed escrows for review, no auto-refund)",
+        "ZK escrow sweeper disabled (set COORDINATOR_ZK_REFUND_SWEEP_ENABLED=true to enable)",
         stagger_index=1,
     )
     await _maybe_start_sweeper(

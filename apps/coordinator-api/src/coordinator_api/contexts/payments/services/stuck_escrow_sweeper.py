@@ -615,9 +615,12 @@ def _is_unreachable_stranded_refund(payment: JobPayment, job: Job) -> bool:
     refund queue can see (#3031).
 
     The refund-hash audit requeues a dead refund to ``settlement_failed`` so
-    the refund sweepers retry it — but the ordinary and ZK queues join
-    ``Job.payment_id`` and require ``escrowed_at``, neither of which a
-    stranded late-lock recovery (#2996) ever established. Such a row is only
+    the refund sweepers retry it — but the ordinary queue joins
+    ``Job.payment_id`` and requires ``escrowed_at``, neither of which a
+    stranded late-lock recovery (#2996) ever established. (The ZK escrow
+    sweep cannot see these rows at all since #3079: it scans only held
+    ``escrowed``/``pending_acceptance`` payments and never refunds — it only
+    parks gate-failed escrows for operator review.) Such a row is only
     reachable here: this pass refunds by ``job_id``, the same key the chain
     escrow uses, so it never depends on the job's payment attachment and
     cannot displace a different payment. Rows that DO carry both linkage
@@ -681,11 +684,13 @@ class StrandedEscrowRefundSweeper:
 
     It also owns the *whole* lifecycle of a recovery it marked (#3031): when
     the refund-hash audit proves the submitted refund died and requeues the
-    row to ``settlement_failed``, the ordinary and ZK refund queues cannot
-    see it — they join ``Job.payment_id`` and require ``escrowed_at``, which
-    a late-lock recovery never established. Those ``settlement_failed``
-    rows are re-picked here (still keyed by ``job_id``, still chain-verified)
-    as long as the standard queues cannot reach them.
+    row to ``settlement_failed``, the ordinary refund queue cannot see it —
+    it joins ``Job.payment_id`` and requires ``escrowed_at``, which a
+    late-lock recovery never established (the ZK escrow sweep never refunds
+    and never scans ``settlement_failed`` rows either, #3079). Those
+    ``settlement_failed`` rows are re-picked here (still keyed by
+    ``job_id``, still chain-verified) as long as the standard queues cannot
+    reach them.
     """
 
     def __init__(

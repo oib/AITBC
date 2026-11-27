@@ -65,8 +65,9 @@ Expected output: `enabled: true` and the list of circuits the coordinator can us
 
 ## Step 3: Submit a high-value job with ZK proof required
 
-Either the default high-value threshold (10 AIT) triggers ZK automatically, or you
-can force it with `--zk-proof-required`:
+ZK is not triggered by price by default since #3079 (the threshold defaults to
+`-1`); force it with `--zk-proof-required`, `COORDINATOR_ZK_REQUIRE=true`, or a
+configured `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD`:
 
 ```bash
 aitbc ai submit \
@@ -157,13 +158,21 @@ Expected: `state: COMPLETED`, `payment_status: released`, `zk_status: verified`,
 
 ## Notes
 
-- The high-value threshold is controlled by `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD`
-  (default 10 AIT). Set it to `0` to always require ZK, or `-1` to disable the
-  automatic high-value gate.
+- The high-value threshold is controlled by `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD`.
+  Since #3079 the default is `-1`, which disables the *automatic* amount trigger
+  (the only shipped circuit is a toy and the proof binds nothing job-specific,
+  so the gate must not carry value by default). Explicit requirements —
+  `COORDINATOR_ZK_REQUIRE=true` or a job's `zk_proof_required` constraint —
+  still gate. Set the threshold to `0` to always require ZK, or a positive AIT
+  amount to gate high-value jobs.
 - Verification is disabled by default unless `COORDINATOR_ENABLE_ZK_VERIFICATION=true`
   is set in the coordinator's environment.
 - The `receipt_public` circuit is the default. Other circuits can be selected on
   the `/v1/zk/generate` and `/v1/zk/verify` endpoints, but the job pipeline uses
   the receipt circuit.
-- If ZK proof generation or verification fails, the job fails and escrow can be
-  refunded with `aitbc ai refund --job-id <job_id>` or `aitbc market escrow refund --job-id <job_id>`.
+- If ZK proof generation or verification fails on delivered work, the escrow is
+  parked as `settlement_failed` for operator review (#3079) — the sweeper never
+  auto-refunds delivered work, and only provider-attributable output failures
+  (`output_mismatch`, `output_unparseable`) may slash a bond. A ground-up ZK
+  redesign (real commitments binding job/escrow/miner/chain/nonce and the
+  miner's output) is tracked separately and explicitly out of scope here.

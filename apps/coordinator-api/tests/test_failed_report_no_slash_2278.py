@@ -95,12 +95,13 @@ def test_fail_route_does_not_slash_bonded_provider(miner_client, db_session):
 
 @pytest.mark.unit
 def test_zk_gate_failure_still_slashes_bonded_provider(db_session):
-    """Positive control: the verified-fault slash path is untouched, so the two
-    no-slash pins above are not vacuous."""
+    """Positive control: a provider-attributable ZK output failure still slashes
+    the bond (#3079 narrowed the slash to output_mismatch/output_unparseable),
+    so the two no-slash pins above are not vacuous."""
     from coordinator_api.contexts.infrastructure.routers.miner import _zk_gate_failure
 
     job = _bonded_running_job(db_session, "job-2278c")
     with patch(_SLASH, new_callable=AsyncMock) as slash:
-        asyncio.run(_zk_gate_failure(db_session, job, "invalid"))
+        asyncio.run(_zk_gate_failure(db_session, job, "output_mismatch"))
     slash.assert_awaited_once()
     assert slash.await_args.args[1] is SlashingCondition.BAD_RESULT
