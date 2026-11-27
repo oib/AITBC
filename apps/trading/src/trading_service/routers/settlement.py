@@ -7,6 +7,13 @@ HTLC emissions carry no ``payload.auth`` and cannot seal at block version
 bookkeeping escrow that could never lock, and ``settle`` refuses for the
 same reason. Only the read-only ``settlement-status`` endpoint stays live
 so existing trades remain inspectable.
+
+#3061 resurrection gate: the inter-chain trade rows this rail consumes
+carry caller-asserted sender/recipient/agent identity behind one shared
+API key — acceptable only because nothing here can move money today.
+Resurrecting ANY settlement path out of this service requires
+re-auditing that identity model first (per-party binding or signatures);
+do not re-enable endpoints on the assumption the rows are trustworthy.
 """
 
 import os

@@ -313,6 +313,18 @@ class OfferSubscriptionService:
             raw = await asyncio.wait_for(queue.get(), timeout=settings.offer_subscription_heartbeat_seconds)
             # B18: Decode gossip message into OfferEvent
             event = self._decode_gossip_message(raw, chain_id)
+            if event is not None and event.chain_id != chain_id:
+                # #3061: the topic is the only trust boundary gossip has —
+                # until publisher authentication exists, an event published
+                # on offers.<A> must not mutate chain B's cache (a forged
+                # DELETED would evict a legitimate offer).
+                logger.warning(
+                    "Dropped cross-chain offer event %s for %s on topic offers.%s",
+                    event.event_type,
+                    event.offer_id,
+                    chain_id,
+                )
+                event = None
             if event is not None:
                 self._last_event_time[chain_id] = time.monotonic()
                 # B20: If we were in polling fallback, switch back to subscribed

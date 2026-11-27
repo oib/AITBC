@@ -773,9 +773,13 @@ class TestStaleEventGuard1696:
         assert cache.get_offer("offer-1", "ait-hub") is None
 
     @pytest.mark.asyncio
-    async def test_guard_off_by_default_applies_old_event(self) -> None:
+    async def test_guard_off_applies_old_event(self, monkeypatch) -> None:
+        """Explicit opt-out still applies replayed events — the #3061
+        default flip does not remove the escape hatch."""
+        from trading_service.config import settings
         from trading_service.services.offer_subscription_service import OfferSubscriptionService
 
+        monkeypatch.setattr(settings, "offer_event_stale_guard_enabled", False)
         cache = OfferCache()
         svc = OfferSubscriptionService(cache=cache)
         await svc.start_chain("ait-hub")
