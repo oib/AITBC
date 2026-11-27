@@ -47,6 +47,13 @@ class OfferNotificationService:
     batches after the debounce window expires.
     """
 
+    # #3060: bounds on the pending batch. The debounce used to cancel and
+    # restart the flush timer per event, so a stream sustained faster than
+    # the window starved the flush forever while _pending grew without
+    # bound. The deadline now belongs to the FIRST pending event, and a
+    # full batch flushes immediately instead of queueing more.
+    _MAX_PENDING_EVENTS = 1000
+
     def __init__(self, debounce_ms: int = 1000) -> None:
         self._debounce_ms = debounce_ms
         self._subscribers: dict[str, OfferSubscription] = {}
@@ -107,14 +114,34 @@ class OfferNotificationService:
         async with self._lock:
             for sub_id, subscription in self._subscribers.items():
                 if subscription.matches(event):
-                    self._pending.setdefault(sub_id, []).append(event)
-                    self._start_debounce(sub_id)
+                    pending = self._pending.setdefault(sub_id, [])
+                    pending.append(event)
+                    if len(pending) >= self._MAX_PENDING_EVENTS:
+                        self._flush_now(sub_id)
+                    else:
+                        self._start_debounce(sub_id)
 
-    def _start_debounce(self, subscriber_id: str) -> None:
-        """Start or reset the debounce timer for a subscriber."""
+    def _flush_now(self, subscriber_id: str) -> None:
+        """Flush the pending batch immediately (cap hit) — cancels any
+        pending debounce timer; the flush task itself is stored so
+        unregister/flush_all still see it."""
         existing = self._flush_tasks.get(subscriber_id)
         if existing and not existing.done():
             existing.cancel()
+        self._flush_tasks[subscriber_id] = create_task_with_logging(
+            self._flush_batch(subscriber_id), name=f"offer-flush-{subscriber_id}"
+        )
+
+    def _start_debounce(self, subscriber_id: str) -> None:
+        """Start the flush deadline for a subscriber — the FIRST pending
+        event owns it.
+
+        #3060: later events coalesce into the batch without extending the
+        deadline; resetting the timer per event let a sustained stream
+        starve the flush indefinitely."""
+        existing = self._flush_tasks.get(subscriber_id)
+        if existing and not existing.done():
+            return
 
         async def _flush() -> None:
             try:
@@ -143,6 +170,14 @@ class OfferNotificationService:
                     await result
             except _OPS_ERRORS as e:
                 logger.warning("Notification callback error for %s: %s", subscriber_id, e)
+
+        # #3060: events appended while the callback was in flight missed the
+        # popped batch — and because this flush task is still "not done" a
+        # naive first-event-wins debounce would strand them. Drop our own
+        # registration, then arm a fresh deadline for what is left.
+        if self._pending.get(subscriber_id):
+            self._flush_tasks.pop(subscriber_id, None)
+            self._start_debounce(subscriber_id)
 
         logger.debug("Flushed %d events to subscriber %s", notification.batch_size, subscriber_id)
 

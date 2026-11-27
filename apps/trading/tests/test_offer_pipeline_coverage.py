@@ -220,7 +220,9 @@ class TestOfferNotificationService:
 
         await svc.close()
 
-    async def test_debounce_resets_on_new_events(self):
+    async def test_debounce_deadline_belongs_to_first_event(self):
+        """#3060: later events coalesce into the batch but never extend the
+        flush deadline — the first pending event owns it."""
         from trading_service.services.offer_notification_service import OfferNotificationService
 
         svc = OfferNotificationService(debounce_ms=60)
@@ -233,13 +235,19 @@ class TestOfferNotificationService:
 
         await svc.process_event(_event(_offer("o1", chain_id="chain-a")))
         await asyncio.sleep(0.04)
-        # Second event inside the window resets the timer
+        # Second event inside the window joins the batch — the deadline
+        # stays at first-event + debounce, it does not restart.
         await svc.process_event(_event(_offer("o2", chain_id="chain-a")))
         await asyncio.sleep(0.04)
-        assert received == []
-        await asyncio.sleep(0.06)
+        # t≈80ms > 60ms deadline: both events flushed in ONE batch.
         assert len(received) == 1
         assert received[0].batch_size == 2
+
+        # A later event arms a fresh deadline and flushes alone.
+        await svc.process_event(_event(_offer("o3", chain_id="chain-a")))
+        await asyncio.sleep(0.1)
+        assert len(received) == 2
+        assert received[1].batch_size == 1
 
         await svc.close()
 
