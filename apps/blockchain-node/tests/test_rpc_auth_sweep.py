@@ -7,10 +7,21 @@ from lease revocation to a full governance takeover chain (public proposal →
 vote with caller-chosen voting_power → execute signed by the node's genesis
 key). These tests pin the X-API-Key gate on each route and the stake-derived
 voting power, so the surface cannot silently reopen.
+
+#3056 (AUDIT-RPC-AUTH-SWEEP-COVERAGE-1): the per-route pins above cover the
+routes the audit happened to enumerate; auth is per-route with no router-level
+net, so a NEW mutating route added without an auth decision would be
+internet-facing by default and no test would fail. ``TestRpcAuthCoverageRatchet``
+closes that hole: it enumerates the app's live route table (``app.routes``)
+and requires every mutating route to appear in an explicit auth-decision
+registry — key-gated, signed-payload, admin-auth, or intentionally-public with
+a reason. A new route fails CI until its class is declared.
 """
 
 from __future__ import annotations
 
+import inspect
+import re
 import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -658,3 +669,356 @@ class TestGovernanceExecutorGate:
 
         ok, msg = StateTransition().validate_transaction(session, "ait-testnet", self._tx("0x" + "e" * 40), "0xdead02")
         assert ok, msg
+
+
+# ---------------------------------------------------------------------------
+# #3056 AUDIT-RPC-AUTH-SWEEP-COVERAGE-1 — auth-decision coverage ratchet
+# ---------------------------------------------------------------------------
+
+#: HTTP methods that can change state. GET/HEAD/OPTIONS are reads.
+_MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+
+#: Dependency callables that gate a route on the X-API-Key credential family —
+#: the node's own BLOCKCHAIN_RPC_API_KEY, a fleet peer key, an issued join key,
+#: the settlement credential, or the export/fleet-read variant. Detected
+#: mechanically by walking ``route.dependant`` (this also sees router-level
+#: ``APIRouter(dependencies=[...])`` gates, which FastAPI flattens into each
+#: route). A new credential dependency must be added here or the ratchet fails.
+_KEY_GATE_DEPENDENCIES = frozenset(
+    {
+        "verify_rpc_api_key",
+        "verify_rpc_peer_key",
+        "verify_rpc_fleet_read_key",
+        "verify_rpc_fleet_peer_key",
+        "verify_rpc_export_key",
+        "verify_rpc_settlement_key",
+    }
+)
+
+#: Source tokens proving an in-handler cryptographic auth decision. The check
+#: reads the endpoint's source plus two hops of same-module callees, so thin
+#: ``rpc/routers/*.py`` wrappers that delegate to ``rpc/<module>.py``
+#: implementations still resolve their verifier.
+_SIGNATURE_TOKENS = (
+    "verify_request_signature",
+    "verify_transaction_signature",
+    "verify_signed_request_with_freshness",
+    "require_operator_signature",
+    "get_signed_dispute_address",
+    "require_admin_signature",
+    "verify_admin_signature",
+    "_verify_market_signature",
+)
+
+#: Token proving the wallet-identity gate (``get_authenticated_address`` —
+#: trusted X-Wallet-Address / bearer admin credential, fail-closed 401).
+_ADMIN_AUTH_TOKENS = ("get_authenticated_address",)
+
+_CALL_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+
+#: Routes gated by an X-API-Key-family dependency (mechanically verified
+#: against ``route.dependant``). Format: ``"METHOD /rpc/path"``.
+_KEY_GATED_ROUTES = frozenset(
+    {
+        "POST /rpc/bridge/ledger/register",
+        "POST /rpc/bridge/ledger/{transfer_id}/status",
+        "POST /rpc/bridge/settlement/create",
+        "POST /rpc/bridge/settlement/{escrow_id}/dispute",
+        "POST /rpc/bridge/settlement/{escrow_id}/execute",
+        "POST /rpc/bridge/settlement/{escrow_id}/extend-timeout",
+        "POST /rpc/bridge/settlement/{escrow_id}/lock",
+        "POST /rpc/bridge/settlement/{escrow_id}/refund",
+        "POST /rpc/bridge/settlement/{escrow_id}/resolve",
+        "POST /rpc/bridge/settlement/{escrow_id}/settle",
+        "POST /rpc/bridge/settlement/{escrow_id}/verify",
+        "POST /rpc/chains/start",
+        "POST /rpc/chains/stop",
+        "POST /rpc/contracts/deploy",
+        "POST /rpc/contracts/deploy/messaging",
+        "POST /rpc/contracts/messaging/messages/post",
+        "POST /rpc/contracts/messaging/messages/{message_id}/moderate",
+        "POST /rpc/contracts/messaging/messages/{message_id}/vote",
+        "POST /rpc/contracts/messaging/topics/create",
+        "POST /rpc/edge/register",
+        "POST /rpc/escrow/create",
+        "POST /rpc/escrow/{job_id}/refund",
+        "POST /rpc/escrow/{job_id}/release",
+        "POST /rpc/force-sync",
+        "POST /rpc/governance/proposal",
+        "POST /rpc/governance/proposal/{proposal_id}/execute",
+        "POST /rpc/governance/vote",
+        "POST /rpc/gpu/allocate",
+        "POST /rpc/gpu/register",
+        "POST /rpc/heartbeat",
+        "POST /rpc/identity/register",
+        "POST /rpc/identity/verify",
+        "POST /rpc/import-chain",
+        "POST /rpc/importBlock",
+        "POST /rpc/islands/bridge",
+        "POST /rpc/islands/join",
+        "POST /rpc/islands/leave",
+        "DELETE /rpc/lease/{node_id}",
+        "POST /rpc/subscribe",
+    }
+)
+
+#: Routes whose auth is a cryptographic signature verified inside the handler
+#: or its delegated service — secp256k1 over the request/transaction payload
+#: (wallet, operator, validator, seller, bridge party, or tx signer). Verified
+#: by the source-token sweep, not by a dependency.
+_SIGNED_PAYLOAD_ROUTES = frozenset(
+    {
+        "POST /rpc/agent-staking/agents/{agent_wallet}/distribute",
+        "POST /rpc/agent-staking/claim-rewards",
+        "POST /rpc/agent-staking/performance",
+        "POST /rpc/agent-staking/stake",
+        "POST /rpc/agent-staking/stake/{stake_id}/add",
+        "POST /rpc/agent-staking/stake/{stake_id}/complete",
+        "POST /rpc/agent-staking/stake/{stake_id}/unbond",
+        "POST /rpc/ai/job/{job_id}/cancel",
+        "POST /rpc/ai/submit",
+        "POST /rpc/bounty/deploy",
+        "POST /rpc/bounty/{bounty_id}/dispute",
+        "POST /rpc/bounty/{bounty_id}/expire",
+        "POST /rpc/bounty/{bounty_id}/submit",
+        "POST /rpc/bounty/{bounty_id}/verify",
+        "POST /rpc/bridge/batch/confirm",
+        "POST /rpc/bridge/block-headers",
+        "POST /rpc/bridge/confirm",
+        "POST /rpc/bridge/lock",
+        "POST /rpc/bridge/unlock",
+        "POST /rpc/bridge/validators/register",
+        "POST /rpc/cross-chain/bridge",
+        "POST /rpc/disputes/evidence",
+        "POST /rpc/disputes/file",
+        "POST /rpc/disputes/verify-evidence",
+        "POST /rpc/disputes/vote",
+        "POST /rpc/market/create",
+        "DELETE /rpc/market/listing/{listing_id}",
+        "POST /rpc/staking/stake",
+        "POST /rpc/staking/unstake",
+        "POST /rpc/swap",
+        "POST /rpc/transaction",
+        "POST /rpc/transactions/market",
+    }
+)
+
+#: Routes gated by the admin wallet identity (``get_authenticated_address``).
+#: The dispute arbitrator grants additionally carry an owner signature that
+#: the contract verifies on-chain.
+_ADMIN_AUTH_ROUTES = frozenset(
+    {
+        "POST /rpc/disputes/arbitrators/authorize",
+        "POST /rpc/disputes/arbitrators/revoke",
+        "POST /rpc/mining/start",
+        "POST /rpc/mining/stop",
+    }
+)
+
+#: Intentionally-public mutating routes — each entry MUST carry a reason.
+#: "Public" is an audited decision, not a default: a route lands here only
+#: after someone states why unauthenticated access is safe.
+_PUBLIC_ROUTES: dict[str, str] = {
+    "POST /rpc/join": (
+        "Self-serve island join: anonymous by design — it issues a "
+        "node_id-bound peer key. IP rate-limited and capacity-capped "
+        "(peer_keys.MAX_KEYS_PER_IP_PER_DAY / MAX_TOTAL_KEYS); the issued key "
+        "unlocks only that node's own lease routes."
+    ),
+    "POST /rpc/register-account": (
+        "Read-only account-state report; documented no-write — account rows "
+        "are created by the first crediting transaction, never by this route."
+    ),
+    "POST /rpc/eth_getLogs": ("Read-only event-log query (eth_getLogs-compatible); row/block budgets clamp the scan."),
+    "POST /rpc/contracts/call": ("Read-only contract state lookup against the node-local registry; no writes."),
+    "POST /rpc/contracts/verify": ("Read-only ZK-proof status check; returns an honest invalid result and writes nothing."),
+    "POST /rpc/liquidity/build-deposit": (
+        "Build-only: returns an unsigned LIQUIDITY_DEPOSIT transaction for the "
+        "caller's wallet to sign and submit via /rpc/transaction."
+    ),
+    "POST /rpc/liquidity/build-claim": ("Build-only: returns an unsigned LIQUIDITY_CLAIM transaction; no state change."),
+    "POST /rpc/liquidity/build-withdraw": ("Build-only: returns an unsigned LIQUIDITY_WITHDRAW transaction; no state change."),
+}
+
+
+def _rpc_auth_decisions() -> dict[str, str]:
+    """The full declared auth decision per mutating /rpc route."""
+    decisions: dict[str, str] = {}
+    for route in _KEY_GATED_ROUTES:
+        decisions[route] = "key-gated"
+    for route in _SIGNED_PAYLOAD_ROUTES:
+        decisions[route] = "signed-payload"
+    for route in _ADMIN_AUTH_ROUTES:
+        decisions[route] = "admin-auth"
+    for route in _PUBLIC_ROUTES:
+        decisions[route] = "public"
+    return decisions
+
+
+def _live_rpc_mutating_routes() -> dict[str, object]:
+    """Enumerate the app's actual mutating route table under /rpc.
+
+    The rpc router is mounted twice (``/rpc`` and ``/v1``); /v1 paths are
+    normalized onto /rpc so both mounts collapse to one decision per route.
+    """
+    from fastapi.routing import APIRoute
+
+    from aitbc_chain.app import create_app
+
+    found: dict[str, object] = {}
+    for route in create_app().routes:
+        if not isinstance(route, APIRoute):
+            continue
+        for method in route.methods & _MUTATING_METHODS:
+            path = route.path
+            if path.startswith("/v1/"):
+                path = "/rpc/" + path[len("/v1/") :]
+            if path.startswith("/rpc/"):
+                found[f"{method} {path}"] = route
+    return found
+
+
+def _dependency_call_names(route: object) -> set[str]:
+    """All callable names in the route's dependency tree (recursive)."""
+    names: set[str] = set()
+    stack = list(route.dependant.dependencies)  # type: ignore[attr-defined]
+    while stack:
+        dep = stack.pop()
+        call = dep.call
+        if call is not None:
+            names.add(getattr(call, "__name__", type(call).__name__))
+        stack.extend(dep.dependencies)
+    return names
+
+
+def _callable_source_closure(func: object, hops: int = 2) -> str:
+    """Source of *func* plus *hops* levels of same-module callees.
+
+    Thin router wrappers delegate to ``rpc/<module>.py`` implementations; the
+    callee hop keeps the signature-token sweep honest for them. Decorators are
+    unwrapped first (``@rate_limit`` uses ``functools.wraps``).
+    """
+    parts: list[str] = []
+    seen: set[int] = set()
+    frontier = [func]
+    for _ in range(hops + 1):
+        following = []
+        for fn in frontier:
+            if id(fn) in seen:
+                continue
+            seen.add(id(fn))
+            try:
+                target = inspect.unwrap(fn)  # type: ignore[arg-type]
+            except ValueError:
+                # unwrap() raises ValueError on a __wrapped__ cycle.
+                target = fn
+            try:
+                src = inspect.getsource(target)  # type: ignore[arg-type]
+            except (OSError, TypeError):
+                continue
+            parts.append(src)
+            globs = getattr(target, "__globals__", {})
+            for name in _CALL_RE.findall(src):
+                callee = globs.get(name)
+                if callee is not None and (inspect.isfunction(callee) or inspect.ismethod(callee)):
+                    following.append(callee)
+        frontier = following
+    return "\n".join(parts)
+
+
+class TestRpcAuthCoverageRatchet:
+    """#3056: every mutating route under the public /rpc proxy must declare an
+    auth decision. The registry above is the ratchet — a new mutating route
+    fails here until its class (key-gated / signed-payload / admin-auth /
+    intentionally-public-with-reason) is stated, and a stale registry entry
+    fails when its route disappears."""
+
+    @pytest.fixture(scope="class")
+    def live_routes(self):
+        return _live_rpc_mutating_routes()
+
+    @pytest.fixture(scope="class")
+    def decisions(self):
+        return _rpc_auth_decisions()
+
+    def test_route_table_is_nonempty(self, live_routes):
+        """Guard against a silent enumeration break (import failure, prefix
+        change) passing every other test vacuously."""
+        assert len(live_routes) > 50, f"only {len(live_routes)} mutating /rpc routes found — enumeration is broken"
+
+    def test_every_mutating_route_declares_an_auth_decision(self, live_routes, decisions):
+        live = set(live_routes)
+        declared = set(decisions)
+        undeclared = sorted(live - declared)
+        stale = sorted(declared - live)
+        assert not undeclared, (
+            "Mutating /rpc routes with NO declared auth decision — add each to "
+            "_KEY_GATED_ROUTES / _SIGNED_PAYLOAD_ROUTES / _ADMIN_AUTH_ROUTES / "
+            "_PUBLIC_ROUTES in this file:\n  " + "\n  ".join(undeclared)
+        )
+        assert not stale, (
+            "Registry entries with no live route — remove them (or fix the "
+            "path/method if the route moved):\n  " + "\n  ".join(stale)
+        )
+
+    def test_no_duplicate_decisions(self, decisions):
+        """A route key must map to exactly one class — the builders above would
+        silently overwrite otherwise."""
+        total = len(_KEY_GATED_ROUTES) + len(_SIGNED_PAYLOAD_ROUTES) + len(_ADMIN_AUTH_ROUTES) + len(_PUBLIC_ROUTES)
+        assert len(decisions) == total, "a route appears in more than one auth-decision class"
+
+    def test_key_gated_routes_carry_a_credential_dependency(self, live_routes, decisions):
+        """key-gated is not just a label: the route's dependency tree must
+        contain a known X-API-Key-family verifier."""
+        offenders = []
+        for key, route in live_routes.items():
+            if decisions[key] != "key-gated":
+                continue
+            deps = _dependency_call_names(route)
+            if not deps & _KEY_GATE_DEPENDENCIES:
+                offenders.append(f"{key} (deps: {sorted(deps) or 'none'})")
+        assert not offenders, "Declared key-gated but no verify_rpc_* dependency found:\n  " + "\n  ".join(offenders)
+
+    def test_public_routes_have_no_credential_dependency(self, live_routes, decisions):
+        """A route declared public must not secretly carry a key gate — if it
+        does, it belongs in _KEY_GATED_ROUTES instead."""
+        offenders = []
+        for key, route in live_routes.items():
+            if decisions[key] != "public":
+                continue
+            deps = _dependency_call_names(route)
+            if deps & _KEY_GATE_DEPENDENCIES:
+                offenders.append(f"{key} (deps: {sorted(deps & _KEY_GATE_DEPENDENCIES)})")
+        assert not offenders, "Declared public but carries a credential dependency:\n  " + "\n  ".join(offenders)
+
+    def test_public_routes_carry_a_reason(self):
+        for key, reason in _PUBLIC_ROUTES.items():
+            assert reason and reason.strip(), f"{key} is public without a stated reason"
+
+    def test_signed_payload_routes_verify_a_signature(self, live_routes, decisions):
+        """signed-payload is verified by source: the endpoint (or a callee two
+        hops down) must reference a known signature verifier."""
+        offenders = []
+        for key, route in live_routes.items():
+            if decisions[key] != "signed-payload":
+                continue
+            closure = _callable_source_closure(route.endpoint)  # type: ignore[attr-defined]
+            if not any(token in closure for token in _SIGNATURE_TOKENS):
+                offenders.append(key)
+        assert not offenders, (
+            "Declared signed-payload but no signature verifier found in the "
+            "handler call graph — reclassify or fix the handler:\n  " + "\n  ".join(offenders)
+        )
+
+    def test_admin_auth_routes_require_wallet_identity(self, live_routes, decisions):
+        offenders = []
+        for key, route in live_routes.items():
+            if decisions[key] != "admin-auth":
+                continue
+            closure = _callable_source_closure(route.endpoint)  # type: ignore[attr-defined]
+            if not any(token in closure for token in _ADMIN_AUTH_TOKENS):
+                offenders.append(key)
+        assert not offenders, (
+            "Declared admin-auth but get_authenticated_address not found in the "
+            "handler call graph:\n  " + "\n  ".join(offenders)
+        )
