@@ -4,6 +4,7 @@ Real GPU Miner Client for AITBC - runs on host with actual GPU
 
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import time
@@ -643,7 +644,7 @@ def build_pool_hub_register_data():
     """Build the payload the pool hub expects for miner registration."""
     gpu_info = get_gpu_info()
     caps = build_gpu_capabilities()
-    return {  # not-money: ratio, threshold or configuration default — not an amount of money
+    data = {  # not-money: ratio, threshold or configuration default — not an amount of money
         "miner_id": MINER_ID,
         "api_key": AUTH_TOKEN,
         "addr": MINER_ENDPOINT,
@@ -663,6 +664,20 @@ def build_pool_hub_register_data():
         # hub on re-registration of an existing miner_id.
         "registration_key": os.environ.get("POOLHUB_MINER_REGISTRATION_KEY") or None,
     }
+    # #3058: the pool-hub payout path pays miner.wallet_address — without it
+    # every epoch payout skips this miner as "no_wallet_address". Send the
+    # same wallet the coordinator registration already uses; omitted when
+    # unset so the pool hub keeps any stored value on re-registration. The
+    # pool hub validates '0x'+40hex — a malformed value would 422 the whole
+    # registration, so only well-formed addresses are sent.
+    if MINER_WALLET_ADDRESS and re.fullmatch(r"0x[0-9a-fA-F]{40}", MINER_WALLET_ADDRESS):
+        data["wallet_address"] = MINER_WALLET_ADDRESS
+    elif MINER_WALLET_ADDRESS:
+        logger.warning(
+            "MINER_WALLET_ADDRESS %r is not a 0x-prefixed 40-hex address; omitting wallet_address from pool-hub registration",
+            MINER_WALLET_ADDRESS,
+        )
+    return data
 
 
 def build_pool_hub_heartbeat_data():

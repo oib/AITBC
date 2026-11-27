@@ -1,9 +1,13 @@
-"""Reward distribution pays each miner at most once per epoch (APP-29).
+"""Reward distribution pays each miner at most once per epoch (APP-29, #3058).
 
 RewardPayout has existed since v0.6.7 with the docstring "prevent duplicate payouts", but
 no migration created its table and nothing ever wrote to it. Duplicate protection lived in
 RewardPolicy's in-process dicts, which are lost on restart and not shared between
 replicas -- so the same miner could be paid twice for the same epoch.
+
+#3058 changed the payout path: amounts now derive from the persistent,
+evidence-backed ``reward_shares`` table (never the in-memory policy), only the
+last finalized epoch is payable, and nonces are allocated mempool-aware.
 
 Decision-logic tests run everywhere. They drive distribute_rewards with a
 session whose flush raises IntegrityError on a repeated (miner, chain, epoch), and
@@ -16,19 +20,46 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import httpx
-
 import pytest
 from poolhub.clients.blockchain import PoolHubBlockchainClient
+from poolhub.services.reward_shares import record_verified_share
 
 
 # Deterministic secp256k1 pair; the client verifies the address matches the key.
 SIGNER_ADDRESS = "0x1a642f0E3c3aF545E7AcBD38b07251B3990914F1"
 SIGNER_KEY = "0101010101010101010101010101010101010101010101010101010101010101"
 
+# Epoch 0 spans blocks 0-999; height 1500 puts us in epoch 1 with epoch 0
+# finalized (needs > 999 + 3 finality = 1002).
+PAYOUT_HEIGHT = 1500
+
+
+async def seed_share(session, miner_id: str = "miner-1", shares: int = 5000, epoch_number: int = 0) -> None:
+    """Write a verified share row — the only input the payout path reads."""
+    await record_verified_share(
+        session,
+        miner_id=miner_id,
+        chain_id="ait-hub",
+        epoch_number=epoch_number,
+        shares=shares,
+        evidence_tx_hash="0x" + "ab" * 32,
+    )
+
 
 @pytest.fixture
 def client():
     return PoolHubBlockchainClient(signer_address=SIGNER_ADDRESS, signer_private_key=SIGNER_KEY)
+
+
+@pytest.fixture(autouse=True)
+def _empty_mempool():
+    """Keep nonce/mempool probes hermetic — no real HTTP to :8202."""
+    with patch(
+        "aitbc.market.blockchain_rpc.BlockchainRPCClient.get_mempool",
+        new_callable=AsyncMock,
+        return_value={"success": True, "transactions": [], "count": 0},
+    ):
+        yield
 
 
 class TestPayoutClaiming:
@@ -79,8 +110,8 @@ class TestDistributionIsIdempotent:
 
     @pytest.mark.asyncio
     async def test_rerun_does_not_submit_again(self, client, payout_session):
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -88,15 +119,14 @@ class TestDistributionIsIdempotent:
                 client._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-1"}
             ) as submit,
         ):
-            first = await client.distribute_rewards(block_height=100, session=session)
+            first = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
             # Simulate the state a restart produces: in-process bookkeeping wiped, the
             # database row still there. This is the exact scenario that paid twice.
             client._reward_policy._epochs.clear()
             client._reward_policy._last_reward_epoch.clear()
-            client.record_contribution("miner-1", score=90.0, shares=5000)
 
-            second = await client.distribute_rewards(block_height=100, session=session)
+            second = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in first] == ["paid"]
         assert [p["status"] for p in second] == ["already_paid"]
@@ -107,9 +137,7 @@ class TestDistributionIsIdempotent:
         """Two clients, separate in-process state, one shared database."""
         other = PoolHubBlockchainClient(signer_address=SIGNER_ADDRESS, signer_private_key=SIGNER_KEY)
         session = payout_session
-
-        client.record_contribution("miner-1", score=90.0, shares=5000)
-        other.record_contribution("miner-1", score=90.0, shares=5000)
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -119,8 +147,8 @@ class TestDistributionIsIdempotent:
                 other._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-2"}
             ) as second_submit,
         ):
-            await client.distribute_rewards(block_height=100, session=session)
-            replica = await other.distribute_rewards(block_height=100, session=session)
+            await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
+            replica = await other.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in replica] == ["already_paid"]
         assert second_submit.await_count == 0, "the second replica paid the same miner again"
@@ -132,8 +160,8 @@ class TestDistributionIsIdempotent:
         The chain may or may not have accepted it; retrying blindly is how double payments
         happen. The row stays as 'failed' for reconciliation.
         """
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -141,7 +169,7 @@ class TestDistributionIsIdempotent:
                 client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=httpx.ConnectError("Network error")
             ),
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert payouts[0]["status"] == "failed"
         assert "Network error" in payouts[0]["error"]
@@ -149,14 +177,14 @@ class TestDistributionIsIdempotent:
 
     @pytest.mark.asyncio
     async def test_successful_payout_records_tx_hash(self, client, payout_session):
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
             patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-abc"}),
         ):
-            await client.distribute_rewards(block_height=100, session=session)
+            await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         row = session.added[-1]
         assert row.status == "paid"
@@ -171,8 +199,8 @@ class TestDistributionIsIdempotent:
         the #1570 residual. The real node key must produce a paid row with the
         hash recorded.
         """
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -183,7 +211,7 @@ class TestDistributionIsIdempotent:
                 return_value={"success": True, "transaction_hash": "0xabc123", "message": "ok"},
             ),
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in payouts] == ["paid"]
         assert payouts[0]["tx_hash"] == "0xabc123"
@@ -194,8 +222,8 @@ class TestDistributionIsIdempotent:
     @pytest.mark.asyncio
     async def test_empty_tx_hash_is_failure_not_paid(self, client, payout_session):
         """A success-shaped response with no hash must not wedge the epoch slot as 'paid'."""
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -206,17 +234,20 @@ class TestDistributionIsIdempotent:
                 return_value={"success": True, "message": "no hash"},
             ),
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in payouts] == ["failed"]
         row = session.added[-1]
         assert row.status == "failed"
-        assert not row.tx_hash
+        # #3058 respin: tx_hash now holds the deterministic PRE-SUBMIT hash
+        # (the reconciliation lookup key), persisted before the chain call —
+        # a failed row carrying it is correct; only 'paid' would be wrong.
+        assert row.tx_hash
 
     @pytest.mark.asyncio
     async def test_explicit_rejection_is_failure_not_paid(self, client, payout_session):
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -227,7 +258,7 @@ class TestDistributionIsIdempotent:
                 return_value={"success": False, "error": "insufficient funds"},
             ),
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in payouts] == ["failed"]
         assert session.added[-1].status == "failed"
@@ -238,8 +269,8 @@ class TestRewardRecipientIsWalletAddress:
 
     @pytest.mark.asyncio
     async def test_reward_is_paid_to_wallet_address_not_miner_id(self, client, payout_session):
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
@@ -247,7 +278,7 @@ class TestRewardRecipientIsWalletAddress:
                 client._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-1"}
             ) as submit,
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in payouts] == ["paid"]
         tx_data = submit.call_args[0][0]
@@ -256,15 +287,15 @@ class TestRewardRecipientIsWalletAddress:
 
     @pytest.mark.asyncio
     async def test_miner_without_wallet_address_is_skipped_without_claim(self, client, payout_session):
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
         session.miner_wallets["miner-1"] = None
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
             patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock) as submit,
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in payouts] == ["no_wallet_address"]
         assert submit.await_count == 0
@@ -287,8 +318,9 @@ class TestClaimIsDurableBeforeSubmit:
 
     @pytest.mark.asyncio
     async def test_pending_claim_committed_before_chain_submit(self, client, payout_session):
-        client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
+        await seed_share(session)
+        baseline_commits = session.commits  # the verified-share write commits once
         commits_at_submit: list[int] = []
 
         async def spy_submit(*args: object, **kwargs: object) -> dict[str, str]:
@@ -299,9 +331,12 @@ class TestClaimIsDurableBeforeSubmit:
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
             patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=spy_submit),
         ):
-            payouts = await client.distribute_rewards(block_height=100, session=session)
+            payouts = await client.distribute_rewards(block_height=PAYOUT_HEIGHT, session=session)
 
         assert [p["status"] for p in payouts] == ["paid"]
-        assert commits_at_submit == [1], (
-            "the chain submit ran before the pending claim was committed — a crash here double-pays"
+        # Two durable commits precede the submit: the 'pending' claim
+        # (#2863) and the deterministic tx_hash/recipient write (#3058
+        # respin) — both must be durable before money moves.
+        assert commits_at_submit == [baseline_commits + 2], (
+            "the chain submit ran before the claim/hash commits — a crash here double-pays"
         )

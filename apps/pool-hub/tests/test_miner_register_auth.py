@@ -94,6 +94,45 @@ async def test_reregister_with_same_key_is_allowed() -> None:
     assert result["success"] is True
 
 
+# ------------------------------------------------- #3058 wallet-wipe pins
+
+_STORED_WALLET = "0x" + "11" * 20
+_NEW_WALLET = "0x" + "22" * 20
+
+
+@pytest.mark.asyncio
+async def test_reregister_without_wallet_preserves_stored_wallet() -> None:
+    """#3058: a re-registration payload with no wallet_address must NOT
+    overwrite the stored payout wallet with None — production miners were
+    getting permanently no_wallet_address."""
+    existing = _miner(api_key_hash=hashlib.sha256(b"key-1").hexdigest())
+    stored = _miner()
+    stored.wallet_address = _STORED_WALLET
+    session = _Session(existing)
+    repo = _repo_mock()
+    repo.register_miner = AsyncMock(return_value=stored)
+    with patch("poolhub.app.routers.miners.MinerRepository", return_value=repo):
+        result = await register_miner(_request(), session, MagicMock())  # type: ignore[arg-type]
+    assert result["success"] is True
+    assert stored.wallet_address == _STORED_WALLET
+
+
+@pytest.mark.asyncio
+async def test_reregister_with_wallet_updates_stored_wallet() -> None:
+    """An explicit wallet_address still updates — miners can rotate wallets."""
+    existing = _miner(api_key_hash=hashlib.sha256(b"key-1").hexdigest())
+    stored = _miner()
+    stored.wallet_address = _STORED_WALLET
+    session = _Session(existing)
+    repo = _repo_mock()
+    repo.register_miner = AsyncMock(return_value=stored)
+    req = MinerRegisterRequest(miner_id="m-1", api_key="key-1", wallet_address=_NEW_WALLET)
+    with patch("poolhub.app.routers.miners.MinerRepository", return_value=repo):
+        result = await register_miner(req, session, MagicMock())  # type: ignore[arg-type]
+    assert result["success"] is True
+    assert stored.wallet_address == _NEW_WALLET
+
+
 # ------------------------------------------------- #3059 first-registration pins
 
 

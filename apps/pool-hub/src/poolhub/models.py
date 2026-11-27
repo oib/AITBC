@@ -235,6 +235,51 @@ class RewardPayout(Base):
     epoch_number: Mapped[int] = mapped_column(Integer, index=True)
     amount: Mapped[int] = mapped_column(Integer)  # in compute-units
     tx_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, paid, failed
+    # #3058 respin: the wallet this payout attempt paid, persisted BEFORE
+    # the chain submit (with the deterministic tx_hash). Reconciliation
+    # matches sealed txs against THIS address, not the miner's current
+    # wallet — a post-submit wallet rotation must not turn a landed
+    # payout into a "proven absent" resubmit (double payment).
+    recipient: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # pending, paid, failed, retry (payable-again, attempts remain),
+    # exhausted (attempt cap spent — terminal, operator-only).
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    # #3058: bounded reconciliation retries. 'retry' marks a payout whose
+    # chain lookup proved the reward tx never landed; each reconcile pass
+    # or claim-reclaim that resubmits it increments this — reclaim consumes
+    # the same budget, so the cap cannot be bypassed via distribute_rewards.
+    # At the cap the row becomes 'exhausted' for operator attention instead
+    # of looping forever.
+    reconcile_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     paid_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RewardShare(Base):
+    """Persistent, evidence-backed miner share for one reward epoch (#3058).
+
+    This is the ONLY share source the payout path reads. Shares are
+    accumulated per (miner, chain, epoch, source) and a row only counts
+    toward payouts when ``verified`` is true — which is set exclusively by
+    ``record_verified_share`` requiring an ``evidence_tx_hash`` pointing at
+    sealed chain data proving the work (e.g. the job's escrow-release or
+    receipt tx). Caller-asserted scores/shares from ``record_contribution``
+    never reach this table, so self-reported contribution cannot move money.
+    """
+
+    __tablename__ = "reward_shares"
+    __table_args__ = (
+        UniqueConstraint("miner_id", "chain_id", "epoch_number", "source", name="uq_reward_share_miner_chain_epoch_source"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    miner_id: Mapped[str] = mapped_column(String(64), index=True)
+    chain_id: Mapped[str] = mapped_column(String(64), index=True)
+    epoch_number: Mapped[int] = mapped_column(Integer, index=True)
+    shares: Mapped[int] = mapped_column(Integer, default=0)
+    jobs_completed: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(64), default="verified_chain")
+    evidence_tx_hash: Mapped[str] = mapped_column(String(128))
+    verified: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)

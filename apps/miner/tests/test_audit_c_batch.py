@@ -134,6 +134,30 @@ def test_register_data_uses_measured_ram(monkeypatch) -> None:
     assert data["ram_gb"] == 42.5
 
 
+@pytest.mark.unit
+def test_pool_hub_register_data_carries_wallet_address(monkeypatch) -> None:
+    """#3058: the pool-hub payout path pays miner.wallet_address — the
+    production registration payload must carry it or every epoch payout
+    skips this miner as no_wallet_address."""
+    monkeypatch.setattr(pm, "get_gpu_info", lambda: None)
+    monkeypatch.setattr(pm, "build_gpu_capabilities", lambda: {"price": "0.01", "supported_tasks": []})
+    wallet = "0x" + "33" * 20
+    monkeypatch.setattr(pm, "MINER_WALLET_ADDRESS", wallet)
+    data = pm.build_pool_hub_register_data()
+    assert data["wallet_address"] == wallet
+
+
+@pytest.mark.unit
+def test_pool_hub_register_data_omits_malformed_wallet(monkeypatch) -> None:
+    """A non-0x wallet must not 422 the whole registration — omit it and
+    let the pool hub keep any stored value."""
+    monkeypatch.setattr(pm, "get_gpu_info", lambda: None)
+    monkeypatch.setattr(pm, "build_gpu_capabilities", lambda: {"price": "0.01", "supported_tasks": []})
+    monkeypatch.setattr(pm, "MINER_WALLET_ADDRESS", "not-an-address")
+    data = pm.build_pool_hub_register_data()
+    assert "wallet_address" not in data
+
+
 # --- #1485: duplicate dispatch ----------------------------------------------
 
 

@@ -8,8 +8,10 @@ from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.middleware import register_request_validation_error_handler
 from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
 
-from ..database import close_engine, create_engine, get_session_factory
+from ..database import close_engine, create_engine, get_engine, get_session_factory
 from ..redis_cache import close_redis, create_redis
+from ..services.reward_gate import reward_enablement_blockers
+from ..services.reward_scheduler import RewardDistributionScheduler, build_reward_client
 from ..services.sla_collector import SLACollectorScheduler
 from ..settings import settings
 from .routers import health_router, match_router, metrics_router
@@ -31,7 +33,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Create tables on startup (idempotent — safe for existing DBs)
     from sqlalchemy import text
 
-    from ..database import get_engine
     from ..models import Base
 
     engine = get_engine()
@@ -51,18 +52,41 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # (#3077 removed the billing scheduler: it POSTed to /api/billing/* routes
     # coordinator-api does not serve, so every event went nowhere.)
     schedulers: list[SLACollectorScheduler] = []
+    reward_scheduler: RewardDistributionScheduler | None = None
     if settings.enable_sla_collection:
         sla_scheduler = SLACollectorScheduler(get_session_factory())
         await sla_scheduler.start(settings.sla_collection_interval_seconds)
         schedulers.append(sla_scheduler)
-    if not schedulers:
-        logger.info("No background schedulers enabled (POOLHUB_ENABLE_SLA_COLLECTION)")
+
+    # #3058: the reward flag is now a real gate, not dead config. The
+    # scheduler starts only when the flag is set AND every enablement
+    # blocker is clear — a misconfigured flip fails closed with the reasons
+    # logged, and the pipeline stays dead.
+    if settings.enable_reward_distribution:
+        blockers = reward_enablement_blockers(settings)
+        if blockers:
+            logger.error(
+                "Reward distribution REFUSED to start — enablement blockers: %s",
+                "; ".join(blockers),
+            )
+        else:
+            reward_scheduler = RewardDistributionScheduler(
+                get_session_factory(),
+                get_engine(),
+                lambda: build_reward_client(settings),
+                settings.reward_poll_interval_seconds,
+            )
+            await reward_scheduler.start()
+    if not schedulers and reward_scheduler is None:
+        logger.info("No background schedulers enabled (POOLHUB_ENABLE_SLA_COLLECTION / POOLHUB_ENABLE_REWARD_DISTRIBUTION)")
 
     try:
         yield
     finally:
         for scheduler in reversed(schedulers):
             await scheduler.stop()
+        if reward_scheduler is not None:
+            await reward_scheduler.stop()
         await close_engine()
         await close_redis()
 

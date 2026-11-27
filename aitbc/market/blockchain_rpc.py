@@ -110,11 +110,13 @@ class BlockchainRPCClient:
         order_id: str | None = None,
         limit: int = 500,
         chain_id: str | None = None,
+        job_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Query sealed transactions.
 
-        Calls GET /rpc/transactions. ``order_id`` is matched server-side
-        against the transaction payload's order_id/offer_id/bid_id fields.
+        Calls GET /rpc/transactions. ``order_id`` and ``job_id`` are matched
+        server-side against the transaction payload's order_id/offer_id/bid_id
+        and job_id fields respectively.
         Each returned dict includes ``tx_hash``, ``block_height``,
         ``timestamp``, and the full ``payload``.
         """
@@ -123,6 +125,8 @@ class BlockchainRPCClient:
             params["transaction_type"] = transaction_type
         if order_id:
             params["order_id"] = order_id
+        if job_id:
+            params["job_id"] = job_id
         if chain_id:
             params["chain_id"] = chain_id
         async with self._client() as client:
@@ -166,6 +170,43 @@ class BlockchainRPCClient:
         """Get current nonce for an address."""
         account = await self.get_account(address, chain_id)
         return int(account.get("nonce", 0))
+
+    async def get_mempool(self, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+        """List pending mempool transactions.
+
+        Calls GET /rpc/mempool. Returns the node's response dict
+        (``{"success": ..., "transactions": [...], "count": ...}``); each
+        entry is the admitted transaction body plus response decorations,
+        so ``from``/``sender``, ``nonce`` and ``payload`` are readable
+        directly. Used for nonce-floor probes before signing (#3058).
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if chain_id:
+            params["chain_id"] = chain_id
+        async with self._client() as client:
+            resp = await client.get(f"{self._rpc_url}/rpc/mempool", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        return cast(dict[str, Any], data if isinstance(data, dict) else {"transactions": []})
+
+    async def get_chain_height(self, chain_id: str | None = None) -> int:
+        """Get the current sealed chain height.
+
+        Calls GET /rpc/height (``{"height": n}``). Raises on transport or
+        shape errors — callers deciding whether an epoch is final must not
+        treat a missed probe as height 0.
+        """
+        params: dict[str, Any] = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        async with self._client() as client:
+            resp = await client.get(f"{self._rpc_url}/rpc/height", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        height = data.get("height") if isinstance(data, dict) else None
+        if not isinstance(height, int) or isinstance(height, bool) or height < 0:
+            raise ValueError(f"malformed /rpc/height response: {data!r}")
+        return height
 
     async def get_balance(self, address: str, chain_id: str | None = None) -> int:
         """Get current balance for an address."""

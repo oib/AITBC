@@ -177,7 +177,13 @@ async def register_miner(
     )
 
     miner.chain_id = data.chain_id
-    miner.wallet_address = data.wallet_address
+    # #3058: wallet_address is Optional and absent on re-registration payloads
+    # that don't carry it — overwriting with None permanently stripped
+    # production miners' payout wallet ("no_wallet_address" forever). None
+    # now means "not provided, keep the stored value"; a new wallet is only
+    # written when the caller actually sends one.
+    if data.wallet_address is not None:
+        miner.wallet_address = data.wallet_address
     await session.commit()
     await session.refresh(miner)
 

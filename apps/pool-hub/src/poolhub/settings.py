@@ -103,8 +103,41 @@ class Settings(ServiceSettings):
         return self
 
     # Reward distribution (v0.6.7)
+    # #3058 (AUDIT-POOLHUB-REWARD-PIPELINE-1): this flag was never read — the
+    # pipeline was dead scaffold and flipping it would have shipped nonce
+    # collisions, no reconciliation, cross-replica double-pay, memory-only
+    # shares, no finality gate and self-reported shares. It is now the real
+    # gate: the lifespan starts RewardDistributionScheduler only when this is
+    # set AND reward_enablement_blockers() is empty (signer env present,
+    # finality sane, node pin honoured). Default stays off.
     enable_reward_distribution: bool = Field(default=False)  # feature-flagged
     reward_sync_interval_blocks: int = Field(default=100)
+    # Seconds between reward pipeline cycles (height probe → reconcile →
+    # distribute). Named _seconds because that is what it is — the legacy
+    # reward_sync_interval_blocks above is blocks, a different unit.
+    reward_poll_interval_seconds: int = Field(default=60)
+    # Blocks past an epoch's end before it becomes payable (reorg safety).
+    reward_finality_blocks: int = Field(default=3)
+    # Reconciliation sweep: payout rows younger than this are assumed
+    # in-flight and left alone.
+    reward_reconcile_min_age_seconds: int = Field(default=300)
+    # Max automatic resubmits of a proven-absent payout row before it parks
+    # as 'exhausted' for operator attention. Reclaim via distribute_rewards
+    # consumes the same budget — the cap cannot be bypassed.
+    reward_max_reconcile_attempts: int = Field(default=3)
+    # Max chain submissions per scheduler cycle (distribute batch AND
+    # reconciliation resubmits share this budget). Must stay below the
+    # node's mempool_nonce_lookahead (default 16): admission refuses
+    # nonces further ahead of the account nonce, so larger epochs are paid
+    # over several cycles.
+    reward_max_submissions_per_cycle: int = Field(default=12)
+    # Single-writer pin for multi-replica deployments. hub and hub1 both run
+    # pool-hub; the DB advisory lock only excludes replicas sharing the
+    # payout database. When pool-hub instances use per-node databases, set
+    # this to exactly one hostname — every other node then refuses to
+    # distribute. Empty = no hostname pin (single-node or shared-DB fleets
+    # rely on the advisory lock alone).
+    reward_distribution_node: str = Field(default="")
 
     # SLA Configuration
     sla_thresholds: dict[str, float] = Field(
