@@ -57,7 +57,8 @@ class _RecordingClient:
         return {"success": True}
 
     def get(self, path, params=None):
-        return {"success": True}
+        # /rpc/info is probed for the chain id the signature binds (#3073).
+        return {"chain_id": "test-chain", "success": True}
 
     def get_json(self, path, params=None, headers=None):
         return []
@@ -126,6 +127,7 @@ class TestSignedBody:
             payload=payload,
             issued_at=body["issued_at"],
             nonce=body["nonce"],
+            chain_id="test-chain",
         )
         msg = json.dumps(sign_data, sort_keys=True, separators=(",", ":")).encode()
         assert verify_signature(keccak(msg), body["signature"], ADDRESS)
@@ -231,6 +233,9 @@ class TestUnauthorizedHint:
             def __init__(self, base_url, timeout=10, **kwargs):
                 self.base_url = base_url
 
+            def get(self, path, params=None):
+                return {"chain_id": "test-chain"}
+
             def post(self, path, json=None, **kwargs):
                 raise _network_error(401)
 
@@ -247,6 +252,9 @@ class TestUnauthorizedHint:
             def __init__(self, base_url, timeout=10, **kwargs):
                 self.base_url = base_url
 
+            def get(self, path, params=None):
+                return {"chain_id": "test-chain"}
+
             def post(self, path, json=None, **kwargs):
                 raise _network_error(403)
 
@@ -262,6 +270,9 @@ class TestUnauthorizedHint:
         class C:
             def __init__(self, base_url, timeout=10, **kwargs):
                 self.base_url = base_url
+
+            def get(self, path, params=None):
+                return {"chain_id": "test-chain"}
 
             def post(self, path, json=None, **kwargs):
                 raise _network_error(500)

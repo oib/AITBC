@@ -123,6 +123,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc dispute arbitrator queue` | `/rpc/disputes/arbitrators/` | `get_authorized_arbitrators_route` (disputes.py) | —
 | `aitbc dispute arbitrator queue` | `/rpc/disputes/arbitrators/{arbitrator_address}` | `get_arbitrator_disputes_route` (disputes.py) | —
 | `aitbc dispute evidence add` | `/rpc/disputes/evidence` | `submit_evidence_route` (disputes.py) | —
+| `aitbc dispute evidence add` | `/rpc/info` | `get_info_route` (core.py) | —
 | `aitbc dispute evidence list` | `/rpc/disputes/` | — | —
 | `aitbc dispute evidence list` | `/rpc/disputes/{dispute_id}/evidence` | `get_dispute_evidence_route` (disputes.py) | —
 | `aitbc dispute evidence verify` | `/rpc/disputes/verify-evidence` | `verify_evidence_route` (disputes.py) | —

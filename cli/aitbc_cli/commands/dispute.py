@@ -204,8 +204,29 @@ def _resolve_signing_wallet(
     raise AssertionError("unreachable")  # abort always raises
 
 
+def _resolve_dispute_chain_id(ctx, node_url: str | None) -> str:
+    """Chain id of the node that will verify the signature (#3073).
+
+    ``dispute_sign_data`` binds the *serving* node's chain id; the client
+    learns it from ``GET /rpc/info`` — the same value the node resolves
+    when verifying. An unreachable or chain-less node aborts here with a
+    clearer error than a signature-mismatch 403 after the fact.
+    """
+    client = _chain_client(ctx, node_url)
+    try:
+        info = client.get("/rpc/info")
+    except NetworkError as e:
+        abort(ctx, f"Cannot reach node for chain id (GET /rpc/info): {e}", from_exception=e)
+    chain_id = info.get("chain_id") if isinstance(info, dict) else None
+    if not isinstance(chain_id, str) or not chain_id:
+        abort(ctx, "Node did not report a chain_id via GET /rpc/info — cannot bind the dispute signature domain (#3073).")
+        raise AssertionError("unreachable: abort always raises")
+    return chain_id
+
+
 def _signed_dispute_body(
     ctx,
+    node_url: str | None,
     wallet_name: str | None,
     action: str,
     payload: dict[str, Any],
@@ -216,11 +237,12 @@ def _signed_dispute_body(
     """Return ``(signer_address, body)`` with the signature fields added.
 
     The signature covers ``dispute_sign_data(action, address, payload,
-    issued_at, nonce)`` where ``payload`` is exactly the business fields
-    posted — the node rebuilds it from the fields the client sent, so the
-    two sides always agree byte-for-byte.
+    issued_at, nonce, chain_id)`` where ``payload`` is exactly the business
+    fields posted and ``chain_id`` the serving node's resolved chain id —
+    the node rebuilds both sides byte-for-byte (#3073 domain separation).
     """
     address, private_key = _resolve_signing_wallet(ctx, wallet_name, password, password_file, password_stdin)
+    chain_id = _resolve_dispute_chain_id(ctx, node_url)
     proof = new_dispute_proof_fields()
     signature = sign_dispute_request(
         private_key,
@@ -229,6 +251,7 @@ def _signed_dispute_body(
         payload=payload,
         issued_at=int(proof["issued_at"]),
         nonce=str(proof["nonce"]),
+        chain_id=chain_id,
     )
     return address, {**payload, "signature": signature, **proof}
 
@@ -323,7 +346,9 @@ def file_dispute(
         "evidence_hash": evidence_hash,
     }
     try:
-        address, body = _signed_dispute_body(ctx, wallet_name, ACTION_FILE, payload, password, password_file, password_stdin)
+        address, body = _signed_dispute_body(
+            ctx, node_url, wallet_name, ACTION_FILE, payload, password, password_file, password_stdin
+        )
         client = _chain_client(ctx, node_url, wallet_address=address)
         result = client.post("/rpc/disputes/file", json=body)
         output(result, resolve_output_format(ctx, format), title="Dispute Filed")
@@ -445,7 +470,9 @@ def vote(ctx, dispute_id, vote, reasoning, node_url, wallet_name, format, passwo
     """Cast an arbitration vote on a dispute (arbitrators only)."""
     payload = {"dispute_id": dispute_id, "vote": vote, "reasoning": reasoning}
     try:
-        address, body = _signed_dispute_body(ctx, wallet_name, ACTION_VOTE, payload, password, password_file, password_stdin)
+        address, body = _signed_dispute_body(
+            ctx, node_url, wallet_name, ACTION_VOTE, payload, password, password_file, password_stdin
+        )
         client = _chain_client(ctx, node_url, wallet_address=address)
         result = client.post("/rpc/disputes/vote", json=body)
         output(result, resolve_output_format(ctx, format), title="Vote Submitted")
@@ -512,7 +539,7 @@ def evidence_add(
     }
     try:
         address, body = _signed_dispute_body(
-            ctx, wallet_name, ACTION_EVIDENCE, payload, password, password_file, password_stdin
+            ctx, node_url, wallet_name, ACTION_EVIDENCE, payload, password, password_file, password_stdin
         )
         client = _chain_client(ctx, node_url, wallet_address=address)
         result = client.post("/rpc/disputes/evidence", json=body)
@@ -573,7 +600,7 @@ def evidence_verify(
     payload = {"dispute_id": dispute_id, "evidence_id": evidence_id, "verified": not reject}
     try:
         address, body = _signed_dispute_body(
-            ctx, wallet_name, ACTION_VERIFY_EVIDENCE, payload, password, password_file, password_stdin
+            ctx, node_url, wallet_name, ACTION_VERIFY_EVIDENCE, payload, password, password_file, password_stdin
         )
         client = _chain_client(ctx, node_url, wallet_address=address)
         result = client.post("/rpc/disputes/verify-evidence", json=body)

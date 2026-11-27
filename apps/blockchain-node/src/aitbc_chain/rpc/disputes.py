@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from aitbc.blockchain.dispute_auth import AUTH_FIELDS, dispute_sign_data
 from aitbc.crypto.signature_recovery import canonical_address
 
+from ..chain_id import ChainIdNotConfigured, resolve_chain_id
 from ..logger import get_logger
 from ..models.dispute import (
     AuthorizeArbitratorRequest,
@@ -85,8 +86,10 @@ def get_signed_dispute_address(
     """Authenticate a dispute mutation by wallet signature (#3052).
 
     Returns the claimed address once the signature over
-    ``dispute_sign_data(action, address, payload, issued_at, nonce)``
-    recovers to it and the freshness/nonce replay guard passes. Missing
+    ``dispute_sign_data(action, address, payload, issued_at, nonce,
+    chain_id)`` — with ``chain_id`` the serving node's own resolved chain
+    id (#3073) — recovers to it and the freshness/nonce replay guard
+    passes. Missing
     credentials answer 401; a present-but-wrong, stale or replayed proof
     answers 403.
     """
@@ -96,12 +99,20 @@ def get_signed_dispute_address(
             status_code=401,
             detail="Wallet signature required. Sign the request per aitbc.blockchain.dispute_auth.",
         )
+    try:
+        local_chain_id = resolve_chain_id()
+    except ChainIdNotConfigured:
+        # Fail closed: with no configured chain this node cannot prove the
+        # request targets it (#3073 domain separation).
+        _logger.error("Rejected dispute mutation %s: node has no chain id configured", action)
+        raise HTTPException(status_code=503, detail="Node has no chain id configured") from None
     sign_data = dispute_sign_data(
         action=action,
         address=address,
         payload=payload,
         issued_at=issued_at if isinstance(issued_at, int) and not isinstance(issued_at, bool) else 0,
         nonce=nonce if isinstance(nonce, str) else "",
+        chain_id=local_chain_id,
     )
     if not verify_request_signature(address, signature, sign_data):
         _logger.warning("Rejected dispute mutation %s: invalid wallet signature for %s", action, address)

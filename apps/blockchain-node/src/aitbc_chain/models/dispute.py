@@ -13,7 +13,8 @@ class _SignedDisputeMutation(BaseModel):
     ``signature`` is a 65-byte secp256k1 signature over
     ``aitbc.blockchain.dispute_auth.dispute_sign_data`` for this route's
     action, binding the ``X-Wallet-Address`` claim, the posted payload,
-    ``issued_at`` and ``nonce``. All three are optional at the schema level
+    ``issued_at``, ``nonce`` and the serving node's ``chain_id`` (#3073).
+    The proof fields are optional at the schema level
     so a missing proof reaches the auth helper and answers 401/403 with a
     useful detail instead of a bare 422.
     """

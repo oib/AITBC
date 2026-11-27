@@ -26,6 +26,8 @@ import aitbc_chain.rpc.utils as rpc_utils
 import aitbc_chain.rpc.routers.disputes as disputes_router
 from aitbc.blockchain.dispute_auth import new_dispute_proof_fields, sign_dispute_request
 
+from aitbc_chain.chain_id import resolve_chain_id
+
 
 def _keypair() -> tuple[str, str]:
     """Return ``(checksummed_address, raw_private_key_hex)``."""
@@ -78,6 +80,7 @@ def _signed_headers_and_body(
             payload=payload if sign_payload is None else sign_payload,
             issued_at=int(proof["issued_at"]),
             nonce=str(proof["nonce"]),
+            chain_id=resolve_chain_id(),
         ),
         **proof,
     }

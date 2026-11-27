@@ -52,6 +52,7 @@ def dispute_sign_data(
     payload: dict[str, Any],
     issued_at: int,
     nonce: str,
+    chain_id: str,
 ) -> dict[str, Any]:
     """Canonical dict a dispute mutation signature covers.
 
@@ -59,7 +60,12 @@ def dispute_sign_data(
     server reconstructs it from the fields the client actually sent, so
     defaults the client omitted are not signed). ``action`` binds the proof
     to one endpoint; ``address`` is the claimed ``X-Wallet-Address`` the
-    recovered signer must equal.
+    recovered signer must equal. ``chain_id`` is the *serving* node's chain
+    id (#3073): without it a captured signature is a bearer credential on
+    every node and island — dispute state is node-local, so replaying one
+    signed vote to N nodes applies the signer's action to N independent
+    dispute copies. The server resolves its own chain id when verifying;
+    the client learns it from ``GET /rpc/info``.
     """
     return {
         "action": action,
@@ -67,6 +73,7 @@ def dispute_sign_data(
         "payload": payload,
         "issued_at": issued_at,
         "nonce": nonce,
+        "chain_id": chain_id,
     }
 
 
@@ -85,9 +92,12 @@ def sign_dispute_request(
     payload: dict[str, Any],
     issued_at: int,
     nonce: str,
+    chain_id: str,
 ) -> str:
     """Sign ``dispute_sign_data`` with a secp256k1 private key (CLI side)."""
     return sign_transaction_data(
-        dispute_sign_data(action=action, address=address, payload=payload, issued_at=issued_at, nonce=nonce),
+        dispute_sign_data(
+            action=action, address=address, payload=payload, issued_at=issued_at, nonce=nonce, chain_id=chain_id
+        ),
         private_key,
     )
