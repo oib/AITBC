@@ -416,6 +416,7 @@ def init_db() -> None:
             refund_tx_hash TEXT,
             escrow_out_nonce INTEGER,
             escrow_out_tx TEXT,
+            sweep_rebroadcasts INTEGER NOT NULL DEFAULT 0,
             locked_height INTEGER,
             locked_at TIMESTAMP,
             error TEXT,
@@ -433,6 +434,9 @@ def init_db() -> None:
     # Sell tables are new in ETH-10; these ALTERs keep any early dev DB whole.
     _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_nonce", "INTEGER")
     _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_tx", "TEXT")
+    # #3043: re-broadcast budget for the current sweep intent — an
+    # unlandable blob escalates to needs_review_sweep instead of looping.
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "sweep_rebroadcasts", "INTEGER NOT NULL DEFAULT 0")
     # #2889: canonical-recheck anchor — the block hash the lock tx sealed in,
     # so a same-height reorg is detectable, not just a height change.
     _add_column_if_not_exists(conn, "bridge_sell_locks", "lock_block_hash", "TEXT")
@@ -478,6 +482,7 @@ def init_db() -> None:
             refund_tx_hash TEXT,
             escrow_out_nonce INTEGER,
             escrow_out_tx TEXT,
+            sweep_rebroadcasts INTEGER NOT NULL DEFAULT 0,
             error TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             released_at TIMESTAMP,
@@ -490,6 +495,9 @@ def init_db() -> None:
     # #2888: the inbound escrow lock tx this settlement settles/refunds —
     # the canonical recheck anchor (same role as sell locks' ait_tx_hash).
     _add_column_if_not_exists(conn, "exchange_settlements", "lock_tx_hash", "TEXT")
+    # #3043: re-broadcast budget for the current sweep intent — same
+    # escalation bound as the sell lane's column above.
+    _add_column_if_not_exists(conn, "exchange_settlements", "sweep_rebroadcasts", "INTEGER NOT NULL DEFAULT 0")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_exchange_settlements_status ON exchange_settlements(status)")
 
     # Monitor-private dedupe/audit marks — one row per processed chain

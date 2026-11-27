@@ -91,6 +91,7 @@ from .sell_escrow_settlement import (
     _settle_lock as _settle_lock,
     _sign_escrow_transfer as _sign_escrow_transfer,
     _sweep_fee_ait as _sweep_fee_ait,
+    _sweep_rebroadcasts_exhausted as _sweep_rebroadcasts_exhausted,
     _update_lock_status_with_retry as _update_lock_status_with_retry,
     _verify_sell_release_outcome as _verify_sell_release_outcome,
     compute_sell_quote as compute_sell_quote,

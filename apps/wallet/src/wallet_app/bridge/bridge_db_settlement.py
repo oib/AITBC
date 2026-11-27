@@ -172,6 +172,7 @@ _SETTLEMENT_SELECT_COLS = [
     "settled_at",
     "refunded_at",
     "lock_tx_hash",
+    "sweep_rebroadcasts",
 ]
 
 
@@ -326,6 +327,7 @@ def update_exchange_settlement(
     refund_tx_hash: str | None = None,
     escrow_out_nonce: int | None = None,
     escrow_out_tx: str | None = None,
+    sweep_rebroadcasts: int | None = None,
     error: str | None = None,
     expected_statuses: Collection[str] | None = None,
 ) -> bool:
@@ -369,6 +371,7 @@ def update_exchange_settlement(
                 refund_tx_hash = COALESCE(?, refund_tx_hash),
                 escrow_out_nonce = COALESCE(?, escrow_out_nonce),
                 escrow_out_tx = COALESCE(?, escrow_out_tx),
+                sweep_rebroadcasts = COALESCE(?, sweep_rebroadcasts),
                 error = COALESCE(?, error)
             WHERE id = ?
         """  # nosec
@@ -382,6 +385,7 @@ def update_exchange_settlement(
             refund_tx_hash,
             escrow_out_nonce,
             escrow_out_tx,
+            sweep_rebroadcasts,
             error,
             settlement_id,
         )
@@ -396,6 +400,7 @@ def update_exchange_settlement(
                 refund_tx_hash = COALESCE(?, refund_tx_hash),
                 escrow_out_nonce = COALESCE(?, escrow_out_nonce),
                 escrow_out_tx = COALESCE(?, escrow_out_tx),
+                sweep_rebroadcasts = COALESCE(?, sweep_rebroadcasts),
                 error = COALESCE(?, error)
             WHERE id = ?
         """
@@ -408,6 +413,7 @@ def update_exchange_settlement(
             refund_tx_hash,
             escrow_out_nonce,
             escrow_out_tx,
+            sweep_rebroadcasts,
             error,
             settlement_id,
         )

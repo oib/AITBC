@@ -62,6 +62,7 @@ _SELL_LOCK_KEYS = [
     "resolved_at",
     "operator_note",
     "lock_block_hash",
+    "sweep_rebroadcasts",
 ]
 
 # Lock statuses whose ETH release is still possible — they reserve float.
@@ -415,6 +416,7 @@ def update_sell_lock_status(
     resolved_by: str | None = None,
     resolved_at: str | None = None,
     operator_note: str | None = None,
+    sweep_rebroadcasts: int | None = None,
     error: str | None = None,
     expected_statuses: Collection[str] | None = None,
 ) -> bool:
@@ -454,6 +456,7 @@ def update_sell_lock_status(
                 resolved_by = COALESCE(?, resolved_by),
                 resolved_at = COALESCE(?, resolved_at),
                 operator_note = COALESCE(?, operator_note),
+                sweep_rebroadcasts = COALESCE(?, sweep_rebroadcasts),
                 error = COALESCE(?, error)
             WHERE ait_tx_hash = ?
         """  # nosec
@@ -473,6 +476,7 @@ def update_sell_lock_status(
             resolved_by,
             resolved_at,
             operator_note,
+            sweep_rebroadcasts,
             error,
             ait_tx_hash,
         )
@@ -493,6 +497,7 @@ def update_sell_lock_status(
                 resolved_by = COALESCE(?, resolved_by),
                 resolved_at = COALESCE(?, resolved_at),
                 operator_note = COALESCE(?, operator_note),
+                sweep_rebroadcasts = COALESCE(?, sweep_rebroadcasts),
                 error = COALESCE(?, error)
             WHERE ait_tx_hash = ?
         """
@@ -511,6 +516,7 @@ def update_sell_lock_status(
             resolved_by,
             resolved_at,
             operator_note,
+            sweep_rebroadcasts,
             error,
             ait_tx_hash,
         )

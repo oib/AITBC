@@ -650,6 +650,8 @@ async def _escrow_sweep(
             intent_status,
             escrow_out_nonce=nonce,
             escrow_out_tx=json.dumps(signed_tx),
+            # A fresh intent starts a fresh re-broadcast budget (#3043).
+            sweep_rebroadcasts=0,
             expected_statuses={prior_status},
         )
         if not persisted:
@@ -727,6 +729,15 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
         )
         logger.error("Settlement %s: escrow nonce %d sealed to an unmatched tx — needs review", row_id, nonce)
         return
+    await _rebroadcast_stored_blob(row, row_id, status)
+
+
+async def _rebroadcast_stored_blob(row: dict[str, Any], row_id: str, status: str) -> None:
+    """Re-broadcast the row's stored escrow sweep blob while its nonce stays
+    free — bounded by ``sweep_rebroadcasts`` (#3043): an unlandable blob
+    escalates to needs_review_sweep after the budget instead of looping
+    every poll forever and head-of-line blocking every escrow settlement
+    in both lanes (the inflight union covers sell locks too)."""
     stored = row.get("escrow_out_tx")
     if not stored:
         await _update_with_retry(
@@ -736,8 +747,43 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
             expected_statuses={status},
         )
         return
+    if sellmon._sweep_rebroadcasts_exhausted(row):
+        await _update_with_retry(
+            row_id,
+            "needs_review_sweep",
+            error=(
+                f"escrow sweep blob unlandable after {int(row.get('sweep_rebroadcasts') or 0)} "
+                "re-broadcasts — nonce still free, blob never sealed; needs operator review"
+            ),
+            expected_statuses={status},
+        )
+        logger.critical(
+            "ALERT: settlement %s escrow sweep blob unlandable after %s re-broadcasts — "
+            "needs_review_sweep; the lane is unblocked for operator review",
+            row_id,
+            int(row.get("sweep_rebroadcasts") or 0),
+        )
+        return
+    # Persist the consumed re-broadcast BEFORE broadcasting — same
+    # intent-before-send discipline; a crash between broadcast and
+    # count-write must not lose budget and loop unbounded.
+    rebroadcasts = int(row.get("sweep_rebroadcasts") or 0) + 1
+    if not await _update_with_retry(
+        row_id,
+        status,
+        sweep_rebroadcasts=rebroadcasts,
+        expected_statuses={status},
+    ):
+        logger.warning("Settlement %s: re-broadcast count write lost CAS — row moved on; not re-broadcasting", row_id)
+        return
     tx_hash = await sellmon._broadcast_ait_tx(json.loads(stored))
-    logger.info("Settlement %s: re-broadcast stored %s blob (tx %s) — still in flight", row_id, status, tx_hash)
+    logger.info(
+        "Settlement %s: re-broadcast stored %s blob (tx %s, attempt %s) — still in flight",
+        row_id,
+        status,
+        tx_hash,
+        rebroadcasts,
+    )
 
 
 async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: dict[str, Any]) -> None:
@@ -795,6 +841,8 @@ async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: d
                 settle_ait_tx_hash=sealed_hash,
                 escrow_out_nonce=nonce2,
                 escrow_out_tx=json.dumps(signed2),
+                # Leg 2 is a fresh intent — fresh re-broadcast budget (#3043).
+                sweep_rebroadcasts=0,
                 expected_statuses={status},
             )
             if not persisted:

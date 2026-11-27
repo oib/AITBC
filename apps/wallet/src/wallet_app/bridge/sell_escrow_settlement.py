@@ -218,8 +218,30 @@ def _exchange_inflight_sweep() -> bool:
         from .bridge_db import get_exchange_inflight_sweep
 
         return get_exchange_inflight_sweep() is not None
-    except Exception:  # noqa: BLE001 - inflight probe defaults to not-in-flight on failure
-        return False
+    except Exception:  # noqa: BLE001 - probe failure fails CLOSED (#3043): defer, never void nonce-collision protection
+        logger.warning("exchange inflight-sweep probe failed — deferring sell sweep")
+        return True
+
+
+def _sweep_max_rebroadcasts() -> int:
+    """Re-broadcast budget for one persisted escrow sweep intent (#3043).
+
+    Same idiom as the bridge monitor's payout rebroadcast bound: a blob the
+    mempool never admits must not re-broadcast every poll forever — after
+    the budget the row escalates to needs_review_sweep and the lane
+    unblocks. ``ESCROW_SWEEP_MAX_REBROADCASTS`` overrides the default.
+    """
+    try:
+        return max(1, int(os.getenv("ESCROW_SWEEP_MAX_REBROADCASTS", "20")))
+    except (TypeError, ValueError):
+        return 20
+
+
+def _sweep_rebroadcasts_exhausted(row: dict[str, Any]) -> bool:
+    """True when the row's current escrow intent already spent its
+    re-broadcast budget — the stored blob is unlandable, so the row must
+    escalate to needs_review_sweep instead of looping."""
+    return int(row.get("sweep_rebroadcasts") or 0) >= _sweep_max_rebroadcasts()
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +455,8 @@ async def _escrow_sweep(
             intent_status,
             escrow_out_nonce=nonce,
             escrow_out_tx=json.dumps(signed_tx),
+            # A fresh intent starts a fresh re-broadcast budget (#3043).
+            sweep_rebroadcasts=0,
             expected_statuses={row["status"]},
         )
         if not persisted:
@@ -558,7 +582,10 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
         return
     # The nonce is still free — the original broadcast never sealed.
     # Re-broadcast the stored signed blob: identical signature at the same
-    # nonce — a fresh signature could double-pay, this cannot.
+    # nonce — a fresh signature could double-pay, this cannot. Bounded
+    # (#3043): an unlandable blob escalates to needs_review_sweep after
+    # ESCROW_SWEEP_MAX_REBROADCASTS re-broadcasts instead of looping every
+    # poll forever and head-of-line blocking every escrow settlement.
     stored = row.get("escrow_out_tx")
     if not stored:
         update_sell_lock_status(
@@ -568,13 +595,46 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
             expected_statuses={row["status"]},
         )
         return
+    if _sweep_rebroadcasts_exhausted(row):
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "needs_review_sweep",
+            error=(
+                f"escrow sweep blob unlandable after {int(row.get('sweep_rebroadcasts') or 0)} "
+                "re-broadcasts — nonce still free, blob never sealed; needs operator review"
+            ),
+            expected_statuses={row["status"]},
+        )
+        logger.critical(
+            "ALERT: sell lock %s escrow sweep blob unlandable after %s re-broadcasts — "
+            "needs_review_sweep; the lane is unblocked for operator review",
+            row["ait_tx_hash"],
+            int(row.get("sweep_rebroadcasts") or 0),
+        )
+        return
+    # Persist the consumed re-broadcast BEFORE broadcasting — the same
+    # intent-before-send discipline as the sweep itself: a crash between
+    # broadcast and count-write must not lose budget and loop unbounded.
+    rebroadcasts = int(row.get("sweep_rebroadcasts") or 0) + 1
+    if not update_sell_lock_status(
+        row["ait_tx_hash"],
+        row["status"],
+        sweep_rebroadcasts=rebroadcasts,
+        expected_statuses={row["status"]},
+    ):
+        logger.warning(
+            "Sell lock %s: re-broadcast count write lost CAS — row moved on; not re-broadcasting",
+            row["ait_tx_hash"],
+        )
+        return
     signed_tx = json.loads(stored)
     tx_hash = await _broadcast_ait_tx(signed_tx)
     logger.info(
-        "Sell lock %s: re-broadcast stored %s blob (tx %s) — still in flight until sealed",
+        "Sell lock %s: re-broadcast stored %s blob (tx %s, attempt %s) — still in flight until sealed",
         row["ait_tx_hash"],
         row["status"],
         tx_hash,
+        rebroadcasts,
     )
 
 
