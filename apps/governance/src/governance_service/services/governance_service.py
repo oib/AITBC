@@ -815,6 +815,16 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
                 )
 
         if quorum_met and threshold_met:
+            # #3063: before voting_ends a proposal may close succeeded only
+            # when the outcome is mathematically irreversible — every
+            # remaining unit of stake-backed power voting against still
+            # leaves approval above threshold. Otherwise the window stands
+            # and the close is refused like any other open vote.
+            if not voting_ended and not await self._early_close_irreversible(proposal):
+                raise ValueError(
+                    f"Voting still open for proposal {proposal_id}: quorum and approval are met "
+                    "but the outcome is not mathematically irreversible — close after voting_ends"
+                )
             updated = await self.update_proposal_status(proposal_id, ProposalStatus.SUCCEEDED)
             return updated if updated is not None else proposal
 
@@ -827,6 +837,36 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
 
         updated = await self.update_proposal_status(proposal_id, ProposalStatus.DEFEATED)
         return updated if updated is not None else proposal
+
+    async def _early_close_irreversible(self, proposal: Proposal) -> bool:
+        """#3063: True only when no future tally can flip this proposal's
+        outcome — even if every still-uncommitted unit of stake-backed power
+        voted AGAINST, ``yes / (yes + no)`` would still meet the passing
+        threshold. (Quorum, once met, can only grow — additional votes of any
+        type raise the total.)
+
+        The bound: per-address power is ``token_balance + 2×min(staked,
+        balance)`` and ``token_balance`` has no writer, so total castable
+        power is at most ``2 × circulating supply`` (#3062 backing caps make
+        that bound real). Future votes add at most ``2×circulating − cast``
+        weight, all AGAINST in the worst case — which collapses the check to
+        ``yes >= threshold × (2×circulating − abstain)``. Supply is re-read
+        fresh at close; an unreadable or nonpositive figure fails closed —
+        no early close.
+        """
+        try:
+            supply = await self._blockchain.get_circulating_supply(proposal.chain_id)
+            circulating = Decimal(str(supply.get("circulating_ait") or "0"))
+        except _OPS_ERRORS:
+            return False
+        if circulating <= 0:
+            return False
+        cast = proposal.yes_votes + proposal.no_votes + proposal.votes_abstain
+        remaining = max(Decimal("0"), circulating * 2 - cast)
+        decisive_worst = proposal.yes_votes + proposal.no_votes + remaining
+        if decisive_worst <= 0:
+            return False
+        return (proposal.yes_votes / decisive_worst) >= Decimal(str(proposal.passing_threshold))
 
     async def _reverify_vote_backing(self, proposal: Proposal) -> None:
         """#3062: cap each vote's counted weight at the voter's *current*
