@@ -178,7 +178,8 @@ class Settings(BaseAITBCConfig):
 
     # Security - using inherited secret_key and jwt_secret from BaseAITBCConfig
     jwt_secret: str = ""  # Override None default from base; must be set via env in production
-    hmac_secret: str | None = None
+    # #3078: hmac_secret removed — documented as internal-service auth material
+    # but no verifier/signer/middleware ever consumed it.
     # Comma-separated list of wallet addresses authorized as admin users.
     # Addresses must match the canonical lower-case form used in signatures.
     admin_wallet_addresses: str = ""

@@ -251,7 +251,7 @@ ADMIN_API_KEYS=["key5"]
 
 # Auth / signing
 JWT_SECRET=<secret>
-HMAC_SECRET=<secret>
+# HMAC_SECRET removed (#3078): documented but never consumed by any verifier.
 
 # Chain integration
 BLOCKCHAIN_RPC_URL=http://localhost:8202

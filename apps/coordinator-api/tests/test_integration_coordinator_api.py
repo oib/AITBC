@@ -47,7 +47,6 @@ class TestConfigurationValidation:
                 Settings(
                     app_env="production",
                     client_api_keys=[],
-                    hmac_secret="test-hmac-secret-32-chars-long",
                     jwt_secret="test-jwt-secret-32-chars-long",
                 )
 

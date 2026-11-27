@@ -254,34 +254,3 @@ def test_ops_agent_list_non200_aborts_json(runner, monkeypatch):
     result = runner.invoke(ops_mod.operations, ["agent", "list"], obj={"output_format": "json"})
     assert result.exit_code != 0
     _assert_single_error_doc(result.output)
-
-
-# --- operations ai submit-job ------------------------------------------------
-
-
-SUBMIT_JOB_ARGV = [
-    "ai",
-    "submit-job",
-    "--wallet-name",
-    "no-such-wallet",
-    "--job-type",
-    "infer",
-    "--prompt",
-    "hello",
-    "--payment",
-    "10",
-]
-
-
-def test_ops_submit_job_wallet_missing_aborts_table(runner, monkeypatch):
-    monkeypatch.setattr(ops_mod, "find_wallet_file", lambda name: None)
-    result = runner.invoke(ops_mod.operations, SUBMIT_JOB_ARGV, obj={"output_format": "table"})
-    assert result.exit_code != 0
-    assert "not found" in result.output
-
-
-def test_ops_submit_job_wallet_missing_aborts_json(runner, monkeypatch):
-    monkeypatch.setattr(ops_mod, "find_wallet_file", lambda name: None)
-    result = runner.invoke(ops_mod.operations, SUBMIT_JOB_ARGV, obj={"output_format": "json"})
-    assert result.exit_code != 0
-    _assert_single_error_doc(result.output)

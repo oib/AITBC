@@ -311,7 +311,6 @@ class BridgeMixin:
                         "reason": "Withdrawal functionality not yet enabled",
                         "supported_direction": "ETH → AIT (deposits only)",
                         "deposit_endpoint": "/v1/bridge/deposit",
-                        "multisig_enabled": bridge_config.multisig_enabled,
                         "multisig_threshold": bridge_config.multisig_threshold,
                         "signatures_valid": valid_count,
                     },
@@ -455,8 +454,6 @@ class BridgeMixin:
             self.send_json_response(
                 {  # type: ignore[attr-defined]
                     "rates": rates,
-                    "custodian": bridge_config.custodian,
-                    "multisig_enabled": bridge_config.multisig_enabled,
                     "multisig_threshold": bridge_config.multisig_threshold,
                     "multisig_signers_count": len(bridge_config.signers),
                     "require_merkle_proof": False,
@@ -467,8 +464,6 @@ class BridgeMixin:
             self.send_json_response(
                 {  # type: ignore[attr-defined]
                     "rates": {},
-                    "custodian": bridge_config.custodian,
-                    "multisig_enabled": bridge_config.multisig_enabled,
                     "multisig_threshold": bridge_config.multisig_threshold,
                     "multisig_signers_count": len(bridge_config.signers),
                     "require_merkle_proof": False,

@@ -45,8 +45,6 @@ def _cfg(signers=("0x" + "11" * 20,), threshold=1):
         bridge_eth_address="0x818018F30d8F5FB7AE7a64f25895F15110923748",
         bridge_contract_address="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA",
         withdraw_enabled=False,
-        custodian=True,
-        multisig_enabled=True,
         multisig_threshold=threshold,
         signers=signers,
     )

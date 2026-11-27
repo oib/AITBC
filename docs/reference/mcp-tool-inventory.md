@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**827 tools** across 142 modules.
+**824 tools** across 142 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 567 |
+| generated | 564 |
 | other | 9 |
 | rpc | 115 |
 
@@ -91,7 +91,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_monitor.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_network.py | 10 |
 | mcp-server/aitbc_mcp_cli_tools_generated_node.py | 24 |
-| mcp-server/aitbc_mcp_cli_tools_generated_operations.py | 14 |
+| mcp-server/aitbc_mcp_cli_tools_generated_operations.py | 11 |
 | mcp-server/aitbc_mcp_cli_tools_generated_oracle.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_performance.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_platform.py | 1 |
@@ -697,9 +697,6 @@
 | `aitbc_operations_agent_list` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations agent list` |
 | `aitbc_operations_agent_message` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations agent message` |
 | `aitbc_operations_agent_register` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations agent register` |
-| `aitbc_operations_ai_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations ai cancel` |
-| `aitbc_operations_ai_status` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations ai status` |
-| `aitbc_operations_ai_submit_job` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations ai submit-job` |
 | `aitbc_operations_governance_delegate` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations governance delegate` |
 | `aitbc_operations_governance_execute` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations governance execute` |
 | `aitbc_operations_governance_get_proposal` | mcp-server/aitbc_mcp_cli_tools_generated_operations.py | generated | `aitbc operations governance get-proposal` |

@@ -46,7 +46,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `monitor` — Monitoring, metrics, and alerting commands. Subcommands: `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks`
 - `network` — Peer connectivity and network operations. Subcommands: `force-sync`, `gossip`, `heartbeat`, `lease-status`, `peers`, `set-sync-source`, `status`, `subscribe`, `subscribers`, `test`
 - `node` — Node management commands. Subcommands: `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test`
-- `operations` — General operations commands. Subcommands: `agent`, `ai`, `governance`
+- `operations` — General operations commands. Subcommands: `agent`, `governance`
 - `oracle` — Local data oracle for agent data availability announcements.. Subcommands: `listings`, `store`
 - `performance` — Performance monitoring and optimization. Subcommands: `benchmark`, `optimize`, `tune`
 - `platform` — Scaffold white-label platform configurations.. Subcommands: `init-platform`

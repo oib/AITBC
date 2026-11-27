@@ -606,9 +606,6 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc operations agent list`](operations-agent-list.md) — List registered agents, optionally filtered by status.
 - [`aitbc operations agent message`](operations-agent-message.md) — Send a message to an agent via a blockchain transaction.
 - [`aitbc operations agent register`](operations-agent-register.md) — Register an agent with a status.
-- [`aitbc operations ai cancel`](operations-ai-cancel.md) — Cancel an AI job by its ID.
-- [`aitbc operations ai status`](operations-ai-status.md) — Get the status of one or all AI jobs.
-- [`aitbc operations ai submit-job`](operations-ai-submit-job.md) — Submit an AI job with wallet, type, prompt, and payment.
 - [`aitbc operations governance delegate`](operations-governance-delegate.md) — Delegate voting power from one address to another.
 - [`aitbc operations governance execute`](operations-governance-execute.md) — Execute a passed governance proposal on the blockchain.
 - [`aitbc operations governance get-proposal`](operations-governance-get-proposal.md) — Get a governance proposal from the blockchain.

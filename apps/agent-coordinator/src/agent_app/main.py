@@ -2,6 +2,7 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from aitbc.middleware import RequestValidationMiddleware, setup_cors
 
 from aitbc.aitbc_logging import configure_logging, get_logger
@@ -27,6 +28,11 @@ def create_app() -> FastAPI:
     )
 
     setup_cors(app, allow_origins=validated_cors_origins(settings.cors_origins))
+
+    # #3078: ALLOWED_HOSTS was parsed from env but never consumed — every
+    # Host header was accepted regardless of the setting. Wire it so the
+    # knob is real; the "*" default preserves accept-all behavior.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts_list)
 
     # Cap request bodies at the edge of the app: this service binds :8107
     # directly and the api-gateway's 10MB cap only covers proxied paths —

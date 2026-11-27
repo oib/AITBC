@@ -28,7 +28,7 @@ Key variables:
 - `EXCHANGE_DATABASE_URL` — SQLite location (default `/var/lib/aitbc/data/exchange/exchange.db`)
 - `BLOCKCHAIN_RPC_URL` — blockchain RPC base URL
 - `EXCHANGE_HOST` — bind host (systemd sets `127.0.0.1`)
-- Bridge: `BRIDGE_ETH_ADDRESS`, `BRIDGE_CONTRACT_ADDRESS`, `BRIDGE_FEE_RATE`, `BRIDGE_DEPOSIT_ENABLED`, `BRIDGE_WITHDRAW_ENABLED`, `BRIDGE_CUSTODIAN_MODE`, `BRIDGE_MULTISIG_*`, `BRIDGE_SAFE_ADDRESS`, `ETH_NETWORK`, `MIN_ETH_DEPOSIT`
+- Bridge: `BRIDGE_ETH_ADDRESS`, `BRIDGE_CONTRACT_ADDRESS`, `BRIDGE_FEE_RATE`, `BRIDGE_DEPOSIT_ENABLED`, `BRIDGE_WITHDRAW_ENABLED`, `BRIDGE_MULTISIG_*`, `BRIDGE_SAFE_ADDRESS`, `ETH_NETWORK`, `MIN_ETH_DEPOSIT`
 - Settlement (phase 3, all inert unless `EXCHANGE_SETTLEMENT_ENABLED=true`): `AIT_SELL_ESCROW` and `BRIDGE_ETH_ADDRESS` — both **must be EIP-55 checksummed**; placement refuses 503 when the order's side has an unset/malformed destination, and `/readyz` reports `settlement_envs` while they are. `EXCHANGE_FEE_PCT` (default `0` — the treasury leg is skipped when it floors to zero chain units), `EXCHANGE_PRICE_BAND_PCT`, `EXCHANGE_CANCEL_RATIO`, `EXCHANGE_WATCHLIST_*`, `EXCHANGE_TRUSTED_PROXIES`, `EXCHANGE_CHAIN_ID`. The wallet-side settlement monitor additionally reads `EXCHANGE_INTERNAL_URL` (default `http://127.0.0.1:8106`) for its event posts.
 
 ### Running the Service
@@ -287,7 +287,7 @@ POST /v1/bridge/estimate
 GET  /v1/cross-chain/rates        # also /cross-chain/rates
 ```
 
-Deposits run in trusted-custodian mode by default (`BRIDGE_CUSTODIAN_MODE=true`); withdrawals are disabled unless `BRIDGE_WITHDRAW_ENABLED` is set.
+Deposits run in trusted-custodian mode by design; withdrawals are disabled unless `BRIDGE_WITHDRAW_ENABLED` is set. (#3078 removed `BRIDGE_CUSTODIAN_MODE`/`BRIDGE_MULTISIG_ENABLED` — status-only flags that switched nothing; multisig custody is governed by `BRIDGE_MULTISIG_THRESHOLD` + `BRIDGE_SIGNERS`.)
 
 ### Wallet
 

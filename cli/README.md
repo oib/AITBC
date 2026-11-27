@@ -57,7 +57,7 @@ aitbc --help
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks` |
 | `network` | Peer connectivity and network operations | `force-sync`, `gossip`, `heartbeat`, `lease-status`, `peers`, `set-sync-source`, `status`, `subscribe`, `subscribers`, `test` |
 | `node` | Node management commands | `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test` |
-| `operations` | **Legacy** on-chain operations commands. Hidden from `aitbc --help`; prefer the top-level `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` groups. | `agent`, `ai`, `governance` |
+| `operations` | **Legacy** on-chain operations commands. Hidden from `aitbc --help`; prefer the top-level `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` groups. | `agent`, `governance` |
 | `oracle` | Local data oracle for agent data availability announcements. | `listings`, `store` |
 | `performance` | Performance monitoring and optimization | `benchmark`, `optimize`, `tune` |
 | `platform` | Scaffold white-label platform configurations. | `init-platform` |

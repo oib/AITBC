@@ -71,13 +71,14 @@ def _validate_bridge_multisig_threshold() -> None:
 
 def _validate_bridge_verification_mode() -> None:
     verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
-    if verification_mode not in {"in_process", "oracle"}:
-        _bridge_safety_fail("bridge_verification_mode must be 'in_process' or 'oracle'")
-
     if verification_mode == "oracle":
-        endpoints = getattr(settings, "bridge_oracle_endpoints", [])
-        if not endpoints:
-            _bridge_safety_fail("bridge_verification_mode='oracle' requires bridge_oracle_endpoints")
+        # #3078: "oracle" is accepted-but-unimplemented — no oracle client
+        # exists, so selecting it silently SKIPS in-process Merkle/header
+        # verification while appearing stronger. Refuse at startup until an
+        # oracle verifier actually lands.
+        _bridge_safety_fail("bridge_verification_mode='oracle' is not implemented; use 'in_process'")
+    if verification_mode != "in_process":
+        _bridge_safety_fail("bridge_verification_mode must be 'in_process'")
 
 
 def _validate_bridge_production_safety() -> None:
@@ -96,14 +97,19 @@ def _validate_bridge_production_safety() -> None:
     This guard runs during ``init_cross_chain_bridge`` so an unsafe production
     configuration refuses node startup instead of silently enabling value-moving
     bridge operations.
+
+    The verification-mode check runs unconditionally: an unsupported or
+    unimplemented mode is a startup error even while the release path is
+    dormant, so the trap cannot be armed for a later activation (#3078).
     """
+    _validate_bridge_verification_mode()
+
     if not getattr(settings, "bridge_release_enabled", False):
         return
 
     _validate_bridge_release_flags()
     _validate_bridge_admin_config()
     _validate_bridge_multisig_threshold()
-    _validate_bridge_verification_mode()
 
 
 class CrossChainBridge(BridgeTransferMixin, BridgeValidatorMixin, BridgeFinalityMixin):

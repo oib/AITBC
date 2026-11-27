@@ -27,11 +27,14 @@ class TestOperationsCommands:
 
         assert operations.name == "operations"
 
-    def test_operations_group_has_ai_subgroup(self):
-        """The ``ai`` subgroup is registered on the operations group."""
+
+    def test_operations_ai_subgroup_removed(self):
+        """#3078: the ``ai`` subgroup targeted /v1/jobs endpoints the
+        agent-coordinator never served — removed rather than retargeted
+        (the maintained path is `aitbc ai`)."""
         from aitbc_cli.commands.operations import operations
 
-        assert "ai" in operations.commands
+        assert "ai" not in operations.commands
 
     def test_operations_group_has_agent_subgroup(self):
         """The ``agent`` subgroup is registered on the operations group."""
@@ -45,12 +48,6 @@ class TestOperationsCommands:
 
         assert "governance" in operations.commands
 
-    def test_ai_subgroup_has_status_subcommand(self):
-        """The ``status`` subcommand is on the ai subgroup."""
-        from aitbc_cli.commands.operations import operations
-
-        ai = operations.commands["ai"]
-        assert "status" in ai.commands
 
     def test_agent_subgroup_has_register_subcommand(self):
         """The ``register`` subcommand is on the agent subgroup."""
@@ -66,33 +63,7 @@ class TestOperationsCommands:
         governance = operations.commands["governance"]
         assert "execute" in governance.commands
 
-    @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
-    def test_operations_ai_status_all(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``operations ai status`` lists all AI jobs."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"jobs": [{"job_id": "job1", "state": "completed"}]}
 
-        from aitbc_cli.commands.operations import operations
-
-        result = runner.invoke(operations, ["ai", "status"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        assert "/v1/jobs" in mock_client.get.call_args[0][0]
-
-    @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
-    def test_operations_ai_status_single(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``operations ai status --job-id`` gets a specific job."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"job_id": "job1", "state": "running", "progress": "50%"}
-
-        from aitbc_cli.commands.operations import operations
-
-        result = runner.invoke(operations, ["ai", "status", "--job-id", "job1"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        assert "/v1/jobs/job1" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
     def test_operations_agent_register(self, mock_http_class, runner, mock_blockchain_rpc):

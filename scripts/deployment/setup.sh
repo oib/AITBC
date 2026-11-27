@@ -1408,13 +1408,38 @@ EOF
 
     # Create agent-coordinator env file (service references EnvironmentFile without '-' prefix,
     # so a missing file is a hard error on fresh installs). Binds to 127.0.0.1:8107 (v0.5.5 §1).
+    # #3078: /api/v1/auth/login 500s without ADMIN_PASSWORD/OPERATOR_PASSWORD/
+    # USER_PASSWORD, and no template documented them — generate the three
+    # tier passwords into credentials/ (same pattern as jwt_secret) and
+    # write them into the env file so a fresh install actually authenticates.
     local AGENT_COORD_ENV="${AITBC_ETC_DIR}/aitbc-agent-coordinator.env"
     if [ ! -f "$AGENT_COORD_ENV" ]; then
+        local _agent_pw_err=0
+        for _pw_name in agent_admin_password agent_operator_password agent_user_password; do
+            if [ ! -f "${AITBC_ETC_DIR}/credentials/${_pw_name}" ]; then
+                if python3 -c "import secrets; print(secrets.token_urlsafe(24))" > "${AITBC_ETC_DIR}/credentials/${_pw_name}" 2>/dev/null; then
+                    chmod 600 "${AITBC_ETC_DIR}/credentials/${_pw_name}"
+                else
+                    warning "Failed to generate ${_pw_name}"
+                    _agent_pw_err=1
+                fi
+            fi
+        done
         cat > "$AGENT_COORD_ENV" << EOF
 # AITBC Agent Coordinator service-specific configuration
 AGENT_COORDINATOR_BIND_PORT=8107
 AGENT_COORDINATOR_BIND_HOST=127.0.0.1
+# /api/v1/auth/login tier passwords (#3078) — generated into
+# ${AITBC_ETC_DIR}/credentials/agent_{admin,operator,user}_password;
+# rotate by editing both the credential file and this env, then restarting
+# aitbc-agent-coordinator.
+ADMIN_PASSWORD=$(cat ${AITBC_ETC_DIR}/credentials/agent_admin_password 2>/dev/null)
+OPERATOR_PASSWORD=$(cat ${AITBC_ETC_DIR}/credentials/agent_operator_password 2>/dev/null)
+USER_PASSWORD=$(cat ${AITBC_ETC_DIR}/credentials/agent_user_password 2>/dev/null)
 EOF
+        if [ "$_agent_pw_err" -ne 0 ]; then
+            warning "Agent-coordinator password generation failed — /api/v1/auth/login will 500 until ADMIN_PASSWORD/OPERATOR_PASSWORD/USER_PASSWORD are set in $AGENT_COORD_ENV"
+        fi
         log "Created $AGENT_COORD_ENV"
     else
         log "Preserving existing $AGENT_COORD_ENV"

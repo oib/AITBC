@@ -283,7 +283,6 @@ LOG_LEVEL=INFO
 # API Key Security
 API_KEY_HASH_SECRET=<64-hex-from-openssl-rand-hex-32>
 SECRET_KEY=production-secret-key-change-me-in-production
-BLOCKCHAIN_API_KEY=production-api-key-change-me
 COORDINATOR_API_KEY=admin_prod_key_use_real_value
 JWT_SECRET=production-jwt-secret-32-chars-long-change-me
 
@@ -331,7 +330,6 @@ LOG_LEVEL=INFO
 # API Key Security
 API_KEY_HASH_SECRET=<64-hex-from-openssl-rand-hex-32>
 SECRET_KEY=production-secret-key-change-me-in-production
-BLOCKCHAIN_API_KEY=production-api-key-change-me
 COORDINATOR_API_KEY=admin_prod_key_use_real_value
 JWT_SECRET=production-jwt-secret-32-chars-long-change-me
 
@@ -504,7 +502,7 @@ Signing keys (`ESCROW_RELEASE_PRIVATE_KEY`, bridge/wallet keys) follow the same 
 
 | Secret | Purpose |
 |---|---|
-| `AITBC_DB_KEY` | Chain-DB encryption key — set a real value in production; default is a placeholder. |
+| ~~`AITBC_DB_KEY`~~ | **Removed (#3078).** Was read once at import and never consumed — the real chain-DB encryption path is `DB_ENCRYPTION_ENABLED` + `DB_ENCRYPTION_KEY_PATH` (key file at `/etc/aitbc/secrets/db_encryption.key`). Do not set the old name; it does nothing. |
 | `BLOCKCHAIN_RPC_API_KEY` / `BLOCKCHAIN_RPC_API_KEY_PEERS` | RPC API keys (client access / peer auth). |
 | `BRIDGE_LEDGER_API_KEY` | Dedicated `X-API-Key` credential for the bridge-ledger service (`BRIDGE_LEDGER_URL`) — the ledger may be a different host whose expected rpc key differs from the local one; falls back to `BLOCKCHAIN_RPC_API_KEY` when unset (`cross_chain/bridge_ledger.py`). Secret — never print a value. |
 | `ESCROW_RELEASE_PRIVATE_KEY` / `BRIDGE_RELEASE_PRIVATE_KEY` | Signing keys for escrow/bridge release authority. |
@@ -697,6 +695,14 @@ EnvironmentFile=-/etc/aitbc/validator-secrets.env
 
 - **aitbc-agent-coordinator.service:** Loads `blockchain.env`, `node.env`, `blockchain-secrets.env`, `aitbc-agent-coordinator.env`
 - **aitbc-hermes-agent.service:** Loads `hermes.env` (optional)
+
+`POST /api/v1/auth/login` on the agent-coordinator requires three tier
+passwords — `ADMIN_PASSWORD`, `OPERATOR_PASSWORD`, `USER_PASSWORD` — read
+from `aitbc-agent-coordinator.env` (`routers/auth.py` 500s when any is
+unset). `setup.sh` generates them into
+`/etc/aitbc/credentials/agent_{admin,operator,user}_password` and writes
+them into the env file on fresh installs (#3078); on existing installs add
+them manually and restart `aitbc-agent-coordinator`.
 
 ### Shop gate services
 

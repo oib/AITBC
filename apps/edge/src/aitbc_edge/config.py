@@ -64,9 +64,11 @@ class Settings(ServiceSettings):
         validation_alias="MARKET_URL",
     )
 
-    # v0.6.6: Agent coordinator integration — edge reports health to agent-coordinator
-    agent_coordinator_url: str = "http://localhost:8107"
-    agent_heartbeat_interval_seconds: int = 60
+    # #3078: agent_coordinator_url / agent_heartbeat_interval_seconds removed —
+    # the coordinator heartbeat POSTed to /agents/heartbeat, a route that
+    # does not exist (coordinator serves /agents/{id}/heartbeat), so edge
+    # presence reporting was illusory. Edge presence is reported on-chain
+    # via /rpc/edge/register instead.
 
     # v0.6.6: Payment verification (v0.10.1: enabled by default for end-to-end flow)
     require_payment_verification: bool = True

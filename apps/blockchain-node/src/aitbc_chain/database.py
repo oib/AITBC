@@ -59,7 +59,10 @@ from .metadata import chain_metadata
 from .state.gpu_resources import EdgeNodeRegistration, GPUAllocation, GPURegistration  # noqa: F401
 
 # Database encryption key (in production, this should come from HSM or secure key storage)
-_DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_change_in_production")
+# #3078: the AITBC_DB_KEY env var and its hardcoded "default_encryption_key_…"
+# fallback were removed — the variable was read once at import and never
+# consumed, while templates presented it as THE chain-DB key. The real path
+# is db_encryption_key_path / get_encryption_key() below.
 
 # Registry of chain-specific database engines
 _db_temp_paths: dict[str, object] = {}

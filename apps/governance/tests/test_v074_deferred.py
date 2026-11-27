@@ -55,14 +55,19 @@ def _load_bridge_adapter():
 
 
 class TestOracleConfig:
-    """Tests for bridge oracle configuration fields."""
+    """Tests for bridge oracle configuration fields.
 
-    def test_oracle_endpoints_config_exists(self):
+    #3078: the v0.7.4 oracle settings were removed — no oracle client was
+    ever wired into the node's verification path, so they were dead config
+    and ``bridge_verification_mode='oracle'`` silently skipped in-process
+    verification. The fields must stay gone until a real verifier lands.
+    """
+
+    def test_oracle_endpoints_config_removed(self):
         from aitbc_chain.config import ChainSettings
 
         settings = ChainSettings()
-        assert hasattr(settings, "bridge_oracle_endpoints")
-        assert settings.bridge_oracle_endpoints == []
+        assert not hasattr(settings, "bridge_oracle_endpoints")
 
     def test_verification_mode_config_exists(self):
         from aitbc_chain.config import ChainSettings
@@ -71,19 +76,17 @@ class TestOracleConfig:
         assert hasattr(settings, "bridge_verification_mode")
         assert settings.bridge_verification_mode == "in_process"
 
-    def test_oracle_health_check_interval_config(self):
+    def test_oracle_health_check_interval_config_removed(self):
         from aitbc_chain.config import ChainSettings
 
         settings = ChainSettings()
-        assert hasattr(settings, "bridge_oracle_health_check_interval")
-        assert settings.bridge_oracle_health_check_interval == 60
+        assert not hasattr(settings, "bridge_oracle_health_check_interval")
 
-    def test_oracle_timeout_config(self):
+    def test_oracle_timeout_config_removed(self):
         from aitbc_chain.config import ChainSettings
 
         settings = ChainSettings()
-        assert hasattr(settings, "bridge_oracle_timeout")
-        assert settings.bridge_oracle_timeout == 30
+        assert not hasattr(settings, "bridge_oracle_timeout")
 
 
 # ============================================================================

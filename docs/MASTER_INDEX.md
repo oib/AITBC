@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1510
+- **Markdown files under docs/**: 1507
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 606 | Command-line interface reference |
+| [cli](cli/) | 603 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -726,9 +726,6 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/operations-agent-list.md](cli/commands/operations-agent-list.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/operations-agent-message.md](cli/commands/operations-agent-message.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/operations-agent-register.md](cli/commands/operations-agent-register.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/operations-ai-cancel.md](cli/commands/operations-ai-cancel.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/operations-ai-status.md](cli/commands/operations-ai-status.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/operations-ai-submit-job.md](cli/commands/operations-ai-submit-job.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/operations-governance-delegate.md](cli/commands/operations-governance-delegate.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/operations-governance-execute.md](cli/commands/operations-governance-execute.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/operations-governance-get-proposal.md](cli/commands/operations-governance-get-proposal.md) | [cli/commands/README.md](cli/commands/README.md) |

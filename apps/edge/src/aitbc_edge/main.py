@@ -15,7 +15,6 @@ from aitbc.health_checks import create_simple_health_response
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.exceptions import AITBCError
 from sqlalchemy.exc import SQLAlchemyError
-from aitbc.network import SharedHttpClient
 
 configure_logging(level="INFO", service_name="edge", to_file=True)
 
@@ -46,20 +45,6 @@ _OPS_ERRORS = (
     ArithmeticError,
     TimeoutError,
 )
-
-
-async def _report_health_to_coordinator() -> None:
-    """Background task: periodically report health to agent-coordinator (v0.6.6)."""
-    while True:
-        try:
-            await SharedHttpClient.post(
-                f"{settings.agent_coordinator_url}/agents/heartbeat",
-                json={"service": "aitbc-edge", "status": "healthy", "port": settings.app_port},
-                timeout=10.0,
-            )
-        except _OPS_ERRORS as e:
-            logger.debug("Coordinator heartbeat failed: %s", e)
-        await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
 
 
 async def _register_edge_node_on_blockchain() -> None:
@@ -113,14 +98,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting Edge API Service")
     await init_db()
     logger.info("Database initialized")
-    # v0.6.6: start coordinator health reporting background task
-    health_task = create_task_with_logging(_report_health_to_coordinator(), name="edge_health_report")
     # v0.10.2: start background compute worker that executes queued requests
     worker_task = create_task_with_logging(run_compute_worker(), name="edge_compute_worker")
     # v0.6.6: Register edge node on blockchain
     await _register_edge_node_on_blockchain()
     yield
-    health_task.cancel()
     worker_task.cancel()
     logger.info("Shutting down Edge API Service")
 

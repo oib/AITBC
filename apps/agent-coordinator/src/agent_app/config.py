@@ -101,7 +101,11 @@ class Settings(ServiceSettings):
 
     # Security settings
     secret_key: str = os.getenv("SECRET_KEY", "")  # Required field
-    allowed_hosts: list[str] = os.getenv("ALLOWED_HOSTS", "*").split(",") if os.getenv("ALLOWED_HOSTS") else ["*"]
+    # #3078: ALLOWED_HOSTS was parsed but never enforced — now wired to
+    # TrustedHostMiddleware in main.py. Kept as a raw comma-separated string:
+    # pydantic-settings JSON-decodes list fields from env, so a plain
+    # "a,b" value would crash settings load; allowed_hosts_list parses it.
+    allowed_hosts: str = os.getenv("ALLOWED_HOSTS", "*")
     cors_origins: list[str] = (
         os.getenv("CORS_ORIGINS", "").split(",")
         if os.getenv("CORS_ORIGINS")
@@ -264,6 +268,11 @@ class Settings(ServiceSettings):
             env_file = ".env"
             env_file_encoding = "utf-8"
             case_sensitive = False
+
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        """ALLOWED_HOSTS as a list for TrustedHostMiddleware (#3078)."""
+        return [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
 
 
 # Global settings instance

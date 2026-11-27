@@ -8,7 +8,7 @@ and `aitbc market` for the coordinator-backed or service-backed paths.
 import json
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import click
 from cryptography.hazmat.primitives import serialization
@@ -20,7 +20,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
-from ..utils import DECIMAL, error, info, output, resolve_output_format, success
+from ..utils import error, info, output, resolve_output_format, success
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_headers, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -115,145 +115,13 @@ def _attach_governance_signature(wallet_data: dict[str, Any], message: dict[str,
     deprecated=True,
     epilog="""Examples:
 
-  aitbc operations ai status
+  aitbc operations agent list
 
   aitbc operations governance vote --proposal-id prop-123 --vote for""",
 )
 def operations():
-    """Deprecated legacy on-chain operations commands for market, AI, agent, and governance."""
+    """Deprecated legacy on-chain operations commands for agent and governance."""
     pass
-
-
-# AI operations
-@operations.group(
-    epilog="""Examples:
-
-  aitbc operations ai status
-
-  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10"""
-)
-def ai():
-    """Deprecated AI operations subgroup for submitting and monitoring jobs."""
-    pass
-
-
-@ai.command(
-    epilog="""Examples:
-
-  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10
-
-  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10 --model llama3"""
-)
-@click.option("--wallet-name", required=True, help="Client wallet name")
-@click.option("--job-type", required=True, help="Type of AI job")
-@click.option("--prompt", required=True, help="AI prompt")
-@click.option("--payment", type=DECIMAL, required=True, help="Payment amount")
-@click.option("--model", help="AI model to use")
-@click.pass_context
-def submit_job(ctx, wallet_name: str, job_type: str, prompt: str, payment: Decimal, model: str | None):
-    """Submit an AI job with wallet, type, prompt, and payment."""
-    try:
-        # Get wallet address
-        wallet_path = find_wallet_file(wallet_name)
-        if wallet_path is None:
-            abort(ctx, f"Wallet '{wallet_name}' not found")
-        wallet_path = cast(Path, wallet_path)
-
-        with open(wallet_path) as f:
-            wallet_data = json.load(f)
-        address = wallet_data["address"]
-
-        # Submit job via coordinator API
-        job_config = {
-            "client_address": address,
-            "job_type": job_type,
-            "prompt": prompt,
-            "payment": str(payment),
-            "model": model or "default",
-        }
-
-        try:
-            http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
-            result = http_client.post("/v1/jobs", json=job_config)
-            success("AI job submitted successfully")
-            click.echo(f"Job ID: {result.get('job_id', 'unknown')}")
-            click.echo(f"Type: {job_type}")
-            click.echo(f"Payment: {payment} AIT")
-            return result
-        except NetworkError as e:
-            abort(None, f"Error submitting AI job: {e}", from_exception=e)
-        except CLIError:
-            raise
-        except _OPERATIONS_ERRORS as e:
-            abort(None, f"Error: {e}", from_exception=e)
-    except CLIError:
-        raise
-    except _OPERATIONS_ERRORS as e:
-        abort(None, f"Error: {e}")
-        return
-
-
-@ai.command(
-    epilog="""Examples:
-
-  aitbc operations ai status
-
-  aitbc operations ai status --job-id job-123"""
-)
-@click.option("--job-id", help="Specific job ID")
-@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
-def status(job_id: str | None, format: str):
-    """Get the status of one or all AI jobs."""
-    try:
-        http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
-        if job_id:
-            result = http_client.get(f"/v1/jobs/{job_id}")
-            success(f"Job status for {job_id}")
-        else:
-            result = http_client.get("/v1/jobs")
-            success("All jobs status")
-
-        if format == "json":
-            click.echo(json.dumps(result, indent=2))
-        else:
-            if job_id:
-                click.echo(f"Status: {result.get('state', 'unknown')}")
-                click.echo(f"Progress: {result.get('progress', '0%')}")
-            else:
-                for job in result.get("jobs", []):
-                    click.echo(f"  - {job.get('job_id', 'unknown')}: {job.get('state', 'unknown')}")
-    except NetworkError as e:
-        abort(None, f"Error getting AI job status: {e}")
-    except CLIError:
-        raise
-    except _OPERATIONS_ERRORS as e:
-        abort(None, f"Error: {e}")
-        return
-
-
-@ai.command(
-    epilog="""Examples:
-
-  aitbc operations ai cancel --job-id job-123"""
-)
-@click.option("--job-id", help="Specific job ID")
-def cancel(job_id: str | None):
-    """Cancel an AI job by its ID."""
-    if not job_id:
-        abort(None, "Job ID is required")
-        return
-
-    try:
-        http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
-        _ = http_client.post(f"/v1/jobs/{job_id}/cancel")
-        success(f"AI job {job_id} cancelled")
-    except NetworkError as e:
-        abort(None, f"Error cancelling AI job: {e}")
-    except CLIError:
-        raise
-    except _OPERATIONS_ERRORS as e:
-        abort(None, f"Error: {e}")
-        return
 
 
 # Agent operations

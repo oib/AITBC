@@ -34,17 +34,17 @@ class BridgeConfig:
     """Public bridge configuration used by handlers.
 
     The custodian model is the current default: ETH->AIT deposits are accepted
-    by a hub-controlled deposit address.  Multisig settings may be enabled by
-    operators for stronger custody; until then the exchange reports the
-    custodian mode honestly.
+    by a hub-controlled deposit address. Multisig custody is governed by
+    ``multisig_threshold`` + ``signers`` — withdrawal verification reads those
+    directly. #3078 removed the ``custodian``/``multisig_enabled`` booleans:
+    they fed status output only and their env vars (BRIDGE_CUSTODIAN_MODE,
+    BRIDGE_MULTISIG_ENABLED) switched nothing.
     """
 
     bridge_eth_address: str = ""
     bridge_contract_address: str = ""
     deposit_enabled: bool = True
     withdraw_enabled: bool = False
-    custodian: bool = True
-    multisig_enabled: bool = False
     multisig_threshold: int = 0
     signers: tuple[str, ...] = ()
     safe_address: str = ""
@@ -71,8 +71,6 @@ class BridgeConfig:
             "withdraw_enabled": self.withdraw_enabled,
             "fee_rate": self.fee_rate,
             "contract_address": self.bridge_contract_address or None,
-            "custodian": self.custodian,
-            "multisig_enabled": self.multisig_enabled,
             "multisig_threshold": self.multisig_threshold,
             "multisig_signers_count": len(self.signers),
             "safe_address": self.safe_address or None,
@@ -116,15 +114,9 @@ def _load_bridge_config() -> BridgeConfig:
     if not signers and os.getenv("BRIDGE_MULTISIG_SIGNERS"):
         signers = _env_list("BRIDGE_MULTISIG_SIGNERS", "")
 
-    multisig_enabled = os.getenv("BRIDGE_MULTISIG_ENABLED", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    # If an explicit threshold and signer list are set, turn on the flag for
-    # an honest status report even if BRIDGE_MULTISIG_ENABLED is missing.
-    if threshold > 0 and len(signers) >= threshold:
-        multisig_enabled = True
+    # #3078: BRIDGE_MULTISIG_ENABLED / BRIDGE_CUSTODIAN_MODE removed — they
+    # only fed status dicts; withdrawal verification keys off threshold +
+    # signers directly, and the exchange is trusted-custodian by design.
 
     fee_raw = os.getenv("BRIDGE_FEE_RATE", "0.005")
     try:
@@ -144,8 +136,6 @@ def _load_bridge_config() -> BridgeConfig:
         bridge_contract_address=os.getenv("BRIDGE_CONTRACT_ADDRESS", ""),
         deposit_enabled=os.getenv("BRIDGE_DEPOSIT_ENABLED", "true").lower() in ("1", "true", "yes"),
         withdraw_enabled=os.getenv("BRIDGE_WITHDRAW_ENABLED", "false").lower() in ("1", "true", "yes"),
-        custodian=os.getenv("BRIDGE_CUSTODIAN_MODE", "true").lower() in ("1", "true", "yes"),
-        multisig_enabled=multisig_enabled,
         multisig_threshold=threshold,
         signers=signers,
         safe_address=os.getenv("BRIDGE_SAFE_ADDRESS", ""),

@@ -151,7 +151,9 @@ class BridgeConfig(BaseModel):
     # proof verification against stored block headers. The release fence
     # (bridge_release_enabled) is unfenced after this verification is
     # operational and tested.
-    bridge_verification_mode: str = "in_process"  # "in_process" | "oracle"
+    # "oracle" is rejected at startup (unimplemented — it silently skipped
+    # in-process verification, #3078). Only "in_process" is valid.
+    bridge_verification_mode: str = "in_process"
     bridge_min_confirmations: int = 3  # minimum confirmations for any transfer
     bridge_finality_blocks: int = 6  # full finality threshold
     # Confirmations stop being counted at this depth (never below bridge_finality_blocks or
@@ -171,10 +173,8 @@ class BridgeConfig(BaseModel):
     # Production fleet: BRIDGE_REQUIRE_MERKLE_PROOF=true.
     bridge_require_merkle_proof: bool = False
 
-    # External oracle configuration (v0.7.4). When bridge_verification_mode
-    # is "oracle", bridge proof verification calls an external oracle service
-    # instead of the in-process verifier. The in-process verifier remains as
-    # a fallback when oracle endpoints are unreachable.
-    bridge_oracle_endpoints: list[str] = []  # External oracle endpoints (e.g. ["http://oracle-1:9000"])
-    bridge_oracle_health_check_interval: int = 60  # seconds between oracle health checks
-    bridge_oracle_timeout: int = 30  # seconds before an oracle request times out
+    # NOTE: the v0.7.4 external-oracle settings (BRIDGE_ORACLE_ENDPOINTS,
+    # _TIMEOUT, _HEALTH_CHECK_INTERVAL) were removed in #3078 — no oracle
+    # client was ever implemented, so they were accepted-but-dead config.
+    # Re-add them together with a real verifier; until then
+    # bridge_verification_mode='oracle' fails closed at startup.
