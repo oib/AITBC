@@ -40,6 +40,8 @@ def _task_request(task_id="t-1"):
 
 
 def _locked_escrow(task_id="t-1"):
+    import time as _time
+
     return {
         "task_id": task_id,
         "escrow_status": "locked",
@@ -47,6 +49,10 @@ def _locked_escrow(task_id="t-1"):
         "amount": 72_000_000,
         "tx_hash_lock": "0xlockhash",
         "contract_id": "esc-1",
+        # #3080: accept gate requires a sealed, unexpired lock; on-chain
+        # escrows then defer release until the buyer's task_attest arrives.
+        "lock_sealed": True,
+        "expires_at": _time.time() + 3600,
     }
 
 
@@ -104,28 +110,35 @@ def test_release_failure_retains_quote_and_retry_releases(executor, monkeypatch)
     _seed_quote(task_id)
     handler_calls = _wire_successful_exec(monkeypatch)
     completes = iter([None, {"tx_hash_release": "0xrel"}])
-    monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: next(completes))
+    monkeypatch.setattr(
+        ate,
+        "_complete_task",
+        lambda t, w, amount_units=None, result_ref=None, job_tx_hash=None, result_hash=None: next(completes),
+    )
 
     inbox1 = [_msg("m-a1", "task_accept", {"task_id": task_id})]
     monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: inbox1)
     stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
     assert stats["executed"] == 1
-    # work done + result sent, but release failed: no task_paid, quote kept
+    # #3080: on-chain escrow defers release until the buyer attests — work
+    # done + result sent, no complete call yet, quote kept with the result.
     types = [s[0] for s in executor["sent"]]
     assert types == ["task_result"]
     state = ate._load_state()
     assert task_id in state["quotes"]
     assert state["quotes"][task_id]["result"]["result_ref"] == "bafyResult"
+    assert state["quotes"][task_id]["needs_attestation"] is True
 
-    # buyer redelivers task_accept (new message id): result replayed, handler
-    # NOT re-run, release retried and confirmed, quote popped.
-    inbox2 = [_msg("m-a2", "task_accept", {"task_id": task_id})]
+    # buyer seals the attestation and sends task_attest: the attest handler
+    # and the same-sweep pending-release retry each consume one /complete —
+    # the first fails (attestation tx not sealed yet), the retry confirms.
+    inbox2 = [_msg("m-redacted-host", "task_attest", {"task_id": task_id, "job_tx_hash": "0x" + "ab" * 32})]
     monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: inbox2)
     stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
     assert stats["executed"] == 1
     assert len(handler_calls) == 1, "paid work must not re-run on release retry"
     types = [s[0] for s in executor["sent"]]
-    assert types == ["task_result", "task_result", "task_paid"]
+    assert types == ["task_result", "task_paid"]
     state = ate._load_state()
     assert task_id not in state["quotes"]
 

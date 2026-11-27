@@ -187,7 +187,9 @@ class TestEscrowReplayTermsCoverage:
 
     def test_different_timeout_is_not_a_replay(self, escrow_env):
         tasks_router._create_task_escrow(self._submission_with("task-t1"), "task-t1", "ait-mainnet")
-        retry = self._submission_with("task-t1", timeout_seconds=60.0)
+        # #3080: timeout_seconds below the escrow floor (900s) is rejected
+        # before the terms check — use a distinct but fundable value.
+        retry = self._submission_with("task-t1", timeout_seconds=1800.0)
         with pytest.raises(ValueError, match="different payment terms"):
             tasks_router._create_task_escrow(retry, "task-t1", "ait-mainnet")
 
@@ -204,7 +206,8 @@ class TestEscrowReplayTermsCoverage:
             tasks_router._create_task_escrow(retry, "task-t3", "ait-mainnet")
 
     def test_identical_extended_terms_still_replays(self, escrow_env):
-        req = self._submission_with("task-t4", timeout_seconds=120.0, auto_reinvest_pct=10.0)
+        # #3080: 120s is below the escrow timeout floor — use a fundable value.
+        req = self._submission_with("task-t4", timeout_seconds=1800.0, auto_reinvest_pct=10.0)
         first_id, _, _ = tasks_router._create_task_escrow(req, "task-t4", "ait-mainnet")
         second_id, _, _ = tasks_router._create_task_escrow(req, "task-t4", "ait-mainnet")
         assert first_id == second_id

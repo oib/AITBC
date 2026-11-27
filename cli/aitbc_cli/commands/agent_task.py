@@ -712,9 +712,152 @@ def _fetch_result_via_coordinator(
     return b"".join(chunks)
 
 
+def _post_software_job_record(
+    config,
+    *,
+    job_id: str,
+    offer_id: str,
+    buyer_address: str,
+    provider_address: str,
+    result_hash: str,
+    actual_cost_ait: str,
+    private_key: str,
+) -> str | None:
+    """Post the buyer-signed ``software_job`` completion record; return its tx hash (#3080).
+
+    Same GPU_MARKET record shape the market job flow seals
+    (``market/jobs.py:_software_job_tx_hash``): the chain's escrow release
+    verifies ``job_tx_hash`` resolves to a sealed record whose sender is the
+    escrow buyer and whose payload binds this job's buyer/provider and a
+    ``result_hash``. ``actual_cost`` carries the accepted quote — the
+    coordinator caps the release at it, so it must be the price the buyer
+    agreed in ``task_accept``, not the lock maximum.
+    """
+    from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
+
+    from .market import get_chain_id, get_next_nonce
+    from .market.jobs import _record_job_on_chain
+
+    job_data = {
+        "from": buyer_address,
+        "to": "0x0000000000000000000000000000000000000000",
+        "amount": 0,
+        "fee": DEFAULT_TX_FEE_UNITS,
+        "nonce": get_next_nonce(buyer_address),
+        "type": "GPU_MARKET",
+        "chain_id": get_chain_id(),
+        "payload": {
+            "action": "software_job",
+            "job_id": job_id,
+            "offer_id": offer_id or "",
+            "buyer_address": buyer_address,
+            "provider_address": provider_address or buyer_address,
+            "result_hash": result_hash,
+            "actual_duration_minutes": 0.0,
+            "actual_cost": actual_cost_ait,
+            "status": "completed",
+            "completed_at": datetime.now(UTC).isoformat(),
+        },
+    }
+    return _record_job_on_chain(config, job_data, private_key)
+
+
+def _attest_task_result(
+    client: AITBCHTTPClient,
+    config,
+    *,
+    buyer_agent: str,
+    provider_agent: str,
+    task_id: str,
+    result_hash: str,
+    actual_cost_ait: str,
+    offer_id: str,
+    buyer_address: str,
+    provider_wallet: str,
+    private_key: str,
+    signing: tuple[str, str] | None,
+) -> bool:
+    """Seal the buyer's software_job record and send ``task_attest`` (#3080).
+
+    The provider cannot release an on-chain escrow without this attestation;
+    returns True when the record sealed AND the message was delivered.
+    """
+    job_tx_hash = _post_software_job_record(
+        config,
+        job_id=task_id,
+        offer_id=offer_id,
+        buyer_address=buyer_address,
+        provider_address=provider_wallet,
+        result_hash=result_hash,
+        actual_cost_ait=actual_cost_ait,
+        private_key=private_key,
+    )
+    if not job_tx_hash:
+        warning(f"Could not seal the software_job attestation for {task_id} — the escrow will refund on expiry")
+        return False
+    info(f"Buyer attestation sealed on-chain: {job_tx_hash}")
+    sent = _send_task_message(
+        client,
+        buyer_agent,
+        provider_agent,
+        "task_attest",
+        {"task_id": task_id, "job_tx_hash": job_tx_hash, "result_hash": result_hash},
+        signing=signing,
+    )
+    if sent is None:
+        warning(f"task_attest for {task_id} was not delivered — the provider cannot release the escrow")
+    return sent is not None
+
+
+def _maybe_attest_task_result(
+    client: AITBCHTTPClient,
+    config,
+    *,
+    buyer_agent: str,
+    provider_agent: str,
+    task_id: str,
+    result: dict[str, Any],
+    accepted_price: Decimal | None,
+    max_price_ait: Decimal,
+    offer_id: str | None,
+    buyer_address: str,
+    provider_wallet: str,
+    private_key: str | None,
+    signing: tuple[str, str] | None,
+) -> None:
+    """#3080 (CRIT-1): seal the buyer's software_job record and send
+    ``task_attest`` for a successful result so the provider can release the
+    on-chain escrow. Without a signing key there is nothing to attest with;
+    the escrow refunds on expiry instead of paying out unverified work."""
+    if result.get("status") != "success" or not result.get("result_hash"):
+        return
+    if not private_key:
+        warning(
+            "No buyer signing key (--no-sign or wallet without key) — cannot attest the result; "
+            "the escrow will refund on expiry instead of releasing payment"
+        )
+        return
+    attested_cost = str(accepted_price if accepted_price is not None else max_price_ait)
+    _attest_task_result(
+        client,
+        config,
+        buyer_agent=buyer_agent,
+        provider_agent=provider_agent,
+        task_id=task_id,
+        result_hash=str(result["result_hash"]),
+        actual_cost_ait=attested_cost,
+        offer_id=offer_id or "",
+        buyer_address=buyer_address,
+        provider_wallet=provider_wallet,
+        private_key=private_key,
+        signing=signing,
+    )
+
+
 def _wait_for_task_result(
     ctx,
     client: AITBCHTTPClient,
+    config,
     buyer_agent: str,
     to_agent: str,
     task_id: str,
@@ -723,10 +866,15 @@ def _wait_for_task_result(
     signing: tuple[str, str] | None,
     signing_key: str | None,
     wait_seconds: float,
+    provider_wallet: str,
+    buyer_address: str,
+    private_key: str,
 ) -> None:
-    """Poll the buyer inbox: auto-accept an affordable quote, then report the result."""
+    """Poll the buyer inbox: auto-accept an affordable quote, attest the result, report it."""
     deadline = time.time() + wait_seconds
     accepted = False
+    accepted_price: Decimal | None = None
+    offer_id: str | None = None
     while time.time() < deadline:
         found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
         if "task_reject" in found:
@@ -748,6 +896,8 @@ def _wait_for_task_result(
                     signing=signing,
                 )
                 accepted = True
+                accepted_price = quoted
+                offer_id = str(quote.get("offer_id") or "") or None
             else:
                 warning(f"Quote {quoted} exceeds max price — leaving escrow to expire")
                 return
@@ -755,6 +905,21 @@ def _wait_for_task_result(
             result = found["task_result"]
             paid = found.get("task_paid", {})
             success(f"Task {task_id} finished: {result.get('status')}")
+            _maybe_attest_task_result(
+                client,
+                config,
+                buyer_agent=buyer_agent,
+                provider_agent=to_agent,
+                task_id=task_id,
+                result=result,
+                accepted_price=accepted_price,
+                max_price_ait=max_price_ait,
+                offer_id=offer_id,
+                buyer_address=buyer_address,
+                provider_wallet=provider_wallet,
+                private_key=private_key,
+                signing=signing,
+            )
             # #2955: a failed task refunds through the provider-signed fail
             # path (or the timeout sweeper as a backstop) — surface the
             # escrow state so the buyer sees where the money is without a
@@ -985,9 +1150,22 @@ def hire(
         )
         return
 
-    # 7. Wait for quote → auto-accept → result.
+    # 7. Wait for quote → auto-accept → attest result → provider releases.
     _wait_for_task_result(
-        ctx, client, buyer_agent, to_agent, task_id, escrow_id, max_price_ait, signing, signing_key, wait_seconds
+        ctx,
+        client,
+        config,
+        buyer_agent,
+        to_agent,
+        task_id,
+        escrow_id,
+        max_price_ait,
+        signing,
+        signing_key,
+        wait_seconds,
+        provider_wallet,
+        buyer_address,
+        private_key,
     )
 
 
@@ -1106,6 +1284,147 @@ def result(
             click.echo(data.decode())
         except UnicodeDecodeError:
             click.echo(data.hex())
+
+
+def _scan_attest_inbox(messages: list[dict[str, Any]], task_id: str) -> tuple[dict[str, Any] | None, Decimal | None, str]:
+    """Find the task_result message plus the first task_quote's price/offer."""
+    result_msg: dict[str, Any] | None = None
+    quote_price: Decimal | None = None
+    offer_id = ""
+    for message in messages:
+        mtype = str(message.get("message_type", ""))
+        content = _message_content(message)
+        if not content or content.get("task_id") != task_id:
+            continue
+        if mtype == "task_result" and result_msg is None:
+            result_msg = message
+        elif mtype == "task_quote" and quote_price is None:
+            try:
+                quote_price = Decimal(str(content.get("price", "0")))
+            except (ArithmeticError, TypeError, ValueError):
+                quote_price = None
+            offer_id = str(content.get("offer_id") or "")
+    return result_msg, quote_price, offer_id
+
+
+def _resolve_attested_cost(escrow: dict[str, Any] | None, quote_price: Decimal | None) -> Decimal | None:
+    """AIT cost to attest: the accepted quote, else the escrow lock in AIT."""
+    if quote_price is not None:
+        return quote_price
+    from aitbc.utils.units import units_to_ait
+
+    locked_units = int((escrow or {}).get("amount") or 0)
+    return units_to_ait(locked_units) if locked_units > 0 else None
+
+
+def _attest_cost_and_payee(
+    client: AITBCHTTPClient,
+    task_id: str,
+    buyer_agent: str,
+    signing_key: str | None,
+    quote_price: Decimal | None,
+) -> tuple[Decimal, str]:
+    """Fetch the escrow once and resolve ``(actual_cost, provider_wallet)``.
+
+    The attested cost caps the release and the software_job record must name
+    the provider wallet — abort when either cannot be determined.
+    """
+    escrow: dict[str, Any] | None = None
+    try:
+        escrow = _task_escrow(client, task_id, buyer_agent, signing_key)
+    except _OPS_ERRORS:
+        escrow = None
+    actual_cost = _resolve_attested_cost(escrow, quote_price)
+    if actual_cost is None or actual_cost <= 0:
+        error("Cannot determine the attested cost — no task_quote price or escrow amount found")
+        raise click.Abort()
+    provider_wallet = str((escrow or {}).get("agent") or "")
+    if not provider_wallet:
+        error(
+            f"Cannot read the escrow payee for {task_id} — the software_job record must name the provider wallet; "
+            "check --wallet matches the escrow buyer and retry"
+        )
+        raise click.Abort()
+    return actual_cost, provider_wallet
+
+
+@agent_task.command()
+@click.option("--task-id", "task_id", required=True, help="Task identifier")
+@click.option("--to-agent", "to_agent", default=None, help="Provider agent ID (default: sender of the task_result message)")
+@click.option("--wallet", "wallet_name", default=None, help="Buyer wallet that signed the escrow lock")
+@wallet_password_options
+@click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the task_attest envelope")
+@click.option("--coordinator-url", default=None, help="Agent coordinator URL")
+@click.pass_context
+def attest(
+    ctx,
+    task_id: str,
+    to_agent: str | None,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    sign: bool,
+    coordinator_url: str | None,
+):
+    """Attest a delivered task result so the provider can release the escrow (#3080).
+
+    Needed when ``hire`` ran with ``--no-wait`` or the first attestation
+    failed: seals the buyer-signed ``software_job`` record on-chain and sends
+    ``task_attest`` to the provider. The record's ``actual_cost`` is the
+    accepted quote (from the task_quote message), which caps the release.
+    """
+    config = get_config()
+    base_url = _coordinator_url(ctx, coordinator_url)
+    client = AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, config.api_key),
+    )
+    buyer_address, private_key, _ = load_wallet_for_payment(
+        ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
+    if not private_key:
+        error("Attestation requires the buyer wallet's private key (the escrow lock signer)")
+        raise click.Abort()
+    signing_key = private_key if sign else None
+    buyer_agent = _resolve_buyer_agent(client, None, buyer_address)
+
+    # Find the task_result (and task_quote for the accepted price) in the
+    # buyer inbox; the result message's sender is the provider agent id.
+    result_msg, quote_price, offer_id = _scan_attest_inbox(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
+    if result_msg is None:
+        error(f"No task_result for {task_id} in the {buyer_agent} inbox yet")
+        raise click.Abort()
+    result = _message_content(result_msg) or {}
+    if result.get("status") != "success" or not result.get("result_hash"):
+        error(f"Task {task_id} has no successful result to attest (status={result.get('status')})")
+        raise click.Abort()
+    provider_agent = to_agent or str(result_msg.get("sender") or "")
+    if not provider_agent:
+        error("Cannot determine the provider agent — pass --to-agent")
+        raise click.Abort()
+
+    actual_cost, provider_wallet = _attest_cost_and_payee(client, task_id, buyer_agent, signing_key, quote_price)
+    signing = (buyer_address, private_key) if sign else None
+    ok = _attest_task_result(
+        client,
+        config,
+        buyer_agent=buyer_agent,
+        provider_agent=provider_agent,
+        task_id=task_id,
+        result_hash=str(result["result_hash"]),
+        actual_cost_ait=str(actual_cost),
+        offer_id=offer_id,
+        buyer_address=buyer_address,
+        provider_wallet=provider_wallet,
+        private_key=private_key,
+        signing=signing,
+    )
+    if ok:
+        success(f"Task {task_id} attested — the provider can now release the escrow")
+    else:
+        raise click.Abort()
 
 
 __all__ = ["agent_task"]

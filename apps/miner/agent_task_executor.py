@@ -605,7 +605,12 @@ def _signed_body(
 
 
 def _complete_task(
-    task_id: str, provider_wallet: str, amount_units: int | None = None, result_ref: str | None = None
+    task_id: str,
+    provider_wallet: str,
+    amount_units: int | None = None,
+    result_ref: str | None = None,
+    job_tx_hash: str | None = None,
+    result_hash: str | None = None,
 ) -> dict[str, Any] | None:
     try:
         extra = {"amount_units": amount_units} if amount_units is not None else {"amount_units": 0}
@@ -617,6 +622,16 @@ def _complete_task(
         # write and buyer-side integrity is end-to-end via result_hash.
         if result_ref:
             body["result_ref"] = result_ref
+        # #3080: job_tx_hash is the buyer's attestation — the coordinator
+        # verifies it resolves to a sealed buyer-signed software_job record
+        # before releasing. Like result_ref it rides post-signing: the
+        # req-v1 claim shape is fixed, and a tampered hash simply fails the
+        # chain's own binding check. result_hash is the provider's claim,
+        # cross-checked against the attested record coordinator-side.
+        if job_tx_hash:
+            body["job_tx_hash"] = job_tx_hash
+        if result_hash:
+            body["result_hash"] = result_hash
         headers = _agent_request_headers(
             AGENT_EXECUTOR_ID,
             timestamp=body.get("timestamp") if isinstance(body.get("timestamp"), str) else None,
@@ -1008,22 +1023,66 @@ def _account_ipfs_pin(state: dict[str, Any], buyer: str, req: dict[str, Any], re
         usage[buyer] = used + size
 
 
-def _escrow_allows_task(task_id: str, escrow: dict[str, Any] | None, provider_wallet: str) -> bool:
-    """Escrow gate for task_accept: locked on-chain, anchored, and paid to us."""
+def _escrow_expires_at(escrow: dict[str, Any]) -> float | None:
+    """Parse the escrow's ``expires_at`` (epoch seconds); None when unreadable."""
+    raw = escrow.get("expires_at")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _escrow_accept_gate(task_id: str, escrow: dict[str, Any] | None, provider_wallet: str) -> str:
+    """Classify an escrow for work start: ``"ready"``, ``"waiting"`` or ``"dead"``.
+
+    #3080 (HIGH-3/HIGH-4): two theft windows closed here.
+
+    * ``waiting`` — the lock is anchored but not yet *sealed* on-chain
+      (``lock_sealed`` is not True: mempool-visible only, probe failed, or an
+      older coordinator that does not report the field). A buyer can
+      replace-by-fee evict an unsealed lock and keep the result unpaid, so
+      work must not start. The caller parks the quote and retries — a seal
+      typically lands within a block interval.
+    * ``dead`` — no locked/anchored escrow, wrong payee, unreadable or
+      already-past ``expires_at``. An expired escrow is refunded by the
+      sweeper; starting work on it is guaranteed unpaid.
+
+    ``"ready"`` requires every check to pass.
+    """
     if not escrow or escrow.get("escrow_status") != "locked":
-        logger.warning("Task %s accepted but escrow is not locked (%s) — skipping", task_id, escrow)
-        return False
+        logger.warning("Task %s accepted but escrow is not locked (%s)", task_id, escrow)
+        return "dead"
     if not _escrow_lock_confirmed(escrow):
         logger.warning(
-            "Task %s accepted but the lock has no on-chain anchor (tx_hash_lock/contract_id empty: %s) — skipping",
+            "Task %s accepted but the lock has no on-chain anchor (tx_hash_lock/contract_id empty: %s)",
             task_id,
             escrow,
         )
-        return False
+        return "dead"
     if provider_wallet and str(escrow.get("agent") or "").lower() != provider_wallet.lower():
-        logger.warning("Task %s escrow agent %s != our wallet %s — skipping", task_id, escrow.get("agent"), provider_wallet)
-        return False
-    return True
+        logger.warning("Task %s escrow agent %s != our wallet %s", task_id, escrow.get("agent"), provider_wallet)
+        return "dead"
+    # HIGH-3: mempool admission is not funding — only a sealed lock is.
+    # ``lock_sealed`` absent (older coordinator) reads as not-proven → waiting.
+    if escrow.get("lock_sealed") is not True:
+        logger.info("Task %s escrow lock not sealed yet (lock_sealed=%r) — deferring work", task_id, escrow.get("lock_sealed"))
+        return "waiting"
+    # HIGH-4: never start work the timeout sweep can refund mid-flight.
+    expires_at = _escrow_expires_at(escrow)
+    if expires_at is None:
+        logger.warning("Task %s escrow has no readable expires_at (%r) — refusing work", task_id, escrow.get("expires_at"))
+        return "dead"
+    if expires_at <= time.time():
+        logger.warning("Task %s escrow expired at %s — refusing work", task_id, expires_at)
+        return "dead"
+    return "ready"
+
+
+def _escrow_allows_task(task_id: str, escrow: dict[str, Any] | None, provider_wallet: str) -> bool:
+    """Escrow gate for task_accept: locked, sealed on-chain, unexpired, paid to us."""
+    return _escrow_accept_gate(task_id, escrow, provider_wallet) == "ready"
 
 
 def _retry_escrow_release(
@@ -1049,16 +1108,54 @@ def _retry_escrow_release(
             "result_hash": prior["result_hash"],
         },
     )
-    complete = _complete_task(
-        task_id, provider_wallet, amount_units=prior.get("amount_units"), result_ref=prior.get("result_ref")
-    )
-    if complete:
-        _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": complete.get("tx_hash_release")})
-        state["quotes"].pop(task_id, None)
-        logger.info("Task %s escrow release confirmed on retry (tx=%s)", task_id, complete.get("tx_hash_release"))
-    else:
-        logger.error("Task %s escrow release retry failed — quote retained", task_id)
+    if _release_blocked(quote):
+        # #3080: on-chain escrow still awaits the buyer's task_attest — the
+        # release cannot succeed until job_tx_hash arrives. Keep the quote.
+        logger.info("Task %s release retry deferred — awaiting buyer attestation", task_id)
+        return "executed"
+    _attempt_release(task_id, buyer, agent_id, provider_wallet, quote, state)
     return "executed"
+
+
+def _release_blocked(quote: dict[str, Any]) -> bool:
+    """True while an on-chain escrow still lacks the buyer's attestation (#3080)."""
+    return bool(quote.get("needs_attestation")) and not (quote.get("attestation") or {}).get("job_tx_hash")
+
+
+def _attempt_release(
+    task_id: str,
+    buyer: str,
+    agent_id: str,
+    provider_wallet: str,
+    quote: dict[str, Any],
+    state: dict[str, Any],
+) -> bool:
+    """Call ``/complete`` for a quote with a stored result; settle on success.
+
+    Forwards the buyer's ``job_tx_hash`` attestation when one was recorded —
+    the coordinator requires it for on-chain escrows and the chain verifies
+    it binds a sealed buyer-signed ``software_job`` record to this escrow.
+    Returns True when the release was accepted; the quote is popped either
+    way only on success — a failure retains it for the sweep retry.
+    """
+    prior = quote.get("result") or {}
+    attestation = quote.get("attestation") or {}
+    complete = _complete_task(
+        task_id,
+        provider_wallet,
+        amount_units=prior.get("amount_units"),
+        result_ref=prior.get("result_ref"),
+        job_tx_hash=attestation.get("job_tx_hash"),
+        result_hash=prior.get("result_hash"),
+    )
+    if not complete:
+        logger.error("Task %s escrow release call failed — quote retained for retry", task_id)
+        return False
+    tx_hash = complete.get("tx_hash_release")
+    _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": tx_hash})
+    state["quotes"].pop(task_id, None)
+    logger.info("Task %s escrow released (tx=%s)", task_id, tx_hash)
+    return True
 
 
 def _handle_task_accept(
@@ -1089,15 +1186,48 @@ def _handle_task_accept(
         )
         return None
 
+    escrow = _task_escrow_status(task_id)
+    gate = _escrow_accept_gate(task_id, escrow, provider_wallet)
+    if gate == "waiting":
+        # #3080 HIGH-3: the lock is mempool-visible but not sealed — park the
+        # quote; _retry_waiting_accepts re-checks each sweep until it seals
+        # (or the escrow dies). Starting now would let a buyer RBF-evict the
+        # lock and keep the result unpaid.
+        quote["await_ready"] = True
+        logger.info("Task %s escrow not ready (unsealed lock) — deferring work to next sweep", task_id)
+        return None
+    if gate == "dead":
+        if _escrow_expired(escrow):
+            # #3080 HIGH-4: the sweeper refunds expired locks — the quote is
+            # dead weight; tell the buyer instead of silently dropping it.
+            state["quotes"].pop(task_id, None)
+            _send_message(agent_id, buyer, "task_reject", {"task_id": task_id, "reason": "escrow expired"})
+        return None
+    quote.pop("await_ready", None)
+    return _run_accepted_task(task_id, buyer, agent_id, provider_wallet, quote, state, escrow)
+
+
+def _escrow_expired(escrow: dict[str, Any] | None) -> bool:
+    """True when the escrow's expires_at is past (or the escrow is gone)."""
+    if not escrow:
+        return False
+    expires_at = _escrow_expires_at(escrow)
+    return expires_at is not None and expires_at <= time.time()
+
+
+def _run_accepted_task(
+    task_id: str,
+    buyer: str,
+    agent_id: str,
+    provider_wallet: str,
+    quote: dict[str, Any],
+    state: dict[str, Any],
+    escrow: dict[str, Any] | None,
+) -> str:
+    """Execute (or replay) an accepted task whose escrow gate passed."""
     req = quote["request"]
     service_type = req.get("service_type", "")
     handler = SERVICE_HANDLERS.get(service_type)
-
-    # Verify the escrow exists, is locked on-chain, and locks payment to this
-    # provider wallet — a bookkeeping-only "locked" row must not drive free work.
-    escrow = _task_escrow_status(task_id)
-    if not _escrow_allows_task(task_id, escrow, provider_wallet):
-        return None
 
     # #2908: a prior pass may have executed, sent the result, and failed only
     # the escrow release — the quote is retained for exactly this retry.
@@ -1131,7 +1261,104 @@ def _handle_task_accept(
         state["quotes"].pop(task_id, None)
         return "failed"
 
-    return _deliver_and_release(task_id, buyer, agent_id, provider_wallet, quote, result_ref, result_hash, state)
+    return _deliver_and_release(task_id, buyer, agent_id, provider_wallet, quote, result_ref, result_hash, state, escrow)
+
+
+def _handle_task_attest(
+    message: dict[str, Any],
+    content: dict[str, Any],
+    agent_id: str,
+    provider_wallet: str,
+    state: dict[str, Any],
+) -> str | None:
+    """Record the buyer's attestation and release the escrow (#3080).
+
+    The buyer posts a buyer-signed ``software_job`` completion record on-chain
+    after reviewing the result, then sends ``task_attest`` with its hash. The
+    provider forwards it as ``job_tx_hash`` on ``/complete`` — the chain
+    verifies the record is sealed, buyer-signed, and bound to this escrow's
+    job/buyer/provider before any funds move.
+    """
+    task_id = str(content.get("task_id") or "")
+    quote = state["quotes"].get(task_id)
+    if not quote:
+        logger.warning("TaskAttest for unknown/unquoted task %s — ignored", task_id)
+        return None
+    buyer = str(message.get("sender") or "")
+    quoted_buyer = str(quote.get("buyer") or "")
+    if quoted_buyer and buyer.strip() != quoted_buyer:
+        logger.warning("TaskAttest for %s from %s does not match quoting buyer %s — ignoring", task_id, buyer, quoted_buyer)
+        return None
+    prior = quote.get("result")
+    if not (isinstance(prior, dict) and prior.get("result_ref")):
+        # No delivered result to attest — a buyer cannot honestly attest
+        # work it has not seen; ignore rather than poison the quote.
+        logger.warning("TaskAttest for %s arrived before any result was delivered — ignored", task_id)
+        return None
+    job_tx_hash = content.get("job_tx_hash")
+    if not isinstance(job_tx_hash, str) or not job_tx_hash:
+        logger.warning("TaskAttest for %s carried no job_tx_hash — ignored", task_id)
+        return None
+    attestation: dict[str, Any] = {"job_tx_hash": job_tx_hash}
+    attested_result_hash = content.get("result_hash")
+    if attested_result_hash:
+        attestation["result_hash"] = str(attested_result_hash)
+    quote["attestation"] = attestation
+    logger.info("Task %s buyer attestation recorded (job_tx_hash=%s) — releasing escrow", task_id, job_tx_hash[:18])
+    _attempt_release(task_id, buyer, agent_id, provider_wallet, quote, state)
+    return "executed"
+
+
+def _retry_waiting_accepts(state: dict[str, Any], provider_wallet: str) -> None:
+    """Re-check escrows for quotes parked on an unsealed lock (#3080 HIGH-3).
+
+    A ``task_accept`` that arrived while the lock was still mempool-visible
+    sets ``await_ready``; each sweep re-reads the escrow and runs the task
+    once the lock is proven sealed (or drops the quote when it expired).
+    """
+    agent_id = AGENT_EXECUTOR_ID
+    for task_id, q in list(state["quotes"].items()):
+        if not q.get("await_ready"):
+            continue
+        escrow = _task_escrow_status(task_id)
+        gate = _escrow_accept_gate(task_id, escrow, provider_wallet)
+        if gate == "waiting":
+            continue
+        buyer = str(q.get("buyer") or "")
+        if gate == "dead":
+            if _escrow_expired(escrow):
+                state["quotes"].pop(task_id, None)
+                _send_message(agent_id, buyer, "task_reject", {"task_id": task_id, "reason": "escrow expired"})
+            else:
+                q.pop("await_ready", None)
+            continue
+        q.pop("await_ready", None)
+        logger.info("Task %s escrow now ready — executing deferred accept", task_id)
+        try:
+            _run_accepted_task(task_id, buyer, agent_id, provider_wallet, q, state, escrow)
+        except _OPS_ERRORS as e:
+            logger.error("Deferred accept for %s failed: %s", task_id, e)
+
+
+def _retry_pending_releases(state: dict[str, Any], provider_wallet: str, stats: dict[str, int]) -> None:
+    """Retry escrow releases for finished work awaiting attestation or a failed call (#3080/#2908).
+
+    Covers two retained-quote shapes: ``needs_attestation`` quotes whose
+    ``task_attest`` already arrived but whose ``/complete`` call failed
+    (e.g. the attestation tx was not sealed yet — the coordinator answers
+    409 and the next sweep retries), and bookkeeping-only quotes whose
+    release call failed outright.
+    """
+    agent_id = AGENT_EXECUTOR_ID
+    for task_id, q in list(state["quotes"].items()):
+        prior = q.get("result")
+        if not (isinstance(prior, dict) and prior.get("result_ref")):
+            continue
+        if _release_blocked(q):
+            continue
+        buyer = str(q.get("buyer") or "")
+        if _attempt_release(task_id, buyer, agent_id, provider_wallet, q, state):
+            stats["released"] += 1
 
 
 def _deliver_and_release(
@@ -1143,10 +1370,17 @@ def _deliver_and_release(
     result_ref: str,
     result_hash: str,
     state: dict[str, Any],
+    escrow: dict[str, Any] | None = None,
 ) -> str:
-    """Send the task_result, release the escrow at the quoted price, and
-    settle the quote — retaining it for release-retry when the release
-    call fails (#2908)."""
+    """Send the task_result, then release — now or after buyer attestation.
+
+    #3080 (CRIT-1): an escrow with an on-chain lock cannot be released on
+    the provider's signature alone. The result is delivered first; the
+    buyer reviews it, posts its signed ``software_job`` record, and sends
+    ``task_attest`` — only then does ``/complete`` carry ``job_tx_hash``.
+    Bookkeeping-only escrows (no ``tx_hash_lock``) hold no funds and keep
+    the immediate provider-signed release.
+    """
     _send_message(
         agent_id,
         buyer,
@@ -1159,25 +1393,28 @@ def _deliver_and_release(
         quote_units = ait_to_units(Decimal(str(quote["price"])))
     except (ValueError, TypeError, ArithmeticError) as exc:
         logger.debug("quoted price not unit-convertible for %s: %s", task_id, exc)
-    complete = _complete_task(task_id, provider_wallet, amount_units=quote_units, result_ref=result_ref)
-    if complete:
-        tx_hash = complete.get("tx_hash_release")
-        _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": tx_hash})
-        logger.info("Task %s complete — escrow released (tx=%s), result at %s", task_id, tx_hash, result_ref)
-        state["quotes"].pop(task_id, None)
+    quote["result"] = {
+        "result_ref": result_ref,
+        "result_hash": result_hash,
+        "amount_units": quote_units,
+    }
+    needs_attestation = bool((escrow or {}).get("tx_hash_lock"))
+    if needs_attestation:
+        quote["needs_attestation"] = True
+        logger.info(
+            "Task %s executed (result %s) — escrow release deferred until the buyer attests",
+            task_id,
+            result_ref,
+        )
+        return "executed"
+    if _attempt_release(task_id, buyer, agent_id, provider_wallet, quote, state):
+        logger.info("Task %s complete — escrow released, result at %s", task_id, result_ref)
     else:
         # #2908: keep the quote — work is done and the result was sent, but
-        # the buyer's escrow is still locked. A redelivered task_accept
-        # replays the stored result above and retries only the release;
-        # _prune_quotes' TTL bounds the retry window.
-        quote["result"] = {
-            "result_ref": result_ref,
-            "result_hash": result_hash,
-            "amount_units": quote_units,
-        }
-        logger.error(
-            "Task %s executed (result %s) but escrow release call failed — quote retained for retry", task_id, result_ref
-        )
+        # the buyer's escrow is still locked. A redelivered task_accept or
+        # the sweep retry replays the stored result and retries only the
+        # release; _prune_quotes' TTL bounds the retry window.
+        logger.error("Task %s executed (result %s) but escrow release call failed — quote retained", task_id, result_ref)
     return "executed"
 
 
@@ -1217,6 +1454,8 @@ def _process_inbox_message(
             outcome = _handle_task_request(message, content, AGENT_EXECUTOR_ID, provider_wallet, price_table, state)
         elif message_type == "task_accept":
             outcome = _handle_task_accept(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
+        elif message_type == "task_attest":
+            outcome = _handle_task_attest(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
         elif message_type == "task_reject":
             state["quotes"].pop(content.get("task_id", ""), None)
     except _OPS_ERRORS as e:
@@ -1235,7 +1474,7 @@ def sweep_once(provider_wallet: str, price_table: dict[str, dict[str, Any]] | No
     and ``model`` keys (production_miner passes its DEFAULT_SOFTWARE_OFFERS
     keyed by service type).
     """
-    stats = {"quoted": 0, "rejected": 0, "executed": 0, "failed": 0}
+    stats = {"quoted": 0, "rejected": 0, "executed": 0, "failed": 0, "released": 0}
     if price_table is None:
         price_table = {}
     state = _load_state()
@@ -1247,6 +1486,11 @@ def sweep_once(provider_wallet: str, price_table: dict[str, dict[str, Any]] | No
 
     for message in _fetch_inbox(AGENT_EXECUTOR_ID):
         _process_inbox_message(message, done, provider_wallet, price_table, state, stats)
+
+    # #3080: parked accepts (unsealed lock) and finished work awaiting
+    # attestation/release retry here — the inbox only carries new messages.
+    _retry_waiting_accepts(state, provider_wallet)
+    _retry_pending_releases(state, provider_wallet, stats)
 
     _save_state(state)
     return stats

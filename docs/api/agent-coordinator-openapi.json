@@ -1013,7 +1013,7 @@
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",
-        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.\nRequires a signature from the escrow's provider wallet (``entry.agent``)\nover ``{\"action\",\"task_id\",\"signed_at\",\"amount_units\"}`` \u2014 only the party\nthat will be paid may release the escrow. The Phase-B3 ``agent_signature``\n(req-v1) form over ``{\"task_id\",\"amount_units\",\"timestamp\",\"nonce\"}`` is\naccepted equivalently \u2014 see ``_require_provider_signature``.\n\n#1749: tasks without a payment escrow settle the load-balancer assignment\ndirectly (agent-scope auth); escrow-backed completions also mark the\nassignment complete so ``pending_tasks`` is released.",
+        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int, \"job_tx_hash\": \"0x\u2026\",\n\"result_hash\": \"\u2026\"}`` bills a partial amount of the locked escrow (the\nunbilled remainder is refunded to the buyer on-chain) and carries the\nbuyer's attestation. Requires a signature from the escrow's provider\nwallet (``entry.agent``) over ``{\"action\",\"task_id\",\"signed_at\",\n\"amount_units\"}`` \u2014 only the party that will be paid may release the\nescrow. The Phase-B3 ``agent_signature`` (req-v1) form over\n``{\"task_id\",\"amount_units\",\"timestamp\",\"nonce\"}`` is accepted\nequivalently \u2014 see ``_require_provider_signature``.\n\n#3080 (CRIT-1): a provider signature alone let the payee release its own\nescrow with no work check \u2014 lock\u2192immediately-release was a theft\nprimitive. An escrow with an on-chain lock (``tx_hash_lock``) now also\nrequires ``job_tx_hash``: the hash of the buyer-signed ``software_job``\ncompletion record the chain verifies at release\n(``_verify_job_tx_proof``). ``_verify_buyer_attestation`` checks the same\nbinding coordinator-side and additionally caps the billed amount at the\nbuyer-attested ``actual_cost`` (HIGH-2 overbilling) and, when the caller\nasserts ``result_hash``, binds the release to the attested result. The\nprovider signature still proves *who* is paid; the attestation proves\nthe *buyer approved the result and the price*.\n\n#1749: tasks without a payment escrow settle the load-balancer assignment\ndirectly (agent-scope auth); escrow-backed completions also mark the\nassignment complete so ``pending_tasks`` is released.",
         "operationId": "complete_task_v1_tasks__task_id__complete_post",
         "parameters": [
           {
@@ -1050,7 +1050,7 @@
             }
           },
           "400": {
-            "description": "Invalid amount_units: {e}",
+            "description": "Invalid complete body: {e}",
             "content": {
               "application/json": {
                 "schema": {
@@ -1080,7 +1080,7 @@
             }
           },
           "409": {
-            "description": "Conflict",
+            "description": "Buyer attestation required: complete an on-chain escrow with job_tx_hash \u2014 the hash of the buyer-signed software_job completion record for this task / Buyer attestation transaction is not sealed on-chain yet; retry / job_tx_hash is not a sealed buyer-signed software_job completion bound to this escrow / Buyer attestation carries no usable actual_cost \u2014 cannot bind a billed amount / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1100,7 +1100,7 @@
             }
           },
           "503": {
-            "description": "Payment escrow not available",
+            "description": "Payment escrow not available / Cannot verify buyer attestation: escrow RPC unavailable / Buyer attestation could not be verified right now; retry",
             "content": {
               "application/json": {
                 "schema": {

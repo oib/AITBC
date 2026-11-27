@@ -1,6 +1,7 @@
 """Unit tests for the provider-side agent task executor (A2A paid delegation)."""
 
 import json
+import time
 from unittest.mock import Mock
 
 import agent_task_executor as ate
@@ -89,7 +90,7 @@ def _task_request(task_id="t-1", **over):
 
 
 def _locked_escrow(task_id="t-1", agent=PROVIDER, amount=72_000_000):
-    """An escrow whose lock is anchored on-chain (tx_hash_lock + contract_id)."""
+    """An escrow whose lock is anchored, sealed and unexpired on-chain (#3080)."""
     return {
         "task_id": task_id,
         "escrow_status": "locked",
@@ -97,6 +98,8 @@ def _locked_escrow(task_id="t-1", agent=PROVIDER, amount=72_000_000):
         "amount": amount,
         "tx_hash_lock": "0xlockhash",
         "contract_id": "esc-1",
+        "lock_sealed": True,
+        "expires_at": time.time() + 3600,
     }
 
 
@@ -173,16 +176,26 @@ class TestExecution:
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hello"}')
         monkeypatch.setattr(
-            ate, "_complete_task", lambda t, w, amount_units=None, result_ref=None: {"tx_hash_release": "0xrel"}
+            ate,
+            "_complete_task",
+            lambda t, w, amount_units=None, result_ref=None, job_tx_hash=None, result_hash=None: {"tx_hash_release": "0xrel"},
         )
 
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
+        # #3080: an on-chain escrow does not self-release — the result is
+        # delivered and the release parks until the buyer's task_attest.
         types = [s[0] for s in executor["sent"]]
-        assert types == ["task_result", "task_paid"]
+        assert types == ["task_result"]
         result_msg = executor["sent"][0][1]
         assert result_msg["result_ref"] == "bafyResult"
         assert result_msg["status"] == "success"
+
+        attest = _msg("m-at", "task_attest", {"task_id": task_id, "job_tx_hash": "0x" + "ab" * 32})
+        monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [attest])
+        ate.sweep_once(PROVIDER, PRICE_TABLE)
+        types = [s[0] for s in executor["sent"]]
+        assert types == ["task_result", "task_paid"]
         assert executor["sent"][1][1]["tx_hash"] == "0xrel"
 
     def test_result_ref_reaches_complete_call(self, executor, monkeypatch):
@@ -197,13 +210,18 @@ class TestExecution:
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hello"}')
         complete_kwargs = {}
 
-        def capture_complete(t, w, amount_units=None, result_ref=None):
+        def capture_complete(t, w, amount_units=None, result_ref=None, job_tx_hash=None, result_hash=None):
             complete_kwargs["result_ref"] = result_ref
             return {"tx_hash_release": "0xrel"}
 
         monkeypatch.setattr(ate, "_complete_task", capture_complete)
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
+        # #3080: the release (and its result_ref report) waits for task_attest.
+        assert "result_ref" not in complete_kwargs
+        attest = _msg("m-at", "task_attest", {"task_id": task_id, "job_tx_hash": "0x" + "ab" * 32})
+        monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [attest])
+        ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert complete_kwargs.get("result_ref") == "bafyResult"
 
     def test_complete_body_carries_result_ref(self, monkeypatch):

@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**826 tools** across 142 modules.
+**827 tools** across 142 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 566 |
+| generated | 567 |
 | other | 9 |
 | rpc | 115 |
 
@@ -21,7 +21,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_comm.py | 10 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_msg.py | 5 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | 8 |
-| mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | 3 |
+| mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_wallet.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_ai.py | 11 |
 | mcp-server/aitbc_mcp_cli_tools_generated_analytics.py | 4 |
@@ -316,6 +316,7 @@
 | `aitbc_agent_staking_stake` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking stake` |
 | `aitbc_agent_staking_status` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking status` |
 | `aitbc_agent_staking_unbond` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking unbond` |
+| `aitbc_agent_task_attest` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task attest` |
 | `aitbc_agent_task_hire` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task hire` |
 | `aitbc_agent_task_result` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task result` |
 | `aitbc_agent_task_status` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task status` |

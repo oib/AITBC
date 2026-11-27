@@ -68,6 +68,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `agent-task`
 
+- [`aitbc agent-task attest`](agent-task-attest.md) — Attest a delivered task result so the provider can release the escrow (#3080).
 - [`aitbc agent-task hire`](agent-task-hire.md) — Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID.
 - [`aitbc agent-task result`](agent-task-result.md) — Fetch a finished task's result payload from island IPFS.
 - [`aitbc agent-task status`](agent-task-status.md) — Show escrow state and negotiation progress for a task.

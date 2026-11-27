@@ -52,6 +52,10 @@ class MessageType(StrEnum):
     TASK_REJECT = "task_reject"
     TASK_RESULT = "task_result"
     TASK_PAID = "task_paid"
+    # #3080: buyer → provider attestation carrying the hash of the
+    # buyer-signed software_job completion record; the provider forwards it
+    # as job_tx_hash on /tasks/{id}/complete to release the escrow.
+    TASK_ATTEST = "task_attest"
 
 
 class Priority(StrEnum):

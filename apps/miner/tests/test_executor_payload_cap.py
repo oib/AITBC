@@ -68,7 +68,21 @@ class TestOverCapPayloadFailsTask:
         'executed', so this fails today.
         """
         sent, failed = [], []
-        monkeypatch.setattr(ate, "_task_escrow_status", lambda tid: {"escrow_status": "locked", "agent": PROVIDER})
+        import time as _time
+
+        # #3080: the accept gate needs an anchored, sealed, unexpired lock.
+        monkeypatch.setattr(
+            ate,
+            "_task_escrow_status",
+            lambda tid: {
+                "escrow_status": "locked",
+                "agent": PROVIDER,
+                "tx_hash_lock": "0xlockhash",
+                "contract_id": "esc-1",
+                "lock_sealed": True,
+                "expires_at": _time.time() + 3600,
+            },
+        )
         monkeypatch.setattr(ate, "_escrow_lock_confirmed", lambda escrow: True)
         monkeypatch.setattr(ate, "_send_message", lambda *a, **k: sent.append(a))
         monkeypatch.setattr(ate, "_fail_task", lambda *a, **k: failed.append(a))

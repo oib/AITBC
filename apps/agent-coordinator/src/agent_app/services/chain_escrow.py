@@ -432,6 +432,30 @@ def reconcile_rejected_refund(escrow_rpc: ChainEscrowClient | None, entry: Any) 
     return True
 
 
+def lock_tx_sealed(escrow_rpc: ChainEscrowClient | None, tx_hash: Any, chain_id: Any) -> bool | None:
+    """True when ``tx_hash`` is sealed on-chain, False when proven unsealed, None when unknown (#3080).
+
+    ``PaymentEscrow.lock`` records LOCKED on mempool admission — a lock the
+    buyer can still replace-by-fee evict before it seals. Work must gate on
+    the sealed state, so the escrow status endpoints expose this probe and
+    the provider executor refuses to start on anything less than ``True``.
+    ``None`` means "could not tell" (no RPC client, no hash, probe failure):
+    callers must treat it as not-sealed, never as sealed.
+    """
+    if escrow_rpc is None or not tx_hash:
+        return None
+    try:
+        info = escrow_rpc.transaction_status(str(tx_hash), chain_id=chain_id)
+    except Exception:  # noqa: BLE001 - a probe failure is "unknown", never "sealed"
+        logger.debug("lock_tx_sealed probe failed for %s", tx_hash, exc_info=True)
+        return None
+    if not isinstance(info, dict):
+        return None
+    # The pending mempool view carries state="pending" and no block_height;
+    # only a durable confirmed row with a seal height proves the lock landed.
+    return info.get("status") == "confirmed" and info.get("block_height") is not None and info.get("state") != "pending"
+
+
 def make_refund_submitter(client: ChainEscrowClient, task_id: str, reason: str = "timeout") -> EscrowCallback:
     """Build a submitter that refunds the on-chain escrow for ``task_id``."""
 

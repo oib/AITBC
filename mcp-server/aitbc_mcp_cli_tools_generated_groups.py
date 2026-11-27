@@ -313,6 +313,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "agent-staking performance",
         "agent-staking stake",
         "agent-staking unbond",
+        "agent-task attest",
         "agent-task hire",
         "agent-task result",
         "agent-wallet rebalance",

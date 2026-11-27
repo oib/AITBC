@@ -170,6 +170,16 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
     the submission carries no payment or escrow is disabled/unavailable."""
     if not (request.payment and settings.task_payment_escrow_enabled and state.payment_escrow):
         return None, None, None
+    # #3080 (HIGH-4): the buyer picks timeout_seconds, and the expire sweep
+    # auto-refunds any LOCKED escrow past it. A near-zero timeout is a
+    # work-theft primitive — the provider starts on a sealed lock, the sweep
+    # refunds before it can finish, and the result goes unpaid. Enforce a
+    # floor so every escrow outlives a bounded task plus attest latency.
+    if request.payment.timeout_seconds < settings.task_payment_min_timeout_seconds:
+        raise ValueError(
+            f"payment.timeout_seconds must be at least {settings.task_payment_min_timeout_seconds} "
+            f"(got {request.payment.timeout_seconds}) — shorter timeouts cannot fund a task"
+        )
     # #1553: task_id is the caller-visible natural key — a retry after a lost
     # response must not mint a second escrow and POST a second on-chain lock.
     # Reuse the still-active escrow for this task; a terminal one means this
@@ -298,6 +308,21 @@ async def _refund_escrow_after_failed_distribution(task_id: str, escrow_id: str 
                 )
     except Exception:  # noqa: BLE001 - refund containment — never mask the distribution error
         logger.exception("Post-distribution refund path failed for escrow %s (task %s)", escrow_id, task_id)
+
+
+def _entry_lock_sealed(entry: Any) -> bool | None:
+    """Seal state of the entry's lock tx for provider-side gating (#3080 HIGH-3).
+
+    ``None`` when there is nothing to probe (bookkeeping escrow, no RPC) or
+    the probe failed — readers must treat ``None`` as *not* proven sealed.
+    Only a LOCKED entry is probed: terminal rows already settled and a PENDING
+    row has no lock tx yet, so the read stays cheap on the hot path.
+    """
+    if getattr(entry, "status", None) != EscrowStatus.LOCKED or not getattr(entry, "tx_hash_lock", None):
+        return None
+    from ..services.chain_escrow import lock_tx_sealed
+
+    return lock_tx_sealed(state.escrow_rpc, entry.tx_hash_lock, getattr(entry, "chain_id", None))
 
 
 def _escrow_state_for_task(task_id: str) -> str | None:
@@ -582,6 +607,7 @@ def get_escrow_status(
             "tx_hash_lock": entry.tx_hash_lock,
             "tx_hash_release": entry.tx_hash_release,
             "tx_hash_refund": entry.tx_hash_refund,
+            "lock_sealed": _entry_lock_sealed(entry),
             "lock_rejected_reason": entry.metadata.get("lock_rejected_reason"),
             "release_rejected_reason": entry.metadata.get("release_rejected_reason"),
             "refund_rejected_reason": entry.metadata.get("refund_rejected_reason"),
@@ -889,14 +915,144 @@ def _record_reinvest_outcome(escrow_mgr: Any, entry: Any, submitter: Any) -> Non
     escrow_mgr.persist_entry(entry)
 
 
-async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None, dict[str, Any]]:
+_JOB_TX_HASH_RE = re.compile(r"0x[0-9a-fA-F]{64}")
+
+
+def _attestation_payload(info: dict[str, Any]) -> dict[str, Any]:
+    """Decode the transaction payload, tolerating a JSON string or junk."""
+    payload = info.get("payload")
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except ValueError:
+            payload = {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _attestation_record_matches(
+    info: dict[str, Any], payload: dict[str, Any], task_id: str, buyer: str, provider: str
+) -> bool:
+    """True when the tx is the buyer-signed software_job record for this escrow."""
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    return (
+        info.get("type") == "GPU_MARKET"
+        and payload.get("action") == "software_job"
+        and payload.get("status") == "completed"
+        and payload.get("job_id") == task_id
+        and bool(payload.get("result_hash"))
+        and canonical_address(str(payload.get("buyer_address") or "")) == buyer
+        and canonical_address(str(payload.get("provider_address") or "")) == provider
+        and canonical_address(str(info.get("sender") or "")) == buyer
+    )
+
+
+def _attestation_sealed(info: dict[str, Any]) -> bool:
+    """True only when the attestation tx is confirmed in a sealed block."""
+    return info.get("status") == "confirmed" and info.get("block_height") is not None and info.get("state") != "pending"
+
+
+def _attested_result_matches(payload: dict[str, Any], claimed_result_hash: Any) -> bool:
+    """An asserted result_hash must equal the buyer-attested one (or be absent)."""
+    return claimed_result_hash is None or str(claimed_result_hash).lower() == str(payload.get("result_hash")).lower()
+
+
+async def _verify_buyer_attestation(
+    entry: Any, task_id: str, job_tx_hash: str | None, amount_units: int | None, body: dict[str, Any]
+) -> None:
+    """Require ``job_tx_hash`` to resolve to the buyer's sealed attestation (#3080).
+
+    CRIT-1 fix: ``POST /tasks/{id}/complete`` used to release the escrow on
+    the provider's signature alone — the party being paid signed off its own
+    payment. The chain's ``job_tx_hash`` mechanism (the same proof the
+    coordinator-api rail uses, ``escrow_routes_helpers._verify_job_tx_proof``)
+    binds the release to a buyer-signed ``software_job`` record. This check
+    runs coordinator-side *before* the release submit so the failure is a
+    clean 4xx instead of a chain-side rejection — and it enforces two
+    bindings the chain route does not:
+
+    * the record's ``actual_cost`` caps the billed amount (HIGH-2
+      overbilling: the provider may not bill above what the buyer attested);
+    * a ``result_hash`` the caller asserts must equal the attested one, so
+      the release is bound to the result the buyer signed for.
+
+    Bookkeeping-only escrows (no ``tx_hash_lock``) carry no funds and return
+    immediately — they keep the provider-signature contract.
+
+    Raises HTTPException; returns None on success.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+    from aitbc.utils.units import ait_to_units
+
+    if not entry.tx_hash_lock:
+        return
+    if job_tx_hash is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Buyer attestation required: complete an on-chain escrow with "
+                "job_tx_hash — the hash of the buyer-signed software_job "
+                "completion record for this task"
+            ),
+        )
+    if state.escrow_rpc is None:
+        # On-chain funds but no chain client — cannot verify the attestation.
+        raise HTTPException(status_code=503, detail="Cannot verify buyer attestation: escrow RPC unavailable")
+    info = await asyncio.to_thread(state.escrow_rpc.transaction_status, job_tx_hash, entry.chain_id)
+    if info is None:
+        raise HTTPException(status_code=503, detail="Buyer attestation could not be verified right now; retry")
+    if not _attestation_sealed(info):
+        raise HTTPException(
+            status_code=409,
+            detail="Buyer attestation transaction is not sealed on-chain yet; retry",
+        )
+    payload = _attestation_payload(info)
+    buyer = canonical_address(entry.requester or "")
+    provider = canonical_address(entry.agent or "")
+    if not _attestation_record_matches(info, payload, task_id, buyer, provider):
+        raise HTTPException(
+            status_code=409,
+            detail="job_tx_hash is not a sealed buyer-signed software_job completion bound to this escrow",
+        )
+    # HIGH-2: the buyer-attested cost is the billing ceiling. A record
+    # without a parseable actual_cost cannot bind an amount — refuse rather
+    # than release unbounded.
+    try:
+        attested_units = ait_to_units(str(payload.get("actual_cost")))
+    except (ArithmeticError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=409,
+            detail="Buyer attestation carries no usable actual_cost — cannot bind a billed amount",
+        ) from None
+    billed_units = amount_units if amount_units is not None else entry.amount
+    if billed_units > attested_units:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Billed amount {billed_units} units exceeds the buyer-attested cost "
+                f"{attested_units} units — the accepted quote binds the release"
+            ),
+        )
+    # Result binding: when the caller asserts the result hash it completed
+    # against, it must be the hash the buyer attested.
+    if not _attested_result_matches(payload, body.get("result_hash")):
+        raise HTTPException(
+            status_code=409,
+            detail="result_hash does not match the buyer-attested result hash",
+        )
+
+
+async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None, dict[str, Any], str | None]:
     """Parse the optional JSON body of a ``complete`` call.
 
-    Returns ``(amount_units, body)``: ``body`` is the decoded dict (``{}``
-    when the body is empty or not a JSON object) for the signature checks,
-    and ``amount_units`` the validated partial-billing amount or ``None``.
+    Returns ``(amount_units, body, job_tx_hash)``: ``body`` is the decoded
+    dict (``{}`` when the body is empty or not a JSON object) for the
+    signature checks, ``amount_units`` the validated partial-billing amount
+    or ``None``, and ``job_tx_hash`` the buyer's attestation transaction
+    hash or ``None``.
     """
     amount_units: int | None = None
+    job_tx_hash: str | None = None
     body: dict[str, Any] = {}
     raw_body = await request.body()
     if raw_body:
@@ -907,7 +1063,12 @@ async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None
                 amount_units = int(body["amount_units"])
                 if amount_units <= 0 or amount_units > entry.amount:
                     raise ValueError(f"amount_units must be in (0, {entry.amount}]")
-    return amount_units, body
+            raw_job_tx = body.get("job_tx_hash")
+            if raw_job_tx is not None:
+                if not isinstance(raw_job_tx, str) or not _JOB_TX_HASH_RE.fullmatch(raw_job_tx):
+                    raise ValueError("job_tx_hash must be a 0x-prefixed 32-byte hex hash")
+                job_tx_hash = raw_job_tx
+    return amount_units, body, job_tx_hash
 
 
 @router.post("/tasks/{task_id}/complete")
@@ -915,13 +1076,27 @@ async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None
 async def complete_task(request: Request, task_id: str, principal: OptionalAgent) -> dict[str, Any]:
     """Mark a task as complete — releases escrow payment to agent (v0.6.5).
 
-    Optional JSON body ``{"amount_units": int}`` bills a partial amount of the
-    locked escrow; the unbilled remainder is refunded to the buyer on-chain.
-    Requires a signature from the escrow's provider wallet (``entry.agent``)
-    over ``{"action","task_id","signed_at","amount_units"}`` — only the party
-    that will be paid may release the escrow. The Phase-B3 ``agent_signature``
-    (req-v1) form over ``{"task_id","amount_units","timestamp","nonce"}`` is
-    accepted equivalently — see ``_require_provider_signature``.
+    Optional JSON body ``{"amount_units": int, "job_tx_hash": "0x…",
+    "result_hash": "…"}`` bills a partial amount of the locked escrow (the
+    unbilled remainder is refunded to the buyer on-chain) and carries the
+    buyer's attestation. Requires a signature from the escrow's provider
+    wallet (``entry.agent``) over ``{"action","task_id","signed_at",
+    "amount_units"}`` — only the party that will be paid may release the
+    escrow. The Phase-B3 ``agent_signature`` (req-v1) form over
+    ``{"task_id","amount_units","timestamp","nonce"}`` is accepted
+    equivalently — see ``_require_provider_signature``.
+
+    #3080 (CRIT-1): a provider signature alone let the payee release its own
+    escrow with no work check — lock→immediately-release was a theft
+    primitive. An escrow with an on-chain lock (``tx_hash_lock``) now also
+    requires ``job_tx_hash``: the hash of the buyer-signed ``software_job``
+    completion record the chain verifies at release
+    (``_verify_job_tx_proof``). ``_verify_buyer_attestation`` checks the same
+    binding coordinator-side and additionally caps the billed amount at the
+    buyer-attested ``actual_cost`` (HIGH-2 overbilling) and, when the caller
+    asserts ``result_hash``, binds the release to the attested result. The
+    provider signature still proves *who* is paid; the attestation proves
+    the *buyer approved the result and the price*.
 
     #1749: tasks without a payment escrow settle the load-balancer assignment
     directly (agent-scope auth); escrow-backed completions also mark the
@@ -944,12 +1119,17 @@ async def complete_task(request: Request, task_id: str, principal: OptionalAgent
     if escrow_mgr is None:  # pragma: no cover - unreachable, narrows for mypy
         raise HTTPException(status_code=503, detail="Payment escrow not available")
     try:
-        amount_units, body = await _parse_complete_body(request, entry)
+        amount_units, body, job_tx_hash = await _parse_complete_body(request, entry)
     except (TypeError, ValueError) as e:
         # TypeError: amount_units was a JSON object/array — int() rejects it;
         # without this it escaped as an unhandled 500.
-        raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
+        raise HTTPException(status_code=400, detail=f"Invalid complete body: {e}") from None
     await _require_provider_signature(entry, "complete", task_id, body)
+    # #3080 (CRIT-1): an on-chain lock means real buyer funds — release now
+    # requires the buyer's sealed attestation, verified before any settlement
+    # state is touched. Bookkeeping-only escrows (no tx_hash_lock) carry no
+    # funds and keep the provider-signature contract.
+    await _verify_buyer_attestation(entry, task_id, job_tx_hash, amount_units, body)
     # #2967: the completing provider may report the result CID it pinned on
     # its own daemon. Recording it on the durable escrow entry is what lets
     # the result proxy serve buyer-side retrieval when the direct swarm leg
@@ -977,6 +1157,7 @@ async def complete_task(request: Request, task_id: str, principal: OptionalAgent
             submitter = make_release_submitter(
                 state.escrow_rpc,
                 task_id,
+                job_tx_hash=job_tx_hash,
                 amount_units=amount_units,
                 auto_reinvest_pct=float(auto_reinvest_pct) if auto_reinvest_pct is not None else None,
             )
@@ -1112,6 +1293,7 @@ def get_task_escrow(
             "tx_hash_lock": entry.tx_hash_lock,
             "tx_hash_release": entry.tx_hash_release,
             "tx_hash_refund": entry.tx_hash_refund,
+            "lock_sealed": _entry_lock_sealed(entry),
             "lock_rejected_reason": entry.metadata.get("lock_rejected_reason"),
             "release_rejected_reason": entry.metadata.get("release_rejected_reason"),
             "refund_rejected_reason": entry.metadata.get("refund_rejected_reason"),

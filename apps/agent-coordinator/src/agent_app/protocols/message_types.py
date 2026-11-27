@@ -225,6 +225,23 @@ class TaskPaid(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class TaskAttest(BaseModel):
+    """Buyer attestation of a delivered result (#3080).
+
+    Sent after the buyer has reviewed the ``task_result`` and posted its
+    buyer-signed ``software_job`` completion record on-chain. ``job_tx_hash``
+    is that record's transaction hash; the provider forwards it as
+    ``job_tx_hash`` on ``POST /tasks/{task_id}/complete`` — the chain
+    verifies it resolves to a sealed buyer-signed record bound to this
+    escrow before any funds move.
+    """
+
+    task_id: str = Field(..., description="Attested task identifier")
+    job_tx_hash: str = Field(..., description="Hash of the buyer-signed software_job completion record")
+    result_hash: str | None = Field(None, description="Result hash the buyer attested (cross-check)")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 # Envelope ``message_type`` string → payload model for the paid-delegation
 # protocol. The strings match ``MessageType`` enum members in communication.py.
 TASK_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
@@ -234,6 +251,7 @@ TASK_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
     MessageType.TASK_REJECT.value: TaskReject,
     MessageType.TASK_RESULT.value: TaskResult,
     MessageType.TASK_PAID.value: TaskPaid,
+    MessageType.TASK_ATTEST.value: TaskAttest,
 }
 
 

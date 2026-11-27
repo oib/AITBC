@@ -412,21 +412,50 @@ class TestCompleteReinvestWiring:
         entry.metadata.update(metadata)
         return entry
 
-    def test_complete_forwards_and_records_reinvest(self, monkeypatch):
-        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+    _JOB_TX = "0x" + "ab" * 32
+
+    def _attesting_rpc(self, task_id: str, provider: str, reinvest: bool = True):
+        """FakeRPC that also answers transaction_status with a sealed, bound
+        buyer software_job record — the #3080 attestation complete now needs."""
 
         class FakeRPC:
             def __init__(self):
                 self.release_kwargs = {}
 
+            def transaction_status(self, tx_hash, chain_id=None):
+                assert tx_hash == TestCompleteReinvestWiring._JOB_TX
+                return {
+                    "status": "confirmed",
+                    "block_height": 7,
+                    "type": "GPU_MARKET",
+                    "sender": "0xBuyer",
+                    "payload": {
+                        "action": "software_job",
+                        "status": "completed",
+                        "job_id": task_id,
+                        "result_hash": "0xresult",
+                        "buyer_address": "0xBuyer",
+                        "provider_address": provider,
+                        "actual_cost": "1",
+                    },
+                }
+
             def release(self, job_id, **kwargs):
                 self.release_kwargs = kwargs
-                return {"tx_hash": "0xrel", "reinvest_stake_id": "9", "reinvest_amount": "0.5"}
+                if reinvest:
+                    return {"tx_hash": "0xrel", "reinvest_stake_id": "9", "reinvest_amount": "0.5"}
+                return {"tx_hash": "0xrel"}
 
-        rpc = FakeRPC()
+        return FakeRPC()
+
+    def test_complete_forwards_and_records_reinvest(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
         pk = generate_ethereum_private_key()
+        provider = derive_ethereum_address(pk)
+        rpc = self._attesting_rpc("t-rv", provider)
         client, escrow = self._client(monkeypatch, rpc)
-        self._locked(escrow, "t-rv", derive_ethereum_address(pk), auto_reinvest_pct="50")
+        self._locked(escrow, "t-rv", provider, auto_reinvest_pct="50")
 
         from aitbc.crypto.crypto import sign_transaction_data
 
@@ -434,10 +463,14 @@ class TestCompleteReinvestWiring:
         # The verifier rebuilds the signed fields as
         # {action, task_id, signed_at, amount_units:0} when the body omits it.
         sig = sign_transaction_data({"action": "complete", "task_id": "t-rv", "signed_at": signed_at, "amount_units": 0}, pk)
-        resp = client.post("/v1/tasks/t-rv/complete", json={"signed_at": signed_at, "signature": sig})
+        resp = client.post(
+            "/v1/tasks/t-rv/complete",
+            json={"signed_at": signed_at, "signature": sig, "job_tx_hash": self._JOB_TX},
+        )
 
         assert resp.status_code == 200, resp.text
         assert rpc.release_kwargs["auto_reinvest_pct"] == 50.0
+        assert rpc.release_kwargs["job_tx_hash"] == self._JOB_TX
         body = resp.json()
         assert body["reinvest_status"] == "staked"
         assert body["reinvest_stake_id"] == "9"
@@ -446,20 +479,13 @@ class TestCompleteReinvestWiring:
         assert entry.metadata["reinvest_status"] == "staked"
 
     def test_complete_without_reinvest_sends_no_pct(self, monkeypatch):
-        class FakeRPC:
-            def __init__(self):
-                self.release_kwargs = {}
-
-            def release(self, job_id, **kwargs):
-                self.release_kwargs = kwargs
-                return {"tx_hash": "0xrel"}
-
-        rpc = FakeRPC()
+        rpc = self._attesting_rpc("t-plain", "", reinvest=False)
         client, escrow = self._client(monkeypatch, rpc)
         self._locked(escrow, "t-plain", "")  # no bound agent: unsigned bookkeeping path
-        resp = client.post("/v1/tasks/t-plain/complete")
+        resp = client.post("/v1/tasks/t-plain/complete", json={"job_tx_hash": self._JOB_TX})
         assert resp.status_code == 200, resp.text
         assert rpc.release_kwargs["auto_reinvest_pct"] is None
+        assert rpc.release_kwargs["job_tx_hash"] == self._JOB_TX
         assert resp.json()["reinvest_status"] is None
 
 

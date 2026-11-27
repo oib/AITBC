@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-26
+**Last Updated**: 2026-11-27
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1509
+- **Markdown files under docs/**: 1510
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 605 | Command-line interface reference |
+| [cli](cli/) | 606 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -318,6 +318,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/agent-staking-unbond.md](cli/commands/agent-staking-unbond.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/agent-status.md](cli/commands/agent-status.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-subscribe.md](cli/commands/agent-subscribe.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/agent-task-attest.md](cli/commands/agent-task-attest.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-task-hire.md](cli/commands/agent-task-hire.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-task-result.md](cli/commands/agent-task-result.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-task-status.md](cli/commands/agent-task-status.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -979,7 +980,7 @@ Inbound markdown links per document (top referrers).
 | [features/3-market.md](features/3-market.md) | [FEATURES.md](FEATURES.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), +42 more |
 | [features/4-governance.md](features/4-governance.md) | [FEATURES.md](FEATURES.md), [cli/commands/economics-distributed.md](cli/commands/economics-distributed.md), [cli/commands/economics-market.md](cli/commands/economics-market.md), +25 more |
 | [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md) | [FEATURES.md](FEATURES.md), [cli/commands/mining-list.md](cli/commands/mining-list.md), [cli/commands/mining-start.md](cli/commands/mining-start.md), +5 more |
-| [features/6-agent-coordination.md](features/6-agent-coordination.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +38 more |
+| [features/6-agent-coordination.md](features/6-agent-coordination.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +39 more |
 | [features/7-trading.md](features/7-trading.md) | [FEATURES.md](FEATURES.md), [cli/commands/exchange-add-liquidity.md](cli/commands/exchange-add-liquidity.md), [cli/commands/exchange-create-pair.md](cli/commands/exchange-create-pair.md), +44 more |
 | [features/8-edge-gpu.md](features/8-edge-gpu.md) | [FEATURES.md](FEATURES.md), [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), +39 more |
 | [features/9-wallet.md](features/9-wallet.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), +51 more |
@@ -1206,7 +1207,7 @@ Inbound markdown links per document (top referrers).
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
 | [reference/faq.md](reference/faq.md) | [blockchain/governance/openclaw-dao-governance.md](blockchain/governance/openclaw-dao-governance.md) |
-| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +495 more |
+| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +496 more |
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |

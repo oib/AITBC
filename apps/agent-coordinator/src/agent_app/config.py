@@ -144,6 +144,12 @@ class Settings(ServiceSettings):
     task_payment_escrow_enabled: bool = False
     # not-money: a duration in seconds; only the escrow it guards is money
     task_payment_timeout_seconds: float = 3600.0
+    # #3080 (HIGH-4): floor on a buyer-chosen escrow timeout. A near-zero
+    # timeout lets the expire sweep refund the lock before the provider can
+    # finish — free work for the buyer. 15 minutes covers the bounded
+    # whisper/ffmpeg/ollama task paths plus attest+release latency.
+    # not-money: a duration in seconds; only the escrow it guards is money
+    task_payment_min_timeout_seconds: float = float(os.getenv("TASK_PAYMENT_MIN_TIMEOUT_SECONDS", "900"))
     # not-money: a duration in seconds; interval between expire_stale() sweeps (0 disables)
     task_payment_sweep_seconds: float = float(os.getenv("TASK_PAYMENT_SWEEP_SECONDS", "60"))
     task_max_retries: int = 3
