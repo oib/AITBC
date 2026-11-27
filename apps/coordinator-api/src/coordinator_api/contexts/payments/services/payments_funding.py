@@ -36,8 +36,14 @@ from .payments_helpers import (
 from .payments_core import _payment_order_key
 from .payments_helpers import _evm_tx_hash, _rebuild_evm_quote, _rebuild_payment_data
 from .payments_escrow import PaymentEscrowMixin
+from ..provider_binding import same_address
 
 logger = get_logger(__name__)
+
+# The JobPaymentCreate.amount validator rounds to 8 decimal places; the agreed
+# price stored on the job may carry more, so the payable amount is the agreed
+# price at the payment schema's own precision.
+_PAYMENT_AMOUNT_QUANTUM = Decimal("0.00000001")
 
 
 class PaymentFundingMixin(PaymentEscrowMixin):
@@ -168,6 +174,7 @@ class PaymentFundingMixin(PaymentEscrowMixin):
         is not protected/quote-backed).
         """
         if not (payment_data.protected or payment_data.energy_quote):
+            self._bind_payment_terms(job, payment_data, meta)
             return payment_data.amount, None
         if payment_data.payment_method not in ("aitbc_token", "evm"):
             raise HTTPException(
@@ -201,6 +208,43 @@ class PaymentFundingMixin(PaymentEscrowMixin):
         if not payment_data.buyer_address and quote.buyer:
             payment_data.buyer_address = quote.buyer
         return amount, quote
+
+    def _bind_payment_terms(
+        self,
+        job: Job,
+        payment_data: JobPaymentCreate,
+        meta: dict[str, Any],
+    ) -> None:
+        """#3066: bind the funded amount and payee to the job's agreed terms.
+
+        ``POST /v1/jobs`` validates the price against the offer quote (or the
+        declared ``payment_amount``) and stores it on ``job.payment_amount`` —
+        the immutable quote record. Payment creation never re-checked it, so a
+        buyer could escrow-pay arbitrarily less than agreed and
+        ``_sync_job_payment`` then overwrote the agreed price with the funded
+        one. The amount must equal the agreed price at the payment schema's own
+        precision; the payee must be the provider the job was priced against.
+        """
+        agreed = job.payment_amount
+        if agreed is not None and agreed > 0:
+            payable = agreed.quantize(_PAYMENT_AMOUNT_QUANTUM)
+            if payment_data.amount != payable:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(f"payment amount {payment_data.amount} does not match the job's agreed price {payable}"),
+                )
+        bound_provider = job.provider_address
+        if bound_provider:
+            if payment_data.provider_address and not same_address(payment_data.provider_address, bound_provider):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(
+                        f"provider_address {payment_data.provider_address} does not match the "
+                        f"provider this job was priced against ({bound_provider})"
+                    ),
+                )
+            payment_data.provider_address = bound_provider
+            meta["provider_address"] = bound_provider
 
     async def _route_escrow(
         self,
@@ -248,7 +292,12 @@ class PaymentFundingMixin(PaymentEscrowMixin):
         # D: keep the denormalized job row in sync with the authoritative
         # JobPayment row for display/listing purposes. Security and threshold
         # checks must use JobPayment.amount directly.
-        job.payment_amount = payment.amount
+        # #3066: payment_amount is the agreed price recorded at job/quote time
+        # and is bound to the funded amount by _bind_payment_terms — it must
+        # never be overwritten by it. An unpriced job is priced by this
+        # payment, so the funded amount is recorded only when none exists.
+        if job.payment_amount is None:
+            job.payment_amount = payment.amount
         job.payment_token = payment_data.currency
         # E1: copy the protected rental binding to the job for dispatch.
         if payment_data.protected and payment_data.energy_quote:
