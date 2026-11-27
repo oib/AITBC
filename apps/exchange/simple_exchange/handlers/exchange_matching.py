@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
-from ..db import connect_db, to_ticks
+from ..db import SETTLE_GRID_TICKS, connect_db, to_ticks
 from .exchange_helpers import (
     _apply_exchange_fee,
     _close_buy_debit,
@@ -296,6 +296,18 @@ def _fill_from_match(
 
     # B2: Calculate trade quantity with Decimal (exact arithmetic)
     trade_qty = min(new_remaining, match_remaining)
+    if settlement:
+        # #3046: settlement converts each fill's AIT quantity to chain
+        # units independently (ROUND_HALF_UP) — exact only on the 25-tick
+        # grid. A fill off the grid (legacy/pre-fix order rows) can
+        # over-draw the escrow lock, so it must never trade; the order
+        # stays open until expiry refunds it instead.
+        try:
+            qty_ticks = to_ticks(trade_qty)
+        except ValueError:
+            return None
+        if qty_ticks % SETTLE_GRID_TICKS:
+            return None
     trade_total = trade_qty * match_price
     fee_ait = _match_fee_ait(order, match_filled, trade_qty, new_type, settlement)
     buyer_addr = order.get("user_address") if new_type == "BUY" else match_row[9]

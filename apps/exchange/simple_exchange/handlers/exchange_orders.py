@@ -18,7 +18,7 @@ from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
 from aitbc_errors import AITBCError
 
-from ..db import connect_db, ticks_to_decimal, to_ticks
+from ..db import SETTLE_GRID_TICKS, connect_db, ticks_to_decimal, to_ticks
 from .base import _env_int, _idempotency_key, _rate_limit_hit, get_operation_ledger
 from .exchange_helpers import (
     BAND_CACHE_TTL_S,
@@ -111,6 +111,12 @@ class ExchangeOrdersMixin:
             price_ticks = to_ticks(price_dec)
         except ValueError:
             self.send_error(400, "Amount or price exceeds 8-decimal precision")  # type: ignore[attr-defined]
+            return None
+
+        # #3046: per-fill ROUND_HALF_UP settlement is exact only on the
+        # 25-tick grid — an off-grid amount can over-draw the escrow lock.
+        if amount_ticks % SETTLE_GRID_TICKS:
+            self.send_error(400, "Amount must be a multiple of 25 ticks (settle-exact grid)")  # type: ignore[attr-defined]
             return None
 
         return order_type, user_address, amount_dec, price_dec, total_dec, amount_ticks, price_ticks
@@ -431,6 +437,8 @@ class ExchangeOrdersMixin:
                 return f"Invalid {field}"
         if envelope["amount_ticks"] <= 0 or envelope["price_ticks"] <= 0:
             return "Amount and price must be positive"
+        if envelope["amount_ticks"] % SETTLE_GRID_TICKS:
+            return "Amount must be a multiple of 25 ticks (settle-exact grid)"
         return None
 
     def _cancel_envelope_error(self, envelope: dict) -> str | None:

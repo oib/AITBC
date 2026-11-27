@@ -52,6 +52,19 @@ TICKS_PER_UNIT = 100_000_000
 TICK_DECIMAL_PLACES = 8
 _INT64_MAX = (2**63) - 1
 
+# AIT settles on-chain in integer units of 1/36,000,000 AIT while the
+# orderbook speaks 1e-8-AIT ticks: ticks -> units is ticks * 9/25, exact
+# iff ticks % 25 == 0 (#3046). Settlement converts each fill independently
+# with ROUND_HALF_UP, so a fill quantity off this grid can pay a fraction
+# of a unit more than the escrow lock holds — order amounts and every
+# derived fill must stay on the grid.
+SETTLE_GRID_TICKS = 25
+
+
+def on_settle_grid(ticks: int) -> bool:
+    """True when ``ticks`` converts to chain units exactly (no rounding)."""
+    return ticks % SETTLE_GRID_TICKS == 0
+
 
 def to_ticks(value: Decimal) -> int:
     """Convert a Decimal to integer ticks — fail closed, never round.

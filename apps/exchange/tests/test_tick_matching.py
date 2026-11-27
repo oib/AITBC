@@ -243,16 +243,17 @@ class TestPlaceOrderBoundary:
         assert handler.send_error.call_args[0][0] == 400
 
     def test_subtick_product_accepted(self, temp_db):
-        """amount*price with >8dp is fine: total stays exact TEXT, never SQL-compared."""
-        handler = self._handler({"order_type": "BUY", "amount": "0.00000003", "price": "0.00000001", "user_address": "0xuser"})
+        """amount*price with >8dp is fine: total stays exact TEXT, never SQL-compared.
+        #3046: amount must sit on the 25-tick settle grid — 0.00000025 does."""
+        handler = self._handler({"order_type": "BUY", "amount": "0.00000025", "price": "0.00000001", "user_address": "0xuser"})
         with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=temp_db):
             handler.handle_place_order()
         handler.send_error.assert_not_called()
         conn = sqlite3.connect(temp_db)
         row = conn.execute("SELECT total, amount_ticks, price_ticks FROM orders").fetchone()
         conn.close()
-        assert row[0] == "3E-16"  # exact product, kept as TEXT
-        assert row[1:] == (3, 1)
+        assert row[0] == "2.5E-15"  # exact product, kept as TEXT
+        assert row[1:] == (25, 1)
 
     def test_valid_order_persists_ticks(self, temp_db):
         handler = self._handler({"order_type": "BUY", "amount": "5", "price": "1.5", "user_address": "0xuser"})

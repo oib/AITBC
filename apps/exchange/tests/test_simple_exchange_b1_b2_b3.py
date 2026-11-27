@@ -585,8 +585,11 @@ class TestSignedEnvelopeInt64Bounds:
 
     def test_order_envelope_accepts_int64_max(self):
         handler = self._handler()
+        # #3046: amount_ticks must sit on the 25-tick settle grid — the
+        # largest int64 value that does is INT64_MAX - 7.
+        grid_max = self.INT64_MAX - (self.INT64_MAX % 25)
         envelope = self._order_envelope(
-            amount_ticks=self.INT64_MAX,
+            amount_ticks=grid_max,
             price_ticks=self.INT64_MAX,
             expiry_height=self.INT64_MAX,
             account_nonce=self.INT64_MAX,
