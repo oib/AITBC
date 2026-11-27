@@ -285,7 +285,7 @@ aitbc-blockchain-rpc (port 8202)
 
 **Auto-trigger:** When a market offer is booked via `POST /v1/market/offers/{offer_id}/book`, the market-service automatically calls `POST /rpc/escrow/create`.
 
-**API Gateway:** Escrow endpoints are also accessible via the API gateway at `http://localhost:8201/v1/escrow/*` — the prefix rewrites `/v1/escrow/create` → `/rpc/escrow/create` on the node.
+**API Gateway:** read-only escrow state (`GET /v1/escrow/{job_id}`) is also reachable via the API gateway at `http://localhost:8201/v1/escrow/*` — the prefix rewrites to `/rpc/escrow/*` on the node. Mutating calls (`create`, `release`, `refund`) are **not** proxied by the gateway (#3082): they are an nginx source-IP chokepoint upstream, and the gateway must not collapse that control to the shared credentials. Settlement flows call the chain RPC directly (CLI, agent-coordinator) or use the coordinator's JWT relays (`POST /v1/escrow/relay|release|refund` via the coordinator service).
 
 ---
 

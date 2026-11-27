@@ -33,6 +33,7 @@ import shlex
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -482,6 +483,132 @@ def _scratch_escape_error(host: str, command: str, bad: list[str]) -> dict[str, 
     }
 
 
+# AUDIT-PERIMETER-RESIDUAL-1 (#3082): ``wallet export``/``wallet backup``
+# write key material to a caller-chosen ``--destination`` and
+# ``confirm=true`` is model-controlled, so the bound lives at this one
+# choke point every real run passes through — the generated wrappers and
+# the generic ``run_aitbc_cli`` alike. Destinations must be absolute paths
+# beneath ``AITBC_MCP_WALLET_BACKUP_ROOT`` (default the fleet's
+# /var/backups/aitbc convention), must not already exist, and a missing
+# --destination gets a timestamped default inside the root instead of the
+# CLI's CWD-relative ``<wallet>_export.json`` — no arbitrary-path write,
+# no overwrite of an existing file.
+WALLET_BACKUP_ROOT = os.path.normpath(os.getenv("AITBC_MCP_WALLET_BACKUP_ROOT", "/var/backups/aitbc/wallets"))
+_WALLET_KEYFILE_SUBCOMMANDS = frozenset({"export", "backup"})
+
+
+def _wallet_keyfile_leaf(group: str, subcommand: str | list[str] | None, args: list[str] | None) -> str | None:
+    """``"export"``/``"backup"`` when the effective command is a wallet
+    key-file write, else None. ``args`` can wholly supply the subcommand
+    path (``subcommand=None, args=["export"]``), mirroring the destructive
+    classifier's effective-path construction."""
+    if group != "wallet":
+        return None
+    tokens = _subcommand_tokens(subcommand)
+    if not tokens:
+        tokens = [str(a) for a in (args or []) if not _looks_like_option_token(str(a))]
+    if tokens and tokens[0].lower() in _WALLET_KEYFILE_SUBCOMMANDS:
+        return tokens[0].lower()
+    return None
+
+
+def _wallet_export_destinations(args: list[str] | None, options: dict[str, Any]) -> list[str]:
+    """Every ``--destination`` value the built command would carry.
+
+    Scans the subcommand option map (the ``options``/``subcommand_options``
+    alias pair resolved by the caller) and ``args`` — Click reparses
+    option-shaped positional tokens, so ``--destination=…`` can hide there.
+    """
+    dests: list[str] = []
+    for key, value in (options or {}).items():
+        if str(key).lstrip("-") != "destination":
+            continue
+        if isinstance(value, list):
+            dests.extend(str(v) for v in value if v not in (None, ""))
+        elif value not in (None, ""):
+            dests.append(str(value))
+    arg_tokens = [str(a) for a in (args or [])]
+    for i, token in enumerate(arg_tokens):
+        if token.startswith("--destination="):
+            dests.append(token.split("=", 1)[1])
+        elif token == "--destination" and i + 1 < len(arg_tokens):
+            dests.append(arg_tokens[i + 1])
+    return dests
+
+
+def _wallet_backup_path_error(dest: str) -> str | None:
+    """Lexical refusal reason for a wallet key-file destination, or None."""
+    if not dest.startswith("/"):
+        return f"destination must be an absolute path under {WALLET_BACKUP_ROOT}: {dest!r}"
+    norm = os.path.normpath(dest)
+    root = os.path.normpath(WALLET_BACKUP_ROOT)
+    if norm == root or not norm.startswith(root + "/"):
+        return f"destination must name a file under {WALLET_BACKUP_ROOT}: {dest!r}"
+    return None
+
+
+def _wallet_keyfile_base_name(*option_maps: dict[str, Any] | None) -> str:
+    """Best-effort wallet name for the injected default filename."""
+    for source in option_maps:
+        for key in ("name", "wallet-name", "wallet_name"):
+            value = (source or {}).get(key)
+            if isinstance(value, str) and value:
+                return re.sub(r"[^A-Za-z0-9_.-]", "_", value)[:64] or "wallet"
+    return "wallet"
+
+
+# Remote-shell pre-flight for wallet key-file destinations: resolves
+# realpaths on the target (a symlink inside the backup root must not
+# redirect the write), creates the root, and refuses existing targets —
+# same contract as ``_CLI_PATH_GUARD`` for scratch paths (#2498).
+_WALLET_DEST_GUARD = (
+    "import os,sys\n"
+    f"root={WALLET_BACKUP_ROOT!r}\n"
+    "rr=os.path.realpath(root)\n"
+    "os.makedirs(rr, mode=0o700, exist_ok=True)\n"
+    "bad=[]\n"
+    "for p in sys.argv[1:]:\n"
+    "    r=os.path.realpath(p)\n"
+    "    if not r.startswith(rr+'/'):\n"
+    "        bad.append(p+' -> '+r)\n"
+    "    elif os.path.lexists(r):\n"
+    "        bad.append(p+' (already exists)')\n"
+    "if bad:\n"
+    "    sys.stderr.write('wallet key-file destination refused under '+rr+': '+'; '.join(bad)+'\\n')\n"
+    "    sys.exit(3)\n"
+)
+
+
+def _wallet_dest_guard_prefix(paths: list[str]) -> str:
+    """Remote-shell prefix running the realpath/existence guard first."""
+    quoted = " ".join(shlex.quote(p) for p in paths)
+    return f"python3 -c {shlex.quote(_WALLET_DEST_GUARD)} {quoted} && "
+
+
+def _wallet_dest_local_check(host: str, dests: list[str]) -> dict[str, Any] | None:
+    """In-process equivalent of ``_WALLET_DEST_GUARD`` for local-mode runs."""
+    root_real = os.path.realpath(WALLET_BACKUP_ROOT)
+    os.makedirs(root_real, mode=0o700, exist_ok=True)
+    bad: list[str] = []
+    for path in dests:
+        resolved = os.path.realpath(path)
+        if not resolved.startswith(root_real + "/"):
+            bad.append(f"{path} -> {resolved}")
+        elif os.path.lexists(resolved):
+            bad.append(f"{path} (already exists)")
+    if bad:
+        return {
+            "error": f"wallet key-file destination refused under {root_real}/",
+            "paths": bad,
+            "host": host,
+            "command": "",
+            "returncode": -1,
+            "stdout": "",
+            "stderr": "",
+        }
+    return None
+
+
 # Secret-shaped names that are still allowed through ``env`` because their
 # value is a *path to* a secret file, never the secret itself — the same
 # exposure class as the ``--password-file`` option the generated tools already
@@ -917,6 +1044,69 @@ def _safe_command(command: str) -> tuple[bool, list[str]]:
 # ---------------------------------------------------------------------------
 
 
+def _prepare_wallet_keyfile_dests(
+    host: str,
+    group: str,
+    subcommand: str | list[str] | None,
+    args: list[str] | None,
+    options: dict[str, Any] | None,
+    group_options: dict[str, Any] | None,
+    subcommand_options: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, list[str] | None, dict[str, Any] | None]:
+    """Bound the key-file destination for wallet export/backup commands (#3082).
+
+    Returns ``(subcommand_options, destinations, refusal)``: the option map
+    to hand the command builder (``subcommand_options`` unchanged when the
+    command writes no key file), the destination list the run-time guard
+    must check, and a refusal dict when a caller-supplied destination
+    escapes the backup root — in which case nothing may run.
+    """
+    keyfile_leaf = _wallet_keyfile_leaf(group, subcommand, args)
+    if keyfile_leaf is None:
+        return subcommand_options, None, None
+    # The builder treats ``options`` as an alias for ``subcommand_options``
+    # (subcommand_options wins when both are given) — mirror that merge.
+    eff = dict(subcommand_options) if subcommand_options else dict(options or {})
+    wallet_dests = _wallet_export_destinations(args, eff)
+    for dest in wallet_dests:
+        if error := _wallet_backup_path_error(dest):
+            return (
+                None,
+                None,
+                {
+                    "error": error,
+                    "host": host,
+                    "command": "",
+                    "returncode": -1,
+                    "stdout": "",
+                    "stderr": "",
+                },
+            )
+    if not wallet_dests:
+        base = _wallet_keyfile_base_name(eff, group_options)
+        eff["destination"] = f"{WALLET_BACKUP_ROOT}/{base}-{keyfile_leaf}-{int(time.time())}.json"
+        wallet_dests = [eff["destination"]]
+    return eff, wallet_dests, None
+
+
+def _apply_wallet_dest_guard(host: str, wallet_dests: list[str] | None, command: str) -> tuple[str, dict[str, Any] | None]:
+    """Run-time bound for wallet key-file destinations (#3082).
+
+    Local execution refuses when the resolved path escapes the backup root;
+    remote execution prepends a shell pre-flight that re-checks the bound on
+    the target before the CLI runs. Returns ``(command, refusal)``.
+    """
+    if wallet_dests is None:
+        return command, None
+    if _execution_context(host)["mode"] == "local":
+        refused = _wallet_dest_local_check(host, wallet_dests)
+        if refused is not None:
+            return command, refused
+    else:
+        command = _wallet_dest_guard_prefix(wallet_dests) + command
+    return command, None
+
+
 def _run_aitbc_cli(
     host: str,
     group: str,
@@ -933,6 +1123,11 @@ def _run_aitbc_cli(
     stdin_text: str | None = None,
 ) -> dict[str, Any]:
     """Run an aitbc CLI subcommand on a remote host and optionally parse JSON."""
+    sub_opts, wallet_dests, refused = _prepare_wallet_keyfile_dests(
+        host, group, subcommand, args, options, group_options, subcommand_options
+    )
+    if refused is not None:
+        return refused
     command = _build_aitbc_cli_command(
         group,
         subcommand,
@@ -940,10 +1135,13 @@ def _run_aitbc_cli(
         options,
         output_format,
         group_options=group_options,
-        subcommand_options=subcommand_options,
+        subcommand_options=sub_opts,
         env=env,
         cwd=cwd,
     )
+    command, refused = _apply_wallet_dest_guard(host, wallet_dests, command)
+    if refused is not None:
+        return refused
     # #2498: cwd/env values passed the lexical scratch check, but a symlink
     # under /var/tmp could still redirect them outside the root. Resolve
     # realpaths on the target: refuse locally, prepend a remote pre-flight.
@@ -1184,6 +1382,7 @@ from aitbc_mcp_cli_helpers import (  # noqa: F401  # re-exports moved helpers as
     _collect_options,
     _is_aitbc_subcommand_destructive,
     _is_aitbc_subcommand_read_only,
+    _looks_like_option_token,
     _option_key_suggests_mutation,
     _options_suggest_mutation,
     _safe_option_key,

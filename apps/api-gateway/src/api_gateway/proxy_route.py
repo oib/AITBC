@@ -47,6 +47,41 @@ if TYPE_CHECKING:
     )
 
 
+# Methods that cannot mutate upstream state — the same read class the edge
+# nginx leaves to the application's own auth under /rpc/escrow/.
+_SAFE_PROXY_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def _escrow_mutation_blocked(service_name: str, upstream_path: str, method: str) -> bool:
+    """True when this proxied call would hit a mutating chain escrow route (#3082).
+
+    The chain's ``/rpc/escrow/create``, ``/rpc/escrow/{job}/release`` and
+    ``/rpc/escrow/{job}/refund`` are guarded upstream only by two shared
+    credentials (``X-API-Key`` + ``X-Settlement-Key``), both of which this
+    gateway forwards verbatim. The edge nginx treats non-GET under
+    ``/rpc/escrow/`` as a source-IP chokepoint; proxying those calls here
+    would collapse that independent control to the credential pair alone.
+    Read-only escrow state (GET ``/rpc/escrow/{job}``) stays proxied — nginx
+    leaves it to application auth too. No legitimate settlement flow uses
+    the gateway: the CLI and agent-coordinator call the chain RPC directly
+    and the customer-facing release/refund path is the coordinator's JWT
+    relay (``/v1/coordinator`` → ``v1/escrow/*``), which is unaffected.
+    """
+    if method.upper() in _SAFE_PROXY_METHODS:
+        return False
+    if service_name == "escrow":
+        # The whole v1 "escrow" service rewrites under the node's /rpc/escrow/.
+        return True
+    if service_name == "chain":
+        # v2 forwards verbatim: /api/v2/chain/rpc/escrow/<job>/release lands
+        # on the same mutating route as the v1 spelling above. The bare
+        # "escrow/" spelling covers a BLOCKCHAIN_RPC_URL configured with a
+        # trailing /rpc (the upstream path then drops the rpc segment).
+        rel = upstream_path.lstrip("/")
+        return rel.startswith("rpc/escrow/") or rel.startswith("escrow/")
+    return False
+
+
 def _resolve_target(path: str) -> tuple[str, str] | JSONResponse:
     """Resolve an incoming path to ``(service name, upstream URL)``.
 
@@ -253,6 +288,20 @@ async def proxy_request(
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"error": f"Circuit breaker is open for {service_name}, service temporarily unavailable"},
+        )
+    if _escrow_mutation_blocked(service_name, _upstream_path(service_name, target_url), request.method):
+        # #3082: mutating chain escrow routes are an nginx source-IP
+        # chokepoint; the gateway must not collapse that control to the
+        # shared X-API-Key/X-Settlement-Key pair it forwards verbatim.
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "error": {
+                    "type": "escrow_mutation_not_proxied",
+                    "message": "Mutating escrow routes are not served through the API gateway; "
+                    "use the chain RPC directly or the coordinator escrow relay.",
+                }
+            },
         )
     client = app.state.http_client
     try:

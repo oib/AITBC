@@ -481,7 +481,13 @@ class QueueJobRequest(BaseModel):
 
 @app.post("/v1/market/edge-gpu/optimize/inference/{gpu_id}")
 async def optimize_inference(
-    gpu_id: str, request: OptimizeInferenceRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
+    gpu_id: str,
+    request: OptimizeInferenceRequest,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    # #3082: every neighboring /v1 route gates on the shared GPU API key —
+    # this one was the lone unauthenticated mutating surface. Gate it before
+    # the placeholder grows real behavior.
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
 ):
     """Optimize ML inference request for edge GPU"""
     return svc.optimize_inference_for_edge(gpu_id, request.model_name, request.request_data)

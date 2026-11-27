@@ -584,6 +584,53 @@ def logs(
         raise click.ClickException(f"Error reading logs for {service_name}: {e}") from e
 
 
+# ``systemctl cat`` prints inline ``Environment=`` assignments verbatim —
+# unit drop-ins routinely carry KEY/SECRET/TOKEN-shaped values that would
+# land in agent transcripts and CLI scrollback (#3082). The deny rules are
+# the same ``_field_name_denied`` list ``system env-set``/``env-names``
+# enforce, so a name refused for writing is masked for reading too.
+_SYSTEMCTL_CAT_ENV_LINE = re.compile(r"^(?P<prefix>\s*Environment=)(?P<body>.*)$")
+# One ``NAME=value`` pair inside an Environment= line. ``lead``/``(?P=lead)``
+# cover systemd's quote-wrapped form ``Environment="NAME=value"``; the value
+# alternation covers ``"a b"``, ``'a b'`` and bare tokens.
+_ENV_ASSIGNMENT = re.compile(
+    r"(?P<lead>[\"']?)(?P<name>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>\"(?:[^\"\\]|\\.)*\"|'[^']*'|[^\s\"']+)(?P=lead)"
+)
+_ENV_REDACTED = "<redacted>"
+
+
+def _redact_unit_environment(text: str) -> str:
+    """Mask secret-shaped ``Environment=`` values in ``systemctl cat`` output.
+
+    Only ``Environment=`` lines are touched — ``EnvironmentFile=`` names a
+    path, not a secret. Assignment values keep their quoting shape; the
+    variable name stays visible so the unit remains diagnosable.
+    """
+
+    def _sub(match: re.Match[str]) -> str:
+        name = match.group("name")
+        if not _field_name_denied(name):
+            return match.group(0)
+        lead = match.group("lead")
+        if lead:
+            return f"{lead}{name}={_ENV_REDACTED}{lead}"
+        value = match.group("value")
+        if value[:1] in ('"', "'"):
+            quote = value[0]
+            return f"{name}={quote}{_ENV_REDACTED}{quote}"
+        return f"{name}={_ENV_REDACTED}"
+
+    lines = []
+    for line in text.splitlines():
+        env = _SYSTEMCTL_CAT_ENV_LINE.match(line)
+        if env is None:
+            lines.append(line)
+            continue
+        lines.append(env.group("prefix") + _ENV_ASSIGNMENT.sub(_sub, env.group("body")))
+    redacted = "\n".join(lines)
+    return redacted + ("\n" if text.endswith("\n") else "")
+
+
 @system.command(
     epilog="""Examples:
 
@@ -592,7 +639,11 @@ def logs(
 @click.option("--service", required=True, help="Service to show unit file for")
 @click.pass_context
 def cat(ctx, service: str):
-    """Display the systemd unit file for a service."""
+    """Display the systemd unit file for a service.
+
+    Secret-shaped ``Environment=`` values are masked — the full unit text is
+    available via ``systemctl cat`` directly for operators who need it.
+    """
     service_name = _service_unit_name(service)
     try:
         result = subprocess.run(
@@ -602,7 +653,7 @@ def cat(ctx, service: str):
             timeout=30,
         )
         if result.returncode == 0:
-            click.echo(result.stdout)
+            click.echo(_redact_unit_environment(result.stdout))
             return
         raise click.ClickException(
             result.stderr.strip() or result.stdout.strip() or f"systemctl cat failed for {service_name}"

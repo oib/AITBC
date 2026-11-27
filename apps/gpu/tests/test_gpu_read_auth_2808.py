@@ -79,3 +79,15 @@ def test_no_other_v1_get_is_unauthenticated():
         if method == "get" and path not in _PUBLIC and not _depends_on_gpu_key(fn)
     ]
     assert ungated == [], f"unauthenticated /v1 GET routes: {ungated}"
+
+
+def test_optimize_inference_requires_gpu_api_key():
+    """#3082 (AUDIT-PERIMETER-RESIDUAL-1 / L-1): the edge-gpu optimize POST was
+    the lone unauthenticated mutating route — every neighbor gates on
+    require_gpu_api_key. Pin it before the placeholder grows real behavior.
+    (The /v1/miners/{poll,result,fail,earnings} POSTs are 501 stubs that
+    mutate nothing.)"""
+    routes = _route_functions()
+    fn = routes.get(("post", "/v1/market/edge-gpu/optimize/inference/{gpu_id}"))
+    assert fn is not None, "optimize_inference route not found"
+    assert _depends_on_gpu_key(fn), "optimize_inference must depend on require_gpu_api_key"

@@ -2,7 +2,7 @@
 
 # `aitbc system cat`
 
-Display the systemd unit file for a service.
+Display the systemd unit file for a service. Secret-shaped ``Environment=`` values are masked — the full unit text is available via ``systemctl cat`` directly for operators who need it.
 
 ## Usage
 

@@ -134,6 +134,8 @@ def test_escrow_prefix_forwards_to_rpc_escrow(client, monkeypatch):
 
     The generic prefix-strip drops `v1/escrow`; without the rewrite entry the
     registered prefix could never reach the node's `/rpc/escrow/*` routes.
+    GET is used because mutating escrow calls are refused at the gateway
+    (#3082) — see test_escrow_mutation_gate_3082.py.
     """
     import httpx
 
@@ -158,7 +160,7 @@ def test_escrow_prefix_forwards_to_rpc_escrow(client, monkeypatch):
     # Patch the app the client actually serves — the module-level `app` name can
     # go stale when test_rate_limiting reloads api_gateway.main.
     monkeypatch.setattr(client.app.state, "http_client", FakeClient())
-    response = client.post("/v1/escrow/create", json={})
+    response = client.get("/v1/escrow/job-1")
 
     assert response.status_code == 200
-    assert captured["url"].endswith("/rpc/escrow/create")
+    assert captured["url"].endswith("/rpc/escrow/job-1")
