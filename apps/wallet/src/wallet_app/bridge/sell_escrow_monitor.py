@@ -528,18 +528,39 @@ def _funding_sources() -> set[str]:
     return {a.strip().lower() for a in raw.split(",") if a.strip()}
 
 
+def exchange_order_id(payload_value: Any) -> int | None:
+    """The exchange order id a ``payload.sell_quote`` value names — a
+    *positive* int or an all-digit string parsing > 0 — else None.
+
+    #3050: this is the single arbitration rule both escrow lanes share.
+    Order ids are positive sqlite rowids, and the exchange lane's
+    ``-order_id`` refund ref_id namespace aliases ``+order_id`` for
+    non-positive ids (#2892), so 0/negative values can never be order ids.
+    A JSON int ``0``/negative or digit string ``"0"`` therefore falls
+    through to the sell lane, whose unmatched-lock path orphan-refunds it.
+    Before the rules were aligned the sell lane ceded *every* digit-ish
+    value to the exchange lane while the exchange lane rejected the
+    non-positive ones — such a lock was claimed by neither lane and its
+    AIT stranded in escrow with no refund and no alert."""
+    if isinstance(payload_value, bool):
+        return None
+    if isinstance(payload_value, int):
+        return payload_value if payload_value > 0 else None
+    if isinstance(payload_value, str) and payload_value.isdigit():
+        parsed = int(payload_value)
+        return parsed if parsed > 0 else None
+    return None
+
+
 def _exchange_lock_lane(quote_value: Any) -> bool:
-    """True when ``payload.sell_quote`` names an exchange order — an int or
-    an all-digit string (ETH-7 quote ids are ``sellq_<hex>``). Only applies
-    while the exchange settlement flag is on; flag-off the value falls
-    through to the quote lookup like before."""
+    """True when ``payload.sell_quote`` names an exchange order — decided
+    by the *same* ``exchange_order_id`` rule the settlement lane's intake
+    applies, so the two lanes can never disagree about ownership (#3050).
+    Only applies while the exchange settlement flag is on; flag-off the
+    value falls through to the quote lookup like before."""
     if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() != "true":
         return False
-    if isinstance(quote_value, bool):
-        return False
-    if isinstance(quote_value, int):
-        return True
-    return isinstance(quote_value, str) and quote_value.isdigit()
+    return exchange_order_id(quote_value) is not None
 
 
 async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
@@ -577,8 +598,10 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
             continue
         quote_id = payload.get("sell_quote")
         if _exchange_lock_lane(quote_id):
-            # An int order id in sell_quote belongs to the exchange
-            # settlement lane (ETH-8 phase 3) — this lane owns sellq_* only.
+            # A positive order id in sell_quote belongs to the exchange
+            # settlement lane (ETH-8 phase 3) — this lane owns everything
+            # else, including non-positive digit-ish values the exchange
+            # intake rejects, so no lock is ever ownerless (#3050).
             continue
         quote = get_sell_quote(str(quote_id)) if quote_id else None
         error = None

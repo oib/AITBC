@@ -280,23 +280,17 @@ async def _post_event(cfg: ExchangeCfg, payload: dict[str, Any]) -> tuple[int, d
 
 
 def _exchange_order_id(payload_value: Any) -> int | None:
-    """The exchange order id in ``payload.sell_quote``: a *positive* int or
-    an all-digit string. ``sellq_*`` belongs to the ETH-7 sell lane;
-    booleans and other shapes are neither lane's.
+    """The exchange order id in ``payload.sell_quote`` — delegated to the
+    shared arbitration rule ``sell_escrow_monitor.exchange_order_id``
+    (#3050). The sell lane's exclusion uses the same predicate, so a lock
+    can never be claimed by both lanes or by neither.
 
     #2892: order ids are positive (sqlite rowids from 1) — a JSON int
     ``-N`` used to pass verbatim, and ``_ensure_order_refund`` keys
     non-remainder refunds on ``-order_id``, so ``sell_quote=-N`` produced
     ref_id ``+N`` and squatted order N's remainder-refund slot. Reject
     non-positive ids at the boundary."""
-    if isinstance(payload_value, bool):
-        return None
-    if isinstance(payload_value, int):
-        return payload_value if payload_value > 0 else None
-    if isinstance(payload_value, str) and payload_value.isdigit():
-        parsed = int(payload_value)
-        return parsed if parsed > 0 else None
-    return None
+    return sellmon.exchange_order_id(payload_value)
 
 
 _HEX_CHARS = frozenset("0123456789abcdef")

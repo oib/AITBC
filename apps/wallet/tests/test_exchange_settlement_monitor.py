@@ -331,6 +331,10 @@ class TestHelpers:
         assert esm._exchange_order_id(0) is None
         assert esm._exchange_order_id("0") is None
         assert esm._exchange_order_id("-123") is None
+        # #3050: leading zeros still parse to a positive id; all-zero
+        # digit strings do not — "007" is order 7, "00" is nobody's order.
+        assert esm._exchange_order_id("007") == 7
+        assert esm._exchange_order_id("00") is None
 
     def test_units_to_ticks_floors(self):
         # 1 AIT = 36e6 units = 1e8 ticks exactly.
@@ -1469,6 +1473,15 @@ class TestGuards:
         assert sellmon._exchange_lock_lane("42") is True
         assert sellmon._exchange_lock_lane("sellq_abc") is False
         assert sellmon._exchange_lock_lane(True) is False
+        # #3050: the exclusion uses the exchange intake's positivity rule —
+        # non-positive digit-ish values are NOT ceded; the sell lane claims
+        # them so its orphan-refund path returns the AIT.
+        assert sellmon._exchange_lock_lane(0) is False
+        assert sellmon._exchange_lock_lane(-5) is False
+        assert sellmon._exchange_lock_lane("0") is False
+        assert sellmon._exchange_lock_lane("-5") is False
+        assert sellmon._exchange_lock_lane(4.2) is False
+        assert sellmon._exchange_lock_lane(None) is False
         monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "false")
         assert sellmon._exchange_lock_lane(42) is False
 
@@ -2084,3 +2097,148 @@ class TestStrandedLockParking:
         assert parked["status"] == "needs_review_sweep"
         assert parked["seller_address"] is None
         assert parked["lock_tx_hash"] == tx_hash
+
+
+# ---------------------------------------------------------------------------
+# #3050 — sell_quote lane arbitration (AUDIT-EXCHANGE-LOCK-ARBITRATION-1)
+# ---------------------------------------------------------------------------
+
+
+# Every payload.sell_quote shape freeform JSON can carry. The invariant the
+# fix restores: with EXCHANGE_SETTLEMENT_ENABLED on, the sell lane's
+# exclusion and the exchange lane's intake are the SAME predicate — every
+# value lands in exactly one lane, never both, never neither.
+_SELL_QUOTE_VARIANTS: list[Any] = [
+    42,
+    "42",
+    "007",  # leading zeros still name a positive order id
+    0,
+    -7,
+    -123,
+    "0",
+    "00",
+    "-7",
+    "sellq_abc123",  # ETH-7 quote id -> sell lane
+    "0x42",
+    "4.2",
+    " 42",
+    "",
+    4.2,
+    True,
+    False,
+    None,
+    [],
+    {"order": 1},
+]
+
+
+class TestSellQuoteArbitration:
+    """#3050: the two escrow lanes must partition payload.sell_quote — the
+    pre-fix rules disagreed on non-positive digit-ish values (sell lane
+    ceded them, exchange intake rejected them) and the locked AIT stranded
+    in escrow with no refund and no alert."""
+
+    @pytest.mark.parametrize("value", _SELL_QUOTE_VARIANTS)
+    def test_lane_predicates_partition_every_value(self, exchange_env, value):
+        """Killer pin: the sell lane skips a lock iff the exchange lane
+        claims it — the predicates are exact complements for EVERY input."""
+        assert sellmon._exchange_lock_lane(value) == (esm._exchange_order_id(value) is not None)
+
+    @pytest.mark.parametrize("value", _SELL_QUOTE_VARIANTS)
+    @pytest.mark.asyncio
+    async def test_scans_partition_every_lock(self, exchange_env, value):
+        """Scan-level pin: one tx, both lanes' real scans — exactly one
+        lane touches it. Exchange-claimed values get an exchange outcome
+        (funded or order_refund); everything else becomes a sell-lane lock
+        row (orphaned when no sellq_* quote matches)."""
+        cfg_x = _cfg(exchange_env)
+        cfg_s = sellmon._sell_config()
+        tx_hash = "0xarb" + str(abs(hash(repr(value))) % 10**60).zfill(60)
+        lock = _lock_tx(value, tx_hash, "0x" + "77" * 20, 360_000_000)  # 10 AIT
+        lock["recipient"] = exchange_env["escrow"]
+        if value is None:
+            # The missing-key shape resolves identically via .get — pin it.
+            lock["payload"] = {}
+        exchange_env["transfers"].append(lock)
+
+        xstats = await esm._scan_order_locks(cfg_x, head=1000)
+        sstats = await sellmon._scan_escrow_locks(cfg_s)
+
+        if esm._exchange_order_id(value) is not None:
+            assert xstats["scanned"] == 1
+            assert sstats["recorded"] == 0
+            assert get_sell_lock_by_ait_tx_hash(tx_hash) is None
+        else:
+            assert xstats["scanned"] == 0
+            assert monitor_mark(f"lock:{tx_hash}") is None
+            assert sstats["recorded"] == 1
+            row = get_sell_lock_by_ait_tx_hash(tx_hash)
+            assert row is not None and row["status"] == "orphaned"
+
+    @pytest.mark.parametrize("value", [0, -7, "0", "00"])
+    @pytest.mark.asyncio
+    async def test_nonpositive_sell_quote_orphan_refunded(self, exchange_env, value):
+        """The issue's repro: sell_quote=0/-N/"0" used to be skipped by BOTH
+        lanes — never credited, refunded, marked or alerted. Now the sell
+        lane claims it and the orphan path returns the AIT to the sender."""
+        from aitbc.utils import ait_to_units
+
+        cfg_x = _cfg(exchange_env)
+        sender = "0x" + "77" * 20
+        lock = _lock_tx(value, "0xstranded", sender, 360_000_000)  # 10 AIT
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+
+        # Exchange lane: rejects the value, touches nothing.
+        xstats = await esm._scan_order_locks(cfg_x, head=1000)
+        assert xstats["scanned"] == 0
+        assert monitor_mark("lock:0xstranded") is None
+        assert not exchange_env["posts"]
+
+        # Sell lane: records the lock; the orphan window is already past
+        # (lock height 600 vs head 1000, orphan_blocks 150) so the same
+        # poll broadcasts the refund sweep escrow -> sender.
+        summary = await sellmon.poll_sells_once()
+        assert summary["recorded"] == 1
+        row = get_sell_lock_by_ait_tx_hash("0xstranded")
+        assert row is not None
+        sends = exchange_env["ait_sends"]
+        assert len(sends) == 1
+        assert sends[0]["to"].lower() == sender.lower()
+        assert sends[0]["amount"] == ait_to_units(Decimal("10"))
+        assert sends[0]["payload"]["sell_ref"] == "0xstranded"
+        assert row["status"] == "refunding"
+
+        # Sealed outflow -> the row resolves 'refunded': money came back.
+        outflow = {
+            "tx_hash": "0x" + "99" * 32,
+            "sender": exchange_env["escrow"],
+            "recipient": sends[0]["to"],
+            "value": sends[0]["amount"],
+            "payload": {"sell_ref": "0xstranded"},
+            "block_height": 950,
+            "nonce": 0,
+            "status": "confirmed",
+            "type": "TRANSFER",
+        }
+        exchange_env["transfers"] = [lock, outflow]
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0xstranded")
+        assert row is not None and row["status"] == "refunded"
+
+    @pytest.mark.asyncio
+    async def test_positive_order_id_still_exchange_lane_end_to_end(self, exchange_env):
+        """Control: a real order id is claimed by the exchange lane only —
+        the sell scan records nothing and order_funded posts."""
+        cfg_x = _cfg(exchange_env)
+        cfg_s = sellmon._sell_config()
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded", user_address="0x" + "77" * 20)
+        lock = _lock_tx(oid, "0xorderlock", "0x" + "77" * 20, 360_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+
+        xstats = await esm._scan_order_locks(cfg_x, head=1000)
+        sstats = await sellmon._scan_escrow_locks(cfg_s)
+        assert xstats["funded"] == 1
+        assert sstats["recorded"] == 0
+        assert get_sell_lock_by_ait_tx_hash("0xorderlock") is None
