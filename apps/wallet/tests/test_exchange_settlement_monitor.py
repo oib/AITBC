@@ -803,7 +803,7 @@ class TestPrepayScan:
     async def test_exchange_prepay_posts_credit(self, exchange_env):
         cfg = _cfg(exchange_env)
         insert_exchange_prepay_deposit("0xdep1", "0xfrom", Decimal("0.01"), SELLER_AIT.lower())
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["credited"] == 1
         post = exchange_env["posts"][-1]
         assert post["event"] == "prepaid_credit" and post["eth_tx_hash"] == "0xdep1"
@@ -812,14 +812,36 @@ class TestPrepayScan:
         assert monitor_mark("credit:0xdep1")["outcome"] == "credited"
 
     @pytest.mark.asyncio
+    async def test_poll_head_stamped_on_credit_event(self, exchange_env):
+        """#3047: the poll's already-fetched chain head rides the
+        prepaid_credit event — the exchange fails closed without one, so
+        carrying ours keeps credits flowing through a node-side RPC blip."""
+        cfg = _cfg(exchange_env)
+        insert_exchange_prepay_deposit("0xdepH", "0xfrom", Decimal("0.01"), SELLER_AIT)
+        stats = await esm._scan_prepay_credits(cfg, head=4242)
+        assert stats["credited"] == 1
+        assert exchange_env["posts"][-1]["head"] == 4242
+
+    @pytest.mark.asyncio
+    async def test_no_head_omits_stamp_but_still_posts(self, exchange_env):
+        """#3047: a blind monitor still posts — the endpoint falls back to
+        its own /rpc/head probe and only 503s (unmarked, retried) when
+        BOTH sides lack a head."""
+        cfg = _cfg(exchange_env)
+        insert_exchange_prepay_deposit("0xdepN", "0xfrom", Decimal("0.01"), SELLER_AIT)
+        stats = await esm._scan_prepay_credits(cfg, head=None)
+        assert stats["credited"] == 1
+        assert "head" not in exchange_env["posts"][-1]
+
+    @pytest.mark.asyncio
     async def test_409_marks_unattributable_once(self, exchange_env):
         cfg = _cfg(exchange_env)
         exchange_env["post_responses"]["prepaid_credit"] = (409, {"error": "node not registered"})
         insert_exchange_prepay_deposit("0xdep2", "0xfrom", Decimal("0.01"), SELLER_AIT)
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["unattributable"] == 1
         # A second poll does not repost.
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["unattributable"] == 0
         assert len([p for p in exchange_env["posts"] if p["event"] == "prepaid_credit"]) == 1
 
@@ -828,9 +850,9 @@ class TestPrepayScan:
         cfg = _cfg(exchange_env)
         exchange_env["post_responses"]["prepaid_credit"] = (400, {"error": "bad address"})
         insert_exchange_prepay_deposit("0xdep3", "0xfrom", Decimal("0.01"), "not-an-address")
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["rejected"] == 1
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["rejected"] == 0
 
     @pytest.mark.asyncio
@@ -842,10 +864,10 @@ class TestPrepayScan:
             raise RuntimeError("connection refused")
 
         with patch("wallet_app.bridge.exchange_settlement_monitor._post_event", _boom):
-            stats = await esm._scan_prepay_credits(cfg)
+            stats = await esm._scan_prepay_credits(cfg, head=1000)
             assert stats["credited"] == 0
         # Unmarked — next poll posts again.
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["credited"] == 1
 
     @pytest.mark.asyncio
@@ -854,7 +876,7 @@ class TestPrepayScan:
         deposit (the payout path's) must never be read here."""
         cfg = _cfg(exchange_env)
         bridge_db.insert_deposit("0xplain", "0xfrom", Decimal("0.5"), Decimal("100"), recipient=BUYER_AIT)
-        stats = await esm._scan_prepay_credits(cfg)
+        stats = await esm._scan_prepay_credits(cfg, head=1000)
         assert stats["scanned"] == 0
         assert exchange_env["posts"] == []
 

@@ -32,6 +32,25 @@ from .exchange_helpers import (
 logger = get_logger(__name__)
 
 
+def _event_head_height(head, probe) -> int | None:
+    """Trustworthy chain head for a settlement event (#3047).
+
+    The wallet monitor polls the chain every cycle and stamps its fresh
+    height on funding/credit events; an absent or malformed stamp falls
+    back to ``probe`` — the node's live ``/rpc/head`` lookup. ``None``
+    means no trustworthy head exists — settlement callers must fail
+    closed: the matching pass cannot run its lazy expiry sweep or expiry
+    predicate without one, and the documented #1554 fail-open residual
+    belongs to the unsigned path only, never to funded settlement.
+
+    Module-level (not a mixin method) so spec'd handler mocks in tests
+    cannot silently stub it out.
+    """
+    if isinstance(head, int) and not isinstance(head, bool):
+        return head
+    return probe()
+
+
 class ExchangeSettlementMixin:
     """Signed cancel commit and typed internal settlement events."""
 
@@ -212,6 +231,16 @@ class ExchangeSettlementMixin:
             self.send_error(400, "prepaid_credit requires node_address, amount_eth > 0, eth_tx_hash")  # type: ignore[attr-defined]
             return
 
+        # #3047 fail-closed: funding + matching commit prepaid backing, so
+        # they need a trustworthy head for the expiry sweep/predicate. With
+        # none, refuse retryably (503 — the monitor leaves the deposit
+        # unmarked and reposts) instead of falling into the #1554
+        # unsigned-path fail-open.
+        head_height = _event_head_height(head, self._chain_head_height)
+        if head_height is None:
+            self.send_json_response({"error": "Chain head unavailable"}, status=503)  # type: ignore[attr-defined]
+            return
+
         def work(cursor):
             status_row = cursor.execute("SELECT status FROM node_registry WHERE address = ?", (node,)).fetchone()
             if status_row is None or status_row[0] != "registered":
@@ -224,8 +253,13 @@ class ExchangeSettlementMixin:
             )
             credited = cursor.rowcount > 0
             funded: list[int] = []
-            for oid, total in cursor.execute(
-                "SELECT id, total FROM orders WHERE user_address = ? AND order_type = 'BUY' "
+            # #3047: expire before funding — an order whose backing window
+            # already closed must not be debited and matched; the lazy
+            # sweep flips it to expired/backing_expired and releases any
+            # open debit inside this same transaction.
+            self._expire_open_orders(cursor, head_height)
+            for oid, total, expiry_height in cursor.execute(
+                "SELECT id, total, expiry_height FROM orders WHERE user_address = ? AND order_type = 'BUY' "
                 "AND status = 'open' AND funded_state = 'unfunded' ORDER BY id",
                 (node,),
             ).fetchall():
@@ -250,10 +284,9 @@ class ExchangeSettlementMixin:
                     "status": "open",
                     "funded_state": "funded",
                     "user_address": node,
+                    "expiry_height": expiry_height,
                 }
-                self._match_orders_in_txn(
-                    cursor, order, head_height=head if isinstance(head, int) else None, guard_address=node
-                )
+                self._match_orders_in_txn(cursor, order, head_height=head_height, guard_address=node)
                 funded.append(oid)
             return {"ok": True, "credited": credited, "funded_orders": funded}
 
@@ -276,9 +309,17 @@ class ExchangeSettlementMixin:
             self.send_error(400, "order_funded requires integer order_id and locked_ticks")  # type: ignore[attr-defined]
             return
 
+        # #3047 fail-closed — same rule as prepaid_credit: the re-match
+        # commits escrow-backed fills, so it needs a trustworthy head.
+        head_height = _event_head_height(head, self._chain_head_height)
+        if head_height is None:
+            self.send_json_response({"error": "Chain head unavailable"}, status=503)  # type: ignore[attr-defined]
+            return
+
         def work(cursor):
             row = cursor.execute(
-                "SELECT order_type, status, funded_state, price, remaining, filled, user_address FROM orders WHERE id = ?",
+                "SELECT order_type, status, funded_state, price, remaining, filled, user_address, expiry_height "
+                "FROM orders WHERE id = ?",
                 (order_id,),
             ).fetchone()
             if row is None:
@@ -287,6 +328,11 @@ class ExchangeSettlementMixin:
                 return {"ok": True, "order_id": order_id, "funded_state": row[2], "unchanged": True}
             if row[0] != "SELL":
                 return 400, {"error": "order_funded applies to SELL orders (escrow lock)"}
+            # #3047: the backing window bounds funding too — a lock landing
+            # after expiry_height must not fund the order; the 409 sends the
+            # monitor down its lock-refund path instead.
+            if row[7] is not None and row[7] <= head_height:
+                return 409, {"error": "Order expired"}
             remaining = _to_decimal(row[4])
             required = to_ticks(remaining + _apply_exchange_fee(remaining)[0])
             if locked < required:
@@ -304,8 +350,9 @@ class ExchangeSettlementMixin:
                 "status": "open",
                 "funded_state": "funded",
                 "user_address": row[6],
+                "expiry_height": row[7],
             }
-            self._match_orders_in_txn(cursor, order, head_height=head if isinstance(head, int) else None, guard_address=row[6])
+            self._match_orders_in_txn(cursor, order, head_height=head_height, guard_address=row[6])
             return {"ok": True, "order_id": order_id, "funded_state": "funded", "order": order}
 
         self._internal_txn(work)

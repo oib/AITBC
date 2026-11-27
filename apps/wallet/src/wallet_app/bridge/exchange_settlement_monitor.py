@@ -618,12 +618,19 @@ def _park_stranded_lock_refund(
 # ---------------------------------------------------------------------------
 
 
-async def _scan_prepay_credits(cfg: ExchangeCfg) -> dict[str, int]:
+async def _scan_prepay_credits(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
     """Post ``prepaid_credit`` for exchange-prepay deposits. The
     ``exchange_monitor_marks`` table dedupes per tx hash: a 409 is
     recorded 'unattributable' (unregistered node) and a 400 'rejected'
     (deterministic refusal — bad tag text can never credit), so neither
-    retries forever; 401/5xx stay unmarked for the next poll."""
+    retries forever; 401/5xx stay unmarked for the next poll.
+
+    ``head`` is this poll's already-fetched chain height, stamped on the
+    event like ``order_funded`` does (#3047): the exchange fails closed
+    when it cannot resolve a trustworthy head, so carrying ours keeps the
+    credit flowing through a node-side RPC blip. ``head=None`` still
+    posts — the endpoint falls back to its own probe and 503s (unmarked,
+    retried) only when BOTH sides are blind."""
     conn_rows = _bridge_db_prepay_rows()
     stats = {"scanned": 0, "credited": 0, "unattributable": 0, "rejected": 0}
     for tx_hash, node_address, amount_eth in conn_rows:
@@ -635,16 +642,16 @@ async def _scan_prepay_credits(cfg: ExchangeCfg) -> dict[str, int]:
             insert_monitor_mark(f"credit:{tx_hash}", detail="", outcome="malformed_tag")
             logger.error("Exchange deposit %s carries an empty EXCHANGE_DEPOSIT tag — operator handling required", tx_hash)
             continue
+        event: dict[str, Any] = {
+            "event": "prepaid_credit",
+            "node_address": node_address,
+            "amount_eth": amount_eth,
+            "eth_tx_hash": tx_hash,
+        }
+        if head is not None:
+            event["head"] = head
         try:
-            status_code, body = await _post_event(
-                cfg,
-                {
-                    "event": "prepaid_credit",
-                    "node_address": node_address,
-                    "amount_eth": amount_eth,
-                    "eth_tx_hash": tx_hash,
-                },
-            )
+            status_code, body = await _post_event(cfg, event)
         except Exception as e:  # noqa: BLE001 - post failure retried next poll
             logger.error("prepaid_credit post failed for %s: %s", tx_hash, e)
             continue
@@ -886,7 +893,7 @@ async def poll_exchange_settlements_once() -> dict[str, Any]:
         head = None
 
     await _run_lane(summary, "locks", "Escrow lock scan", _scan_order_locks(cfg, head))
-    await _run_lane(summary, "credits", "Prepay scan", _scan_prepay_credits(cfg))
+    await _run_lane(summary, "credits", "Prepay scan", _scan_prepay_credits(cfg, head))
     await _run_lane(summary, "backing", "Backing scan", _scan_backing(cfg, head))
 
     try:

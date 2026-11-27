@@ -611,7 +611,15 @@ def test_adapter_loopback_key_and_event_accepted(exchange_db, settlement_on, _ha
     node = _funding_node(exchange_db)
     resp = _tc("127.0.0.1").post(
         _SETTLE,
-        json={"event": "prepaid_credit", "node_address": node, "amount_eth": "0.01", "eth_tx_hash": "0xpeerok"},
+        # #3047: the monitor stamps its polled head — settlement events
+        # fail closed without one.
+        json={
+            "event": "prepaid_credit",
+            "node_address": node,
+            "amount_eth": "0.01",
+            "eth_tx_hash": "0xpeerok",
+            "head": 1000,
+        },
         headers={"X-Api-Key": "test-key"},
     )
     assert resp.status_code == 200, resp.text
@@ -638,7 +646,13 @@ def test_adapter_v6_mapped_loopback_accepted(exchange_db, settlement_on, _handle
     node = _funding_node(exchange_db)
     resp = _tc("::ffff:127.0.0.1").post(
         _SETTLE,
-        json={"event": "prepaid_credit", "node_address": node, "amount_eth": "0.01", "eth_tx_hash": "0xpeerv6"},
+        json={
+            "event": "prepaid_credit",
+            "node_address": node,
+            "amount_eth": "0.01",
+            "eth_tx_hash": "0xpeerv6",
+            "head": 1000,
+        },
         headers={"X-Api-Key": "test-key"},
     )
     assert resp.status_code == 200, resp.text

@@ -68,16 +68,24 @@ class ExchangeMatchingMixin:
         new_remaining = _to_decimal(order["remaining"])
         new_id = order.get("id")
 
-        if head_height is None:
-            # #2832: callers without a head (the unsigned path, the
-            # standalone match_orders wrapper) still expire against the
-            # live chain head when the RPC answers — expired orders must
-            # never stay matchable just because this call site had no
-            # head. A dead RPC keeps the documented #1554 residual.
-            fetched = self._chain_head_height()
-            head_height = fetched if isinstance(fetched, int) else None
+        # #2832: callers without a head (the unsigned path, the standalone
+        # match_orders wrapper) still expire against the live chain head
+        # when the RPC answers — expired orders must never stay matchable
+        # just because this call site had no head. A dead RPC keeps the
+        # documented #1554 residual.
+        head_height = _match_head_height(head_height, self._chain_head_height)
         if head_height is not None:
             self._expire_open_orders(cursor, head_height)
+            # #3047: the inbound order's own window bounds the match too —
+            # the candidate predicate below only filters the RESTING side,
+            # so an order already past expiry (swept above, or supplied by
+            # a caller that raced the window shut) must not trade. Persist
+            # 'expired' so the row stays consistent with the sweep instead
+            # of being written back to 'open' by _persist_new_order.
+            if _inbound_past_expiry(order, head_height):
+                order["status"] = "expired"
+                _persist_new_order(cursor, order, new_id, new_type, settlement)
+                return
 
         # Find matching orders (opposite side, price-compatible). Comparisons
         # and ordering run on the integer tick columns — the TEXT price column
@@ -153,6 +161,26 @@ class ExchangeMatchingMixin:
             raise
         finally:
             conn.close()
+
+
+def _match_head_height(head_height: int | None, probe) -> int | None:
+    """Resolve the head a match runs expiry against: the caller's explicit
+    height when given, else the live ``/rpc/head`` probe (#2832). ``None``
+    stays ``None`` — the documented #1554 residual for callers with no
+    trustworthy head."""
+    if head_height is not None:
+        return head_height
+    fetched = probe()
+    return fetched if isinstance(fetched, int) else None
+
+
+def _inbound_past_expiry(order: dict, head_height: int | None) -> bool:
+    """#3047: True when the order being matched is already past its
+    ``expiry_height`` at the known head. ``None`` head or ``None`` expiry
+    never expires here — the headless case is the caller's fail-closed
+    decision, and NULL expiry is the documented #1554 exemption."""
+    expiry = order.get("expiry_height")
+    return head_height is not None and isinstance(expiry, int) and not isinstance(expiry, bool) and expiry <= head_height
 
 
 def _match_candidates(
