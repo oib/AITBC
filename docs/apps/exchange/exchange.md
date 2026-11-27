@@ -24,6 +24,7 @@ Environment is read from the process environment; `apps/exchange/simple_exchange
 Key variables:
 
 - `EXCHANGE_API_KEY` — required for write endpoints (`POST`/`DELETE`); a missing key fails auth rather than allowing writes
+- `EXCHANGE_INTERNAL_API_KEY` — optional dedicated credential for `POST /api/internal/exchange-settlement` (#3048). When set, the settlement endpoint accepts only this key and the wallet settlement monitor sends it preferentially; unset, the shared `EXCHANGE_API_KEY` still authenticates both sides (zero-downtime migration)
 - `EXCHANGE_DATABASE_URL` — SQLite location (default `/var/lib/aitbc/data/exchange/exchange.db`)
 - `BLOCKCHAIN_RPC_URL` — blockchain RPC base URL
 - `EXCHANGE_HOST` — bind host (systemd sets `127.0.0.1`)

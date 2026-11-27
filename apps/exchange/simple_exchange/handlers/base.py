@@ -190,6 +190,27 @@ class BaseHandler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _require_internal_api_key(self) -> bool:
+        """Check X-Api-Key against EXCHANGE_INTERNAL_API_KEY (#3048).
+
+        The internal settlement endpoint is a custody oracle — prepaid
+        credit, escrow-backing evidence, and settlement-state mirrors all
+        trust it absolutely. Once an operator provisions the dedicated
+        EXCHANGE_INTERNAL_API_KEY, the broader EXCHANGE_API_KEY stops
+        working on this surface, narrowing the credential that can move
+        balances. While the dedicated key is unset the shared key still
+        authenticates (zero-downtime migration).
+        """
+        expected = os.getenv("EXCHANGE_INTERNAL_API_KEY") or os.getenv("EXCHANGE_API_KEY")
+        if not expected:
+            self.send_error(401, "API key not configured")
+            return False
+        provided = self.headers.get("X-Api-Key", "")
+        if not provided or not hmac.compare_digest(provided, expected):
+            self.send_error(401, "Invalid or missing X-Api-Key")
+            return False
+        return True
+
     def send_json_response(self, data, status=200):
         """Send JSON response"""
         self.send_response(status)

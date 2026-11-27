@@ -84,6 +84,7 @@ def _handler(head=1000):
     h.send_json_response = MagicMock()
     h._client_ip = MagicMock(return_value="127.0.0.1")
     h._require_api_key = BaseHandler._require_api_key.__get__(h, BaseHandler)
+    h._require_internal_api_key = BaseHandler._require_internal_api_key.__get__(h, BaseHandler)
     for name in (
         "handle_internal_settlement",
         "_event_prepaid_credit",
@@ -106,6 +107,11 @@ def _handler(head=1000):
                 setattr(h, name, attr.__get__(h, ExchangeMixin))
     h._chain_head_height = MagicMock(return_value=head)
     return h
+
+
+def _txh(n: int) -> str:
+    """Well-formed 0x + 64-hex chain tx hash (#3048 shape checks)."""
+    return "0x" + f"{n:064x}"
 
 
 def _post(h, db_path, body, head=1000):
@@ -217,7 +223,7 @@ def test_prepaid_credit_no_head_anywhere_refuses_503(exchange_db, settlement_on)
     _post(
         h,
         exchange_db,
-        {"event": "prepaid_credit", "node_address": buyer.address, "amount_eth": "0.05", "eth_tx_hash": "0xnc"},
+        {"event": "prepaid_credit", "node_address": buyer.address, "amount_eth": "0.05", "eth_tx_hash": _txh(41)},
         head=None,
     )
     resp = _last_json(h)
@@ -244,7 +250,7 @@ def test_prepaid_credit_event_head_enforces_expiry(exchange_db, settlement_on):
             "event": "prepaid_credit",
             "node_address": buyer.address,
             "amount_eth": "0.05",
-            "eth_tx_hash": "0xeh",
+            "eth_tx_hash": _txh(42),
             "head": 600,
         },
         head=None,
@@ -269,7 +275,7 @@ def test_prepaid_credit_probe_head_enforces_expiry(exchange_db, settlement_on):
     _post(
         h,
         exchange_db,
-        {"event": "prepaid_credit", "node_address": buyer.address, "amount_eth": "0.05", "eth_tx_hash": "0xph"},
+        {"event": "prepaid_credit", "node_address": buyer.address, "amount_eth": "0.05", "eth_tx_hash": _txh(43)},
         head="keep",
     )
     resp = _last_json(h)
@@ -302,7 +308,7 @@ def test_prepaid_credit_unexpired_buy_still_funds_and_matches(exchange_db, settl
             "event": "prepaid_credit",
             "node_address": buyer.address,
             "amount_eth": "0.05",
-            "eth_tx_hash": "0xok",
+            "eth_tx_hash": _txh(44),
             "head": 1000,
         },
         head=None,
@@ -327,7 +333,7 @@ def test_order_funded_no_head_anywhere_refuses_503(exchange_db, settlement_on):
     _post(
         h,
         exchange_db,
-        {"event": "order_funded", "order_id": sell_id, "locked_ticks": amount_ticks, "backing_tx_hash": "0xlk"},
+        {"event": "order_funded", "order_id": sell_id, "locked_ticks": amount_ticks, "backing_tx_hash": _txh(45)},
         head=None,
     )
     assert h.send_json_response.call_args[1].get("status") == 503
@@ -351,7 +357,7 @@ def test_order_funded_expired_sell_refused_409(exchange_db, settlement_on):
             "event": "order_funded",
             "order_id": sell_id,
             "locked_ticks": amount_ticks,
-            "backing_tx_hash": "0xlexp",
+            "backing_tx_hash": _txh(46),
             "head": 600,
         },
         head=None,

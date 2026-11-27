@@ -101,7 +101,10 @@ _MIRROR_FORWARD: dict[str, frozenset[str]] = {
     "refunding": frozenset({"refunded", "needs_review_sweep"}),
     "needs_review": frozenset({"releasing", "refund_pending"}),
     "needs_review_release": frozenset({"released", "refund_pending"}),
-    "needs_review_sweep": frozenset({"settling", "refunding", "settled", "refunded"}),
+    # #3048 parity with the endpoint's _TRADE_STATE_FORWARD: the sweep
+    # state resumes along the sweep lanes only — terminal states are
+    # reached through settling/refunding, never jumped to directly.
+    "needs_review_sweep": frozenset({"settling", "refunding"}),
     "settled": frozenset(),
     "refunded": frozenset(),
     "failed": frozenset(),

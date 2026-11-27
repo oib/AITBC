@@ -148,9 +148,15 @@ def _exchange_db_path() -> str:
 
 
 def _exchange_config() -> ExchangeCfg:
-    api_key = os.getenv("EXCHANGE_API_KEY", "")
+    # #3048: prefer the dedicated internal credential — the exchange's
+    # settlement endpoint accepts EXCHANGE_INTERNAL_API_KEY and, once it is
+    # provisioned there, stops accepting the broader EXCHANGE_API_KEY. Send
+    # the narrow key whenever the operator has configured it.
+    api_key = os.getenv("EXCHANGE_INTERNAL_API_KEY") or os.getenv("EXCHANGE_API_KEY", "")
     if not api_key:
-        raise ValueError("EXCHANGE_API_KEY not configured — the settlement endpoint cannot authenticate")
+        raise ValueError(
+            "EXCHANGE_INTERNAL_API_KEY or EXCHANGE_API_KEY not configured — the settlement endpoint cannot authenticate"
+        )
     return ExchangeCfg(
         escrow=sellmon._sell_config(),
         exchange_url=os.getenv("EXCHANGE_INTERNAL_URL", "http://127.0.0.1:8106").rstrip("/"),
@@ -724,7 +730,12 @@ async def _expire_order_backings(cfg: ExchangeCfg, head: int | None, stats: dict
         (head,),
     ):
         try:
-            status_code, _body = await _post_event(cfg, {"event": "order_backing_expired", "order_id": row["id"]})
+            # #3048: the endpoint now requires the caller-supplied head at/
+            # past the order's expiry_height — send the same head this
+            # sweep filtered on.
+            status_code, _body = await _post_event(
+                cfg, {"event": "order_backing_expired", "order_id": row["id"], "head": head}
+            )
             if status_code == 200:
                 stats["expired"] += 1
         except Exception as e:  # noqa: BLE001 - event post failure logged, poll continues

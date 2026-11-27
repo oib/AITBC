@@ -88,7 +88,11 @@ _TRADE_STATE_FORWARD: dict[str, frozenset[str]] = {
     "refunding": frozenset({"refunded", "needs_review_sweep"}),
     "needs_review": frozenset({"releasing", "refund_pending"}),
     "needs_review_release": frozenset({"released", "refund_pending"}),
-    "needs_review_sweep": frozenset({"settling", "refunding", "settled", "refunded"}),
+    # #3048: needs_review_sweep resumes along the sweep lanes only — a
+    # direct jump to 'settled'/'refunded' skipped every intermediate state
+    # (and the refunded recredit's evidence check is only meaningful on
+    # the refunding -> refunded edge).
+    "needs_review_sweep": frozenset({"settling", "refunding"}),
     "settled": frozenset(),
     "refunded": frozenset(),
     "failed": frozenset(),

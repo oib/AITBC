@@ -896,7 +896,7 @@ class TestBackingScan:
         cfg = _cfg(exchange_env)
         oid = _insert_order(exchange_env, funded_state="funded", expiry_height=999)
         await esm._scan_backing(cfg, head=1000)
-        assert exchange_env["posts"][-1] == {"event": "order_backing_expired", "order_id": oid}
+        assert exchange_env["posts"][-1] == {"event": "order_backing_expired", "order_id": oid, "head": 1000}
 
     @pytest.mark.asyncio
     async def test_unexpired_order_is_quiet(self, exchange_env):
@@ -2242,3 +2242,13 @@ class TestSellQuoteArbitration:
         assert xstats["funded"] == 1
         assert sstats["recorded"] == 0
         assert get_sell_lock_by_ait_tx_hash("0xorderlock") is None
+
+
+def test_config_prefers_internal_api_key(exchange_env, monkeypatch):
+    """#3048: once the operator provisions EXCHANGE_INTERNAL_API_KEY the
+    exchange stops accepting the broader EXCHANGE_API_KEY on the
+    settlement endpoint — the monitor must send the narrow credential."""
+    monkeypatch.setenv("EXCHANGE_INTERNAL_API_KEY", "internal-secret")
+    assert _cfg(exchange_env).api_key == "internal-secret"
+    monkeypatch.delenv("EXCHANGE_INTERNAL_API_KEY")
+    assert _cfg(exchange_env).api_key == "test-internal-key"

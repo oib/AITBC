@@ -84,6 +84,7 @@ def _handler():
     h.send_json_response = MagicMock()
     h._client_ip = MagicMock(return_value="127.0.0.1")
     h._require_api_key = BaseHandler._require_api_key.__get__(h, BaseHandler)
+    h._require_internal_api_key = BaseHandler._require_internal_api_key.__get__(h, BaseHandler)
     for name in (
         "handle_node_register",
         "handle_place_order",
@@ -131,6 +132,12 @@ def _handler():
     h._ait_eth_band = MagicMock(return_value=(Decimal("0"), Decimal("1e18")))
     h._chain_head_height = MagicMock(return_value=1000)
     return h
+
+
+def _txh(n: int) -> str:
+    """A well-formed 0x + 64-hex chain tx hash — #3048 made the internal
+    endpoint reject misshapen hashes, so fixtures must look real."""
+    return "0x" + f"{n:064x}"
 
 
 def _register(db_path, address, privkey, label):
@@ -225,7 +232,7 @@ def _make_filled_buy(exchange_db, settlement_on, amount="10", price="0.001"):
     _post(
         h,
         exchange_db,
-        {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": lock, "backing_tx_hash": "0xlock"},
+        {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": lock, "backing_tx_hash": _txh(1)},
     )
     buyer = Account.create()
     _register(exchange_db, buyer.address, buyer.key.hex(), "n-ibuy")
@@ -300,7 +307,12 @@ def test_prepaid_credit_funds_waiting_buy_and_matches(exchange_db, settlement_on
     _post(
         h,
         exchange_db,
-        {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": int(Decimal("5") * 100_000_000)},
+        {
+            "event": "order_funded",
+            "order_id": sell_doc["id"],
+            "locked_ticks": int(Decimal("5") * 100_000_000),
+            "backing_tx_hash": _txh(2),
+        },
     )
     # Unfunded buy waits; the credit event funds and matches it in one txn.
     buyer = Account.create()
@@ -311,7 +323,7 @@ def test_prepaid_credit_funds_waiting_buy_and_matches(exchange_db, settlement_on
     _post(
         h,
         exchange_db,
-        {"event": "prepaid_credit", "node_address": buyer.address, "amount_eth": "0.02", "eth_tx_hash": "0xc1"},
+        {"event": "prepaid_credit", "node_address": buyer.address, "amount_eth": "0.02", "eth_tx_hash": _txh(11)},
     )
     resp = _last_json(h)
     assert resp["ok"] and resp["credited"] and resp["funded_orders"] == [buy_doc["id"]]
@@ -332,7 +344,7 @@ def test_prepaid_credit_canonicalizes_lowercase(exchange_db, settlement_on):
     _post(
         h,
         exchange_db,
-        {"event": "prepaid_credit", "node_address": buyer.address.lower(), "amount_eth": "0.02", "eth_tx_hash": "0xlc"},
+        {"event": "prepaid_credit", "node_address": buyer.address.lower(), "amount_eth": "0.02", "eth_tx_hash": _txh(12)},
     )
     resp = _last_json(h)
     assert resp["ok"] and resp["credited"] and resp["funded_orders"] == [buy_doc["id"]]
@@ -347,7 +359,7 @@ def test_prepaid_credit_unregistered_node_refused(exchange_db, settlement_on):
     _post(
         h,
         exchange_db,
-        {"event": "prepaid_credit", "node_address": node.address, "amount_eth": "0.02", "eth_tx_hash": "0xunreg"},
+        {"event": "prepaid_credit", "node_address": node.address, "amount_eth": "0.02", "eth_tx_hash": _txh(13)},
     )
     resp = _last_json(h)
     assert "registered" in resp.get("error", "")
@@ -370,7 +382,7 @@ def test_prepaid_credit_dedupes_on_tx_hash(exchange_db, settlement_on):
     node = Account.create()
     _register(exchange_db, node.address, node.key.hex(), "n-dedup")
     h = _handler()
-    body = {"event": "prepaid_credit", "node_address": node.address, "amount_eth": "0.01", "eth_tx_hash": "0xsame"}
+    body = {"event": "prepaid_credit", "node_address": node.address, "amount_eth": "0.01", "eth_tx_hash": _txh(14)}
     _post(h, exchange_db, body)
     _post(h, exchange_db, body)
     resp = _last_json(h)
@@ -391,7 +403,12 @@ def test_order_funded_insufficient_cover_refused(exchange_db, settlement_on):
     _post(
         h,
         exchange_db,
-        {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": int(Decimal("4") * 100_000_000)},
+        {
+            "event": "order_funded",
+            "order_id": sell_doc["id"],
+            "locked_ticks": int(Decimal("4") * 100_000_000),
+            "backing_tx_hash": _txh(3),
+        },
     )
     resp = _last_json(h)
     assert "cover" in resp.get("error", "").lower()
@@ -414,7 +431,12 @@ def test_order_funded_rematch_fills_resting_buy(exchange_db, settlement_on):
     _post(
         h,
         exchange_db,
-        {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": int(Decimal("5") * 100_000_000)},
+        {
+            "event": "order_funded",
+            "order_id": sell_doc["id"],
+            "locked_ticks": int(Decimal("5") * 100_000_000),
+            "backing_tx_hash": _txh(2),
+        },
     )
     resp = _last_json(h)
     assert resp["ok"] and resp["funded_state"] == "funded"
@@ -437,7 +459,7 @@ def test_backing_expired_flips_and_closes_debit(exchange_db, settlement_on):
     h = _handler()
     _place(exchange_db, h, _order_body(buyer.address, buyer.key.hex(), side="BUY", amount=5, price="0.001", nonce=1))
     buy_doc = _last_json(h)
-    _post(h, exchange_db, {"event": "order_backing_expired", "order_id": buy_doc["id"]})
+    _post(h, exchange_db, {"event": "order_backing_expired", "order_id": buy_doc["id"], "head": 2000})
     resp = _last_json(h)
     assert resp["ok"] and resp["funded_state"] == "backing_expired"
     assert _row(exchange_db, "SELECT state FROM prepaid_debits WHERE order_id = ?", (buy_doc["id"],))[0] == "refunded"
@@ -450,6 +472,12 @@ def test_debit_refund_idempotent(exchange_db, settlement_on):
     h = _handler()
     _place(exchange_db, h, _order_body(buyer.address, buyer.key.hex(), side="BUY", amount=5, price="0.001", nonce=1))
     buy_doc = _last_json(h)
+    # #3048: the endpoint refuses debit_refund on an OPEN order — close it
+    # first, the way the monitor only ever reports closed-order debits.
+    conn = sqlite3.connect(exchange_db)
+    conn.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (buy_doc["id"],))
+    conn.commit()
+    conn.close()
     _post(h, exchange_db, {"event": "debit_refund", "order_id": buy_doc["id"]})
     resp = _last_json(h)
     assert resp["ok"] and resp["refunded_eth"] == "0.005" and resp["was"] == "open"
@@ -464,7 +492,7 @@ def test_debit_refund_idempotent(exchange_db, settlement_on):
 def test_trade_state_forward_only(exchange_db, settlement_on):
     h, buy_doc, _buyer, _sell_id, trade_id = _make_filled_buy(exchange_db, settlement_on)
     # Backwards: locked -> releasing first, then a regression is refused.
-    _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "releasing", "eth_tx_hash": "0xeth"})
+    _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "releasing", "eth_tx_hash": _txh(201)})
     assert _last_json(h)["settlement_state"] == "releasing"
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "locked"})
     resp = _last_json(h)
@@ -472,7 +500,7 @@ def test_trade_state_forward_only(exchange_db, settlement_on):
     # Drive to settled, then prove terminal.
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "released"})
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "settling"})
-    _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "settled", "ait_tx_hash": "0xait"})
+    _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "settled", "ait_tx_hash": _txh(202)})
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "releasing"})
     assert "cannot move" in _last_json(h).get("error", "")
     row = _row(
@@ -480,7 +508,7 @@ def test_trade_state_forward_only(exchange_db, settlement_on):
         "SELECT settlement_state, settlement_eth_tx_hash, settlement_ait_tx_hash FROM trades WHERE id = ?",
         (trade_id,),
     )
-    assert row == ("settled", "0xeth", "0xait")
+    assert row == ("settled", _txh(201), _txh(202))
 
 
 def test_trade_state_same_state_is_noop(exchange_db, settlement_on):
@@ -516,7 +544,14 @@ def test_refunded_trade_releases_commitment(exchange_db, settlement_on):
     _place(exchange_db, h, _order_body(seller.address, seller.key.hex(), side="SELL", amount=4, price="0.001", nonce=2))
     sell_doc = _last_json(h)
     _post(
-        h, exchange_db, {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": int(Decimal("4") * 100_000_000)}
+        h,
+        exchange_db,
+        {
+            "event": "order_funded",
+            "order_id": sell_doc["id"],
+            "locked_ticks": int(Decimal("4") * 100_000_000),
+            "backing_tx_hash": _txh(4),
+        },
     )
     buyer = Account.create()
     buyer_key = buyer.key.hex()
@@ -530,7 +565,7 @@ def test_refunded_trade_releases_commitment(exchange_db, settlement_on):
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "releasing"})
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "refund_pending"})
     _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "refunding"})
-    _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "refunded"})
+    _post(h, exchange_db, {"event": "trade_state", "trade_id": trade_id, "state": "refunded", "ait_tx_hash": _txh(21)})
     resp = _last_json(h)
     assert resp["ok"] and resp["released_eth"] == "0.004"
     deb = _row(exchange_db, "SELECT committed_eth, state FROM prepaid_debits WHERE order_id = ?", (buy_doc["id"],))
@@ -551,7 +586,9 @@ def test_fill_fees_sum_within_lock_cover(exchange_db, settlement_on, monkeypatch
     _place(exchange_db, h, _order_body(seller.address, seller.key.hex(), side="SELL", amount=10, price="0.001", nonce=2))
     sell_doc = _last_json(h)
     lock = int(Decimal("10.17") * 100_000_000)  # amount + fee(10)
-    _post(h, exchange_db, {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": lock})
+    _post(
+        h, exchange_db, {"event": "order_funded", "order_id": sell_doc["id"], "locked_ticks": lock, "backing_tx_hash": _txh(6)}
+    )
     for i, amt in enumerate(("3.333333", "3.333333", "3.333334"), start=1):
         buyer = Account.create()
         _register(exchange_db, buyer.address, buyer.key.hex(), f"n-feeb{i}")
@@ -617,7 +654,7 @@ def test_adapter_loopback_key_and_event_accepted(exchange_db, settlement_on, _ha
             "event": "prepaid_credit",
             "node_address": node,
             "amount_eth": "0.01",
-            "eth_tx_hash": "0xpeerok",
+            "eth_tx_hash": _txh(31),
             "head": 1000,
         },
         headers={"X-Api-Key": "test-key"},
@@ -650,7 +687,7 @@ def test_adapter_v6_mapped_loopback_accepted(exchange_db, settlement_on, _handle
             "event": "prepaid_credit",
             "node_address": node,
             "amount_eth": "0.01",
-            "eth_tx_hash": "0xpeerv6",
+            "eth_tx_hash": _txh(32),
             "head": 1000,
         },
         headers={"X-Api-Key": "test-key"},
