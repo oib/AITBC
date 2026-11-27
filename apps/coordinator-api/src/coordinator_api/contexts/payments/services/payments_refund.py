@@ -345,10 +345,6 @@ class PaymentRefundMixin(PaymentCoreMixin):
                 detail="the result has been delivered or is under dispute; refunds at this stage need an operator",
             )
         try:
-            # #3067: cancel a live job BEFORE any chain refund — the refund is
-            # irreversible and a miner completion that already passed its
-            # state check must lose its CAS, not overwrite CANCELED.
-            await run_in_threadpool(self._cancel_live_job_for_refund, job, allow_completed=is_admin)
             # Resolve via the facade module: tests patch ``payments.AsyncAITBCHTTPClient``.
             from . import payments as _pm
 
@@ -356,6 +352,13 @@ class PaymentRefundMixin(PaymentCoreMixin):
             reconciled = await self._reconcile_refund_state(client, payment, job, payment_id, job_id)
             if reconciled is not None:
                 return reconciled
+            # #3067: cancel a live job BEFORE any chain refund — the refund is
+            # irreversible and a miner completion that already passed its
+            # state check must lose its CAS, not overwrite CANCELED. The cancel
+            # only needs to precede a real refund submission; running it ahead
+            # of reconcile also 403'd already-refunded rows whose job had
+            # delivered output (#3084).
+            await run_in_threadpool(self._cancel_live_job_for_refund, job, allow_completed=is_admin)
             return await self._submit_refund(client, payment, job, payment_id, job_id, reason)
         except _OPS_ERRORS as e:
             logger.error("Error refunding payment: %s", e)

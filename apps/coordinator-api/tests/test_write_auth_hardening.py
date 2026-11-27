@@ -83,10 +83,13 @@ def _write_routes() -> dict[str, set[str]]:
 
 
 # Public-by-design write endpoints: signup and login cannot require auth.
+# /v1/developers/register is public by design too (#3023): the endpoint
+# verifies the wallet signature + fresh timestamp itself, like /v1/register.
 PUBLIC_WRITES: set[str] = {
     "/v1/register",
     "/v1/login",
     "/v1/auth/nonce",
+    "/v1/developers/register",
 }
 
 

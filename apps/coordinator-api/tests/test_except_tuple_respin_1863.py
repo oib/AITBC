@@ -24,7 +24,13 @@ def test_wallet_signature_bad_signature_returns_false() -> None:
 
 
 def test_multi_modal_rate_limit_error_is_soft_fail(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """AITBCHTTPClient RateLimitError/CircuitBreakerOpenError -> error JSON, not 500."""
+    """AITBCHTTPClient RateLimitError must stay inside _OPS_ERRORS -> 500, not escape.
+
+    #2712 removed the success-shaped {"error": ...} soft-fail payloads: upstream
+    failures now answer 502 (NetworkError) / 500 (local _OPS_ERRORS). This pin
+    keeps asserting the exception is *handled* — the exact status is the
+    deliberate #2712 contract, not a 500 traceback escape.
+    """
     from aitbc.exceptions import RateLimitError
 
     def _raise(*args: object, **kwargs: object) -> None:
@@ -36,8 +42,8 @@ def test_multi_modal_rate_limit_error_is_soft_fail(client: TestClient, monkeypat
         json={"task_type": "inference", "task_data": {"prompt": "hi"}},
         headers={"Authorization": "Bearer " + _token()},
     )
-    assert resp.status_code == 200
-    assert "error" in resp.json()
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Failed to submit job"
 
 
 def _token() -> str:

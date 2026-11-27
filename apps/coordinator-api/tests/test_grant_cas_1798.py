@@ -18,13 +18,16 @@ predicate can stop the second writer.
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from eth_account import Account
 from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel, col, select, update
 
+from aitbc.crypto.developer_registry import developer_register_claim, sign_developer_register
 from coordinator_api.contexts.developer.schemas.developer import DeveloperCreate
 from coordinator_api.contexts.developer.services.developer_service import DeveloperService
 from coordinator_api.contexts.governance.domain.grant import (
@@ -36,8 +39,25 @@ from coordinator_api.contexts.governance.domain.grant import (
 from coordinator_api.contexts.governance.services.grant_service import GrantService
 
 
+_DEV_KEY = Account.from_key("0x" + "33" * 32)
+
+
+def _developer_create(name: str) -> DeveloperCreate:
+    """Signed DeveloperCreate — #3023 made signature/timestamp required."""
+    timestamp = int(time.time())
+    claim = developer_register_claim(
+        wallet_address=_DEV_KEY.address, name=name, email=None, github_handle=None, timestamp=timestamp
+    )
+    return DeveloperCreate(
+        wallet_address=_DEV_KEY.address,
+        name=name,
+        signature=sign_developer_register(claim, _DEV_KEY.key.hex()),
+        timestamp=timestamp,
+    )
+
+
 def _developer(session: Session) -> str:
-    dev = DeveloperService(session).register(DeveloperCreate(wallet_address="0x" + "ab" * 20, name="CAS Dev"))
+    dev = DeveloperService(session).register(_developer_create("CAS Dev"))
     return dev.id
 
 

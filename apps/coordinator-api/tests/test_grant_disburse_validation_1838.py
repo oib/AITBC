@@ -12,20 +12,37 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from eth_account import Account
 from sqlmodel import Session, select
 
+from aitbc.crypto.developer_registry import developer_register_claim, sign_developer_register
 from coordinator_api.contexts.developer.schemas.developer import DeveloperCreate
 from coordinator_api.contexts.developer.services.developer_service import DeveloperService
 from coordinator_api.contexts.governance.domain.grant import GrantProposal, GrantStatus, MilestoneStatus
 from coordinator_api.contexts.governance.services.grant_service import GrantService
 
+_DEV_KEY = Account.from_key("0x" + "44" * 32)
+
 
 def _developer(session: Session) -> str:
-    dev = DeveloperService(session).register(DeveloperCreate(wallet_address="0x" + "ef" * 20, name="Val Dev"))
+    """Signed DeveloperCreate — #3023 made signature/timestamp required."""
+    timestamp = int(time.time())
+    claim = developer_register_claim(
+        wallet_address=_DEV_KEY.address, name="Val Dev", email=None, github_handle=None, timestamp=timestamp
+    )
+    dev = DeveloperService(session).register(
+        DeveloperCreate(
+            wallet_address=_DEV_KEY.address,
+            name="Val Dev",
+            signature=sign_developer_register(claim, _DEV_KEY.key.hex()),
+            timestamp=timestamp,
+        )
+    )
     return dev.id
 
 

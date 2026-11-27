@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import get_logger
@@ -67,7 +68,10 @@ def submit_job(request: Request, req: JobCreate, user: AuthDep, client_id: str |
         client = AITBCHTTPClient(timeout=10.0)
         job_data = req.model_dump()
         job_data["client_id"] = effective_client_id
-        return client.post(f"{ai_url}/jobs", json=job_data)
+        # payment_amount is Decimal — the wire payload needs JSON-native
+        # types or httpx's encoder raises before the upstream is even tried
+        # (#3084). jsonable_encoder is the repo's Decimal boundary (#1635).
+        return client.post(f"{ai_url}/jobs", json=jsonable_encoder(job_data))
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         raise HTTPException(status_code=502, detail="AI service unreachable") from e

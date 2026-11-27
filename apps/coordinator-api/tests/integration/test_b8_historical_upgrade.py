@@ -7,10 +7,15 @@ the 2026-08-09 coordinator.db backup (stamped ``236edfbd9728``): a real
 ``e7f2a9c4b1d0`` was added. That upgrade also surfaced a non-constant
 ``server_default=sa.text("[]")`` in ``5d8339a13a12`` (fixed to ``'[]'``).
 
-This test emulates the historical condition: build the current schema, drop
-the tenant tables, stamp the database back to the revision *before* the
-tenant-table migration, then ``upgrade head`` and assert the schema converges to the
-declared models — plus a sentinel row in an untouched table survives.
+This test emulates the historical condition by upgrading a fresh database
+only to the revision *before* the tenant-table migration — exactly what a
+real pre-tenant database looks like: stamped ``prev``, with no tenant
+tables and no tables created by later migrations. (The earlier emulation —
+build head, drop the tenant tables, stamp ``prev`` — left every post-``prev``
+table physically present, so their creating migrations collided with
+``table already exists`` on the re-upgrade; #3084.) Then ``upgrade head``
+and assert the schema converges to the declared models — plus a sentinel
+row in an untouched table survives.
 """
 
 from __future__ import annotations
@@ -22,17 +27,6 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 
 from .test_b8_schema_conformance import _COORDINATOR_ROOT, _get_model_columns, _run_alembic
-
-_TENANT_TABLES = [
-    "tenants",
-    "tenant_users",
-    "tenant_quotas",
-    "usage_records",
-    "invoices",
-    "tenant_api_keys",
-    "tenant_audit_logs",
-    "tenant_metrics",
-]
 
 
 def _pre_tenant_revision() -> str:
@@ -54,31 +48,16 @@ def _pre_tenant_revision() -> str:
 
 
 def test_historical_schema_upgrade_converges(tmp_path: Path):
-    # 1. Build the current schema, then roll it back to the pre-head era:
-    #    stamp the previous revision and drop the tenant tables, emulating a
-    #    database created before the multitenant feature existed.
-    db_path = _run_alembic(tmp_path, "upgrade", "head")
+    # 1. Build the true historical state: a fresh database upgraded only to
+    #    the pre-tenant revision.
     prev = _pre_tenant_revision()
+    db_path = _run_alembic(tmp_path, "upgrade", prev)
 
+    # Sentinel data in a kept table the upgrade must not disturb. (dao_vote
+    # predates the stamp point and keeps a stable, FK-free schema across the
+    # post-prev migrations.)
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     with engine.begin() as conn:
-        for table in _TENANT_TABLES:
-            conn.execute(text(f'DROP TABLE IF EXISTS "{table}"'))
-        # #1840: head no longer carries marketplace_regions (dropped by
-        # f6a7b8c9d0e1), but a real pre-tenant database physically has it —
-        # add_global_marketplace predates the stamp point — and mid-chain
-        # revision f7e8d9c0b1a2 UPDATEs it during the re-upgrade. Recreate
-        # the shell so the emulation matches that historical state; the
-        # head drop removes it again before the final assertion.
-        conn.execute(
-            text(
-                'CREATE TABLE IF NOT EXISTS "marketplace_regions" '
-                '("id" VARCHAR NOT NULL, "status" VARCHAR, PRIMARY KEY ("id"))'
-            )
-        )
-        # Sentinel data in a table the upgrade must not disturb. (#1840:
-        # global_marketplace_configs is dropped at head by f6a7b8c9d0e1 —
-        # dao_vote is a kept table with a stable, FK-free schema.)
         conn.execute(text("DELETE FROM dao_vote"))
         conn.execute(
             text(
@@ -89,8 +68,6 @@ def test_historical_schema_upgrade_converges(tmp_path: Path):
             )
         )
     engine.dispose()
-
-    _run_alembic(tmp_path, "stamp", prev)
 
     # 2. Upgrade from the frozen historical state.
     _run_alembic(tmp_path, "upgrade", "head")
