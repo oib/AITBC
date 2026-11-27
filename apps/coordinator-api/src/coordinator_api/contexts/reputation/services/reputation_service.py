@@ -334,7 +334,10 @@ class ReputationService:
             "new_trust_score": new_trust_score,
             "reputation_level": new_reputation_level.value,
         }
-        reputation.reputation_history.append(history_entry)
+        # Rebind a fresh list: in-place .append() on a plain JSON column is
+        # not change-tracked and the UPDATE would drop the audit entry
+        # (#3055).
+        reputation.reputation_history = [*(reputation.reputation_history or []), history_entry]
         (await run_in_threadpool(self.session.commit))
         (await run_in_threadpool(self.session.refresh, reputation))
         logger.info("Updated trust score for agent %s: %s -> %s", agent_id, old_trust_score, new_trust_score)

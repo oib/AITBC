@@ -479,14 +479,16 @@ class CertificationSystem:
         certification.verification_hash = self.generate_verification_hash(
             certification.agent_id, certification.certification_level, certification.certification_id
         )
-        certification.audit_log.append(
-            {
-                "action": "renewed",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "performed_by": renewed_by,
-                "details": f"Certification renewed for {level_config['validity_days']} days",
-            }
-        )
+        # Rebind a fresh list: in-place .append() on a plain JSON column is
+        # not change-tracked and the renewal audit entry would be lost
+        # (#3055).
+        audit_entry = {
+            "action": "renewed",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "performed_by": renewed_by,
+            "details": f"Certification renewed for {level_config['validity_days']} days",
+        }
+        certification.audit_log = [*(certification.audit_log or []), audit_entry]
         (await run_in_threadpool(session.commit))
         logger.info("Certification %s renewed for agent %s", certification_id, certification.agent_id)
         return (True, "Certification renewed successfully")
