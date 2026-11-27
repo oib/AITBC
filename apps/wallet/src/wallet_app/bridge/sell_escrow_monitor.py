@@ -33,6 +33,7 @@ import json
 import os
 from dataclasses import dataclass
 
+from wallet_app.rpc_parse import require_account_view
 from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal
 from typing import Any, cast
@@ -497,14 +498,21 @@ async def _fetch_tx_by_hash(tx_hash: str) -> dict[str, Any] | None:
 
 async def _account_view(address: str) -> tuple[int, Decimal]:
     """(nonce, balance in AIT) from the AITBC RPC in one call. A 404 (the
-    account has no on-chain record yet) reads as zero."""
+    account has no on-chain record yet) reads as zero.
+
+    #3044: both fields parse strictly — the nonce feeds escrow sweep
+    signatures and the balance feeds the fee-float gate, so a malformed
+    200 must raise (callers contain per-row/per-poll) rather than
+    fabricate a 0 that signs a doomed envelope or misjudges the float.
+    """
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(f"{wdm.BLOCKCHAIN_RPC_URL}/rpc/account/{address}")
         if resp.status_code == 404:
             return 0, Decimal("0")
         resp.raise_for_status()
         data = resp.json()
-    return int(data.get("nonce", 0)), units_to_ait(int(data.get("balance", 0) or 0))
+    nonce, balance_units = require_account_view(data, address=address)
+    return nonce, units_to_ait(balance_units)
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import sqlite3
 import time
 from collections.abc import AsyncIterator, Collection
 from contextlib import asynccontextmanager
+from wallet_app.rpc_parse import require_account_nonce
 from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
@@ -435,7 +436,10 @@ async def _refund_nonce() -> int:
     async with httpx.AsyncClient(timeout=10.0) as client:
         account_resp = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/account/{GENESIS_WALLET_ADDRESS}")
         account_resp.raise_for_status()
-        sealed = int(account_resp.json().get("nonce", 0) or 0)
+        # #3044: the account read stays strict — a malformed 200 has no
+        # nonce to sign at all, so refuse rather than fabricate 0 (which
+        # would sign a doomed refund envelope).
+        sealed = require_account_nonce(account_resp.json(), context=GENESIS_WALLET_ADDRESS)
         try:
             mempool_resp = await client.get(
                 f"{BLOCKCHAIN_RPC_URL}/mempool",

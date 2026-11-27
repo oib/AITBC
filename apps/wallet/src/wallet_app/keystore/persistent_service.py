@@ -20,6 +20,7 @@ from typing import Any
 import httpx
 
 from ..crypto.encryption import EncryptionError, EncryptionSuite
+from ..rpc_parse import require_account_nonce
 from ..security import validate_password_rules, wipe_buffer
 from ..spend_policy import assert_transfer_allowed
 from ..settings import settings
@@ -631,7 +632,9 @@ class PersistentKeystoreService:
         Any lookup error previously answered nonce 0 — a silent wrong nonce
         signs a transaction the node then rejects as a nonce conflict, and on
         a replayed account it can re-sign an already-sealed one (#1078).
-        Errors propagate instead.
+        Errors propagate instead — including a malformed 200 whose nonce
+        field is missing, null, a string, a bool, negative or a float
+        (#3044): that is no nonce source at all, never a fabricated 0.
         """
         if not validate_address(address):
             raise ValueError(f"cannot fetch nonce for invalid address {address!r}")
@@ -639,7 +642,7 @@ class PersistentKeystoreService:
         response = httpx.get(f"{rpc_url}/rpc/accounts/{address}", timeout=10.0)
         response.raise_for_status()
         data = response.json()
-        return int(data.get("nonce", 0))
+        return require_account_nonce(data, context=address)
 
     def _submit_transaction_to_chain(self, tx_data: dict[str, Any], signature: str) -> dict[str, Any]:
         """Submit signed transaction to blockchain RPC"""

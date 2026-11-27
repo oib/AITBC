@@ -285,10 +285,15 @@ def test_submit_body_uses_node_aliases_and_reads_transaction_hash(
     captured: dict = {}
 
     class _Resp:
+        def __init__(self, payload=None):
+            self._payload = payload
+
         def raise_for_status(self):
             return None
 
         def json(self):
+            if self._payload is not None:
+                return self._payload
             return {"success": True, "transaction_hash": "0xbeef", "status": "pending"}
 
     def fake_post(url, json=None, timeout=None):
@@ -298,7 +303,10 @@ def test_submit_body_uses_node_aliases_and_reads_transaction_hash(
 
     monkey = pytest.MonkeyPatch()
     monkey.setattr(svc.httpx, "post", fake_post)
-    monkey.setattr(svc.httpx, "get", lambda *a, **k: _Resp())  # unreachable — nonce given
+    # The #1859 below-check still reads the account nonce even when the
+    # caller supplies one — the GET must answer a real account payload
+    # (#3044: a nonce-less 200 is malformed, not nonce 0).
+    monkey.setattr(svc.httpx, "get", lambda *a, **k: _Resp({"nonce": 0}))
     try:
         result = keystore.sign_and_submit_transaction(
             "erin", TEST_PASSWORD, "0x" + "33" * 20, 5, nonce=0, chain_id="test-chain"

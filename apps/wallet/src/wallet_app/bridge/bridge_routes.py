@@ -31,6 +31,7 @@ from fastapi import Body, Depends, HTTPException, Request
 import httpx
 
 from wallet_app.deps import require_admin_api_key
+from wallet_app.rpc_parse import require_account_nonce
 
 # Expected failure surface for the best-effort fallbacks below: chain RPC
 # HTTP I/O (httpx), sqlite bridge-store errors, Decimal/JSON decode, and
@@ -669,7 +670,10 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
         account_resp = await SharedHttpClient.get(f"{blockchain_rpc_url}/rpc/account/{from_address}", timeout=10.0)
         account_resp.raise_for_status()
         account_data = account_resp.json()
-        nonce = account_data.get("nonce", 0)
+        # #3044: a malformed 200 must not fabricate nonce 0 into the unsigned
+        # BRIDGE_WITHDRAW the caller is about to sign — require_account_nonce
+        # raises → the except below answers 503, fail closed.
+        nonce = require_account_nonce(account_data, context=from_address)
     except Exception as exc:
         logger.exception("Unhandled exception")
         raise HTTPException(status_code=503, detail="Internal server error") from exc

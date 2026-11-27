@@ -30,6 +30,7 @@ from .bridge_db import (
 )
 from .price_api import calculate_ait_amount
 from .url_redact import redact_text
+from wallet_app.rpc_parse import require_account_nonce
 from aitbc_errors import AITBCError
 from eth_keys.exceptions import BadSignature
 from eth_utils.exceptions import ValidationError as EthValidationError
@@ -552,7 +553,10 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
     try:
         account_resp = await SharedHttpClient.get(f"{BLOCKCHAIN_RPC_URL}/rpc/account/{genesis_address}", timeout=10.0)
         account_data = account_resp.json()
-        nonce = account_data.get("nonce", 0)
+        # #3044: a malformed 200 must not fabricate nonce 0 — that signs a
+        # doomed TRANSFER from the funding account. require_account_nonce
+        # raises ValueError → the _OPS_ERRORS path re-pends, never signs.
+        nonce = require_account_nonce(account_data, context=genesis_address or GENESIS_WALLET_ADDRESS)
     except _OPS_ERRORS as e:
         logger.error("Failed to fetch genesis nonce for auto-mint: %s", e)
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
