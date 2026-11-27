@@ -1,9 +1,8 @@
 """Migrated exchange payment endpoints (compatibility layer)."""
 
 import asyncio
-import os
 import time
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -12,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aitbc import exchange_payment
 from aitbc.aitbc_logging import get_logger
 from aitbc_agent_core import get_active_brand
 
@@ -23,27 +23,16 @@ from ..storage import get_session
 router = APIRouter(tags=["exchange"])
 logger = get_logger(__name__)
 
-# Expected failure surface for the config-parsing fallbacks below:
-# env-var Decimal conversion (ValueError/InvalidOperation/TypeError) and
-# data-shape errors. RuntimeError covers abort-style raises; genuine
-# BaseExceptions still propagate (#1862).
-_OPS_ERRORS = (
-    OSError,
-    ValueError,
-    InvalidOperation,
-    KeyError,
-    TypeError,
-    AttributeError,
-    RuntimeError,
-)
 _brand = get_active_brand()
 
+# Peg/fee/timeout config is single-sourced in aitbc.exchange_payment (#3051)
+# — this dict only carries the trading-local fields.
 ETHEREUM_CONFIG: dict[str, Any] = {
     "testnet": True,
     "main_address": "0x0000000000000000000000000000000000000000",
-    "exchange_rate": 100000,
-    "min_confirmations": 1,
-    "payment_timeout": 3600,
+    "exchange_rate": exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
+    "min_confirmations": exchange_payment.EXCHANGE_MIN_CONFIRMATIONS,
+    "payment_timeout": exchange_payment.EXCHANGE_PAYMENT_TIMEOUT_SECONDS,
 }
 
 
@@ -108,8 +97,8 @@ async def create_exchange_payment(
     # 1e30 magnitude cannot be booked.
     if payment_request.aitbc_amount > MAX_MONEY_AMOUNT or payment_request.eth_amount > MAX_MONEY_AMOUNT:
         raise HTTPException(status_code=400, detail=f"Amount must not exceed {MAX_MONEY_AMOUNT}")
-    expected_eth = payment_request.aitbc_amount / ETHEREUM_CONFIG["exchange_rate"]
-    if payment_request.eth_amount != expected_eth:
+    # Same peg + client tolerance as the coordinator-api copy (#3051).
+    if not exchange_payment.eth_amount_matches(payment_request.aitbc_amount, payment_request.eth_amount):
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     idempotency_key = request.headers.get("Idempotency-Key")
@@ -190,21 +179,14 @@ def confirm_exchange_payment(
 def get_exchange_rates() -> dict[str, Any]:
     """Get current exchange rates (migrated from Coordinator API).
 
-    #1608: ``fee_percent`` mirrors the exchange service's actual
-    ``EXCHANGE_FEE_PCT`` (the fraction ``_apply_exchange_fee`` multiplies
-    the gross AIT leg by) instead of the stale hardcoded 0.5. Unset or
-    unparsable config reports 0.0 — the exchange's own default is no fee.
+    ``fee_percent`` reports the shared ``EXCHANGE_FEE_PCT`` config via
+    ``aitbc.exchange_payment.exchange_fee_percent`` — identical to the
+    coordinator-api copy (#3051).
     """
-    try:
-        fee_pct = Decimal(os.getenv("EXCHANGE_FEE_PCT", "0"))
-        if not fee_pct.is_finite() or fee_pct < 0:
-            fee_pct = Decimal("0")
-    except _OPS_ERRORS:
-        fee_pct = Decimal("0")
     return {
-        "eth_to_aitbc": ETHEREUM_CONFIG["exchange_rate"],
-        "aitbc_to_eth": 1.0 / ETHEREUM_CONFIG["exchange_rate"],
-        "fee_percent": fee_pct,
+        "eth_to_aitbc": exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
+        "aitbc_to_eth": Decimal("1") / exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
+        "fee_percent": exchange_payment.exchange_fee_percent(),
     }
 
 
@@ -219,7 +201,7 @@ async def get_market_stats(session: Annotated[AsyncSession, Depends(get_session_
         )
     )
     daily_volume = Decimal(volume_result.scalar_one())
-    base_price = Decimal("1") / ETHEREUM_CONFIG["exchange_rate"]
+    base_price = Decimal("1") / exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC
     # Configured peg, not a traded price — honest 24h change is 0 until a real rate feed exists.
     price_change_percent = Decimal("0")
     total_result = await session.execute(
@@ -232,7 +214,7 @@ async def get_market_stats(session: Annotated[AsyncSession, Depends(get_session_
         "price": str(base_price),
         "price_change_24h": price_change_percent,
         "daily_volume": str(daily_volume),
-        "daily_volume_eth": str(daily_volume / ETHEREUM_CONFIG["exchange_rate"]),
+        "daily_volume_eth": str(daily_volume / exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC),
         "total_payments": total_result.scalar_one(),
         "pending_payments": pending_result.scalar_one(),
     }

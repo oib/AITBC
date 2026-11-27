@@ -16,10 +16,11 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aitbc.exchange_payment import EXCHANGE_RATE_ETH_TO_AITBC
 from trading_service.storage import engine
 
 
-EXCHANGE_RATE = 100000  # mirrors ETHEREUM_CONFIG["exchange_rate"]
+EXCHANGE_RATE = EXCHANGE_RATE_ETH_TO_AITBC  # shared peg (#3051)
 
 
 def _sig(payment_id: str, tx_hash: str, secret: str, timestamp: int | None = None) -> tuple[str, int]:
@@ -357,7 +358,7 @@ class TestExchangeReadEndpoints:
         resp = client.get("/v1/exchange/rates")
         assert resp.status_code == 200
         body = resp.json()
-        assert body["eth_to_aitbc"] == EXCHANGE_RATE
+        assert Decimal(str(body["eth_to_aitbc"])) == EXCHANGE_RATE
 
     def test_wallet_endpoints_are_honest_stubs(self, client):
         for path in ("/v1/exchange/wallet/balance", "/v1/exchange/wallet/info"):

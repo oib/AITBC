@@ -1556,7 +1556,7 @@
           "exchange"
         ],
         "summary": "Get Exchange Rates",
-        "description": "Get current exchange rates (migrated from Coordinator API).\n\n#1608: ``fee_percent`` mirrors the exchange service's actual\n``EXCHANGE_FEE_PCT`` (the fraction ``_apply_exchange_fee`` multiplies\nthe gross AIT leg by) instead of the stale hardcoded 0.5. Unset or\nunparsable config reports 0.0 \u2014 the exchange's own default is no fee.",
+        "description": "Get current exchange rates (migrated from Coordinator API).\n\n``fee_percent`` reports the shared ``EXCHANGE_FEE_PCT`` config via\n``aitbc.exchange_payment.exchange_fee_percent`` \u2014 identical to the\ncoordinator-api copy (#3051).",
         "operationId": "get_exchange_rates_v1_exchange_rates_get",
         "responses": {
           "200": {

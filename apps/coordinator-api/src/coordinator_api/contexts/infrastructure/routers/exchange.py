@@ -14,6 +14,7 @@ from typing import Any
 from coordinator_api.contexts.infrastructure.services.redis_state import RedisStateManager
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
+from aitbc import exchange_payment
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import parse_rate_limit, rate_limit
 
@@ -43,12 +44,14 @@ _NAMESPACE = "exchange"
 # grace; market-stats counts therefore reflect the retained window.
 PAYMENT_RECORD_TTL_SECONDS = 7 * 24 * 60 * 60
 
-# ETH configuration
+# ETH configuration — the peg, confirmation policy, and timeout are
+# single-sourced in aitbc.exchange_payment (#3051) so this router and the
+# trading compat copy cannot drift apart again.
 ETH_CONFIG: dict[str, Any] = {
     "testnet": True,
-    "exchange_rate": 1000,  # 1 ETH = 1,000 AITBC
-    "min_confirmations": 12,
-    "payment_timeout": 3600,  # 1 hour
+    "exchange_rate": exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
+    "min_confirmations": exchange_payment.EXCHANGE_MIN_CONFIRMATIONS,
+    "payment_timeout": exchange_payment.EXCHANGE_PAYMENT_TIMEOUT_SECONDS,
 }
 
 _ZERO_ADDRESS = "0x" + "0" * 40
@@ -76,11 +79,9 @@ async def create_payment(
     if payment_request.aitbc_amount <= 0 or payment_request.eth_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
-    # Calculate expected ETH amount
-    expected_eth = payment_request.aitbc_amount / ETH_CONFIG["exchange_rate"]
-
-    # Allow small difference for rounding
-    if abs(payment_request.eth_amount - expected_eth) > 0.00000001:
+    # The peg price must match within the shared client tolerance —
+    # identical rule to the trading compat copy (#3051).
+    if not exchange_payment.eth_amount_matches(payment_request.aitbc_amount, payment_request.eth_amount):
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     deposit_address = _deposit_address()
@@ -169,9 +170,9 @@ def get_exchange_rates(request: Request) -> ExchangeRatesResponse:
     """Get current exchange rates"""
 
     return ExchangeRatesResponse(
-        eth_to_aitbc=ETH_CONFIG["exchange_rate"],
-        aitbc_to_eth=1.0 / ETH_CONFIG["exchange_rate"],
-        fee_percent=0.5,
+        eth_to_aitbc=exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
+        aitbc_to_eth=Decimal("1") / exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
+        fee_percent=float(exchange_payment.exchange_fee_percent()),
     )
 
 
@@ -195,10 +196,10 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
             # tolerates legacy docs holding Decimal/float values.
             daily_volume += Decimal(str(payment["aitbc_amount"]))
 
-    # The AITBC/ETH rate is a configured peg (ETH_CONFIG["exchange_rate"]) — there is no
+    # The AITBC/ETH rate is a configured peg (aitbc.exchange_payment) — there is no
     # price discovery, so the honest 24h change is 0 until a real rate feed exists.
     base_price = (
-        1.0 / ETH_CONFIG["exchange_rate"]
+        Decimal("1") / exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC
     )  # not-money: ratio, threshold or configuration default — not an amount of money
     price_change_percent = 0
 
@@ -206,7 +207,7 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
         price=base_price,
         price_change_24h=price_change_percent,
         daily_volume=daily_volume,
-        daily_volume_eth=daily_volume / ETH_CONFIG["exchange_rate"],
+        daily_volume_eth=daily_volume / exchange_payment.EXCHANGE_RATE_ETH_TO_AITBC,
         total_payments=len([p for p in all_payments if p["status"] == "confirmed"]),
         pending_payments=len([p for p in all_payments if p["status"] == "pending"]),
     )
