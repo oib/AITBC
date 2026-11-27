@@ -417,26 +417,69 @@ async def _chain_height() -> int:
     return int(data.get("height", 0))
 
 
-async def _fetch_transfers(address: str, limit: int = 0) -> list[dict[str, Any]]:
-    """TRANSFERs touching ``address`` (sender or recipient), newest first.
+# /rpc/transactions clamps ``limit`` server-side to at most 500 rows and an
+# omitted/0 limit now yields only the newest 100 (#1057/#2632). The escrow
+# scan contract is still "complete history" — paging backwards with
+# ``before_id`` cursors (the withdraw lane's #2918 pattern) restores it:
+# every poll walks to the oldest escrow-touching tx, so a burst of any
+# size can never evict an unprocessed lock from the scan window (#3042).
+_ESCROW_TX_PAGE_SIZE = 500
+# 200 pages = 100k escrow-touching transfers — orders of magnitude beyond
+# real escrow volume. Hitting the cap means the history is pathological;
+# the scan fails closed (the poll is skipped) rather than silently
+# truncating and stranding a lock the way the 100-row clamp did.
+_ESCROW_TX_MAX_PAGES = 200
 
-    ``/rpc/transactions`` has no offset/cursor pagination; its ``limit`` is
-    applied as ``results[:limit]`` guarded by ``if limit:`` — so ``limit=0``
-    deliberately disables truncation and returns the *complete* history for
-    the address. The escrow scan relies on that: every poll sees every lock
-    ever sent to the escrow, so a busy window with more than a page of new
-    transfers can never silently drop a lock (dedupe is by tx hash). Escrow
-    traffic is low-volume, so the unbounded read stays small.
-    """
+
+async def _fetch_transfers_page(address: str, *, limit: int, before_id: int | None = None) -> list[dict[str, Any]]:
+    """One newest-first page of TRANSFERs touching ``address``."""
+    params: dict[str, str | int] = {
+        "transaction_type": "TRANSFER",
+        "address": address,
+        "limit": limit,
+    }
+    if before_id is not None:
+        params["before_id"] = before_id
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            f"{wdm.BLOCKCHAIN_RPC_URL}/rpc/transactions",
-            params={"transaction_type": "TRANSFER", "address": address, "limit": limit},
-        )
+        resp = await client.get(f"{wdm.BLOCKCHAIN_RPC_URL}/rpc/transactions", params=params)
         resp.raise_for_status()
         data = resp.json()
     txs = data.get("transactions", data) if isinstance(data, dict) else data
     return cast(list[dict[str, Any]], txs) if isinstance(txs, list) else []
+
+
+async def _fetch_transfers(address: str, limit: int = 0) -> list[dict[str, Any]]:
+    """TRANSFERs touching ``address`` (sender or recipient), newest first.
+
+    ``limit=0`` (the default every escrow scan relies on) returns the
+    *complete* history: the server clamps a single request to its newest
+    page, so the fetch walks backwards with ``before_id`` cursors until a
+    short page proves history exhausted — the same cursor-paging the
+    withdraw lane adopted in #2918. Dedupe is by tx hash, so re-scanning
+    the full history every poll stays cheap, and a busy window with more
+    than a page of new transfers can never silently drop a lock. A page
+    missing ``transaction_id`` or the page cap aborts the fetch — a
+    truncated history must fail the scan, not hide a lock.
+    """
+    if limit:
+        # Explicit bounded read — one server-clamped page, no paging.
+        return await _fetch_transfers_page(address, limit=limit)
+    txs: list[dict[str, Any]] = []
+    before_id: int | None = None
+    for _ in range(_ESCROW_TX_MAX_PAGES):
+        page = await _fetch_transfers_page(address, limit=_ESCROW_TX_PAGE_SIZE, before_id=before_id)
+        txs.extend(page)
+        if len(page) < _ESCROW_TX_PAGE_SIZE:
+            return txs
+        page_ids = [i for i in (t.get("transaction_id") for t in page) if isinstance(i, int) and not isinstance(i, bool)]
+        if len(page_ids) != len(page):
+            raise RuntimeError(
+                "escrow transfer page is missing transaction_id — cannot page backwards; refusing a possibly-truncated scan"
+            )
+        before_id = min(page_ids)
+    raise RuntimeError(
+        f"escrow transfer history exceeds {_ESCROW_TX_MAX_PAGES * _ESCROW_TX_PAGE_SIZE} rows — refusing a truncated scan"
+    )
 
 
 async def _fetch_tx_by_hash(tx_hash: str) -> dict[str, Any] | None:
