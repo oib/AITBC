@@ -625,6 +625,11 @@ def build_pool_hub_register_data():
         "tags": {"platform": caps.get("platform", "CPU"), "cuda": caps.get("cuda", "unknown")},
         "capabilities": caps.get("supported_tasks", ["inference"]),
         "region": caps.get("region", "localhost"),
+        # #3059: pool-hub gates first-time registration of a miner_id behind
+        # an operator-issued shared secret. Read at call time so tests and
+        # late env provisioning see the current value; ignored by the pool
+        # hub on re-registration of an existing miner_id.
+        "registration_key": os.environ.get("POOLHUB_MINER_REGISTRATION_KEY") or None,
     }
 
 

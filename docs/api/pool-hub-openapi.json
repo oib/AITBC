@@ -586,7 +586,7 @@
           "miners"
         ],
         "summary": "Register Miner",
-        "description": "Register a miner with the pool hub.\n\nFirst registration is open (the submitted api key becomes the miner's\ncredential). Re-registering an existing miner_id requires the same api\nkey \u2014 otherwise anyone could overwrite another miner's address, price\nand payout wallet (#1083).",
+        "description": "Register a miner with the pool hub.\n\nFirst registration of a miner_id is gated by the operator-issued\n``registration_key`` (#3059): the submitted api key becomes the miner's\ncredential, and without a gate anyone could claim a predictable id\n(node2-gpu-01) first and own it forever \u2014 the #1083 re-registration\ncheck then 403s the real operator with no recovery path. Re-registering\nan existing miner_id requires the same api key \u2014 otherwise anyone could\noverwrite another miner's address, price and payout wallet (#1083).",
         "operationId": "register_miner_v1_miners_register_post",
         "requestBody": {
           "content": {
@@ -622,7 +622,17 @@
             }
           },
           "403": {
-            "description": "miner_id already registered",
+            "description": "miner_id already registered / first-time miner registration requires a valid registration_key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "first-time miner registration is not configured on this pool hub",
             "content": {
               "application/json": {
                 "schema": {
@@ -695,6 +705,61 @@
           },
           "401": {
             "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/miners/{miner_id}": {
+      "delete": {
+        "tags": [
+          "miners"
+        ],
+        "summary": "Deregister Miner",
+        "description": "Operator recovery path for a squatted or stale miner_id (#3059).\n\nDeletes the miner row so the legitimate operator can re-register the id\nas a first-time registration (which requires ``registration_key``).\nChild rows cascade (miner_status, service_configs, feedback, SLA\nmetrics/violations); RewardPayout and MatchResult carry no FK and are\nretained as history. Gated by the pool-hub operator key\n(``X-PoolHub-Key`` = POOLHUB_COORDINATOR_SHARED_SECRET), the same\ncredential class as ``/v1/parameters/apply``.",
+        "operationId": "deregister_miner_v1_miners__miner_id__delete",
+        "parameters": [
+          {
+            "name": "miner_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Miner Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Deregister Miner V1 Miners  Miner Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "miner not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2364,6 +2429,17 @@
               }
             ],
             "title": "Wallet Address"
+          },
+          "registration_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Key"
           }
         },
         "type": "object",

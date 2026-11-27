@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import math
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
+from aitbc.auth import APIKeyAuthenticator
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 from redis.asyncio import Redis
@@ -15,9 +17,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import Miner
 from ...repositories.miner_repository import MinerRepository
+from ...settings import settings
+from ...storage.redis_keys import RedisKeys
 from ..deps import db_session_dep, get_miner_from_token, redis_dep
 
 router = APIRouter(prefix="/miners", tags=["miners"])
+
+# Operator credential for the miner recovery path (DELETE /v1/miners/{id},
+# #3059). Same secret class and header as /v1/parameters/apply — the
+# pool-hub operator key (POOLHUB_COORDINATOR_SHARED_SECRET). Bound at import
+# like _governance_auth in routers/parameters.py; an unconfigured secret
+# fails closed (501) inside APIKeyAuthenticator.
+_operator_auth = APIKeyAuthenticator(
+    expected_key=settings.coordinator_shared_secret,
+    auth_enabled=True,
+    header_name="X-PoolHub-Key",
+    success_role="operator",
+    key_name="POOLHUB_COORDINATOR_SHARED_SECRET",
+)
 
 
 class MinerRegisterRequest(BaseModel):
@@ -36,6 +53,10 @@ class MinerRegisterRequest(BaseModel):
     region: str | None = "localhost"
     chain_id: str = "ait-hub"
     wallet_address: str | None = None
+    # #3059: operator-issued shared secret (POOLHUB_MINER_REGISTRATION_KEY),
+    # required only when no miner row exists yet for miner_id. Ignored on
+    # re-registration — the stored api_key_hash remains the credential.
+    registration_key: str | None = None
 
     @field_validator("base_price")
     @classmethod
@@ -80,6 +101,28 @@ MAX_HEARTBEAT_COUNT = 10_000_000  # jobs / MB: far above any real value, finite
 MAX_HEARTBEAT_LATENCY_MS = 600_000.0  # 10 minutes
 
 
+def _require_first_registration_key(registration_key: str | None) -> None:
+    """Gate first-time miner registration behind the operator-issued key (#3059).
+
+    Fails closed when ``POOLHUB_MINER_REGISTRATION_KEY`` is unconfigured —
+    an open first-registration path is the squatting defect itself, so an
+    unprovisioned deployment refuses new miner_ids rather than silently
+    re-opening it. Already-registered miners are unaffected: they take the
+    re-registration branch, which never consults this key.
+    """
+    configured = settings.miner_registration_key
+    if not configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="first-time miner registration is not configured on this pool hub",
+        )
+    if not registration_key or not hmac.compare_digest(registration_key, configured):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="first-time miner registration requires a valid registration_key",
+        )
+
+
 class MinerHeartbeatRequest(BaseModel):
     status: str = "active"
     # #1399: miner-reported numerics feed match scoring and SLA metrics, so a
@@ -99,17 +142,23 @@ async def register_miner(
 ) -> dict[str, Any]:
     """Register a miner with the pool hub.
 
-    First registration is open (the submitted api key becomes the miner's
-    credential). Re-registering an existing miner_id requires the same api
-    key — otherwise anyone could overwrite another miner's address, price
-    and payout wallet (#1083).
+    First registration of a miner_id is gated by the operator-issued
+    ``registration_key`` (#3059): the submitted api key becomes the miner's
+    credential, and without a gate anyone could claim a predictable id
+    (node2-gpu-01) first and own it forever — the #1083 re-registration
+    check then 403s the real operator with no recovery path. Re-registering
+    an existing miner_id requires the same api key — otherwise anyone could
+    overwrite another miner's address, price and payout wallet (#1083).
     """
     repo = MinerRepository(session, redis)
     api_key_hash = hashlib.sha256(data.api_key.encode()).hexdigest()
 
     existing = await session.get(Miner, data.miner_id)
-    if existing is not None and existing.api_key_hash != api_key_hash:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id already registered")
+    if existing is not None:
+        if existing.api_key_hash != api_key_hash:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id already registered")
+    else:
+        _require_first_registration_key(data.registration_key)
 
     miner = await repo.register_miner(
         data.miner_id,
@@ -157,6 +206,38 @@ async def miner_heartbeat(
         mem_free_gb=max(data.memory_total - data.memory_used, 0) / 1024 if data.memory_total else None,
     )
     return {"success": True, "miner_id": miner.miner_id}
+
+
+@router.delete("/{miner_id}")
+async def deregister_miner(
+    miner_id: str,
+    session: Annotated[AsyncSession, Depends(db_session_dep)],
+    redis: Annotated[Redis, Depends(redis_dep)],
+    _: Annotated[dict[str, Any], Depends(_operator_auth)],
+) -> dict[str, Any]:
+    """Operator recovery path for a squatted or stale miner_id (#3059).
+
+    Deletes the miner row so the legitimate operator can re-register the id
+    as a first-time registration (which requires ``registration_key``).
+    Child rows cascade (miner_status, service_configs, feedback, SLA
+    metrics/violations); RewardPayout and MatchResult carry no FK and are
+    retained as history. Gated by the pool-hub operator key
+    (``X-PoolHub-Key`` = POOLHUB_COORDINATOR_SHARED_SECRET), the same
+    credential class as ``/v1/parameters/apply``.
+    """
+    miner = await session.get(Miner, miner_id)
+    if miner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
+    region = miner.region
+    await session.delete(miner)
+    await session.commit()
+    # Drop the Redis ranking/hash copies immediately instead of waiting out
+    # the session TTL — a deleted miner must not stay matchable.
+    await redis.delete(RedisKeys.miner_hash(miner_id))
+    await redis.zrem(RedisKeys.miner_rankings(region), miner_id)
+    if region:
+        await redis.zrem(RedisKeys.miner_rankings(), miner_id)
+    return {"success": True, "miner_id": miner_id, "deleted": True}
 
 
 @router.get("/status")

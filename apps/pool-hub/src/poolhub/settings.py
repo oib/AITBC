@@ -157,6 +157,18 @@ class Settings(ServiceSettings):
     rate_limit_window_seconds: int = Field(default=60)
     rate_limit_anonymous_requests: int = Field(default=30)
 
+    # #3059 (AUDIT-POOLHUB-MINER-SQUAT-1): first-time POST /v1/miners/register
+    # binds a miner_id to a caller-chosen api_key credential, and the #1083
+    # re-registration check then locks the id to whoever registered first —
+    # a squatter of a predictable id (node2-gpu-01) permanently excludes the
+    # real operator and controls the payout wallet / match-scoring fields.
+    # When set, a first registration must present this shared secret as
+    # `registration_key`; when empty the first-registration path fails closed
+    # (503) while re-registration of already-registered miners is unaffected.
+    # Provisioned per deployment (operator-generated); miners receive it as
+    # POOLHUB_MINER_REGISTRATION_KEY in their env.
+    miner_registration_key: str = Field(default="")
+
     def asgi_kwargs(self) -> dict[str, Any]:
         return {
             "title": self.app_name,

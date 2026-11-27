@@ -7234,6 +7234,13 @@
           ]
         },
         {
+          "public": "/api/v2/pool-hub/v1/miners/{miner_id}",
+          "upstream": "/v1/miners/{miner_id}",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
           "public": "/api/v2/pool-hub/v1/parameters/apply",
           "upstream": "/v1/parameters/apply",
           "methods": [
