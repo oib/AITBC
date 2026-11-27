@@ -44,13 +44,13 @@ Related design documents:
   settlement (ETH-8 design, Sepolia only).
 - [node-held-wallet-access.md](../design/node-held-wallet-access.md) — bounded,
   allow-listed, operator-approved agent spends from a node-held ops wallet (SEC-1).
-- [TOPOLOGY/2026-10-16-wallet-custody-inventory.md](../../TOPOLOGY/2026-10-16-wallet-custody-inventory.md) —
-  read-only fleet wallet custody inventory (WALLET-CUSTODY-1); operator decision
-  16 Oct: accept plaintext.
-- [TOPOLOGY/2026-10-16-keytrace.md](../../TOPOLOGY/2026-10-16-keytrace.md) —
-  KEYTRACE-1: fleet backup-file inventory (5 key-bearing env backups named) and
-  the 0x02B8 treasury signing trace — verdict historical, last send 7 Oct.
-- [TOPOLOGY/2026-10-17-env-var-crosscheck.md](../../TOPOLOGY/2026-10-17-env-var-crosscheck.md) —
-  ENV-XCHECK-1: names-only fleet env census (307 names, 115 service records) —
-  20 fictional/stale keys removed from `/etc/aitbc/*.env` on 17 Oct; scanner
-  pitfalls + node0 orphan-fragment note for re-runs.
+- `TOPOLOGY/2026-10-16-wallet-custody-inventory.md` (ops workspace, not in
+  this repo) — read-only fleet wallet custody inventory (WALLET-CUSTODY-1);
+  operator decision 16 Oct: accept plaintext.
+- `TOPOLOGY/2026-10-16-keytrace.md` (ops workspace, not in this repo) —
+  KEYTRACE-1: fleet backup-file inventory (5 key-bearing env backups named)
+  and the 0x02B8 treasury signing trace — verdict historical, last send 7 Oct.
+- `TOPOLOGY/2026-10-17-env-var-crosscheck.md` (ops workspace, not in this
+  repo) — ENV-XCHECK-1: names-only fleet env census (307 names, 115 service
+  records) — 20 fictional/stale keys removed from `/etc/aitbc/*.env` on
+  17 Oct; scanner pitfalls + node0 orphan-fragment note for re-runs.
