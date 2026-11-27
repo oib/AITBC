@@ -14,6 +14,7 @@ from aitbc.oracles.price_oracle import get_price_oracle
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 
+from .rpc_parse import parse_account_nonce
 from .runtime import BridgeMonitorRuntime
 from .storage import (
     BridgeDepositStatus,
@@ -359,7 +360,18 @@ class BridgeMonitor(BridgeMonitorRuntime):
             if sender_response.status_code != 200:
                 logger.error("Failed to get sender account: %s", sender_response.text)
                 return None
-            nonce = int(sender_response.json().get("nonce", 0))
+            # #3041: a 200 without a real nonce is a malformed response, not
+            # nonce 0 — signing the fabricated nonce produces a doomed
+            # envelope, a mempool rejection, and (once the abandon proof
+            # passes) an unbudgeted re-sign loop gating the payout slot.
+            # Refuse to build; callers take their normal failure path.
+            nonce = parse_account_nonce(sender_response.json())
+            if nonce is None:
+                logger.error(
+                    "Cannot build payout - malformed account response for %s (no valid nonce)",
+                    self.genesis_wallet_address,
+                )
+                return None
 
             chain_id = resolve_chain_id()
             tx_amount = ait_to_units(amount)
@@ -1226,7 +1238,12 @@ class BridgeMonitor(BridgeMonitorRuntime):
 
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{address}", timeout=5)
             if resp.status_code == 200:
-                return int(resp.json().get("nonce", 0))
+                nonce = parse_account_nonce(resp.json())
+                if nonce is None:
+                    # Malformed ≠ nonce 0: report unreadable so the abandon
+                    # proof refuses rather than comparing against a lie.
+                    logger.warning("account nonce fetch returned malformed payload for %s", address)
+                return nonce
         except (httpx.HTTPError, AttributeError, TypeError, ValueError) as e:
             logger.warning("account nonce fetch failed for %s: %s", address, e)
         return None

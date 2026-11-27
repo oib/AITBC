@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 
+from .rpc_parse import parse_account_balance
 from .storage import (
     BridgeDepositStatus,
     canon_tx_hash,
@@ -151,7 +152,16 @@ class BridgeMonitorRuntime:
 
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
             if resp.status_code == 200:
-                return int(resp.json().get("balance", 0))
+                balance = parse_account_balance(resp.json())
+                if balance is None:
+                    # #3041: malformed ≠ balance 0 — report unreadable so
+                    # the cap/float checks take their "balance unknown"
+                    # path instead of treating a lie as an empty float.
+                    logger.warning(
+                        "payout balance fetch returned malformed payload for %s",
+                        self.genesis_wallet_address,
+                    )
+                return balance
         except (httpx.HTTPError, AttributeError, TypeError, ValueError) as e:
             logger.warning("payout balance fetch failed: %s", e)
         return None
