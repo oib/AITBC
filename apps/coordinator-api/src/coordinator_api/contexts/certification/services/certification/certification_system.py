@@ -148,6 +148,19 @@ class CertificationSystem:
             "compliance_verified": VerificationType.COMPLIANCE,
             "excellence_proven": VerificationType.PERFORMANCE,
             "innovation_leader": VerificationType.CAPABILITY,
+            # Renewal requirements (#3071): the "maintained"/"current" variants
+            # reuse the same verifiers — they re-check the agent's current
+            # reputation state, which is what renewal is meant to attest.
+            "identity_reverified": VerificationType.IDENTITY,
+            "performance_maintained": VerificationType.PERFORMANCE,
+            "reliability_maintained": VerificationType.RELIABILITY,
+            "community_contribution": VerificationType.CAPABILITY,
+            "performance_excellent": VerificationType.PERFORMANCE,
+            "security_maintained": VerificationType.SECURITY,
+            "enterprise_standards": VerificationType.CAPABILITY,
+            "compliance_current": VerificationType.COMPLIANCE,
+            "excellence_maintained": VerificationType.PERFORMANCE,
+            "innovation_continued": VerificationType.CAPABILITY,
         }
         verification_type = verification_map.get(requirement)
         if verification_type:
