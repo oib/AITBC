@@ -1,5 +1,11 @@
 """Negative authentication tests for dispute endpoints.
 Tests for missing authentication, unauthorized access, and invalid tokens.
+
+#3052 (AUDIT-DISPUTE-AUTH-HEADER-1): the dispute mutations no longer accept a
+bare ``X-Wallet-Address`` header — not even with ``TRUST_X_WALLET_ADDRESS=true``.
+They require a wallet signature over the request; these tests pin the reject
+side (missing/malformed/unsigned/bad-proof) at the HTTP layer. The accept side
+and replay guard live in ``apps/blockchain-node/tests/test_dispute_signed_auth_3052.py``.
 """
 
 import os
@@ -8,6 +14,14 @@ import pytest
 import pytest_asyncio
 from fastapi import status
 from httpx import ASGITransport, AsyncClient
+
+FILE_BODY = {
+    "agreement_id": 1,
+    "respondent": "0x1234567890123456789012345678901234567890",
+    "dispute_type": "Payment",
+    "reason": "Test dispute",
+    "evidence_hash": "0xabcdef",
+}
 
 
 @pytest.mark.asyncio
@@ -41,16 +55,7 @@ class TestDisputeAuthentication:
 
     async def test_file_dispute_missing_auth(self, client):
         """Test that filing a dispute without authentication returns 401"""
-        response = await client.post(
-            "/rpc/disputes/file",
-            json={
-                "agreement_id": 1,
-                "respondent": "0x1234567890123456789012345678901234567890",
-                "dispute_type": "payment_dispute",
-                "reason": "Test dispute",
-                "evidence_hash": "0xabcdef",
-            },
-        )
+        response = await client.post("/rpc/disputes/file", json=FILE_BODY)
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Authentication required" in response.json()["detail"]
@@ -59,13 +64,7 @@ class TestDisputeAuthentication:
         """Test that filing a dispute with invalid wallet address format returns 401"""
         response = await client.post(
             "/rpc/disputes/file",
-            json={
-                "agreement_id": 1,
-                "respondent": "0x1234567890123456789012345678901234567890",
-                "dispute_type": "payment_dispute",
-                "reason": "Test dispute",
-                "evidence_hash": "0xabcdef",
-            },
+            json=FILE_BODY,
             headers={"X-Wallet-Address": "invalid_address_format"},
         )
 
@@ -115,58 +114,44 @@ class TestDisputeAuthentication:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Authentication required" in response.json()["detail"]
 
-    async def test_file_dispute_with_valid_wallet_address(self, client):
-        """Test that filing a dispute with valid wallet address header succeeds (or returns expected error)"""
+    async def test_bare_wallet_header_is_not_a_credential(self, client):
+        """#3052: TRUST_X_WALLET_ADDRESS=true no longer authorizes dispute writes.
+
+        The header is only the claimed-identity hint; without a signature the
+        request dies at 401 even though the trust flag and a loopback-looking
+        test client would previously have passed.
+        """
         os.environ["TRUST_X_WALLET_ADDRESS"] = "true"
         response = await client.post(
             "/rpc/disputes/file",
-            json={
-                "agreement_id": 1,
-                "respondent": "0x1234567890123456789012345678901234567890",
-                "dispute_type": "payment_dispute",
-                "reason": "Test dispute",
-                "evidence_hash": "0xabcdef",
-            },
-            headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"},
-        )
-
-        # Should not be 401 (authentication passed)
-        # May be 500 if dispute service is not available, which is acceptable
-        assert response.status_code != status.HTTP_401_UNAUTHORIZED
-
-    async def test_valid_wallet_address_header_is_not_trusted_by_default(self, client):
-        """Test that filing a dispute with an untrusted wallet address header returns 401"""
-        response = await client.post(
-            "/rpc/disputes/file",
-            json={
-                "agreement_id": 1,
-                "respondent": "0x1234567890123456789012345678901234567890",
-                "dispute_type": "payment_dispute",
-                "reason": "Test dispute",
-                "evidence_hash": "0xabcdef",
-            },
+            json=FILE_BODY,
             headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "not trusted" in response.json()["detail"]
+        assert "signature" in response.json()["detail"].lower()
+
+    async def test_valid_wallet_address_header_still_requires_signature(self, client):
+        """A well-formed header alone never authenticates, flag on or off."""
+        for flag in ("false", "true"):
+            os.environ["TRUST_X_WALLET_ADDRESS"] = flag
+            response = await client.post(
+                "/rpc/disputes/file",
+                json=FILE_BODY,
+                headers={"X-Wallet-Address": "0x1234567890123456789012345678901234567890"},
+            )
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED, flag
 
     async def test_jwt_token_not_configured(self, client):
         """Test that JWT token authentication fails closed with clear error"""
         response = await client.post(
             "/rpc/disputes/file",
-            json={
-                "agreement_id": 1,
-                "respondent": "0x1234567890123456789012345678901234567890",
-                "dispute_type": "payment_dispute",
-                "reason": "Test dispute",
-                "evidence_hash": "0xabcdef",
-            },
+            json=FILE_BODY,
             headers={"Authorization": "Bearer test_token"},
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "JWT authentication is not supported" in response.json()["detail"]
+        assert "Authentication required" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -200,22 +185,18 @@ class TestDisputeAuthDevMode:
 
     async def test_file_dispute_dev_mode_fails_closed(self, dev_client):
         """Test that dev mode no longer uses a zero address fallback"""
-        response = await dev_client.post(
-            "/rpc/disputes/file",
-            json={
-                "agreement_id": 1,
-                "respondent": "0x1234567890123456789012345678901234567890",
-                "dispute_type": "payment_dispute",
-                "reason": "Test dispute",
-                "evidence_hash": "0xabcdef",
-            },
-        )
+        response = await dev_client.post("/rpc/disputes/file", json=FILE_BODY)
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Authentication required" in response.json()["detail"]
 
-    async def test_arbitration_vote_zero_address_rejected(self, dev_client):
-        """Test that zero address is rejected in arbitration vote submission"""
+    async def test_zero_address_claim_rejected_without_signature(self, dev_client):
+        """#3052: the zero address cannot authenticate — no key exists to sign.
+
+        Previously the bare-header path let the claim through to the route's
+        explicit zero-address guard; now it dies earlier at the signature
+        requirement, which is strictly stronger.
+        """
         os.environ["TRUST_X_WALLET_ADDRESS"] = "true"
         response = await dev_client.post(
             "/rpc/disputes/vote",
@@ -224,4 +205,4 @@ class TestDisputeAuthDevMode:
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "Zero address is not allowed" in response.json()["detail"]
+        assert "signature" in response.json()["detail"].lower()

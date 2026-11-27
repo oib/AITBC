@@ -60,7 +60,7 @@ def aitbc_dispute_arbitrator_authorize(
     ] = None,
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     wallet_name: Annotated[
-        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+        str | None, Field(description="Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052).")
     ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -242,7 +242,10 @@ def aitbc_dispute_evidence_add(
     description: Annotated[str, Field(description="What the evidence shows.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     wallet_name: Annotated[
-        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+        str | None, Field(description="Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052).")
+    ] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -262,6 +265,7 @@ def aitbc_dispute_evidence_add(
             "description": "description",
             "node_url": "node-url",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "format": "format",
         },
     )
@@ -332,7 +336,10 @@ def aitbc_dispute_evidence_verify(
     reject: Annotated[bool | None, Field(description="Mark the evidence as not verified instead of verified.")] = None,
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     wallet_name: Annotated[
-        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+        str | None, Field(description="Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052).")
+    ] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -350,6 +357,7 @@ def aitbc_dispute_evidence_verify(
             "evidence_id": "evidence-id",
             "node_url": "node-url",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "format": "format",
         },
     )
@@ -395,7 +403,10 @@ def aitbc_dispute_file(
     evidence_hash: Annotated[str, Field(description="Hash of the supporting evidence.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     wallet_name: Annotated[
-        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+        str | None, Field(description="Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052).")
+    ] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -416,6 +427,7 @@ def aitbc_dispute_file(
             "evidence_hash": "evidence-hash",
             "node_url": "node-url",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "format": "format",
         },
     )
@@ -592,7 +604,10 @@ def aitbc_dispute_vote(
     reasoning: Annotated[str, Field(description="Why the arbitrator ruled this way; recorded with the vote.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     wallet_name: Annotated[
-        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+        str | None, Field(description="Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052).")
+    ] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -611,6 +626,7 @@ def aitbc_dispute_vote(
             "reasoning": "reasoning",
             "node_url": "node-url",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "format": "format",
         },
     )

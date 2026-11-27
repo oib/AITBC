@@ -26,7 +26,7 @@ NON_ARBITRATOR = "0xcccccccccccccccccccccccccccccccccccccccc"
 
 @pytest.fixture
 def as_arbitrator(monkeypatch):
-    monkeypatch.setattr(disputes, "get_authenticated_address", lambda request, credentials=None: ARBITRATOR)
+    monkeypatch.setattr(disputes, "get_signed_dispute_address", lambda *a, **kw: ARBITRATOR)
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def test_unknown_dispute_is_404(as_arbitrator):
 
 
 def test_non_arbitrator_is_403(monkeypatch, filed_dispute):
-    monkeypatch.setattr(disputes, "get_authenticated_address", lambda request, credentials=None: NON_ARBITRATOR)
+    monkeypatch.setattr(disputes, "get_signed_dispute_address", lambda *a, **kw: NON_ARBITRATOR)
     with pytest.raises(HTTPException) as excinfo:
         disputes.submit_arbitration_vote(_request(filed_dispute), None, None)
     assert excinfo.value.status_code == 403
@@ -80,8 +80,8 @@ def test_non_arbitrator_is_403(monkeypatch, filed_dispute):
 def test_zero_address_still_401(as_arbitrator, monkeypatch):
     monkeypatch.setattr(
         disputes,
-        "get_authenticated_address",
-        lambda request, credentials=None: "0x0000000000000000000000000000000000000000",
+        "get_signed_dispute_address",
+        lambda *a, **kw: "0x0000000000000000000000000000000000000000",
     )
     with pytest.raises(HTTPException) as excinfo:
         disputes.submit_arbitration_vote(_request(1), None, None)

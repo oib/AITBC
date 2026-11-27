@@ -18,7 +18,10 @@ aitbc dispute evidence verify [OPTIONS]
 | `--evidence-id` | integer | — | yes | Evidence entry to rule on. |
 | `--reject` | flag | `false` | no | Mark the evidence as not verified instead of verified. |
 | `--node-url` | text | — | no | Blockchain node RPC URL |
-| `--wallet` | text | — | no | Wallet name whose address authenticates this write (sends X-Wallet-Address). |
+| `--wallet` | text | — | no | Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052). |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

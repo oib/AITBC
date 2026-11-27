@@ -22,13 +22,23 @@ from typing import Any
 import click
 import httpx
 
+from aitbc.blockchain.dispute_auth import (
+    ACTION_EVIDENCE,
+    ACTION_FILE,
+    ACTION_VERIFY_EVIDENCE,
+    ACTION_VOTE,
+    new_dispute_proof_fields,
+    sign_dispute_request,
+)
 from aitbc.exceptions import AITBCError
 from ..auth import ExpiredAdminToken
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..utils.error_handling import CLIError, abort, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
+from ..utils.wallet_loader import find_wallet_by_address, load_wallet_for_payment
 from ..utils.wallet_paths import find_wallet_file
+from ..utils.wallet_secret import wallet_password_options
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -102,10 +112,11 @@ def _chain_client(
 ) -> AITBCHTTPClient:
     """Return an HTTP client for the blockchain node RPC.
 
-    The read routes are open; filing, evidence and votes are authenticated.
-    The node's only credential for them is ``X-Wallet-Address`` — trusted
-    verbatim, but only when the node sets ``TRUST_X_WALLET_ADDRESS=true``
-    *and* sees a loopback client (run on the node or via SSH tunnel).
+    The read routes are open. The dispute mutations authenticate with a
+    wallet signature over the request (#3052): ``X-Wallet-Address`` carries
+    the claimed identity and ``signature``/``issued_at``/``nonce`` in the
+    body carry the proof — ``TRUST_X_WALLET_ADDRESS`` no longer authorizes
+    them, so they work from any client, not just loopback.
     """
     config = get_config()
     url = (node_url or config.blockchain_rpc_url or "http://127.0.0.1:8202").rstrip("/")
@@ -141,18 +152,105 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     return get_config().wallet_address or None
 
 
+def _resolve_signing_wallet(
+    ctx,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+) -> tuple[str, str]:
+    """``(address, private_key)`` that signs dispute mutations (#3052).
+
+    Resolution mirrors :func:`_resolve_wallet_address` — ``--wallet``, then
+    ``AITBC_DEFAULT_WALLET``, then ``config.wallet_address`` (for which a
+    matching file wallet is located so its key can sign). Unlike the old
+    header-only flow a bare address is no longer a credential: without a
+    usable private key the command aborts.
+    """
+    name = wallet_name or os.getenv("AITBC_DEFAULT_WALLET")
+    if name:
+        address, private_key, _ = load_wallet_for_payment(
+            ctx,
+            wallet_name=name,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            require_private_key=True,
+        )
+        if private_key:
+            return address, private_key
+        abort(ctx, f"Wallet '{name}' has no usable private key for signing dispute requests")
+    configured = get_config().wallet_address
+    if configured:
+        path = find_wallet_by_address(configured)
+        if path is not None:
+            address, private_key, _ = load_wallet_for_payment(
+                ctx,
+                wallet_path=str(path),
+                password=password,
+                password_file=password_file,
+                password_stdin=password_stdin,
+                require_private_key=True,
+            )
+            if private_key:
+                return address, private_key
+    abort(
+        ctx,
+        "Dispute writes require a signing wallet: pass --wallet <name> (or set "
+        "AITBC_DEFAULT_WALLET) naming a keystore that holds the private key. "
+        "The node verifies a wallet signature over the request — a bare "
+        "X-Wallet-Address header is no longer accepted (#3052).",
+    )
+    raise AssertionError("unreachable")  # abort always raises
+
+
+def _signed_dispute_body(
+    ctx,
+    wallet_name: str | None,
+    action: str,
+    payload: dict[str, Any],
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+) -> tuple[str, dict[str, Any]]:
+    """Return ``(signer_address, body)`` with the signature fields added.
+
+    The signature covers ``dispute_sign_data(action, address, payload,
+    issued_at, nonce)`` where ``payload`` is exactly the business fields
+    posted — the node rebuilds it from the fields the client sent, so the
+    two sides always agree byte-for-byte.
+    """
+    address, private_key = _resolve_signing_wallet(ctx, wallet_name, password, password_file, password_stdin)
+    proof = new_dispute_proof_fields()
+    signature = sign_dispute_request(
+        private_key,
+        action=action,
+        address=address,
+        payload=payload,
+        issued_at=int(proof["issued_at"]),
+        nonce=str(proof["nonce"]),
+    )
+    return address, {**payload, "signature": signature, **proof}
+
+
 def _chain_error(ctx, e: NetworkError) -> None:
-    """Abort on a chain-RPC failure, with the auth hint on 401."""
-    if is_unauthorized(e):
+    """Abort on a chain-RPC failure, with the signing hint on 401/403."""
+    if is_unauthorized(e) or _is_forbidden(e):
         abort(
             ctx,
-            "Authentication failed (401). Pass --wallet <name> (or set "
-            "AITBC_DEFAULT_WALLET) and ensure the node runs with "
-            "TRUST_X_WALLET_ADDRESS=true and sees a loopback client — i.e. "
-            "run on the node itself or through an SSH tunnel.",
+            "Authentication failed. Dispute writes require --wallet <name> whose "
+            "keystore holds the private key — the node verifies a wallet "
+            "signature over the request (#3052); a bare X-Wallet-Address "
+            "header is no longer accepted.",
             from_exception=e,
         )
     abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+
+
+def _is_forbidden(network_error: NetworkError) -> bool:
+    """True when the RPC error's underlying response was a 403."""
+    response = getattr(network_error.__cause__, "response", None)
+    return getattr(response, "status_code", None) == 403
 
 
 NODE_URL_OPTION = click.option("--node-url", "node_url", default=None, help="Blockchain node RPC URL")
@@ -160,7 +258,7 @@ WALLET_OPTION = click.option(
     "--wallet",
     "wallet_name",
     default=None,
-    help="Wallet name whose address authenticates this write (sends X-Wallet-Address).",
+    help="Wallet name whose key signs this write (sends X-Wallet-Address + signature, #3052).",
 )
 COORDINATOR_URL_OPTION = click.option("--coordinator-url", "coordinator_url", default=None, help="Coordinator URL")
 FORMAT_OPTION = click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
@@ -199,9 +297,23 @@ def dispute():
 @click.option("--evidence-hash", "evidence_hash", required=True, help="Hash of the supporting evidence.")
 @NODE_URL_OPTION
 @WALLET_OPTION
+@wallet_password_options
 @FORMAT_OPTION
 @click.pass_context
-def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_hash, node_url, wallet_name, format):
+def file_dispute(
+    ctx,
+    agreement_id,
+    respondent,
+    dispute_type,
+    reason,
+    evidence_hash,
+    node_url,
+    wallet_name,
+    format,
+    password,
+    password_file,
+    password_stdin,
+):
     """File a new dispute against an agreement."""
     payload = {
         "agreement_id": agreement_id,
@@ -211,8 +323,9 @@ def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_h
         "evidence_hash": evidence_hash,
     }
     try:
-        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
-        result = client.post("/rpc/disputes/file", json=payload)
+        address, body = _signed_dispute_body(ctx, wallet_name, ACTION_FILE, payload, password, password_file, password_stdin)
+        client = _chain_client(ctx, node_url, wallet_address=address)
+        result = client.post("/rpc/disputes/file", json=body)
         output(result, resolve_output_format(ctx, format), title="Dispute Filed")
     except NetworkError as e:
         _chain_error(ctx, e)
@@ -325,14 +438,16 @@ def votes(ctx, dispute_id, node_url, format):
 @click.option("--reasoning", required=True, help="Why the arbitrator ruled this way; recorded with the vote.")
 @NODE_URL_OPTION
 @WALLET_OPTION
+@wallet_password_options
 @FORMAT_OPTION
 @click.pass_context
-def vote(ctx, dispute_id, vote, reasoning, node_url, wallet_name, format):
+def vote(ctx, dispute_id, vote, reasoning, node_url, wallet_name, format, password, password_file, password_stdin):
     """Cast an arbitration vote on a dispute (arbitrators only)."""
     payload = {"dispute_id": dispute_id, "vote": vote, "reasoning": reasoning}
     try:
-        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
-        result = client.post("/rpc/disputes/vote", json=payload)
+        address, body = _signed_dispute_body(ctx, wallet_name, ACTION_VOTE, payload, password, password_file, password_stdin)
+        client = _chain_client(ctx, node_url, wallet_address=address)
+        result = client.post("/rpc/disputes/vote", json=body)
         output(result, resolve_output_format(ctx, format), title="Vote Submitted")
     except NetworkError as e:
         _chain_error(ctx, e)
@@ -372,9 +487,22 @@ def evidence():
 @click.option("--description", required=True, help="What the evidence shows.")
 @NODE_URL_OPTION
 @WALLET_OPTION
+@wallet_password_options
 @FORMAT_OPTION
 @click.pass_context
-def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, node_url, wallet_name, format):
+def evidence_add(
+    ctx,
+    dispute_id,
+    evidence_hash,
+    evidence_type,
+    description,
+    node_url,
+    wallet_name,
+    format,
+    password,
+    password_file,
+    password_stdin,
+):
     """Submit evidence for a dispute."""
     payload = {
         "dispute_id": dispute_id,
@@ -383,8 +511,11 @@ def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, nod
         "description": description,
     }
     try:
-        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
-        result = client.post("/rpc/disputes/evidence", json=payload)
+        address, body = _signed_dispute_body(
+            ctx, wallet_name, ACTION_EVIDENCE, payload, password, password_file, password_stdin
+        )
+        client = _chain_client(ctx, node_url, wallet_address=address)
+        result = client.post("/rpc/disputes/evidence", json=body)
         output(result, resolve_output_format(ctx, format), title="Evidence Submitted")
     except NetworkError as e:
         _chain_error(ctx, e)
@@ -432,14 +563,20 @@ def evidence_list(ctx, dispute_id, node_url, format):
 @click.option("--reject", "reject", is_flag=True, default=False, help="Mark the evidence as not verified instead of verified.")
 @NODE_URL_OPTION
 @WALLET_OPTION
+@wallet_password_options
 @FORMAT_OPTION
 @click.pass_context
-def evidence_verify(ctx, dispute_id, evidence_id, reject, node_url, wallet_name, format):
+def evidence_verify(
+    ctx, dispute_id, evidence_id, reject, node_url, wallet_name, format, password, password_file, password_stdin
+):
     """Verify or reject a piece of evidence (arbitrators only)."""
     payload = {"dispute_id": dispute_id, "evidence_id": evidence_id, "verified": not reject}
     try:
-        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
-        result = client.post("/rpc/disputes/verify-evidence", json=payload)
+        address, body = _signed_dispute_body(
+            ctx, wallet_name, ACTION_VERIFY_EVIDENCE, payload, password, password_file, password_stdin
+        )
+        client = _chain_client(ctx, node_url, wallet_address=address)
+        result = client.post("/rpc/disputes/verify-evidence", json=body)
         output(result, resolve_output_format(ctx, format), title="Evidence Verification")
     except NetworkError as e:
         _chain_error(ctx, e)

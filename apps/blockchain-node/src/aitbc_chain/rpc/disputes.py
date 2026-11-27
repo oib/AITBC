@@ -6,6 +6,10 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import BaseModel
+
+from aitbc.blockchain.dispute_auth import AUTH_FIELDS, dispute_sign_data
+from aitbc.crypto.signature_recovery import canonical_address
 
 from ..logger import get_logger
 from ..models.dispute import (
@@ -27,8 +31,83 @@ from ..models.dispute import (
 )
 from ..rpc.dispute_resolution_service import dispute_resolution_service
 from .auth import get_authenticated_address
+from .utils import check_signed_request_freshness, verify_request_signature
 
 _logger = get_logger(__name__)
+
+
+def _claimed_wallet_address(http_request: Request | None) -> str:
+    """Parse ``X-Wallet-Address`` as a *claimed* identity — no trust decision.
+
+    #3052: on the dispute mutations the header only names the address the
+    caller must prove key control of via ``signature``; it is never accepted
+    on its own, so ``TRUST_X_WALLET_ADDRESS`` and the loopback check no
+    longer gate these routes. Format validation matches
+    ``get_authenticated_address`` so malformed claims still 401.
+    """
+    raw = http_request.headers.get("X-Wallet-Address") if http_request is not None else None
+    if not raw:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Provide X-Wallet-Address and a wallet signature over the request.",
+        )
+    try:
+        address = canonical_address(raw)
+    except (ValueError, TypeError, AttributeError):
+        _logger.warning("Invalid wallet address format in X-Wallet-Address header: %s", raw)
+        raise HTTPException(status_code=401, detail="Invalid wallet address format") from None
+    if not address.startswith("0x") or len(address) != 42:
+        _logger.warning("Invalid wallet address format in X-Wallet-Address header: %s", raw)
+        raise HTTPException(status_code=401, detail="Invalid wallet address format")
+    return address
+
+
+def _signed_payload(request: BaseModel) -> dict[str, Any]:
+    """Business fields the client actually posted — the signed payload.
+
+    Restricted to ``model_fields_set`` so pydantic defaults the client never
+    sent (e.g. vote ``confidence``) are not folded into the signature; the
+    CLI signs exactly the JSON it posts.
+    """
+    signed_fields = set(request.model_fields_set) - set(AUTH_FIELDS)
+    return request.model_dump(include=signed_fields)
+
+
+def get_signed_dispute_address(
+    http_request: Request | None,
+    *,
+    action: str,
+    signature: str | None,
+    issued_at: int | None,
+    nonce: str | None,
+    payload: dict[str, Any],
+) -> str:
+    """Authenticate a dispute mutation by wallet signature (#3052).
+
+    Returns the claimed address once the signature over
+    ``dispute_sign_data(action, address, payload, issued_at, nonce)``
+    recovers to it and the freshness/nonce replay guard passes. Missing
+    credentials answer 401; a present-but-wrong, stale or replayed proof
+    answers 403.
+    """
+    address = _claimed_wallet_address(http_request)
+    if not signature or not isinstance(signature, str):
+        raise HTTPException(
+            status_code=401,
+            detail="Wallet signature required. Sign the request per aitbc.blockchain.dispute_auth.",
+        )
+    sign_data = dispute_sign_data(
+        action=action,
+        address=address,
+        payload=payload,
+        issued_at=issued_at if isinstance(issued_at, int) and not isinstance(issued_at, bool) else 0,
+        nonce=nonce if isinstance(nonce, str) else "",
+    )
+    if not verify_request_signature(address, signature, sign_data):
+        _logger.warning("Rejected dispute mutation %s: invalid wallet signature for %s", action, address)
+        raise HTTPException(status_code=403, detail="Invalid wallet signature")
+    check_signed_request_freshness(sign_data, nonce_key=f"dispute:{action}:{address.lower()}:{nonce}")
+    return address
 
 
 def _raise_for_failed_dispute_call(result: dict[str, Any], fallback_detail: str) -> None:
@@ -51,7 +130,14 @@ def file_dispute(
     This interacts with the DisputeResolution smart contract.
     """
     try:
-        sender_address = get_authenticated_address(http_request, credentials)
+        sender_address = get_signed_dispute_address(
+            http_request,
+            action="rpc/disputes/file",
+            signature=request.signature,
+            issued_at=request.issued_at,
+            nonce=request.nonce,
+            payload=_signed_payload(request),
+        )
         result = dispute_resolution_service.file_dispute(
             agreement_id=request.agreement_id,
             respondent=request.respondent,
@@ -92,7 +178,14 @@ def submit_evidence(
     This interacts with the DisputeResolution smart contract.
     """
     try:
-        submitter_address = get_authenticated_address(http_request, credentials)
+        submitter_address = get_signed_dispute_address(
+            http_request,
+            action="rpc/disputes/evidence",
+            signature=request.signature,
+            issued_at=request.issued_at,
+            nonce=request.nonce,
+            payload=_signed_payload(request),
+        )
         result = dispute_resolution_service.submit_evidence(
             dispute_id=request.dispute_id,
             evidence_type=request.evidence_type,
@@ -122,7 +215,14 @@ def verify_evidence(
     This can only be called by authorized arbitrators.
     """
     try:
-        arbitrator_address = get_authenticated_address(http_request, credentials)
+        arbitrator_address = get_signed_dispute_address(
+            http_request,
+            action="rpc/disputes/verify-evidence",
+            signature=request.signature,
+            issued_at=request.issued_at,
+            nonce=request.nonce,
+            payload=_signed_payload(request),
+        )
         result = dispute_resolution_service.verify_evidence(
             dispute_id=request.dispute_id,
             evidence_id=request.evidence_id,
@@ -150,7 +250,14 @@ def submit_arbitration_vote(
     This can only be called by authorized arbitrators assigned to the dispute.
     """
     try:
-        arbitrator_address = get_authenticated_address(http_request, credentials)
+        arbitrator_address = get_signed_dispute_address(
+            http_request,
+            action="rpc/disputes/vote",
+            signature=request.signature,
+            issued_at=request.issued_at,
+            nonce=request.nonce,
+            payload=_signed_payload(request),
+        )
         if arbitrator_address == "0x0000000000000000000000000000000000000000":
             _logger.error("Vote submission attempted with zero address - rejected")
             raise HTTPException(status_code=401, detail="Zero address is not allowed for arbitration operations")

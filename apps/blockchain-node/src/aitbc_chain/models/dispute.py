@@ -7,7 +7,23 @@ from pydantic import BaseModel, Field, field_validator
 from ..contracts.dispute_resolution import DisputeType
 
 
-class FileDisputeRequest(BaseModel):
+class _SignedDisputeMutation(BaseModel):
+    """Wallet-signature proof fields shared by the dispute mutations (#3052).
+
+    ``signature`` is a 65-byte secp256k1 signature over
+    ``aitbc.blockchain.dispute_auth.dispute_sign_data`` for this route's
+    action, binding the ``X-Wallet-Address`` claim, the posted payload,
+    ``issued_at`` and ``nonce``. All three are optional at the schema level
+    so a missing proof reaches the auth helper and answers 401/403 with a
+    useful detail instead of a bare 422.
+    """
+
+    signature: str | None = None
+    issued_at: int | None = None
+    nonce: str | None = None
+
+
+class FileDisputeRequest(_SignedDisputeMutation):
     # agreement ids are uint256 on-chain (AIPowerRental.agreementCounter
     # starts at 0), so 0 is valid but negatives can never exist. True
     # existence lives in the coordinator/EVM agreement store — the node has
@@ -36,7 +52,7 @@ class FileDisputeResponse(BaseModel):
     timestamp: str
 
 
-class SubmitEvidenceRequest(BaseModel):
+class SubmitEvidenceRequest(_SignedDisputeMutation):
     dispute_id: int
     evidence_hash: str
     evidence_type: str
@@ -48,7 +64,7 @@ class SubmitEvidenceResponse(BaseModel):
     status: str
 
 
-class VerifyEvidenceRequest(BaseModel):
+class VerifyEvidenceRequest(_SignedDisputeMutation):
     dispute_id: int
     evidence_id: int
     verified: bool
@@ -58,7 +74,7 @@ class VerifyEvidenceResponse(BaseModel):
     status: str
 
 
-class SubmitArbitrationVoteRequest(BaseModel):
+class SubmitArbitrationVoteRequest(_SignedDisputeMutation):
     dispute_id: int
     vote: Literal["plaintiff", "defendant"]  # which side the vote favours
     reasoning: str

@@ -56,8 +56,8 @@ def test_route_maps_contract_enum_error_to_400(monkeypatch):
     client error, not a 500."""
     monkeypatch.setattr(
         disputes,
-        "get_authenticated_address",
-        lambda request, credentials=None: "0x" + "aa" * 20,
+        "get_signed_dispute_address",
+        lambda *a, **kw: "0x" + "aa" * 20,
     )
 
     def _boom(**kwargs):
@@ -72,8 +72,8 @@ def test_route_maps_contract_enum_error_to_400(monkeypatch):
 def test_route_other_failure_stays_500(monkeypatch):
     monkeypatch.setattr(
         disputes,
-        "get_authenticated_address",
-        lambda request, credentials=None: "0x" + "aa" * 20,
+        "get_signed_dispute_address",
+        lambda *a, **kw: "0x" + "aa" * 20,
     )
 
     def _boom(**kwargs):

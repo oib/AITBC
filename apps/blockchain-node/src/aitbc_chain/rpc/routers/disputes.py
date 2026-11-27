@@ -8,6 +8,8 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
+from aitbc.rate_limiting import rate_limit
+
 
 from ...logger import get_logger
 from ...models.dispute import (
@@ -69,6 +71,7 @@ except ImportError as e:
 
 
 @router.post("/file", summary="File a new dispute")
+@rate_limit(rate=20, per=60)
 def file_dispute_route(
     request: FileDisputeRequest,
     http_request: Request,
@@ -81,6 +84,7 @@ def file_dispute_route(
 
 
 @router.post("/evidence", summary="Submit evidence for a dispute")
+@rate_limit(rate=20, per=60)
 def submit_evidence_route(
     request: SubmitEvidenceRequest,
     http_request: Request,
@@ -93,6 +97,7 @@ def submit_evidence_route(
 
 
 @router.post("/verify-evidence", summary="Verify evidence (arbitrator only)")
+@rate_limit(rate=20, per=60)
 def verify_evidence_route(
     request: VerifyEvidenceRequest,
     http_request: Request,
@@ -105,6 +110,7 @@ def verify_evidence_route(
 
 
 @router.post("/vote", summary="Submit arbitration vote (arbitrator only)")
+@rate_limit(rate=20, per=60)
 def submit_arbitration_vote_route(
     request: SubmitArbitrationVoteRequest,
     http_request: Request,
@@ -117,6 +123,7 @@ def submit_arbitration_vote_route(
 
 
 @router.post("/arbitrators/authorize", summary="Authorize an arbitrator (admin only)")
+@rate_limit(rate=20, per=60)
 def authorize_arbitrator_route(
     request: AuthorizeArbitratorRequest,
     http_request: Request,
@@ -129,6 +136,7 @@ def authorize_arbitrator_route(
 
 
 @router.post("/arbitrators/revoke", summary="Revoke an arbitrator (admin only)")
+@rate_limit(rate=20, per=60)
 def revoke_arbitrator_route(
     request: RevokeArbitratorRequest,
     http_request: Request,
