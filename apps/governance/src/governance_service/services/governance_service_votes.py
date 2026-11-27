@@ -16,6 +16,7 @@ directly.
 """
 
 import logging
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import IntegrityError
@@ -26,8 +27,6 @@ from ..domain.governance import ProposalStatus, Vote, VoteType
 from .governance_service_common import _OPS_ERRORS, _VOTE_UNIQUE_INDEX, _parse_datetime
 
 if TYPE_CHECKING:
-    from decimal import Decimal
-
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from ..domain.governance import Proposal
@@ -184,27 +183,31 @@ class _VotesMixin:
         voter_address = vote_data.get("voter_address", "")
         if not voter_address:
             voter_address = voter_id
+        # #3062: persist the address the weight was computed from — close-time
+        # backing re-verification keys on it (voter_id is a profile id).
+        vote.voter_address = voter_address
 
         await self._submit_vote_onchain(vote, vote_data, signed_tx, voter_address)
 
-        # Off-chain voting power: derive from staked/held governance tokens when
-        # on-chain submission is disabled or the chain query failed.
-        if vote.voting_power is None or vote.voting_power == 0:
-            try:
-                vote.voting_power = await self.calculate_voting_power(voter_address)
-                vote.power_at_snapshot = vote.voting_power
-            except _OPS_ERRORS as e:
-                logger.warning("Could not calculate off-chain voting power for %s: %s", voter_address, e)
-
+        # #3062: the tally weight is stake-backed power re-verified at vote
+        # time — the raw on-chain balance is movable (no snapshot, no lock)
+        # and no longer counts toward any tally. calculate_voting_power
+        # fails closed to zero when the chain cannot be queried; the
+        # on-chain submission above remains evidence-only.
+        try:
+            tally_power = await self.calculate_voting_power(voter_address)
+        except _OPS_ERRORS as e:
+            logger.warning("Could not calculate voting power for %s: %s", voter_address, e)
+            tally_power = Decimal("0")
+        vote.voting_power = tally_power
+        vote.power_at_snapshot = tally_power
         # Server-side voting power: do not let clients self-report unlimited weight.
-        # Use the on-chain balance snapshot (or zero if the chain query failed) as
-        # the authoritative voting_power_used.
-        vote.voting_power_used = vote.voting_power
+        vote.voting_power_used = tally_power
         # #2213: vote_weight is the "calculated weight" the record claims was
         # applied — it was write-never and serialized as 0 next to a nonzero
         # voting_power_used, reading as "the vote did not count" when the
         # tally had already counted it.
-        vote.vote_weight = vote.voting_power_used
+        vote.vote_weight = tally_power
 
         await self._persist_vote(vote, voter_id, vote_proposal_id)
         await self.session.refresh(vote)

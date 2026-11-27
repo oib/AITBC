@@ -31,9 +31,11 @@ class _Chain:
     """Blockchain stub: reports enough on-chain balance to back test stakes (#2873)."""
 
     async def get_voting_power(self, address, chain_id=None):
+        from aitbc.utils.units import ait_to_units
         from decimal import Decimal
 
-        return Decimal("1000000")
+        # The chain reports raw compute units — convert the AIT intent (#3062).
+        return Decimal(ait_to_units(Decimal("1000000")))
 
     async def get_block_height(self, chain_id=None):
         return 100

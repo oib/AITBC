@@ -17,10 +17,15 @@ from governance_service.services.governance_service import GovernanceService
 
 
 class _Chain:
-    """Blockchain stub reporting a large on-chain balance (#2873 backing check)."""
+    """Blockchain stub reporting a large on-chain balance (#2873 backing check).
+
+    The chain reports raw compute units — ``ait_to_units`` keeps the stub in
+    the same units production sees (#3062)."""
 
     async def get_voting_power(self, address, chain_id=None):
-        return Decimal("1000000")
+        from aitbc.utils.units import ait_to_units
+
+        return Decimal(ait_to_units(Decimal("1000000")))
 
 
 def _svc(session=None) -> GovernanceService:

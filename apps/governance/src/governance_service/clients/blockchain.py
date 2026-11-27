@@ -178,3 +178,18 @@ class BlockchainClient(BaseBlockchainClient):
             return None
         resp.raise_for_status()
         return resp.json()  # type: ignore[no-any-return]
+
+    async def get_circulating_supply(self, chain_id: str | None = None) -> dict[str, Any]:
+        """GET /rpc/supply — circulating-supply snapshot for quorum math (#3062).
+
+        Returns the node's supply aggregate including ``circulating_ait``
+        (AIT units) and ``height`` (the committed head the figure was read
+        at). Raises on transport/HTTP errors — callers fail closed.
+        """
+        params: dict[str, Any] = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        client = self._ensure_client()
+        resp = await client.get(f"{self._rpc_url}/rpc/supply", params=params)
+        resp.raise_for_status()
+        return resp.json()  # type: ignore[no-any-return]

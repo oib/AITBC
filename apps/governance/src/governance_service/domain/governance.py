@@ -151,6 +151,9 @@ class Vote(GovernanceBase, table=True):
     vote_id: str = Field(primary_key=True, default_factory=lambda: f"vote_{uuid.uuid4().hex[:8]}")
     proposal_id: str = Field(foreign_key="proposals.proposal_id", index=True)
     voter_id: str = Field(foreign_key="governance_profiles.profile_id")
+    # #3062: the on-chain address whose stake backing the tally re-verifies
+    # at close — voter_id is a profile id and need not be an address.
+    voter_address: str | None = None
 
     vote_type: VoteType = Field(sa_column=Column(String(20)))
     voting_power_used: Decimal = Field(sa_column=Column(Numeric(20, 8)))

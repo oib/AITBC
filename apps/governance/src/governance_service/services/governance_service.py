@@ -13,6 +13,8 @@ from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
+from aitbc.utils.units import units_to_ait
+
 from ..clients.blockchain import BlockchainClient
 from ..config import settings
 from ..domain.governance import (
@@ -25,6 +27,7 @@ from ..domain.governance import (
     ProposalStatus,
     TokenStake,
     Vote,
+    VoteType,
 )
 from .governance_service_common import (
     _OPS_ERRORS,
@@ -405,13 +408,17 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
 
     @staticmethod
     def _apply_emergency_overrides(proposal: Proposal, now: datetime) -> None:
-        """v0.7.4: accelerated timelock/quorum for emergency proposals."""
-        # Override voting period and quorum for emergency proposals
+        """v0.7.4: accelerated timelock/voting window for emergency proposals.
+
+        Quorum is deliberately not set here — #3062 derives it from a supply
+        snapshot for both proposal classes in ``_set_quorum_from_supply``;
+        the old ``emergency_quorum_percent``-as-absolute-tokens assignment
+        made emergencies *easier* than normal proposals.
+        """
         proposal.voting_starts = now
         proposal.voting_ends = now + timedelta(
             seconds=settings.emergency_voting_period_blocks * 2  # ~2s block time
         )
-        proposal.quorum_required = Decimal(str(settings.emergency_quorum_percent))
         proposal.passing_threshold = settings.emergency_approval_percent / 100.0
         # Store emergency metadata
         proposal.proposal_metadata = {
@@ -419,6 +426,49 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
             "is_emergency": True,
             "emergency_timelock_blocks": settings.emergency_timelock_blocks,
             "normal_timelock_blocks": settings.timelock_blocks,
+        }
+
+    # Numeric(20,8) sentinel: unreachable by any real tally — applied when
+    # the supply snapshot cannot be read so a proposal can never pass on an
+    # unverifiable quorum (#3062).
+    _QUORUM_UNREACHABLE = Decimal("999999999999")
+
+    async def _set_quorum_from_supply(self, proposal: Proposal, is_emergency: bool) -> None:
+        """#3062: quorum is a fraction of circulating supply — the same
+        formula for normal and emergency proposals (emergency uses the
+        higher percent). Replaces the inverted pair this used to produce:
+        emergency stored the *percent* (80) as an absolute token count
+        while normal proposals kept a flat 1,000,000 default.
+
+        Fail-closed: an unreadable supply leaves an unreachable quorum
+        rather than a passable one. The snapshot height/timestamp and the
+        supply figure used are recorded on the proposal for audit.
+        """
+        pct = settings.emergency_quorum_percent if is_emergency else settings.quorum_percent
+        try:
+            supply = await self._blockchain.get_circulating_supply(proposal.chain_id)
+            circulating = Decimal(str(supply.get("circulating_ait") or "0"))
+            height = supply.get("height")
+        except _OPS_ERRORS as e:
+            logger.warning(
+                "circulating-supply query failed for proposal %s; quorum set unreachable: %s",
+                proposal.proposal_id,
+                e,
+            )
+            proposal.quorum_required = self._QUORUM_UNREACHABLE
+            proposal.proposal_metadata = {
+                **(proposal.proposal_metadata or {}),
+                "quorum_supply_error": str(e),
+            }
+            return
+        proposal.quorum_required = (circulating * Decimal(str(pct)) / Decimal(100)).quantize(Decimal("0.00000001"))
+        if height is not None:
+            proposal.snapshot_block = int(height)
+        proposal.snapshot_timestamp = datetime.now(UTC).replace(tzinfo=None)
+        proposal.proposal_metadata = {
+            **(proposal.proposal_metadata or {}),
+            "quorum_circulating_ait": str(circulating),
+            "quorum_percent": pct,
         }
 
     async def _ensure_governance_profile(self, user_id: str) -> None:
@@ -662,6 +712,9 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         is_emergency = proposal.proposal_type == "emergency"
         if is_emergency:
             self._apply_emergency_overrides(proposal, now)
+        # #3062: quorum is a supply fraction for both classes — set after the
+        # emergency overrides so nothing can leave the inverted defaults.
+        await self._set_quorum_from_supply(proposal, is_emergency)
 
         # Proposals are immediately active so they can be voted on and closed.
         if proposal.status == ProposalStatus.DRAFT:
@@ -719,6 +772,12 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         if proposal.status not in (ProposalStatus.ACTIVE, ProposalStatus.EXPIRED):
             raise ValueError(f"Proposal must be active to close; current status: {proposal.status}")
 
+        # #3062: re-verify every vote's backing at close — stake power is only
+        # real while the wallet still holds the tokens, so cast-time weight is
+        # capped at each address's current backed power. A chain failure
+        # aborts the close (retryable) rather than zeroing real votes.
+        await self._reverify_vote_backing(proposal)
+
         now = datetime.now(UTC)
         voting_ends = proposal.voting_ends
         if voting_ends.tzinfo is None:
@@ -768,6 +827,49 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
 
         updated = await self.update_proposal_status(proposal_id, ProposalStatus.DEFEATED)
         return updated if updated is not None else proposal
+
+    async def _reverify_vote_backing(self, proposal: Proposal) -> None:
+        """#3062: cap each vote's counted weight at the voter's *current*
+        backed power and rebuild the proposal tallies from the vote rows.
+
+        Vote-time power is recorded honestly (``power_at_snapshot`` keeps
+        the cast-time figure), but tokens are movable — without this pass an
+        attacker recycles one balance across N addresses by transferring
+        between vote casts. Re-verification at close makes only
+        simultaneously-backed power count. Weight is capped per *address*
+        across all its votes so one balance cannot be double-counted through
+        multiple voter ids. Raises ``_OPS_ERRORS`` on an unreadable chain —
+        ``close_proposal`` callers retry rather than settle on a guess.
+        """
+        votes = await self.list_votes(proposal_id=proposal.proposal_id)
+        if not votes:
+            return
+        remaining: dict[str, Decimal] = {}
+        yes = no = abstain = Decimal("0")
+        for vote in votes:
+            # voter_address is the address the weight was computed from
+            # (#3062); rows predating the column fall back to voter_id, which
+            # is the address in the canonical signed-vote flow.
+            address = str(vote.voter_address or vote.voter_id or "")
+            key = address.lower()
+            if key not in remaining:
+                remaining[key] = await self._current_backed_power(address)
+            effective = min(Decimal(vote.voting_power_used or 0), remaining[key])
+            remaining[key] -= effective
+            vote.voting_power_used = effective
+            vote.vote_weight = effective
+            if vote.vote_type == VoteType.FOR:
+                yes += effective
+            elif vote.vote_type == VoteType.AGAINST:
+                no += effective
+            elif vote.vote_type == VoteType.ABSTAIN:
+                abstain += effective
+        proposal.yes_votes = yes
+        proposal.votes_for = yes
+        proposal.no_votes = no
+        proposal.votes_against = no
+        proposal.votes_abstain = abstain
+        await self.session.commit()
 
     async def expire_stale_proposals(self) -> int:
         """Mark ACTIVE proposals whose voting window has ended as EXPIRED (#1646).
@@ -867,10 +969,13 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         # the wallet cannot back and fail closed when the chain cannot be
         # queried; otherwise any signer mints unlimited voting power.
         try:
-            backing = await self._blockchain.get_voting_power(staker_address)
+            backing_units = await self._blockchain.get_voting_power(staker_address)
         except _OPS_ERRORS as e:
             raise ValueError(f"cannot verify on-chain balance for {staker_address}: {e}") from e
-        backing = Decimal(str(backing or 0))
+        # #3062: the chain reports raw compute units (UNITS_PER_AIT per AIT);
+        # stakes are denominated in AIT — compare like with like or the cap
+        # is off by 36,000,000× and never binds.
+        backing = units_to_ait(Decimal(str(backing_units or 0)))
         if token_record.staked_tokens + amount > backing:
             raise ValueError(
                 f"stake amount {amount} exceeds on-chain backing "
@@ -895,15 +1000,51 @@ class GovernanceService(_VotesMixin, _ExecutionMixin):
         return stake
 
     async def calculate_voting_power(self, address: str) -> Decimal:
-        """Calculate total voting power for address"""
+        """Calculate total voting power for address — fails closed to zero
+        when the backing check cannot run (chain or store unreadable)."""
+        try:
+            return await self._current_backed_power(address)
+        except _OPS_ERRORS as e:
+            logger.warning("voting power fails closed for %s: %s", address, e)
+            return Decimal("0")
+
+    async def _current_backed_power(self, address: str) -> Decimal:
+        """Stake-backed power at this instant; raises ``_OPS_ERRORS`` when
+        the chain cannot be queried so each caller picks its failure mode.
+
+        #3062: power is stake-backed only. Only stakes whose ``unstakes_at``
+        has not passed count (there is no unstake path that decrements
+        ``staked_tokens``, so the live set is the unexpired ``token_stakes``
+        rows), capped by the wallet's *current* on-chain balance — re-verified
+        here on every call so tokens moved after staking stop counting. The
+        chain reports compute units; stakes are AIT.
+        """
         token_record = await self._get_token_record(address)
         if not token_record:
             return Decimal("0")
 
+        base_power = Decimal(token_record.token_balance or 0)
+        staked = await self._active_staked_tokens(address)
+        if staked <= 0:
+            return base_power
+        balance_units = await self._blockchain.get_voting_power(address)
+        backed = min(staked, units_to_ait(Decimal(str(balance_units or 0))))
         # Formula: balance + (staked * 2)
-        base_power = token_record.token_balance
-        staking_bonus = token_record.staked_tokens * 2
-        return Decimal(base_power + staking_bonus)
+        return base_power + backed * 2
+
+    async def _active_staked_tokens(self, address: str) -> Decimal:
+        """Sum of the address's stake amounts whose lock has not expired."""
+        stmt = select(TokenStake).where(
+            TokenStake.staker_address == address,
+            TokenStake.is_active == True,  # noqa: E712
+        )
+        result = await self.session.execute(stmt)
+        now = datetime.now(UTC).replace(tzinfo=None)
+        total = Decimal("0")
+        for stake in result.scalars().all():
+            if stake.unstakes_at is None or stake.unstakes_at > now:
+                total += Decimal(stake.amount_staked or 0)
+        return total
 
     async def _get_or_create_token_record(self, address: str) -> GovernanceToken:
         """Get or create governance token record for address"""

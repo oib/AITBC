@@ -6,6 +6,10 @@ arbitrary amount; ``staked_tokens`` fed ``calculate_voting_power``
 has no writer, so voting power was entirely self-reported. These pins
 assert the service now verifies the on-chain balance, caps cumulative
 stakes at it, and fails closed when the chain cannot be queried.
+
+#3062 update: the chain reports raw compute units (``UNITS_PER_AIT`` per
+AIT) while stakes are AIT — the stub returns ``ait_to_units`` values so
+the backing comparison is exercised in the same units production uses.
 """
 
 from __future__ import annotations
@@ -15,23 +19,27 @@ from types import SimpleNamespace
 
 import pytest
 
+from aitbc.utils.units import ait_to_units
 from governance_service.services.governance_service import GovernanceService
 
 
 class _Session:
-    """Minimal AsyncSession stub that persists GovernanceToken rows so
-    cumulative-stake accounting is exercised for real."""
+    """Minimal AsyncSession stub that persists GovernanceToken and
+    TokenStake rows so cumulative-stake accounting is exercised for real."""
 
     def __init__(self):
         self.added = []
         self._tokens = {}
+        self._stakes = []
 
     def add(self, obj):
         self.added.append(obj)
-        from governance_service.domain.governance import GovernanceToken
+        from governance_service.domain.governance import GovernanceToken, TokenStake
 
         if isinstance(obj, GovernanceToken):
             self._tokens[obj.holder_address] = obj
+        elif isinstance(obj, TokenStake):
+            self._stakes.append(obj)
 
     async def commit(self):
         pass
@@ -40,17 +48,20 @@ class _Session:
         pass
 
     async def execute(self, stmt):
-        from governance_service.domain.governance import GovernanceToken
+        from governance_service.domain.governance import GovernanceToken, TokenStake
 
-        tokens = [t for t in self._tokens.values() if isinstance(t, GovernanceToken)]
-        return SimpleNamespace(
-            scalars=lambda: SimpleNamespace(first=lambda: tokens[0] if tokens else None, all=lambda: tokens)
-        )
+        entity = stmt.column_descriptions[0].get("entity")
+        if entity is TokenStake:
+            rows = list(self._stakes)
+        else:
+            rows = [t for t in self._tokens.values() if isinstance(t, GovernanceToken)]
+        return SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: rows[0] if rows else None, all=lambda: rows))
 
 
 class _Chain:
     def __init__(self, balance):
-        self.balance = balance
+        # ``balance`` is AIT; the chain reports units.
+        self.balance = balance if isinstance(balance, Exception) else ait_to_units(balance)
         self.calls = 0
 
     async def get_voting_power(self, address, chain_id=None):
@@ -99,4 +110,13 @@ async def test_zero_balance_rejects_any_stake():
 async def test_chain_error_fails_closed():
     svc, _ = _svc(ConnectionError("rpc down"))
     with pytest.raises(ValueError, match="cannot verify on-chain balance"):
+        await svc.stake_tokens("0xabc", 1, 30)
+
+
+@pytest.mark.asyncio
+async def test_sub_ait_balance_cannot_back_ait_stake():
+    """#3062 regression: a balance below 1 AIT must not back an AIT stake —
+    the units/AIT mismatch used to let it pass by 36,000,000×."""
+    svc, _ = _svc(Decimal("0.5"))
+    with pytest.raises(ValueError, match="on-chain backing"):
         await svc.stake_tokens("0xabc", 1, 30)
