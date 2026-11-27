@@ -26,6 +26,17 @@ def units_to_ait(units: Decimal | float | int | str) -> Decimal:
     return Decimal(str(units)) / UNITS_PER_AIT
 
 
+def units_to_token(units: Decimal | float | int | str, units_per_token: int) -> Decimal:
+    """Convert settlement atomic units to whole tokens at the given scale.
+
+    ``units_per_token`` is the quote's ``settlement_unit_scale`` —
+    ``UNITS_PER_AIT`` (36_000_000) for native compute-units, ``10**18`` for
+    an 18-decimal ERC-20. ``units_to_ait`` hard-codes the native scale and
+    mis-converts EVM amounts by ~2.8e10 (#3068).
+    """
+    return Decimal(str(units)) / Decimal(units_per_token)
+
+
 def ait_to_units(ait: Decimal | float | int | str) -> int:
     """Convert AIT to compute-units (for transaction creation).
 

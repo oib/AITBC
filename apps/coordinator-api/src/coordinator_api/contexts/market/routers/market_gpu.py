@@ -40,7 +40,7 @@ from aitbc.market.energy_pricing import (
     build_minimum_quote,
 )
 from aitbc.utils.chain_id import resolve_chain_id
-from aitbc.utils.units import ait_to_units, units_to_ait
+from aitbc.utils.units import ait_to_units, units_to_token
 from aitbc.rate_limiting import rate_limit
 from aitbc_shared import JobPayment
 
@@ -692,7 +692,9 @@ def _price_quote_job(
     # priced but unpaid so the dispatch gate refuses it until buy_gpu creates the
     # real payment and binds the escrow.
     if result.breakdown:
-        job.payment_amount = units_to_ait(result.breakdown.buyer_charge_units)
+        # #3068: buyer_charge_units is in the quote's settlement_unit_scale
+        # (1e18 for EVM routes), not always the native 36M compute-unit scale.
+        job.payment_amount = units_to_token(result.breakdown.buyer_charge_units, quote.settlement_unit_scale)
         job.payment_token = brand_symbol
     session.add(job)
     session.commit()
@@ -704,7 +706,9 @@ def _price_quote_job(
         "gpu_count": request.gpu_count,
         "settlement_route": settlement_route.value,
         "energy_quote": quote_dict,
-        "buyer_charge_ait": units_to_ait(result.breakdown.buyer_charge_units) if result.breakdown else None,
+        "buyer_charge_ait": (
+            units_to_token(result.breakdown.buyer_charge_units, quote.settlement_unit_scale) if result.breakdown else None
+        ),
     }
 
 

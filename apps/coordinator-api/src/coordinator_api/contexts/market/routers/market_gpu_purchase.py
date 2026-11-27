@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.market.energy_pricing import EnergyPricingError, EnergyQuote
 from aitbc.rate_limiting import rate_limit
-from aitbc.utils.units import units_to_ait
+from aitbc.utils.units import units_to_token
 
 from ....auth import AuthDep
 from ....storage.db import get_session
@@ -108,7 +108,8 @@ async def _resolve_purchase_terms(
     duration_dec = Decimal(str(duration_hours))
     total_cost = duration_dec * current_price
     if supplied_quote is not None:
-        total_cost = units_to_ait(supplied_quote.principal_units)
+        # #3068: principal_units is in the quote's settlement_unit_scale.
+        total_cost = units_to_token(supplied_quote.principal_units, supplied_quote.settlement_unit_scale)
     return start_time, duration_hours, end_time, current_price, total_cost, supplied_quote
 
 
@@ -230,7 +231,7 @@ async def _open_purchase_job(
             try:
                 quote = EnergyQuote.from_dict(quote_snapshot)
                 booking.protected = True
-                booking.total_cost = units_to_ait(quote.principal_units)
+                booking.total_cost = units_to_token(quote.principal_units, quote.settlement_unit_scale)
                 booking.energy_quote_snapshot = quote.to_dict(include_signature=False)
                 booking.duration_seconds = quote.duration_seconds
                 booking.duration_hours = quote.duration_seconds / 3600

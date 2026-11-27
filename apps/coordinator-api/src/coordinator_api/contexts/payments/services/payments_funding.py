@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 from aitbc_shared import JobPayment
@@ -21,7 +22,7 @@ from aitbc.market.energy_pricing import (
     SettlementRoute,
     evaluate_quote,
 )
-from aitbc.utils.units import units_to_ait
+from aitbc.utils.units import units_to_token
 from ....schemas import JobPaymentCreate
 from ...infrastructure.domain.job import Job
 
@@ -44,6 +45,16 @@ logger = get_logger(__name__)
 # price stored on the job may carry more, so the payable amount is the agreed
 # price at the payment schema's own precision.
 _PAYMENT_AMOUNT_QUANTUM = Decimal("0.00000001")
+
+# #3068: the EVM rental lane has no coordinator settlement path — a verified
+# payment lands in "confirmed", which the dispatch gate refuses forever, and
+# nothing calls AIPowerRental.completeRental/dispute (that sync is #3070's
+# scope). Accepting new EVM-route funding would lock buyer capital against a
+# job that can never execute while completeRental's penalty branch can still
+# half-pay the provider. The lane stays dormant until the settlement path
+# exists; this flag is the deliberate opt-in for operators running the lane
+# knowingly (e.g. against a patched contract).
+_EVM_RENTAL_ENABLED = os.getenv("COORDINATOR_EVM_RENTAL_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
 
 class PaymentFundingMixin(PaymentEscrowMixin):
@@ -159,7 +170,10 @@ class PaymentFundingMixin(PaymentEscrowMixin):
         meta["energy_net_floor_units"] = result.breakdown.net_units
         meta["energy_settlement_route"] = quote.settlement_route.value
         meta["energy_is_protected"] = True
-        return units_to_ait(result.breakdown.buyer_charge_units)
+        # #3068: quote units are denominated in settlement_unit_scale atomic
+        # units — 36M/AIT native, 1e18/AIT for the ERC-20 — not always the
+        # native compute-unit scale units_to_ait assumes.
+        return units_to_token(result.breakdown.buyer_charge_units, quote.settlement_unit_scale)
 
     def _resolve_payment_quote(
         self,
@@ -199,6 +213,15 @@ class PaymentFundingMixin(PaymentEscrowMixin):
                 detail="Energy quote is bound to a different job",
             )
         self._check_quote_job_binding(job, quote)
+        if quote.settlement_route == SettlementRoute.EVM and not _EVM_RENTAL_ENABLED:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "EVM rental settlement is not enabled on this coordinator: the lane has no "
+                    "completion/dispute path yet, so funded rentals could never dispatch or settle "
+                    "(set COORDINATOR_EVM_RENTAL_ENABLED to opt in)"
+                ),
+            )
         amount = self._evaluate_energy_quote(quote, meta)
         # The quote names the provider; fall back to it when the caller
         # did not supply an explicit provider_address.
