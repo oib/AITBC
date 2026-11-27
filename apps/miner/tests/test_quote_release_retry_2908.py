@@ -132,7 +132,7 @@ def test_release_failure_retains_quote_and_retry_releases(executor, monkeypatch)
     # buyer seals the attestation and sends task_attest: the attest handler
     # and the same-sweep pending-release retry each consume one /complete —
     # the first fails (attestation tx not sealed yet), the retry confirms.
-    inbox2 = [_msg("m-redacted-host", "task_attest", {"task_id": task_id, "job_tx_hash": "0x" + "ab" * 32})]
+    inbox2 = [_msg("m-attest-1", "task_attest", {"task_id": task_id, "job_tx_hash": "0x" + "ab" * 32})]
     monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: inbox2)
     stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
     assert stats["executed"] == 1
