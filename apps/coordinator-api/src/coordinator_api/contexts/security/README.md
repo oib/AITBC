@@ -32,5 +32,3 @@ Security — access control, encryption, key management, KYC/AML, and quotas.
 - access_control.py
 - encryption.py
 - key_management.py
-- kyc_aml_providers.py
-- quota_enforcement.py
