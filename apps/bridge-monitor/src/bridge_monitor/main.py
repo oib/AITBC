@@ -481,6 +481,31 @@ class BridgeMonitor(BridgeMonitorRuntime):
         # poll — routing through _mark_for_retry would increment
         # retry_count and push next_retry_at out on each rescan until the
         # deposit FAILEDs without ever being retried.
+        #
+        # #3040: adoption requires PROVABLE monitor ownership, not just a
+        # non-terminal status. 'pending' is the wallet watcher's own insert
+        # state — both services scan this address and share this table, so
+        # a status-only check lets the monitor pay a deposit the wallet
+        # mint already owns (or is mid-flight on). owner='monitor' marks
+        # rows this service created; NULL (pre-column) rows are ambiguous
+        # for 'pending' — either service could have written them — but
+        # unambiguous for the monitor-only statuses below, since the
+        # wallet vocabulary cannot produce processing/pending_retry.
+        owner = existing.get("owner")
+        monitor_only_status = status in (
+            BridgeDepositStatus.PROCESSING.value,
+            BridgeDepositStatus.PENDING_RETRY.value,
+        )
+        if owner != "monitor" and not (owner is None and monitor_only_status):
+            logger.warning(
+                "Deposit %s in non-terminal state %s with owner %r — not provably "
+                "monitor-created; leaving it to the wallet-side flow / stranded "
+                "detector, NOT adopting into the payout pipeline",
+                tx_hash,
+                status,
+                owner,
+            )
+            return True
         logger.warning("Deposit %s in non-terminal state %s — requeued for the retry sweep", tx_hash, status)
         update_deposit(
             tx_hash,

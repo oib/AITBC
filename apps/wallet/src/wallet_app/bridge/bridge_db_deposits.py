@@ -48,10 +48,15 @@ def insert_deposit(
     cursor = conn.cursor()
 
     try:
+        # owner='wallet' (#3040): 'pending' is this service's insert state
+        # but the status alone cannot prove which deposit watcher created
+        # the row — aitbc-bridge-monitor shares this table and adopts
+        # pending rows it cannot prove are its own. The mark is what keeps
+        # the two watchers from paying one deposit twice.
         cursor.execute(
             """
-            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address)
-            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address, owner)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'wallet')
             """,
             (
                 deposit_id,
@@ -89,8 +94,8 @@ def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: 
     try:
         cursor.execute(
             """
-            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
-            VALUES (?, ?, ?, ?, ?, '0', 'exchange_prepay', ?)
+            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, owner)
+            VALUES (?, ?, ?, ?, ?, '0', 'exchange_prepay', ?, 'wallet')
             """,
             (
                 deposit_id,
@@ -110,7 +115,13 @@ def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: 
 
 
 def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, Any]]:
-    """Get pending deposits (bounded — was an unbounded full-table scan, #1408)."""
+    """Get pending deposits (bounded — was an unbounded full-table scan, #1408).
+
+    The owner predicate (#3040) keeps monitor-created 'pending' rows —
+    crash remnants in the shared table — out of the wallet's pending
+    vocabulary; NULL-owner legacy rows stay listed (unclaimed, operator-
+    visible) exactly as before the column existed.
+    """
     conn = _connect_db()
     cursor = conn.cursor()
 
@@ -118,7 +129,7 @@ def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, An
         """
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
-        WHERE status = 'pending'
+        WHERE status = 'pending' AND (owner IS NULL OR owner = 'wallet')
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
     """,

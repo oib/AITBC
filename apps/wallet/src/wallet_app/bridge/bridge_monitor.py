@@ -558,6 +558,15 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
         return
 
+    # Set the moment _submit_transfer returns a chain hash: from here
+    # on the TRANSFER may be in flight or already landed, so NO failure
+    # below may re-pend the row — 'pending' is re-mintable vocabulary
+    # and, since #3040 made ownership explicit, also the state another
+    # deposit watcher could adopt. Post-broadcast failures park the
+    # row at 'failed' for operator reconcile instead. Declared before
+    # the try so pre-submit exceptions see it bound.
+    submitted_tx_hash: str | None = None
+
     # 3. Build and sign transaction
     try:
         from eth_keys import keys as eth_keys
@@ -612,6 +621,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
                     deposit_id,
                 )
             return
+        submitted_tx_hash = tx_hash
 
         # 5. Complete — CAS returns checked (#1839): a lost completed-write
         # means the tx already hit the chain but the row moved on (admin
@@ -631,7 +641,51 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         logger.info("Auto-minted %s AIT to %s (tx: %s) for deposit %s", amount_ait, recipient, tx_hash, deposit_id)
     except _OPS_ERRORS as e:
         logger.error("Error during auto-mint: %s", e)
+        _resolve_mint_failure(deposit_id, submitted_tx_hash, e)
+
+
+def _resolve_mint_failure(deposit_id: str, submitted_tx_hash: str | None, exc: BaseException) -> None:
+    """Disposition a failed ``_mint_deposit`` attempt (#3040).
+
+    Before ``_submit_transfer`` returns a chain hash nothing was sent —
+    re-pending is safe. After it, the TRANSFER may be in flight or already
+    landed: re-pending would let this watcher mint again AND hand the
+    bridge-monitor a 'pending' row it may adopt (the deterministic
+    double-pay). Post-broadcast failures park the row at 'failed' —
+    terminal for both vocabularies — exactly like the ambiguous-submit
+    path; if even that write loses, the row stays 'verified': still not
+    re-mintable, still not adoptable, and the stranded-row alert owns
+    visibility.
+    """
+    if submitted_tx_hash is None:
+        # Pre-broadcast failure — nothing was sent, re-pending is safe.
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
+        return
+    logger.error(
+        "Auto-mint for deposit %s failed AFTER broadcast of tx %s "
+        "(%s: %s) — the TRANSFER may have landed; parking at 'failed' "
+        "for manual reconcile, NOT re-pending",
+        deposit_id,
+        submitted_tx_hash,
+        type(exc).__name__,
+        exc,
+    )
+    try:
+        if not update_deposit_status(deposit_id, "failed", expected_statuses={"pending", "verified"}):
+            logger.error(
+                "Auto-mint post-submit 'failed' write lost CAS for deposit %s — "
+                "row moved on (possibly 'completed' with the tx hash recorded); "
+                "manual reconcile needed",
+                deposit_id,
+            )
+    except _OPS_ERRORS as inner:
+        logger.error(
+            "Auto-mint post-submit 'failed' write failed for deposit %s (%s: %s) — "
+            "row stays 'verified' for the stranded alert; manual reconcile needed",
+            deposit_id,
+            type(inner).__name__,
+            inner,
+        )
 
 
 async def poll_once() -> dict[str, Any]:

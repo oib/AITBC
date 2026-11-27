@@ -352,6 +352,14 @@ def init_db() -> None:
     # that predate the column — the reconcile reports them "address unknown"
     # and treats them as the configured current wallet. No backfill.
     _add_column_if_not_exists(conn, "eth_deposits", "deposit_address", "TEXT")
+    # #3040: row ownership — 'wallet' on rows this service inserts,
+    # 'monitor' on aitbc-bridge-monitor rows, NULL on pre-column rows
+    # (ambiguous). The monitor adopts 'pending' rows into its payout
+    # pipeline only when owner='monitor', so this mark is what keeps the
+    # two deposit watchers from paying the same deposit twice. The
+    # monitor's init_db runs the same ALTER — whichever starts first
+    # migrates the shared table forward.
+    _add_column_if_not_exists(conn, "eth_deposits", "owner", "TEXT")
     # ETH-9: nonce recorded before an ETH release is broadcast, so a crash or
     # restart can prove from the chain whether the send consumed the nonce.
     _add_column_if_not_exists(conn, "eth_withdrawals", "release_nonce", "INTEGER")

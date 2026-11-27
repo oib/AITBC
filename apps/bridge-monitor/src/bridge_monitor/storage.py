@@ -89,6 +89,16 @@ class BridgeDepositStatus(StrEnum):
 # wallet's operator-terminal state. Neither belongs to a monitor
 # worklist; the stranded-row detector below is the visibility net.
 #
+# Row ownership (#3040): the wallet watcher writes its rows with
+# owner='wallet' and this monitor writes owner='monitor' (NULL on rows
+# that predate the column). 'pending' is the wallet's own insert state —
+# the status alone cannot prove which service created a row, so the
+# scan-side adoption in main._handle_existing_deposit adopts a 'pending'
+# row ONLY when owner='monitor'. Legacy NULL-owner rows in the
+# monitor-only statuses (processing/pending_retry — the wallet vocabulary
+# cannot produce them) still recover; a NULL 'pending' row is ambiguous
+# and is left for the stranded detector / operator.
+#
 # Terminal for every worklist — settled, or deliberately unresolved
 # (includes the wallet side's 'rejected').
 DEPOSIT_TERMINAL_STATUSES: frozenset[str] = frozenset(
@@ -167,7 +177,8 @@ _DEPOSIT_SELECT = """
            error_message,
            retry_count,
            next_retry_at,
-           deposit_address
+           deposit_address,
+           owner
     FROM eth_deposits
 """
 
@@ -236,6 +247,11 @@ def init_db() -> None:
             # pre-column rows — reported "address unknown" by the reconcile
             # and treated as the configured current wallet. No backfill.
             ("deposit_address", "TEXT"),
+            # #3040: row ownership — 'monitor' | 'wallet' | NULL (legacy,
+            # ambiguous). The wallet side runs the same ALTER on its own
+            # init_db, so whichever service starts first migrates the
+            # shared table forward.
+            ("owner", "TEXT"),
         ]:
             if column in columns:
                 continue
@@ -356,7 +372,10 @@ def create_deposit(
     lets the same deposit pay twice (issue #668). ``status`` must be a
     BridgeDepositStatus — the monitor never writes wallet-vocabulary
     states ('verified', 'rejected'); a stray string would park the row
-    outside every worklist with no owner (#1919).
+    outside every worklist with no owner (#1919). Every row this service
+    inserts is stamped owner='monitor' (#3040): 'pending' alone cannot
+    prove which of the two deposit watchers created a row, and the scan
+    side adopts pending rows into the payout pipeline only on that mark.
     """
     status = _coerce_deposit_status(status)
     eth_tx_hash = canon_tx_hash(eth_tx_hash)
@@ -374,8 +393,8 @@ def create_deposit(
             cursor.execute(
                 """
                 INSERT INTO eth_deposits
-                (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address)
-                SELECT ?, ?, ?, ?, ?, '0', ?, ?, ?
+                (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address, owner)
+                SELECT ?, ?, ?, ?, ?, '0', ?, ?, ?, 'monitor'
                 WHERE NOT EXISTS (
                     SELECT 1 FROM eth_deposits WHERE lower(tx_hash) IN (?, ?)
                 )
