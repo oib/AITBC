@@ -68,6 +68,7 @@ from .time_utils import (
     timestamp_to_iso,
     to_timezone,
 )
+from .tx_status import tx_sealed_for_money
 from .units import (
     DEFAULT_TX_FEE_UNITS,
     LIQUIDITY_FEE_UNITS,
@@ -160,6 +161,7 @@ __all__ = [
     "subtract_duration",
     "timestamp_to_iso",
     "to_timezone",
+    "tx_sealed_for_money",
     "units_to_ait",
     # Validation
     "validate_address",

@@ -22,6 +22,7 @@ from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.market import BlockchainRPCClient, OfferStatus
+from aitbc.utils.tx_status import tx_sealed_for_money
 
 from ..config import settings
 from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer
@@ -1147,15 +1148,16 @@ class MarketJobSweeper:
             )
             return False
         # Non-empty is not enough: the S-8 dead-hash shape is a hash that
-        # is present on the row but never sealed in a block. Adopt only
-        # once GET /rpc/transaction/{hash} finds it with a block height.
+        # is present on the row but never sealed in a block — and a
+        # failed-sealed row carries a height but moved no value (#3049).
+        # Adopt only once GET /rpc/transaction/{hash} proves confirmed+height.
         tx: dict[str, Any] | None = None
         seal_error: Exception | None = None
         try:
             tx = await self._rpc_client.get_transaction(tx_hash)
         except Exception as e:  # noqa: BLE001 - seal error captured — unsealed reads skip, never raise
             seal_error = e
-        if tx is None or tx.get("block_height") is None:
+        if tx is None or not tx_sealed_for_money(tx):
             logger.error(
                 "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
                 "escrow reports %s but tx %s %s -- still deferring",
@@ -1168,7 +1170,7 @@ class MarketJobSweeper:
                 if seal_error is not None
                 else "is not found on the chain"
                 if tx is None
-                else "is present but not sealed (no block height)",
+                else f"is present but not sealed-for-money (status={tx.get('status')!r})",
             )
             return False
         if state != intended:

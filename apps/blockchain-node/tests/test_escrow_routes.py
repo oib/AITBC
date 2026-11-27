@@ -218,8 +218,8 @@ async def test_find_existing_release_matches_on_job_id(monkeypatch):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = [
-        {"tx_hash": "0xother", "payload": {"job_id": "job-999"}},
-        {"tx_hash": "0xmine", "payload": {"job_id": "job-123"}},
+        {"tx_hash": "0xother", "payload": {"job_id": "job-999"}, "status": "confirmed", "block_height": 10},
+        {"tx_hash": "0xmine", "payload": {"job_id": "job-123"}, "status": "confirmed", "block_height": 11},
     ]
 
     with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=mock_response):

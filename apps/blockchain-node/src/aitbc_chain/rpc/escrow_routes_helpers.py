@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from . import escrow_routes as _er
 
+from aitbc.utils.tx_status import tx_sealed_for_money
+
 # Chain-probe failure surface lives on the facade as _er._HTTP_PROBE_ERRORS
 # (#1860): httpx transport/protocol errors, socket errors, and JSON decode /
 # response-shape builtins.
@@ -420,7 +422,7 @@ async def _find_existing_lock_tx_status(job_id: str) -> tuple[dict[str, _er.Any]
             _er._logger.warning("ESCROW_LOCK: settled-lock lookup for job_id=%s returned HTTP %s", job_id, r.status_code)
             return None, False
         for tx in r.json() or []:
-            if isinstance(tx, dict) and (tx.get("payload") or {}).get("job_id") == job_id:
+            if isinstance(tx, dict) and tx_sealed_for_money(tx) and (tx.get("payload") or {}).get("job_id") == job_id:
                 return tx, True
         return None, True
     except _er._HTTP_PROBE_ERRORS as e:
@@ -467,7 +469,7 @@ async def _find_existing_release(job_id: str) -> str | None:
         for tx in r.json() or []:
             # Re-check the payload: an older node without the job_id filter would
             # otherwise return unrelated releases and settle the wrong job.
-            if (tx.get("payload") or {}).get("job_id") == job_id:
+            if tx_sealed_for_money(tx) and (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
     except _er._HTTP_PROBE_ERRORS as e:
@@ -521,7 +523,7 @@ async def _find_existing_refund(job_id: str) -> str | None:
         if r.status_code != 200:
             return None
         for tx in r.json() or []:
-            if (tx.get("payload") or {}).get("job_id") == job_id:
+            if tx_sealed_for_money(tx) and (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
     except _er._HTTP_PROBE_ERRORS as e:
@@ -637,7 +639,7 @@ async def _find_existing_fee_sweep(job_id: str) -> str | None:
         if r.status_code != 200:
             return None
         for tx in r.json() or []:
-            if (tx.get("payload") or {}).get("job_id") == job_id:
+            if tx_sealed_for_money(tx) and (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
     except Exception as e:  # noqa: BLE001 - probe containment: lookup failure must not fail the release
@@ -658,7 +660,7 @@ async def _find_existing_receipt_claim(job_id: str) -> str | None:
         if r.status_code != 200:
             return None
         for tx in r.json() or []:
-            if (tx.get("payload") or {}).get("job_id") == job_id:
+            if tx_sealed_for_money(tx) and (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
     except Exception as e:  # noqa: BLE001 - probe containment: lookup failure must not fail the release

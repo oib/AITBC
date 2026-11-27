@@ -355,7 +355,7 @@ class TestSettleDeferralBound:
             json={
                 "tx_hash": request.url.path.rsplit("/", 1)[-1],
                 "block_height": 34100,
-                "status": "sealed",
+                "status": "confirmed",
             },
             request=request,
         )
@@ -1865,7 +1865,7 @@ class TestDeterministicSettleRefusal:
             json={
                 "tx_hash": request.url.path.rsplit("/", 1)[-1],
                 "block_height": 34100,
-                "status": "sealed",
+                "status": "confirmed",
             },
             request=request,
         )

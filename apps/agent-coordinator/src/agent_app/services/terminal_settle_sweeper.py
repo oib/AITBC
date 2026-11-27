@@ -66,6 +66,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.payment_escrow import EscrowEntry, EscrowStatus
+from aitbc.utils.tx_status import tx_sealed_for_money
 
 from .chain_escrow import ChainEscrowClient, EscrowRPCError
 from .orphan_escrow_sweeper import _record_is_settled, escrow_record_is_stranded
@@ -123,12 +124,16 @@ def _settle_recorded_at(entry: EscrowEntry) -> float:
 def _classify_probe(info: dict[str, Any] | None) -> str:
     """Classify a ``transaction_probe`` answer.
 
-    ``sealed`` — durable row that is not a proven rejection (confirmed or
-    otherwise applied); ``rejected`` — durable dead letter; ``pending`` —
-    mempool view (``state == "pending"``, incl. ``previously_rejected``
-    resubmissions that may still seal); ``absent`` — the 404 sentinel the
-    probe returns when neither the sealed table nor the mempool knows the
-    hash; ``unknown`` — anything else, including ``None`` (probe failure).
+    ``sealed`` — confirmed AND sealed (``tx_sealed_for_money``: a
+    ``status='failed'`` row carries a block_height but moved no value,
+    #3049); ``failed_sealed`` — apply-failed durable row: sealed into a
+    block but the apply reverted, so the settle never landed and the row
+    must demote, not tombstone; ``rejected`` — durable dead letter;
+    ``pending`` — mempool view (``state == "pending"``, incl.
+    ``previously_rejected`` resubmissions that may still seal); ``absent``
+    — the 404 sentinel the probe returns when neither the sealed table
+    nor the mempool knows the hash; ``unknown`` — anything else, including
+    ``None`` (probe failure).
     """
     if not isinstance(info, dict):
         return "unknown"
@@ -139,7 +144,9 @@ def _classify_probe(info: dict[str, Any] | None) -> str:
     status = str(info.get("status") or "").lower()
     if status == "rejected":
         return "rejected"
-    if status == "confirmed" or info.get("block_height") is not None:
+    if status == "failed":
+        return "failed_sealed"
+    if tx_sealed_for_money(info):
         return "sealed"
     return "unknown"
 
@@ -336,8 +343,14 @@ class TerminalSettleSweeper:
             counts["skipped"] += 1
             self._stamp_probe(entry, expected_status=expected_status, expected_settle_tx_hash=tx_hash)
             return
-        if verdict in ("absent", "rejected"):
-            reason = "settle_tx_absent_from_chain" if verdict == "absent" else "settle_tx_rejected_on_chain"
+        if verdict in ("absent", "rejected", "failed_sealed"):
+            # A failed-sealed settle moved no value — same re-drive path
+            # as absent/rejected: demote to LOCKED, never tombstone (#3049).
+            reason = {
+                "absent": "settle_tx_absent_from_chain",
+                "rejected": "settle_tx_rejected_on_chain",
+                "failed_sealed": "settle_tx_failed_sealed_on_chain",
+            }[verdict]
             self._demote(
                 entry,
                 counts,

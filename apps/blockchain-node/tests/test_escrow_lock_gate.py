@@ -778,7 +778,7 @@ async def test_lock_probe_status_distinguishes_absent_from_failed(monkeypatch):
     _env(monkeypatch)
     _reload_routes()
     helpers = importlib.import_module("aitbc_chain.rpc.escrow_routes_helpers")
-    lock_row = {"tx_hash": "0xlock", "payload": {"job_id": "job-1"}}
+    lock_row = {"tx_hash": "0xlock", "payload": {"job_id": "job-1"}, "status": "confirmed", "block_height": 7}
 
     with patch.object(
         helpers._er.SharedHttpClient,

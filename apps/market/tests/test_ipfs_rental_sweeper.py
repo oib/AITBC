@@ -628,7 +628,7 @@ async def test_hashless_release_success_adopts_sealed_verdict() -> None:
 
     rpc = HashlessSettleRPC(
         escrow_rows={"r_hl_rel": {"state": "released", "release_tx_hash": "0xrel_sealed"}},
-        txs={"0xrel_sealed": {"block_height": 42}},
+        txs={"0xrel_sealed": {"block_height": 42, "status": "confirmed"}},
     )
     sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
     await sweeper.sweep_once()
@@ -652,7 +652,7 @@ async def test_hashless_refund_success_adopts_sealed_verdict() -> None:
 
     rpc = HashlessSettleRPC(
         escrow_rows={"r_hl_ref": {"state": "refunded", "refund_tx_hash": "0xref_sealed"}},
-        txs={"0xref_sealed": {"block_height": 43}},
+        txs={"0xref_sealed": {"block_height": 43, "status": "confirmed"}},
     )
     sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
     await sweeper.sweep_once()
@@ -676,7 +676,7 @@ async def test_hashless_success_adopts_opposite_verdict() -> None:
 
     rpc = HashlessSettleRPC(
         escrow_rows={"r_hl_opp": {"state": "refunded", "refund_tx_hash": "0xref_opp"}},
-        txs={"0xref_opp": {"block_height": 44}},
+        txs={"0xref_opp": {"block_height": 44, "status": "confirmed"}},
     )
     sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
     await sweeper.sweep_once()

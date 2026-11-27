@@ -592,8 +592,12 @@ class TestClassifyProbe:
             ({"status": "pending", "state": "pending", "previously_rejected": True}, "pending"),
             ({"status": "rejected", "rejected_reason": "x"}, "rejected"),
             ({"status": "confirmed", "block_height": 5}, "sealed"),
-            ({"status": "confirmed"}, "sealed"),
-            ({"block_height": 5}, "sealed"),
+            # #3049: sealed-for-money is confirmed AND height — a bare
+            # confirmed status or a bare height proves nothing.
+            ({"status": "confirmed"}, "unknown"),
+            ({"block_height": 5}, "unknown"),
+            ({"status": "failed", "block_height": 5}, "failed_sealed"),
+            ({"status": "failed"}, "failed_sealed"),
             ({"status": "pending"}, "unknown"),  # durable pending row: not proven
             ({"status": "weird"}, "unknown"),
             ("not-a-dict", "unknown"),

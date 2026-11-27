@@ -36,6 +36,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import BlockchainRPCClient
+from aitbc.utils.tx_status import tx_sealed_for_money
 
 from ..config import settings
 from ..domain.market import IpfsRentalToken, MarketJob
@@ -354,9 +355,11 @@ class IpfsRentalSweeper:
         Same rule as the job sweeper's ``_settlement_verdict``: a hashless
         success is not proof nothing settled — the chain may have recorded
         the verdict and its tx hash on the escrow row. Adopt only a
-        released/refunded verdict whose hash is proven sealed
-        (``GET /rpc/transaction/{hash}`` returns a block height); anything
-        else stays deferred for the next pass.
+        released/refunded verdict whose hash is proven sealed-for-money
+        (``tx_sealed_for_money`` on ``GET /rpc/transaction/{hash}`` —
+        confirmed AND a block height; a failed-sealed row carries a
+        height but moved no value, #3049); anything else stays deferred
+        for the next pass.
         """
         try:
             escrow = await self._rpc_client.verify_escrow(job_id)
@@ -381,12 +384,13 @@ class IpfsRentalSweeper:
         except _OPS_ERRORS as e:
             logger.warning("Seal check for escrow %s tx %s failed (%s); still deferring", job_id, tx_hash, e)
             return None
-        if tx is None or tx.get("block_height") is None:
+        if tx is None or not tx_sealed_for_money(tx):
             logger.warning(
-                "Escrow %s reports %s but tx %s is not sealed; still deferring",
+                "Escrow %s reports %s but tx %s is not sealed-for-money (status=%r); still deferring",
                 job_id,
                 state,
                 tx_hash,
+                (tx or {}).get("status"),
             )
             return None
         logger.warning(
