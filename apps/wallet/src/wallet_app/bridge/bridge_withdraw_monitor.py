@@ -33,6 +33,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from .bridge_db import (
     get_awaiting_depth_withdrawals,
+    get_pending_release_withdrawals,
     get_resumable_withdrawals,
     get_withdraw_scan_cursor,
     get_withdrawal_by_ait_tx_hash,
@@ -333,6 +334,43 @@ async def _release_gas_limit(to_address: str, amount_eth: Decimal) -> int:
     return limit
 
 
+class ReserveUnknownError(RuntimeError):
+    """#3072: a reserve term could not be read — the float gate must fail
+    closed. An unknown reserve is an operator page, not a zero."""
+
+
+def _reserve_unknown(term: str, exc: BaseException) -> None:
+    logger.critical(
+        "ETH float reserve term %r UNKNOWN (%s: %s) — outgoing ETH payouts fail closed this pass",
+        term,
+        type(exc).__name__,
+        exc,
+    )
+    raise ReserveUnknownError(f"ETH reserve term {term!r} unreadable: {exc}") from exc
+
+
+def _reserve_term(term: str, reader: Any, *args: Any, missing_table_zero: bool = True, **kwargs: Any) -> Decimal:
+    """#3072: classify one reserve term as unprovisioned / healthy / unknown.
+
+    ``missing_table_zero`` covers pre-feature databases that legitimately
+    lack the term's tables (pre-ETH-10 sell locks, pre-phase-3 exchange
+    settlements) — ``no such table`` is zero liability there. Every other
+    read failure — lock contention, corrupt file, permission drift, a
+    missing table where the schema should exist — is UNKNOWN and
+    propagates as :class:`ReserveUnknownError` so payout lanes fail
+    closed instead of paying out custodied funds they cannot see.
+    """
+    try:
+        return cast(Decimal, reader(*args, **kwargs))
+    except sqlite3.OperationalError as e:
+        if missing_table_zero and "no such table" in str(e).lower():
+            return Decimal("0")
+        _reserve_unknown(term, e)
+    except Exception as e:  # noqa: BLE001 - any read fault is unknown, never zero
+        _reserve_unknown(term, e)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def _pending_eth_reserve(
     exclude_sell_lock: str | None = None,
     exclude_settlement: str | None = None,
@@ -350,34 +388,44 @@ def _pending_eth_reserve(
     already inside the payment's ``required``, so leaving it in the
     reserve double-counts it and max-size releases can never clear the
     available-balance gate.
+
+    #3072: every term is three-state — unprovisioned (zero), healthy
+    (value), unknown (read failure). Unknown raises
+    :class:`ReserveUnknownError`; the payout lanes let it propagate so a
+    database fault blocks releases instead of silently spending custodied
+    liabilities.
     """
     from .bridge_db import get_exchange_pending_eth_reserve, get_pending_withdrawals, get_sell_pending_eth_reserve
 
-    pending = get_pending_withdrawals()
-    withdraw_sum = Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
-    try:
-        sell_sum = get_sell_pending_eth_reserve(exclude_ait_tx_hash=exclude_sell_lock)
-    except Exception:  # noqa: BLE001 - pre-ETH-10 databases lack the sell tables — reserve must not depend on them
-        # Pre-ETH-10 databases lack the sell tables; withdraw reserve must not
-        # depend on them existing.
-        sell_sum = Decimal("0")
-    try:
-        exchange_sum = get_exchange_pending_eth_reserve(exclude_id=exclude_settlement)
-    except Exception:  # noqa: BLE001 - same fail-open: a pre-phase-3 database may lack the table
-        # Same fail-open as the sell term: a pre-phase-3 database may lack
-        # the table; reserve must not depend on it existing.
-        exchange_sum = Decimal("0")
-    try:
-        # #3045: open funded BUY debits are prepaid ETH sitting in this same
-        # float — deposits minus committed trade cost is still claimable
-        # backing, invisible to the settlement-rows term until a trade
-        # matches. Lazy import: exchange_settlement_monitor imports this
-        # module, so a top-level import would cycle.
-        from .exchange_settlement_monitor import exchange_prepaid_float_liability
+    withdraw_sum = _reserve_term(
+        "withdrawals",
+        lambda: Decimal(sum((Decimal(w["amount_eth"]) for w in get_pending_withdrawals()), Decimal("0"))),
+        missing_table_zero=True,
+    )
+    sell_sum = _reserve_term(
+        "sell_locks",
+        get_sell_pending_eth_reserve,
+        exclude_ait_tx_hash=exclude_sell_lock,
+    )
+    exchange_sum = _reserve_term(
+        "exchange_settlements",
+        get_exchange_pending_eth_reserve,
+        exclude_id=exclude_settlement,
+    )
+    # #3045: open funded BUY debits are prepaid ETH sitting in this same
+    # float — deposits minus committed trade cost is still claimable
+    # backing, invisible to the settlement-rows term until a trade
+    # matches. Lazy import: exchange_settlement_monitor imports this
+    # module, so a top-level import would cycle. missing_table_zero=False:
+    # an exchange.db that exists but lacks the prepaid tables is a schema
+    # mismatch — unknown, not unprovisioned.
+    from .exchange_settlement_monitor import exchange_prepaid_float_liability
 
-        prepaid_sum = exchange_prepaid_float_liability()
-    except Exception:  # noqa: BLE001 - same fail-open posture as the other terms
-        prepaid_sum = Decimal("0")
+    prepaid_sum = _reserve_term(
+        "exchange_prepaid",
+        exchange_prepaid_float_liability,
+        missing_table_zero=False,
+    )
     return withdraw_sum + sell_sum + exchange_sum + prepaid_sum
 
 
@@ -1022,6 +1070,13 @@ async def _price_record_and_release(
         # insert_withdrawal wrote 'pending' — the release intent CASes on it.
         await _release_eth_for_withdrawal(withdrawal_id, ait_tx_hash, eth_address, amount_eth, expected_statuses={"pending"})
         return "released"
+    except ReserveUnknownError:
+        # #3072: the reserve read fault is pre-flight — nothing was signed
+        # or broadcast. Routing it into _resolve_release_failure would
+        # verify 'not_sent' and refund the AIT for what is really a
+        # temporary store fault; the row stays 'pending' and the
+        # pending-release drain retries it once reads recover.
+        raise
     except _OPS_ERRORS as e:
         logger.error("ETH release failed for withdrawal %s: %s", ait_tx_hash, e)
         # Never refund blind: a DB error after the broadcast can land us here
@@ -1365,6 +1420,64 @@ async def _fetch_chain_head_height() -> int | None:
         return int(height) if height is not None else None
 
 
+async def _awaiting_row_pricing_and_gate(
+    row: dict[str, Any],
+    head_height: int,
+    canon_height: Any,
+    canon_hash: str | None,
+) -> Decimal | None:
+    """Re-seal bookkeeping, seal-depth gate, pricing, and the 'pending' CAS
+    for one awaiting-depth row. Returns the priced ETH amount when the row
+    is ready to release, ``None`` when it must keep waiting."""
+    ait_tx_hash = row["ait_tx_hash"]
+    if canon_height != row["ait_block_height"] or (
+        canon_hash and row["ait_block_hash"] and canon_hash != row["ait_block_hash"]
+    ):
+        update_withdrawal_block(
+            ait_tx_hash,
+            int(canon_height) if canon_height is not None else row["ait_block_height"],
+            canon_hash,
+        )
+        logger.warning(
+            "Withdrawal %s re-sealed at a different height (%s -> %s)",
+            ait_tx_hash,
+            row["ait_block_height"],
+            canon_height,
+        )
+    if canon_height is None or head_height - int(canon_height) < WITHDRAW_SEAL_DEPTH:
+        return None
+    # Deep enough in the canonical block — price and release now.
+    gross_ait = Decimal(str(row["amount_ait"]))
+    estimate = await calculate_eth_amount(gross_ait)
+    if not estimate:
+        logger.error("Failed to calculate ETH amount for withdrawal %s", ait_tx_hash)
+        return None
+    amount_eth = estimate["amount_eth"]
+    # Store the priced legs before releasing — the row carried
+    # amount_eth=0 while it waited for depth.
+    update_withdrawal_pricing(
+        ait_tx_hash,
+        fee_ait=estimate["fee_ait"],
+        net_ait=estimate["net_ait"],
+        amount_eth=amount_eth,
+    )
+    # update_withdrawal_status COALESCEs error — clear it with "".
+    # The row was 'awaiting_depth' at read; the release intent then
+    # CASes on the 'pending' this write just recorded (#1918).
+    pending = update_withdrawal_status(
+        ait_tx_hash,
+        "pending",
+        error="",
+        expected_statuses={row["status"]},
+    )
+    if not pending:
+        # CAS lost — the row moved on since the snapshot; releasing
+        # now would pay a state nobody owns.
+        logger.warning("Withdrawal %s 'pending' write lost CAS — row moved on; release skipped", ait_tx_hash)
+        return None
+    return cast(Decimal, amount_eth)
+
+
 async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
     """Re-check 'awaiting_depth' rows against the canonical chain.
 
@@ -1398,58 +1511,21 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
             # verdict == "confirmed" implies a sealed view.
             canon_height = canonical.get("block_height") if canonical else None
             canon_hash = canonical.get("block_hash") if canonical else None
-            if canon_height != row["ait_block_height"] or (
-                canon_hash and row["ait_block_hash"] and canon_hash != row["ait_block_hash"]
-            ):
-                update_withdrawal_block(
-                    ait_tx_hash,
-                    int(canon_height) if canon_height is not None else row["ait_block_height"],
-                    canon_hash,
-                )
-                logger.warning(
-                    "Withdrawal %s re-sealed at a different height (%s -> %s)",
-                    ait_tx_hash,
-                    row["ait_block_height"],
-                    canon_height,
-                )
-            if canon_height is None or head_height - int(canon_height) < WITHDRAW_SEAL_DEPTH:
-                drained["still_waiting"] += 1
-                continue
-            # Deep enough in the canonical block — price and release now.
-            gross_ait = Decimal(str(row["amount_ait"]))
-            estimate = await calculate_eth_amount(gross_ait)
-            if not estimate:
-                logger.error("Failed to calculate ETH amount for withdrawal %s", ait_tx_hash)
-                drained["still_waiting"] += 1
-                continue
-            amount_eth = estimate["amount_eth"]
-            # Store the priced legs before releasing — the row carried
-            # amount_eth=0 while it waited for depth.
-            update_withdrawal_pricing(
-                ait_tx_hash,
-                fee_ait=estimate["fee_ait"],
-                net_ait=estimate["net_ait"],
-                amount_eth=amount_eth,
-            )
-            # update_withdrawal_status COALESCEs error — clear it with "".
-            # The row was 'awaiting_depth' at read; the release intent then
-            # CASes on the 'pending' this write just recorded (#1918).
-            pending = update_withdrawal_status(
-                ait_tx_hash,
-                "pending",
-                error="",
-                expected_statuses={row["status"]},
-            )
-            if not pending:
-                # CAS lost — the row moved on since the snapshot; releasing
-                # now would pay a state nobody owns.
-                logger.warning("Withdrawal %s 'pending' write lost CAS — row moved on; release skipped", ait_tx_hash)
+            amount_eth = await _awaiting_row_pricing_and_gate(row, head_height, canon_height, canon_hash)
+            if amount_eth is None:
                 drained["still_waiting"] += 1
                 continue
             await _release_eth_for_withdrawal(
                 row["id"], ait_tx_hash, row["eth_address"], amount_eth, expected_statuses={"pending"}
             )
             drained["released"] += 1
+        except ReserveUnknownError:
+            # #3072: pre-flight reserve fault — the row just CAS'd to
+            # 'pending' and stays there for the pending-release drain.
+            # Every remaining row hits the same unreadable reserve, so
+            # stop the pass rather than erroring row by row.
+            drained["still_waiting"] += 1
+            break
         except _OPS_ERRORS as e:
             drained["still_waiting"] += 1
             logger.error("Awaiting-depth drain failed for withdrawal %s: %s", ait_tx_hash, e)
@@ -1457,6 +1533,46 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
                 await _resolve_release_failure(ait_tx_hash, row["from_address"], Decimal(str(row["amount_ait"])), e)
             except Exception as e2:  # noqa: BLE001 - containment: a failed drain row must not kill the pass
                 logger.error("Post-drain release-failure resolution also failed for %s: %s", ait_tx_hash, e2)
+    return drained
+
+
+async def _drain_pending_releases() -> dict[str, int]:
+    """Re-drive priced 'pending' withdrawals whose release never ran.
+
+    #3072: a ReserveUnknownError — or a crash between the priced insert
+    # and the release — leaves the row 'pending': ledgered, reserve-counted,
+    # but with no re-drive it would sit forever. Each poll retries the
+    # release; an unknown reserve aborts the pass (every row fails the
+    # same gate) and any other failure resolves exactly like a fresh
+    # release attempt.
+    """
+    drained = {"released": 0, "still_waiting": 0}
+    for row in get_pending_release_withdrawals():
+        amount_eth = Decimal(str(row["amount_eth"] or 0))
+        if amount_eth <= 0:
+            drained["still_waiting"] += 1
+            continue
+        try:
+            await _release_eth_for_withdrawal(
+                row["id"],
+                row["ait_tx_hash"],
+                row["eth_address"],
+                amount_eth,
+                expected_statuses={"pending"},
+            )
+            drained["released"] += 1
+        except ReserveUnknownError:
+            # Same unreadable reserve gates every row — fail the pass
+            # closed; the critical log already fired in _reserve_unknown.
+            drained["still_waiting"] += 1
+            break
+        except _OPS_ERRORS as e:
+            drained["still_waiting"] += 1
+            logger.error("Pending-release drain failed for withdrawal %s: %s", row["ait_tx_hash"], e)
+            try:
+                await _resolve_release_failure(row["ait_tx_hash"], row["from_address"], Decimal(str(row["amount_ait"])), e)
+            except Exception as e2:  # noqa: BLE001 - containment: a failed drain row must not kill the pass
+                logger.error("Post-drain release-failure resolution also failed for %s: %s", row["ait_tx_hash"], e2)
     return drained
 
 
@@ -1495,6 +1611,17 @@ async def poll_withdrawals_once() -> dict[str, Any]:
         logger.error("Chain head height missing — skipping withdraw scan this poll")
         return {"scanned": 0, "recorded": 0, "skipped": True, "reason": "chain head unavailable"}
 
+    await _run_release_drains(head_height)
+
+    return await _scan_withdraw_transactions(head_height)
+
+
+async def _run_release_drains(head_height: int) -> None:
+    """Awaiting-depth promotion, then pending-release retries.
+
+    Each pass is contained: a failed drain logs and the next poll
+    retries — it must never take down the scan or the monitor loop.
+    """
     try:
         drained = await _drain_awaiting_depth(head_height)
         if any(drained.values()):
@@ -1502,7 +1629,12 @@ async def poll_withdrawals_once() -> dict[str, Any]:
     except Exception as e:  # noqa: BLE001 - drain containment — logged, retried next poll
         logger.error("Awaiting-depth drain failed: %s", e)
 
-    return await _scan_withdraw_transactions(head_height)
+    try:
+        pending_drained = await _drain_pending_releases()
+        if any(pending_drained.values()):
+            logger.info("Pending-release drain: %s", pending_drained)
+    except Exception as e:  # noqa: BLE001 - drain containment — logged, retried next poll
+        logger.error("Pending-release drain failed: %s", e)
 
 
 async def _scan_withdraw_transactions(head_height: int) -> dict[str, Any]:

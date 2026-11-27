@@ -140,11 +140,27 @@ class TestPrepaidFloatLiability:
         monkeypatch.setenv("EXCHANGE_DATABASE_URL", f"sqlite:///{tmp_path}/absent/exchange.db")
         assert esm.exchange_prepaid_float_liability() == Decimal("0")
 
-    def test_unreadable_database_fails_open(self, tmp_path, monkeypatch):
+    def test_unreadable_database_fails_closed(self, tmp_path, monkeypatch):
+        """#3072: a corrupt exchange.db is UNKNOWN liability, not zero — the
+        read error propagates so ``_pending_eth_reserve`` fails the payout
+        lanes closed instead of hiding custodied funds."""
         bad = tmp_path / "exchange.db"
         bad.write_bytes(b"not a sqlite database" * 100)
         monkeypatch.setenv("EXCHANGE_DATABASE_URL", f"sqlite:///{bad}")
-        assert esm.exchange_prepaid_float_liability() == Decimal("0")
+        with pytest.raises(sqlite3.Error):
+            esm.exchange_prepaid_float_liability()
+
+    def test_exchange_db_without_prepaid_tables_is_unknown(self, tmp_path, monkeypatch):
+        """#3072: an exchange.db that exists but lacks the prepaid tables is
+        a schema mismatch — unknown, not the unprovisioned-node zero."""
+        db = tmp_path / "exchange.db"
+        conn = sqlite3.connect(db)
+        conn.execute("CREATE TABLE unrelated (id INTEGER)")
+        conn.commit()
+        conn.close()
+        monkeypatch.setenv("EXCHANGE_DATABASE_URL", f"sqlite:///{db}")
+        with pytest.raises(sqlite3.Error):
+            esm.exchange_prepaid_float_liability()
 
 
 class TestReserveIntegration:

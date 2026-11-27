@@ -960,6 +960,12 @@ async def _handle_locked(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
         return
     try:
         await _release_eth_for_settlement(cfg, row)
+    except wdm.ReserveUnknownError:
+        # #3072: pre-flight reserve fault — nothing was signed or
+        # broadcast. The refund resolver would verify 'not_sent' and pay
+        # out a refund for what is really a temporary store fault; let
+        # the row stay open so the next poll retries the release.
+        raise
     except Exception as e:  # noqa: BLE001 - release failure resolved in-place, never raised into the poll
         logger.error("ETH release failed for settlement %s: %s", row["id"], e)
         await _resolve_release_failure(cfg, row, e)

@@ -250,6 +250,42 @@ def get_awaiting_depth_withdrawals() -> list[dict[str, Any]]:
     return [dict(zip(keys, row, strict=False)) for row in rows]
 
 
+def get_pending_release_withdrawals() -> list[dict[str, Any]]:
+    """Priced 'pending' withdrawals whose ETH release never ran.
+
+    #3072: a ReserveUnknownError (or a crash between the priced insert and
+    the release) leaves the row 'pending' — ledgered and reserve-counted,
+    but nothing re-drove it, so it would sit forever. The monitor's
+    pending-release drain retries these every poll; 'failed'/'releasing'/
+    'needs_review' rows are owned by other passes and are excluded.
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            id, ait_tx_hash, from_address, eth_address, amount_ait, amount_eth,
+            status, created_at
+        FROM eth_withdrawals
+        WHERE status = 'pending'
+        ORDER BY created_at ASC
+        """,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "from_address",
+        "eth_address",
+        "amount_ait",
+        "amount_eth",
+        "status",
+        "created_at",
+    ]
+    return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
 def update_withdrawal_block(ait_tx_hash: str, ait_block_height: int, ait_block_hash: str | None) -> bool:
     """Refresh the sealing block on an awaiting-depth row after a reorg."""
     conn = _connect_db()

@@ -102,7 +102,7 @@ async def bridge_float(
     day-cap itself uses. Ledger stamps are aware UTC (#1575); pre-#1575
     naive host-local rows can skew a window boundary by the host's UTC
     offset — bounded and documented."""
-    from .bridge_withdraw_monitor import _eth_balance, _pending_eth_reserve
+    from .bridge_withdraw_monitor import ReserveUnknownError, _eth_balance, _pending_eth_reserve
 
     address = os.getenv("ETH_WALLET_ADDRESS", "")
     balance: Decimal | None = None
@@ -114,8 +114,18 @@ async def bridge_float(
             # A provider hiccup must not blank the whole float view — the
             # ledger-side numbers below stay authoritative either way.
             balance_error = redact_text(str(e))
-    reserve = _pending_eth_reserve()
-    available = balance - reserve if balance is not None else None
+    # #3072: an unreadable reserve term is UNKNOWN, not zero — the float
+    # view reports it loudly instead of quoting a number that pretends
+    # custodied liabilities don't exist. Payout lanes fail closed on the
+    # same error; this endpoint only displays.
+    reserve: Decimal | None
+    reserve_error: str | None = None
+    try:
+        reserve = _pending_eth_reserve()
+    except ReserveUnknownError as e:
+        reserve = None
+        reserve_error = redact_text(str(e))
+    available = balance - reserve if balance is not None and reserve is not None else None
 
     now = utc_now()
     windows = {
@@ -128,7 +138,8 @@ async def bridge_float(
         "eth_address": address,
         "balance_eth": _money_str(balance) if balance is not None else None,
         "balance_error": balance_error,
-        "pending_reserve_eth": _money_str(reserve),
+        "pending_reserve_eth": _money_str(reserve) if reserve is not None else None,
+        "reserve_error": reserve_error,
         "available_eth": _money_str(available) if available is not None else None,
         "windows": windows,
         "sell_daily_cap": {

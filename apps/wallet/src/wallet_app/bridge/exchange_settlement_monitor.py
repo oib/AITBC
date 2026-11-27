@@ -234,27 +234,29 @@ def exchange_prepaid_float_liability() -> Decimal:
     spendable balance never yet debited to an order.
 
     Read ``mode=ro`` like every other exchange.db access here. A missing
-    database (exchange not provisioned on this node) is zero liability; a
-    read failure logs and returns zero — the same fail-open posture as the
-    other reserve terms, which must never take the float gates down.
+    database (exchange not provisioned on this node) is zero liability.
+
+    #3072: a read failure must NOT coerce to zero — the reserve is the
+    float gate, and a fault that hides custodied liabilities converts an
+    operational incident into a custody shortfall. Errors propagate to
+    ``_pending_eth_reserve``, which classifies them as unknown and fails
+    the payout lanes closed. (A missing prepaid table inside an existing
+    exchange.db is likewise unknown — schema mismatch mid-deploy is a
+    fault condition, not an unprovisioned node.)
     """
     path = _exchange_db_path()
     if not os.path.exists(path):
         return Decimal("0")
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
     try:
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
-        try:
-            deposits = Decimal("0")
-            for (amount,) in conn.execute("SELECT amount_eth FROM prepaid_deposits"):
-                deposits += Decimal(str(amount))
-            committed = Decimal("0")
-            for (amount,) in conn.execute("SELECT COALESCE(committed_eth, '0') FROM prepaid_debits"):
-                committed += Decimal(str(amount))
-        finally:
-            conn.close()
-    except (sqlite3.Error, ArithmeticError) as e:
-        logger.error("exchange prepaid liability read failed — reserve term is 0 this pass: %s", e)
-        return Decimal("0")
+        deposits = Decimal("0")
+        for (amount,) in conn.execute("SELECT amount_eth FROM prepaid_deposits"):
+            deposits += Decimal(str(amount))
+        committed = Decimal("0")
+        for (amount,) in conn.execute("SELECT COALESCE(committed_eth, '0') FROM prepaid_debits"):
+            committed += Decimal(str(amount))
+    finally:
+        conn.close()
     return max(Decimal("0"), deposits - committed)
 
 

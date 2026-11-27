@@ -1035,6 +1035,12 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
 
     try:
         await _release_eth_for_lock(cfg, row, amount_eth)
+    except wdm.ReserveUnknownError:
+        # #3072: pre-flight reserve fault — nothing was signed or
+        # broadcast. The refund resolver would verify 'not_sent' and pay
+        # out an AIT refund for what is really a temporary store fault;
+        # let the row stay open so the next poll retries the release.
+        raise
     except Exception as e:  # noqa: BLE001 - release failure resolved in-place, never raised into the poll
         logger.error("ETH release failed for sell lock %s: %s", row["ait_tx_hash"], e)
         await _resolve_lock_release_failure(cfg, row, e)
