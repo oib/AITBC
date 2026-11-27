@@ -338,10 +338,11 @@ def _pending_eth_reserve(
 ) -> Decimal:
     """Sum of ETH currently allocated to pending or insufficient-reserve withdrawals.
 
-    Includes pending sell-escrow locks (ETH-10) and open exchange
-    settlements (ETH-8 phase 3): all three lanes draw from the same
-    bridge-wallet float, so each side's reserve check must see the others'
-    in-flight rows. The sell-side sum excludes 'failed' rows.
+    Includes pending sell-escrow locks (ETH-10), open exchange
+    settlements (ETH-8 phase 3), and uncommitted exchange prepaid
+    deposits (#3045): all lanes draw from the same bridge-wallet float,
+    so each side's reserve check must see the others' claims. The
+    sell-side sum excludes 'failed' rows.
 
     ``exclude_sell_lock``/``exclude_settlement`` (#2894) let a release
     pass discount the row it is about to pay — that row's eth_amount is
@@ -365,7 +366,18 @@ def _pending_eth_reserve(
         # Same fail-open as the sell term: a pre-phase-3 database may lack
         # the table; reserve must not depend on it existing.
         exchange_sum = Decimal("0")
-    return withdraw_sum + sell_sum + exchange_sum
+    try:
+        # #3045: open funded BUY debits are prepaid ETH sitting in this same
+        # float — deposits minus committed trade cost is still claimable
+        # backing, invisible to the settlement-rows term until a trade
+        # matches. Lazy import: exchange_settlement_monitor imports this
+        # module, so a top-level import would cycle.
+        from .exchange_settlement_monitor import exchange_prepaid_float_liability
+
+        prepaid_sum = exchange_prepaid_float_liability()
+    except Exception:  # noqa: BLE001 - same fail-open posture as the other terms
+        prepaid_sum = Decimal("0")
+    return withdraw_sum + sell_sum + exchange_sum + prepaid_sum
 
 
 def _sign_release_tx(
