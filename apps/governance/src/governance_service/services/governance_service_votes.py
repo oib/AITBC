@@ -19,17 +19,16 @@ import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import select
+from sqlmodel import col, select
 
 from ..config import settings
-from ..domain.governance import ProposalStatus, Vote, VoteType
+from ..domain.governance import Proposal, ProposalStatus, Vote, VoteType
 from .governance_service_common import _OPS_ERRORS, _VOTE_UNIQUE_INDEX, _parse_datetime
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-
-    from ..domain.governance import Proposal
 
 logger = logging.getLogger(__name__)
 
@@ -99,19 +98,51 @@ class _VotesMixin:
         try:
             self.session.add(vote)
 
-            # Update proposal vote counters. The add above means the next
-            # session.execute autoflushes the INSERT — the IntegrityError can
-            # surface here or at commit(), so both sit inside this try.
-            proposal = await self.get_proposal(vote.proposal_id)
-            if proposal:
-                if vote.vote_type == VoteType.FOR:
-                    proposal.yes_votes += vote.voting_power_used
-                    proposal.votes_for = proposal.yes_votes
-                elif vote.vote_type == VoteType.AGAINST:
-                    proposal.no_votes += vote.voting_power_used
-                    proposal.votes_against = proposal.no_votes
-                elif vote.vote_type == VoteType.ABSTAIN:
-                    proposal.votes_abstain += vote.voting_power_used
+            # #3064 (AUDIT-GOV-TALLY-RACE-1): bump the proposal counters with
+            # a single atomic UPDATE — ``col + :weight`` evaluates inside the
+            # database, so concurrent voters on separate sessions can no
+            # longer interleave a read-modify-write and silently drop each
+            # other's increments (the ORM read this replaces also ran the
+            # reconcile probe — an await point — between fetch and write,
+            # which is exactly where the lost updates happened). The
+            # votes_for / votes_against legacy mirrors move with yes/no.
+            # synchronize_session=False keeps this a pure single-statement
+            # write; this proposal's in-session copy is reloaded below so
+            # attribute reads see the post-increment tally instead of the
+            # stale pre-vote counters.
+            # ``or`` also guards a NULL weight — ``col + NULL`` would zero
+            # the counter column rather than skip the bump.
+            weight = vote.voting_power_used or Decimal("0")
+            values: dict[str, Any] = {}
+            if vote.vote_type == VoteType.FOR:
+                values = {
+                    "yes_votes": col(Proposal.yes_votes) + weight,
+                    "votes_for": col(Proposal.votes_for) + weight,
+                }
+            elif vote.vote_type == VoteType.AGAINST:
+                values = {
+                    "no_votes": col(Proposal.no_votes) + weight,
+                    "votes_against": col(Proposal.votes_against) + weight,
+                }
+            elif vote.vote_type == VoteType.ABSTAIN:
+                values = {"votes_abstain": col(Proposal.votes_abstain) + weight}
+            if values:
+                await self.session.execute(
+                    update(Proposal)
+                    .where(col(Proposal.proposal_id) == vote.proposal_id)
+                    .values(**values)
+                    .execution_options(synchronize_session=False)
+                )
+                # The UPDATE bypassed the ORM: reload this proposal's
+                # in-session copy (create_vote's validation read already
+                # loaded it) so attribute reads see the post-increment
+                # tally. refresh() is awaited here — expiring instead would
+                # defer a lazy load that async attribute access cannot
+                # serve, breaking callers that reuse the object.
+                for obj in self.session.sync_session.identity_map.values():
+                    if isinstance(obj, Proposal) and obj.proposal_id == vote.proposal_id:
+                        await self.session.refresh(obj)
+                        break
 
             await self.session.commit()
         except IntegrityError as exc:
