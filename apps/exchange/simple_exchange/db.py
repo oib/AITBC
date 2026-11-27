@@ -61,11 +61,6 @@ _INT64_MAX = (2**63) - 1
 SETTLE_GRID_TICKS = 25
 
 
-def on_settle_grid(ticks: int) -> bool:
-    """True when ``ticks`` converts to chain units exactly (no rounding)."""
-    return ticks % SETTLE_GRID_TICKS == 0
-
-
 def to_ticks(value: Decimal) -> int:
     """Convert a Decimal to integer ticks — fail closed, never round.
 
