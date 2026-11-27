@@ -474,6 +474,19 @@ def _build_energy_quote(
         except _OPS_ERRORS as exc:
             logger.warning("Could not pin EVM block for energy quote: %s", exc)
 
+    # #3070 HIGH-1: the quote's evm_contract must name the AIPowerRental
+    # contract the buyer funds — receipt validation compares receipt.to
+    # against it. energy_pricing_contract_address is the oracle contract,
+    # a different address; embedding it made every EVM quote fail its own
+    # validation. Fail closed when the rental rail is requested without
+    # the contract configured.
+    evm_contract = settings.energy_rental_contract_address
+    if settlement_route == SettlementRoute.EVM and not evm_contract:
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="EVM rental contract is not configured (ENERGY_RENTAL_CONTRACT_ADDRESS); refusing EVM quote",
+        )
+
     quote = build_minimum_quote(
         profile=profile,
         rate=rate,
@@ -491,7 +504,7 @@ def _build_energy_quote(
         fee_basis_points=DEFAULT_FEE_BASIS_POINTS,
         quote_lifetime_seconds=settings.energy_quote_lifetime_seconds,
         evm_chain_id=settings.energy_pricing_chain_id,
-        evm_contract=settings.energy_pricing_contract_address,
+        evm_contract=evm_contract,
         evm_block_number=evm_block_number,
         evm_block_hash=evm_block_hash,
         operator_address=settings.energy_operator_address,
