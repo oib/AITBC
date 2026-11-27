@@ -1286,6 +1286,17 @@ def _register_software_offer(
         return True
     except _OFFERS_ERRORS as e:
         logger.warning("Market-service registration for %s/%s failed: %s", service_type, model_or_variant, e)
+        # Stable status-stream marker (#3083): supervising callers (e.g. the
+        # miner's publish_default_offers) grep for this exact token to log
+        # the registration failure distinctly instead of reporting a clean
+        # "Published". Rides the status-label stream — stdout in table mode,
+        # stderr under --output json — so machine-readable stdout stays
+        # parseable.
+        warning(
+            f"market-registration: FAILED — {service_type}/{model_or_variant} is listed "
+            "on-chain only; the market-service registry row was refused "
+            f"({e}). It will be retried on the next publish cycle."
+        )
         return False
 
 

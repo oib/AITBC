@@ -281,17 +281,19 @@ def publish_default_offers(ollama_models: list[str]) -> None:
             # `aitbc market offer` is a config-driven CLI child, not a leaf
             # tool: it legitimately needs the service's AITBC_*/SHOP_*/MINER_*
             # configuration — but not the blockchain-secrets.env secrets (#1760).
-            env = subprocess_env(include_prefixes=("AITBC_", "SHOP_", "MINER_"))
+            # MARKET_API_KEY / MARKET_OPERATOR_API_KEY are included by exact
+            # name: the market-service POST /v1/market/offer 401s without one
+            # (#3083), and neither prefix would carry them through.
+            env = subprocess_env(
+                include=("MARKET_API_KEY", "MARKET_OPERATOR_API_KEY"),
+                include_prefixes=("AITBC_", "SHOP_", "MINER_"),
+            )
             if MINER_WALLET_ADDRESS:
                 env.setdefault("SHOP_WALLET_ADDRESS", MINER_WALLET_ADDRESS)
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
-            if result.returncode == 0:
-                if "skipping" in (result.stdout or "").lower():
-                    logger.info("Default offer unchanged: %s/%s", offer["service_type"], offer["model"])
-                else:
-                    logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
-                    published_tx = True
-            else:
+            if result.returncode == 0 and _offer_publish_landed(offer, result):
+                published_tx = True
+            elif result.returncode != 0:
                 logger.warning(
                     "Default offer %s/%s failed (rc=%s): stderr=%s stdout=%s",
                     offer["service_type"],
@@ -304,6 +306,36 @@ def publish_default_offers(ollama_models: list[str]) -> None:
             logger.warning("Error publishing default offer %s/%s: %s", offer["service_type"], offer["model"], e)
     if deferred:
         logger.info("Deferred %d default offer(s) to next refresh", deferred)
+
+
+def _offer_publish_landed(offer: dict, result) -> bool:
+    """Classify a successful ``aitbc market offer`` run; True when a chain
+    transaction landed (the cycle's nonce slot is consumed either way —
+    'unchanged'/'skipping' submits nothing and returns False)."""
+    stdout = result.stdout or ""
+    stderr = result.stderr or ""
+    if "skipping" in stdout.lower():
+        logger.info("Default offer unchanged: %s/%s", offer["service_type"], offer["model"])
+        return False
+    if "market-registration: FAILED" in f"{stdout}{stderr}":
+        # Chain listing landed but the market-service registry row was
+        # refused (e.g. missing MARKET_API_KEY, #3083): the offer is
+        # invisible to /v1/market/offer until a later cycle's repair path
+        # succeeds. Distinct from a clean publish so the failure is not
+        # silently "Published". The CLI marker lands on stderr in
+        # --output json mode and stdout otherwise (status-label
+        # convention), so both streams are searched.
+        logger.warning(
+            "Published default offer %s/%s on-chain but market-service "
+            "registration FAILED (stdout=%s stderr=%s); will retry next cycle",
+            offer["service_type"],
+            offer["model"],
+            stdout[:500],
+            stderr[:500],
+        )
+        return True
+    logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
+    return True
 
 
 def classify_architecture(name: str) -> str:
