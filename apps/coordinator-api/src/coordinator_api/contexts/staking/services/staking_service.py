@@ -724,15 +724,23 @@ class StakingService:
                 (self.session.refresh(pool))
             else:
                 (self.session.refresh(pool))
-            if is_stake:
-                if staker_address not in pool.active_stakers:
-                    pool.active_stakers.append(staker_address)
-            elif staker_address in pool.active_stakers:
-                pool.active_stakers.remove(staker_address)
-            # #1799: atomic pool total — the refresh autoflushes the
-            # active_stakers JSON change, then reloads the landed total.
+            # #1799: atomic pool total — SQL-side increment with
+            # synchronize_session=False leaves total_staked stale on this ORM
+            # object, so the refresh below reloads the landed value.
             self._bump_total_staked(agent_wallet, amount if is_stake else -amount, pool=True)
-            self.session.refresh(pool)
+            (self.session.refresh(pool))
+            # #3054: copy-reassign the JSON list — Column(JSON) does not track
+            # in-place .append()/.remove(), and refresh() above expires the
+            # object and reloads every column from the DB, discarding any
+            # unflushed mutation. The new list must therefore be bound only
+            # AFTER the last refresh, so the commit's UPDATE carries it.
+            active_stakers = list(pool.active_stakers or [])
+            if is_stake:
+                if staker_address not in active_stakers:
+                    active_stakers.append(staker_address)
+            elif staker_address in active_stakers:
+                active_stakers.remove(staker_address)
+            pool.active_stakers = active_stakers
             if pool.total_staked > 0:
                 pool.pool_apy = self.calculate_apy(agent_wallet, 30)
             (self.session.commit())
