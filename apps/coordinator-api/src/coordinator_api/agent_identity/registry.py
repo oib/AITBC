@@ -93,7 +93,10 @@ class CrossChainRegistry:
                     }
                 )
                 if str(chain_id) not in identity.supported_chains:
-                    identity.supported_chains.append(str(chain_id))
+                    # Rebind a fresh list: in-place .append() on a plain JSON
+                    # column is not change-tracked and the UPDATE would drop
+                    # it (#3053).
+                    identity.supported_chains = [*identity.supported_chains, str(chain_id)]
             except _OPS_ERRORS as e:
                 logger.error("Failed to register mapping for chain %s: %s", chain_id, e)
                 registration_results.append({"chain_id": chain_id, "chain_address": chain_address, "error": str(e)})
@@ -202,11 +205,13 @@ class CrossChainRegistry:
         mapping.verified_at = None
         mapping.verification_proof = None
         mapping.updated_at = datetime.now(UTC)
-        if not mapping.chain_meta_data:
-            mapping.chain_meta_data = {}
-        mapping.chain_meta_data["verification_revoked"] = True
-        mapping.chain_meta_data["revocation_reason"] = reason
-        mapping.chain_meta_data["revoked_at"] = datetime.now(UTC).isoformat()
+        # A fresh dict: in-place mutation of a plain JSON column is not
+        # change-tracked and the revocation evidence would be lost (#3053).
+        meta = dict(mapping.chain_meta_data or {})
+        meta["verification_revoked"] = True
+        meta["revocation_reason"] = reason
+        meta["revoked_at"] = datetime.now(UTC).isoformat()
+        mapping.chain_meta_data = meta
         self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.warning("Revoked verification for identity %s on chain %s: %s", identity_id, chain_id, reason)
         return True

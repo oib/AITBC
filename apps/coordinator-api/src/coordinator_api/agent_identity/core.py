@@ -121,7 +121,9 @@ class AgentIdentityCore:
         self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         self.session.refresh(mapping)  # noqa: unawaited-async — sync Session (sqlmodel)
         if str(chain_id) not in identity.supported_chains:
-            identity.supported_chains.append(str(chain_id))
+            # Rebind a fresh list: in-place .append() on a plain JSON column
+            # is not change-tracked and the UPDATE would drop it (#3053).
+            identity.supported_chains = [*identity.supported_chains, str(chain_id)]
             identity.updated_at = datetime.now(UTC)
             self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Registered cross-chain identity: %s -> %s:%s", identity_id, chain_id, chain_address)
@@ -230,8 +232,12 @@ class AgentIdentityCore:
         identity.status = IdentityStatus.REVOKED
         identity.is_verified = False
         identity.updated_at = datetime.now(UTC)
-        identity.identity_data["revocation_reason"] = reason
-        identity.identity_data["revoked_at"] = datetime.now(UTC).isoformat()
+        # A fresh dict: in-place mutation of a plain JSON column is not
+        # change-tracked and the revocation evidence would be lost (#3053).
+        meta = dict(identity.identity_data or {})
+        meta["revocation_reason"] = reason
+        meta["revoked_at"] = datetime.now(UTC).isoformat()
+        identity.identity_data = meta
         self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.warning("Revoked agent identity: %s, reason: %s", identity_id, reason)
         return True
@@ -243,8 +249,12 @@ class AgentIdentityCore:
             raise ValueError(f"Identity not found: {identity_id}")
         identity.status = IdentityStatus.SUSPENDED
         identity.updated_at = datetime.now(UTC)
-        identity.identity_data["suspension_reason"] = reason
-        identity.identity_data["suspended_at"] = datetime.now(UTC).isoformat()
+        # A fresh dict: in-place mutation of a plain JSON column is not
+        # change-tracked and the suspension evidence would be lost (#3053).
+        meta = dict(identity.identity_data or {})
+        meta["suspension_reason"] = reason
+        meta["suspended_at"] = datetime.now(UTC).isoformat()
+        identity.identity_data = meta
         self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.warning("Suspended agent identity: %s, reason: %s", identity_id, reason)
         return True
@@ -258,10 +268,12 @@ class AgentIdentityCore:
             raise ValueError(f"Cannot activate revoked identity: {identity_id}")
         identity.status = IdentityStatus.ACTIVE
         identity.updated_at = datetime.now(UTC)
-        if "suspension_reason" in identity.identity_data:
-            del identity.identity_data["suspension_reason"]
-        if "suspended_at" in identity.identity_data:
-            del identity.identity_data["suspended_at"]
+        # A fresh dict: in-place del on a plain JSON column is not
+        # change-tracked and the cleanup would be lost (#3053).
+        meta = dict(identity.identity_data or {})
+        meta.pop("suspension_reason", None)
+        meta.pop("suspended_at", None)
+        identity.identity_data = meta
         self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Activated agent identity: %s", identity_id)
         return True
