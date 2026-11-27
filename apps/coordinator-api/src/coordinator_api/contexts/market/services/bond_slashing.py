@@ -36,6 +36,7 @@ from ..domain.pending_bond_slash import (
     PendingBondSlashStatus,
     utcnow,
 )
+from ....utils.rpc_parse import parse_account_nonce as _parse_account_nonce
 from ..domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
@@ -85,20 +86,6 @@ def _is_nonce_refusal(exc: Exception) -> bool:
     occupied' or 'Invalid nonce', both embedded in the NetworkError detail."""
     s = str(exc).lower()
     return "nonce slot" in s or "invalid nonce" in s
-
-
-def _parse_account_nonce(response: Any) -> int | None:
-    """#3015: a successful account response counts as nonce truth only when it
-    carries a real non-negative integer nonce — explicit ``0`` included.
-    A missing, null, string, bool or negative nonce is a malformed response,
-    not a fabricated nonce 0; return None so the caller treats it as no
-    account source (same as a failed probe)."""
-    if not isinstance(response, dict):
-        return None
-    nonce = response.get("nonce")
-    if not isinstance(nonce, int) or isinstance(nonce, bool) or nonce < 0:
-        return None
-    return nonce
 
 
 class SlashNonceUnavailableError(RuntimeError):

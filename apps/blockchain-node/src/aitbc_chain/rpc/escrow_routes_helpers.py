@@ -253,16 +253,42 @@ def _resolve_chain_account(address: str) -> str | None:
     return None
 
 
-async def _get_account_nonce(address: str) -> int:
-    """Fetch current nonce for an account from the chain."""
+def _parse_account_nonce(payload: _er.Any) -> int | None:
+    """#3057: strict ``nonce`` parse for ``/accounts/{address}`` responses.
+
+    A 200 response counts as nonce truth only when it carries a real
+    non-negative int — explicit ``0`` included. A missing, null, string,
+    bool, float or negative nonce, or a non-dict payload, is "no source",
+    never a fabricated 0: the previous ``int(r.json().get("nonce", 0))``
+    shape signed settlement envelopes at nonce 0 on every one of those
+    responses (same contract as coordinator-api's ``_parse_account_nonce``
+    from #3015 and wallet/bridge-monitor ``rpc_parse`` from #3041/#3044).
+    """
+    if not isinstance(payload, dict):
+        return None
+    nonce = payload.get("nonce")
+    if not isinstance(nonce, int) or isinstance(nonce, bool) or nonce < 0:
+        return None
+    return nonce
+
+
+async def _get_account_nonce(address: str) -> int | None:
+    """Sealed nonce for an account, or None when the read yields no truth.
+
+    Unlike the old degrade-to-0 shape, a failed probe or a malformed 200 is
+    "unknown", not nonce 0 — callers that sign must treat None as
+    fail-closed (#3057).
+    """
     try:
         r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
-            return int(r.json().get("nonce", 0))
-    except Exception as e:  # noqa: BLE001,S110 - nonce probe failure reports 0
+            nonce = _parse_account_nonce(r.json())
+            if nonce is None:
+                _er._logger.warning("escrow account nonce response for %s carried no valid nonce", address)
+            return nonce
+    except Exception as e:  # noqa: BLE001 - probe containment: nonce read failure reports unknown
         _er._logger.debug("escrow account nonce probe failed: %s", type(e).__name__)
-        pass
-    return 0
+    return None
 
 
 def _compute_tx_signing_hash(tx: dict[str, _er.Any]) -> str:
@@ -694,25 +720,32 @@ async def _mempool_nonce_floor(sender: str, sealed: int) -> int:
     return sealed
 
 
-async def _settlement_next_nonce(sender: str) -> int:
+async def _settlement_next_nonce(sender: str) -> int | None:
     """Next free nonce for the settlement sender: the sealed account nonce plus
     any txs the sender already holds in the proposer mempool. The release a
     claim follows occupies the sealed-nonce slot, so an in-request claim must
-    queue behind it — the mempool lookahead admits the +1."""
-    return await _er._mempool_nonce_floor(sender, await _er._get_account_nonce(sender))
+    queue behind it — the mempool lookahead admits the +1. None when the
+    sealed read failed — never a fabricated 0 (#3057)."""
+    sealed = await _er._get_account_nonce(sender)
+    if sealed is None:
+        return None
+    return await _er._mempool_nonce_floor(sender, sealed)
 
 
 async def _get_account_nonce_strict(address: str) -> int | None:
-    """Sealed nonce, or None when the read fails — unlike _get_account_nonce,
-    which silently degrades to 0. Fine for reads, wrong for signing: a missed
-    probe at nonce 0 is a guaranteed refusal for a used settlement key."""
+    """Sealed nonce, or None when the read fails or is malformed — a missed
+    probe or a 200 without a valid nonce is "unknown", never 0. Signing at a
+    fabricated 0 is a guaranteed refusal for a used settlement key (#781,
+    #3057)."""
     try:
         r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
-            return int(r.json().get("nonce", 0))
-    except Exception as e:  # noqa: BLE001,S110 - nonce probe failure reports unknown
+            nonce = _parse_account_nonce(r.json())
+            if nonce is None:
+                _er._logger.warning("escrow settlement nonce response for %s carried no valid nonce", address)
+            return nonce
+    except Exception as e:  # noqa: BLE001 - nonce probe failure reports unknown
         _er._logger.debug("escrow settlement nonce probe failed: %s", type(e).__name__)
-        pass
     return None
 
 

@@ -22,6 +22,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import ait_to_units
 from aitbc.utils.validation import validate_address
 from ....schemas import JobPaymentCreate
+from ....utils.rpc_parse import parse_account_nonce
 from .escrow_agent_binding import assert_agent_address_binding, default_resolve_chain_id
 from ..provider_binding import same_address
 
@@ -67,20 +68,28 @@ def _lock_seal_wait_seconds() -> float:
 class PaymentEscrowMixin(PaymentCoreMixin):
     """Mixin: payment service methods (split from payments.py; pure code motion)."""
 
-    async def _get_account_nonce(self, address: str) -> int:
+    async def _get_account_nonce(self, address: str) -> int | None:
+        """Sealed account nonce, or None when no chain nonce truth exists (#3057).
+
+        Only a real non-negative int counts — explicit ``0`` included. A
+        missing/null/string/bool/float/negative nonce and any probe failure
+        are all "no source": the previous shape returned ``0`` for every one
+        of them, which signed ESCROW_LOCK envelopes at a fabricated nonce —
+        a doomed tx the payment row then believed had been signed.
+        """
         # Resolve via the facade module: tests patch ``payments.AsyncAITBCHTTPClient``.
         from . import payments as _pm
 
         try:
             client = _pm.AsyncAITBCHTTPClient(timeout=5.0, api_key=self.blockchain_rpc_api_key)
             r = await client.get(f"{self.blockchain_rpc_url}/rpc/accounts/{address}")
-            if isinstance(r, dict):
-                return int(r.get("nonce", 0))
-            if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
-                return int(r.get("nonce", 0))
+            nonce = parse_account_nonce(r)
+            if nonce is None:
+                logger.warning("Account nonce response for %s carried no valid nonce", address)
+            return nonce
         except _OPS_ERRORS as e:
             logger.warning("Failed to fetch nonce for %s: %s", address, e)
-        return 0
+            return None
 
     def _build_escrow_lock_tx(
         self,
@@ -569,6 +578,11 @@ class PaymentEscrowMixin(PaymentCoreMixin):
                 if payment_data.buyer_lock_signature:
                     raise ValueError("buyer_lock_nonce is required when buyer_lock_signature is given")
                 nonce = await self._get_account_nonce(buyer)
+                if nonce is None:
+                    # #3057: no chain nonce truth — never build/sign a lock at
+                    # a fabricated nonce 0. ValueError lands in the ops-error
+                    # path below as a truthful retryable failure.
+                    raise ValueError(f"could not determine buyer account nonce for {buyer}")
             fee = payment_data.buyer_lock_fee
             lock_tx, _amount_seconds = self._build_escrow_lock_tx(payment, buyer, provider, nonce, fee)
             meta = payment.meta_data or {}
