@@ -191,7 +191,7 @@ def get_block_version_for_height(height: int) -> int:
     # v9+ thresholds treat any configured value as active; v3-v8 additionally
     # require a positive threshold (their getattr default is 0). v2 inverts:
     # heights *below* its threshold run v1 rules.
-    for version in range(31, 2, -1):
+    for version in range(32, 2, -1):
         threshold = getattr(settings, f"state_transition_v{version}_height", None)
         if not threshold:
             continue

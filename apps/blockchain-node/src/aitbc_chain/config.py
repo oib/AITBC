@@ -331,6 +331,19 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # fleet-wide only after every validator runs the code, since a mixed
     # set would apply different rules and fork.
     state_transition_v31_height: int | None = None
+    # v32 (#3069 AUDIT-CONSENSUS-NEGATIVE-AMOUNT-1): at or above this height a
+    # transaction's ``value`` and ``fee`` must be non-negative. Validation
+    # previously carried no sign check — ``sender_balance < value + fee``
+    # trivially passes for negative amounts — while ``apply_transaction``
+    # raises, producing a validate-pass/apply-raise divergence: a block
+    # carrying such a tx is unimportable by construction. Not exploitable
+    # today (mempool intake normalizes first), so this is defense-in-depth
+    # closing the last validate/apply asymmetry class. Below the height the
+    # rules are unchanged so historical blocks replay identically. ``None``
+    # (the default) keeps the rung dormant: pin fleet-wide only after every
+    # validator runs the code, since a mixed set would apply different rules
+    # and fork.
+    state_transition_v32_height: int | None = None
     # #2257: node-local reconciler for stale ``pending`` bridge transfer rows.
     # Bookkeeping only (no tx, no consensus effect). Off by default; with
     # ``dry_run`` on (default) it only logs what it would change.

@@ -245,6 +245,29 @@ class _ValidationMixin(_ValidationGpuMixin):
                 return (False, "transaction amount must be an integer")
         return None
 
+    def _vt_nonnegative_amounts(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
+        """v32 (#3069): ``value``/``fee`` must be non-negative.
+
+        ``_vt_sender_balance``'s ``sender_balance < value + fee`` check
+        trivially passes for negative amounts, while ``apply_transaction``
+        raises ``ValueError`` on ``value < 0 or fee < 0`` — a
+        validate-pass/apply-raise divergence that makes any block carrying
+        such a tx unimportable by construction. Mempool intake already
+        normalizes negatives away, so this is defense-in-depth closing the
+        last validate/apply asymmetry class, not an exploitable hole.
+        ``_vt_finite_amounts`` runs first at v31+, so by v32 ``ctx.value``/
+        ``ctx.fee`` are guaranteed ints and the ``< 0`` comparisons are
+        total. Below v32 the rules are unchanged so historical blocks
+        replay identically.
+        """
+        if ctx.block_version < 32:
+            return None
+        if ctx.value < 0:
+            return (False, f"transaction value must be non-negative, got {ctx.value}")
+        if ctx.fee < 0:
+            return (False, f"transaction fee must be non-negative, got {ctx.fee}")
+        return None
+
     def _vt_protocol_auth_replay(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
         """v29 (#2480): burn operator ``payload.auth`` signatures one-shot.
 
